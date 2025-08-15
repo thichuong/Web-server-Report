@@ -2,7 +2,7 @@
 cmd = "./target/release/web-server-report"
 
 [build]
-command = "SQLX_OFFLINE=true cargo build --release"
+command = "cargo build --release"
 
 [phases.setup]
-nixPkgs = ["pkg-config", "openssl", "libpq", "libpqxx"]
+nixPkgs = ["...", "libpq"]

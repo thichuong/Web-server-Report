@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body class="antialiased min-h-screen" style="background: linear-gradient(180deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);">
 
@@ -15,17 +15,17 @@
 
     <div class="container mx-auto p-4 md:p-8">
         <!-- Nút quay lại trang chủ đặt ở đầu -->
-        <div class="mb-6">
-            <a href="{{ url_for('index') }}" class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-                <i class="fas fa-arrow-left mr-2"></i>
-                Quay lại Trang chủ
+            <div class="mb-6">
+                <a href="/" class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                <span data-i18n="home">Quay lại Trang chủ</span>
             </a>
         </div>
 
         <header class="text-center mb-10">
-            <h1 class="text-4xl font-extrabold mb-4" style="color: var(--text-primary);">
+                <h1 class="text-4xl font-extrabold mb-4" style="color: var(--text-primary);">
                 <i class="fas fa-chart-line mr-3 text-indigo-600"></i>
-                Lịch Sử Báo Cáo
+                <span data-i18n="view-report-history">Lịch Sử Báo Cáo</span>
             </h1>
             <p class="text-lg mt-2" style="color: var(--text-secondary);">Xem lại các báo cáo đã được tạo trước đây.</p>
         </header>
@@ -45,20 +45,20 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% if reports.items %}
+                            {% if reports.items | length > 0 %}
                                 {% for report in reports.items %}
                                 <tr class="hover:bg-opacity-50 transition-all duration-200" style="border-bottom: 1px solid var(--border-color); background-color: transparent;" onmouseover="this.style.backgroundColor='var(--table-row-hover-bg)'" onmouseout="this.style.backgroundColor='transparent'">
                                     <td class="px-6 py-5 text-sm">
                                         <div class="flex items-center">
                                             <i class="fas fa-clock mr-3" style="color: var(--text-secondary);"></i>
                                             <div>
-                                                <p class="font-medium" style="color: var(--text-primary);">{{ (report.created_at + timedelta(hours=7)).strftime('%d/%m/%Y') }}</p>
-                                                <p class="text-xs" style="color: var(--text-secondary);">{{ (report.created_at + timedelta(hours=7)).strftime('%H:%M:%S') }} UTC+7</p>
+                                                <p class="font-medium" style="color: var(--text-primary);">{{ report.created_date }}</p>
+                                                <p class="text-xs" style="color: var(--text-secondary);">{{ report.created_time }}</p>
                                             </div>
                                         </div>
                                     </td>
                                     <td class="px-6 py-5 text-sm text-center">
-                                        <a href="{{ url_for('view_report', report_id=report.id) }}" class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-lg shadow-lg hover:from-indigo-600 hover:to-purple-700 hover:shadow-xl transform hover:scale-105 transition-all duration-300">
+                                        <a href="/report/{{ report.id }}" class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-lg shadow-lg hover:from-indigo-600 hover:to-purple-700 hover:shadow-xl transform hover:scale-105 transition-all duration-300">
                                             <i class="fas fa-eye mr-2"></i>
                                             Xem Chi Tiết
                                         </a>
@@ -74,9 +74,9 @@
                                             </div>
                                             <p class="text-lg font-medium mb-2" style="color: var(--text-secondary);">Chưa có báo cáo nào</p>
                                             <p class="text-sm" style="color: var(--text-secondary);">Hãy tạo báo cáo đầu tiên của bạn!</p>
-                                            <a href="{{ url_for('index') }}" class="mt-4 inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-blue-600 text-white font-semibold rounded-lg shadow-lg hover:from-green-600 hover:to-blue-700 hover:shadow-xl transform hover:scale-105 transition-all duration-300">
+                                            <a href="/" class="mt-4 inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-blue-600 text-white font-semibold rounded-lg shadow-lg hover:from-green-600 hover:to-blue-700 hover:shadow-xl transform hover:scale-105 transition-all duration-300">
                                                 <i class="fas fa-plus mr-2"></i>
-                                                Tạo Báo Cáo Mới
+                                                <span data-i18n="create-report">Tạo Báo Cáo Mới</span>
                                             </a>
                                         </div>
                                     </td>
@@ -92,7 +92,7 @@
                     <nav class="flex items-center space-x-2">
                         <!-- Previous Button -->
                         {% if reports.has_prev %}
-                            <a href="{{ url_for('report_list', page=reports.prev_num) }}" class="px-3 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-700 transition-all duration-300">
+                            <a href="/reports?page={{ reports.prev_num }}" class="px-3 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-700 transition-all duration-300">
                                 <i class="fas fa-chevron-left"></i>
                             </a>
                         {% else %}
@@ -102,10 +102,12 @@
                         {% endif %}
 
                         <!-- Page Numbers -->
-                        {% for page_num in reports.iter_pages() %}
-                            {% if page_num %}
+                        {# Use page_numbers computed in handler; page_numbers is list of Option<i64> represented as null or number in JSON #}
+                        {% for pn in reports.page_numbers %}
+                            {% if pn is defined and pn is not none %}
+                                {% set page_num = pn | int %}
                                 {% if page_num != reports.page %}
-                                    <a href="{{ url_for('report_list', page=page_num) }}" class="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200">
+                                    <a href="/reports?page={{ page_num }}" class="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200">
                                         {{ page_num }}
                                     </a>
                                 {% else %}
@@ -120,7 +122,7 @@
 
                         <!-- Next Button -->
                         {% if reports.has_next %}
-                            <a href="{{ url_for('report_list', page=reports.next_num) }}" class="px-3 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-700 transition-all duration-300">
+                            <a href="/reports?page={{ reports.next_num }}" class="px-3 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-700 transition-all duration-300">
                                 <i class="fas fa-chevron-right"></i>
                             </a>
                         {% else %}
@@ -133,9 +135,7 @@
                 
                 <!-- Pagination Info -->
                 <div class="mt-4 text-center text-sm" style="color: var(--text-secondary);">
-                    Hiển thị {{ reports.per_page * (reports.page - 1) + 1 }} - 
-                    {{ reports.per_page * (reports.page - 1) + reports.items|length }} 
-                    trong tổng số {{ reports.total }} báo cáo
+                    Hiển thị {{ reports.display_start }} - {{ reports.display_end }} trong tổng số {{ reports.total }} báo cáo
                 </div>
                 {% endif %}
             </div>
@@ -160,7 +160,7 @@
                         </div>
                     </div>
                     <h3 class="text-lg font-semibold mb-2" style="color: var(--text-primary);">Báo Cáo Mới Nhất</h3>
-                    <p class="text-sm font-medium" style="color: var(--text-secondary);">{{ (reports.items[0].created_at + timedelta(hours=7)).strftime('%d/%m/%Y') }}</p>
+                    <p class="text-sm font-medium" style="color: var(--text-secondary);">{{ reports.items[0].created_date }}</p>
                 </div>
                 
                 <div class="card text-center">
@@ -177,6 +177,6 @@
         </div>
     </div>
     
-    <script src="{{ url_for('static', filename='js/theme-manager.js') }}" defer></script>
+    <script src="/static/js/theme-manager.js" defer></script>
 </body>
 </html>

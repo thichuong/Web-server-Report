@@ -25,14 +25,28 @@
 
     <div class="container mx-auto p-4 md:p-8">
         <header class="text-center mb-12">
-            <h1 class="text-4xl md:text-5xl font-extrabold mb-2">Toàn Cảnh Thị Trường Tiền Mã Hóa</h1>
-            <p class="text-lg text-gray-600 max-w-3xl mx-auto">Báo cáo tổng hợp</p>
+            <h1 class="text-4xl md:text-5xl font-extrabold mb-2">
+                <span data-i18n="site-title">Toàn Cảnh Thị Trường Tiền Mã Hóa</span>
+            </h1>
+            <p class="text-lg text-gray-600 max-w-3xl mx-auto">
+                <span data-i18n="analysis-summary">Báo cáo tổng hợp</span>
+            </p>
             <div class="mt-6 flex items-center justify-center space-x-4">
-                <a href="/" class="inline-block bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700">Trang chủ</a>
-                <a href="/index.html" class="inline-block bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700">Xem báo cáo</a>
-                <a href="/reports" class="inline-block bg-gray-700 text-white font-bold py-3 px-6 rounded-lg">Lịch sử báo cáo</a>
+                <a href="/" class="inline-block bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700"><span data-i18n="home">Trang chủ</span></a>
+                <a href="/index.html" class="inline-block bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700"><span data-i18n="view-report">Xem báo cáo mới nhất</span></a>
+                <a href="/reports" class="inline-block bg-gray-700 text-white font-bold py-3 px-6 rounded-lg"><span data-i18n="view-report-history">Lịch sử báo cáo</span></a>
             </div>
         </header>
+        <!-- Tuyên bố miễn trừ trách nhiệm: chỉ mang tính chất tham khảo (i18n) -->
+        <div id="disclaimer" class="mb-6">
+            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+                <p class="text-sm text-gray-700">
+                    <strong data-i18n="disclaimer-title">Tuyên bố miễn trừ trách nhiệm:</strong>
+                    <span data-i18n="disclaimer-body">Nội dung và phân tích trên trang này chỉ mang tính chất tham khảo và không cấu thành lời khuyên đầu tư. Mọi quyết định đầu tư là trách nhiệm của người đọc.</span>
+                </p>
+            </div>
+        </div>
+
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-x-12 pb-96">
             <aside class="hidden lg:block lg:col-span-1">
                  <nav id="report-navigation-panel" class="sticky top-8">
@@ -68,42 +82,5 @@
     <script src="/static/js/theme-manager.js" defer></script>
     <script src="/static/js/dashboard.js" defer></script>
     <script src="/static/js/language-toggle.js" defer></script>
-    <script>
-    // Inline fallback language toggle (keeps UI responsive if external file missing)
-    (function () {
-        const STORAGE_KEY = 'app_lang';
-        function getLang() { return localStorage.getItem(STORAGE_KEY) || 'vi'; }
-        function setLang(lang) { localStorage.setItem(STORAGE_KEY, lang); applyLang(lang); }
-        function applyLang(lang) {
-            const en = document.getElementById('report-content-en');
-            const vi = document.getElementById('report-content-vi');
-            if (en) en.style.display = (lang === 'en') ? 'block' : 'none';
-            if (vi) vi.style.display = (lang === 'vi') ? 'block' : 'none';
-            // Toggle any elements with data-i18n attribute by showing/hiding english variants if present
-            document.querySelectorAll('[data-i18n]').forEach(el => {
-                const key = el.getAttribute('data-i18n');
-                // if element has children spans for languages, toggle them
-                const enChild = el.querySelector('.i18n-en');
-                const viChild = el.querySelector('.i18n-vi');
-                if (enChild || viChild) {
-                    if (enChild) enChild.style.display = (lang === 'en') ? 'inline' : 'none';
-                    if (viChild) viChild.style.display = (lang === 'vi') ? 'inline' : 'none';
-                }
-            });
-        }
-
-        // Wire language toggle buttons (assumes components/language_toggle.html creates .lang-btn elements)
-        document.addEventListener('click', function (e) {
-            const btn = e.target.closest && e.target.closest('.lang-btn');
-            if (!btn) return;
-            const lang = btn.getAttribute('data-lang');
-            if (lang) setLang(lang);
-        });
-
-        // Apply language on load
-        document.addEventListener('DOMContentLoaded', function () { applyLang(getLang()); });
-        window.applyAppLanguage = applyLang; // for debugging
-    })();
-</script>
 </body>
 </html>

@@ -9,6 +9,8 @@
     const translations = {
         'create-report': { vi: 'Tạo Báo cáo Mới', en: 'Create New Report' },
         'view-report-history': { vi: 'Xem Lịch Sử Báo Cáo', en: 'View Report History' },
+    'home': { vi: 'Trang chủ', en: 'Home' },
+    'view-report': { vi: 'Xem báo cáo mới nhất', en: 'View the latest report' },
         'print-report': { vi: 'In Báo cáo', en: 'Print Report' },
     'report-display': { vi: 'Hiển thị báo cáo', en: 'Displaying report' },
     'site-title': { vi: 'Toàn Cảnh Thị Trường Tiền Mã Hóa', en: 'Crypto Market Overview' },
@@ -88,9 +90,20 @@
             const key = el.getAttribute('data-i18n');
             if (!key) return;
             const map = translations[key];
-            if (map && map[lang]) {
-                el.textContent = map[lang];
+            if (!map || !map[lang]) return;
+
+            // If element has explicit language child spans, toggle them instead
+            const enChild = el.querySelector('.i18n-en');
+            const viChild = el.querySelector('.i18n-vi');
+            if (enChild || viChild) {
+                if (enChild) enChild.style.display = (lang === 'en') ? 'inline' : 'none';
+                if (viChild) viChild.style.display = (lang === 'vi') ? 'inline' : 'none';
+                return;
             }
+
+            // Otherwise replace text content safely (preserve icons outside the element)
+            // Use textContent to avoid interpreting HTML from translations
+            el.textContent = map[lang];
         });
         // expose a minimal languageManager for other scripts
         try {
@@ -118,6 +131,17 @@
             };
         } catch (e) {
             // ignore
+        }
+
+        // Call CreateNav to rebuild navigation with translated text (if function exists)
+        if (typeof CreateNav === 'function') {
+            setTimeout(() => {
+                try {
+                    CreateNav();
+                } catch (error) {
+                    console.error('Error calling CreateNav after language change:', error);
+                }
+            }, 50);
         }
 
         // Re-initialize report visuals after language change (if on a report page)
