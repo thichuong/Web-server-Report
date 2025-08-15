@@ -1,8 +1,0 @@
-target/
-.git/
-.gitignore
-README.md
-rust_server.log
-*.log
-.env
-.env.local
