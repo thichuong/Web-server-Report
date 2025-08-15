@@ -1,12 +1,12 @@
-# Minimal nixpacks config for Rust
+# Force Nixpacks to use Rust
 [variables]
 NIXPACKS_METADATA = "rust"
 
 [phases.setup]
-nixPkgs = ["..."]
+nixPkgs = ["rustc", "cargo", "gcc", "pkg-config", "openssl"]
 
 [phases.build]
 cmd = "cargo build --release"
 
 [start]
-cmd = "./target/release/web-server-report"
+cmd = "target/release/web-server-report"

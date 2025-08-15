@@ -1,0 +1,46 @@
+# Build using Ubuntu (more reliable downloads)
+FROM ubuntu:22.04 as builder
+
+# Install Rust and build dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    build-essential \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+WORKDIR /app
+
+# Copy source code
+COPY . .
+
+# Build the application
+RUN cargo build --release
+
+# Runtime stage - minimal
+FROM ubuntu:22.04
+
+# Install minimal runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl3 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy the binary and assets
+COPY --from=builder /app/target/release/web-server-report .
+COPY --from=builder /app/static ./static
+COPY --from=builder /app/templates ./templates
+
+# Create non-root user
+RUN useradd -r -u 1001 appuser && chown -R appuser:appuser /app
+USER appuser
+
+EXPOSE 8000
+
+CMD ["./web-server-report"]
