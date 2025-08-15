@@ -1,0 +1,12 @@
+# Minimal nixpacks config for Rust
+[variables]
+NIXPACKS_METADATA = "rust"
+
+[phases.setup]
+nixPkgs = ["..."]
+
+[phases.build]
+cmd = "cargo build --release"
+
+[start]
+cmd = "./target/release/web-server-report"
