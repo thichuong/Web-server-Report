@@ -1,0 +1,51 @@
+<!-- Progress Status Card -->
+<div id="progress-card" class="status-card" style="display: none;">
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-bold" style="color: var(--text-primary);">
+            <i class="fas fa-chart-line mr-2" style="color: var(--accent-color);"></i>
+            Tiến Độ Tạo Báo Cáo
+        </h2>
+        <div id="progress-session-id" class="text-xs font-mono px-2 py-1 rounded" style="background: var(--bg-secondary); color: var(--text-secondary);">
+            Session: --
+        </div>
+    </div>
+    
+    <!-- Progress Bar -->
+    <div class="mb-4">
+        <div class="flex justify-between items-center mb-2">
+            <span id="progress-step-name" class="text-sm font-medium" style="color: var(--text-primary);">Đang khởi tạo...</span>
+            <span id="progress-percentage" class="text-sm font-bold" style="color: var(--accent-color);">0%</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden" style="background: var(--bg-secondary);">
+            <div id="progress-bar" class="h-3 bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-500 ease-out" style="width: 0%;">
+                <div class="h-full bg-white opacity-20 animate-pulse"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Progress Details -->
+    <div id="progress-details" class="text-sm p-3 rounded-lg" style="background: var(--bg-secondary); color: var(--text-secondary);">
+        <i class="fas fa-info-circle mr-2"></i>
+        <span id="progress-details-text">Chuẩn bị bắt đầu quy trình tạo báo cáo...</span>
+    </div>
+    
+    <!-- Progress Steps Log -->
+    <div class="mt-4">
+        <h3 class="text-lg font-semibold mb-3" style="color: var(--text-primary);">
+            <i class="fas fa-list-ol mr-2"></i>
+            Tiến Độ Chi Tiết
+        </h3>
+        <div id="progress-log" class="log-container">
+            <div class="log-entry log-info">
+                <span class="log-timestamp">[Chờ bắt đầu]</span> Hệ thống đã sẵn sàng tạo báo cáo...
+            </div>
+        </div>
+    </div>
+    
+    <!-- Progress Control -->
+    <div class="mt-4 flex justify-end">
+        <button onclick="cancelProgress()" class="px-4 py-2 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors">
+            <i class="fas fa-stop mr-2"></i>Dừng Quá Trình
+        </button>
+    </div>
+</div>

@@ -1,2 +1,159 @@
-/* CSS variables placeholder */
-:root { --bg-gradient-start: #f8fafc; --bg-gradient-end: #ffffff; --text-primary: #0f172a; --text-secondary: #475569; }
+/* static/colors.css */
+
+/* --- Bảng màu cho Light Mode (Mặc định) --- */
+:root {
+    /* -- Core Palette -- */
+    --bg-primary: #f3f4f6;
+    --bg-secondary: #ffffff;
+    --bg-gradient-start: #f3f4f6;
+    --bg-gradient-end: #eef2ff;
+    --text-primary: #1f2937;
+    --text-secondary: #4b5563;
+    --text-accent: #4338ca;
+    --border-color: #e5e7eb;
+    --card-bg: rgba(255, 255, 255, 0.7);
+    --card-border: rgba(229, 231, 235, 0.8);
+    --card-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.07);
+    --nav-link-bg-active: #eef2ff;
+    --accent-color: #6366f1;
+    --positive-color: #16a34a;
+    --negative-color: #dc2626;
+    --neutral-color: #f59e0b;
+    --bull-card-bg: #f0fdf4;
+    --bear-card-bg: #fef2f2;
+    --sideway-card-bg: #fffbeb;
+    --table-row-hover-bg: #f0f9ff;
+    
+    /* -- Original Added Colors -- */
+    --crimson-color: #dc143c;
+    --tomato-color: #ff6347;
+    --teal-color: #008080;
+    --steel-blue-color: #4682b4;
+    --slate-gray-color: #708090;
+
+    /* -- Extended Color Palette (Mới) -- */
+    --gold-color: #ffd700;
+    --hot-pink-color: #ff69b4;
+    --indigo-color: #4b0082;
+    --lime-green-color: #32cd32;
+    --dark-orange-color: #ff8c00;
+    --royal-blue-color: #4169e1;
+    --olive-drab-color: #6b8e23;
+    --sienna-color: #a0522d;
+    --dark-violet-color: #9400d3;
+    --deep-sky-blue-color: #00bfff;
+    --chocolate-color: #d2691e;
+    --medium-sea-green-color: #3cb371;
+    --firebrick-color: #b22222;
+    --dark-slate-blue-color: #483d8b;
+    --cadet-blue-color: #5f9ea0;
+    --saddle-brown-color: #8b4513;
+
+    /* -- Gauge & Meter Colors -- */
+    --rsi-track-color: #e5e7eb;
+    --rsi-overbought-color: #ef4444;
+    --rsi-oversold-color: #22c55e;
+    --rsi-neutral-color: #f59e0b;
+    --fng-track-color: #e5e7eb;
+    --fng-extreme-fear-color: #dc2626;
+    --fng-fear-color: #f97316;
+    --fng-neutral-color: #6b7280;
+    --fng-greed-color: #84cc16;
+    --fng-extreme-greed-color: #22c55e;
+    
+    /* -- Gauge Text Colors -- */
+    --gauge-value-text-color: #3b82f6;      /* Blue for value text */
+    --gauge-needle-color: #000000;          /* Black for needle */
+    --gauge-needle-pivot-color: #000000;    /* Black for needle pivot */
+
+    /* -- Icon Colors -- */
+    --icon-color-summary: #3b82f6;      /* Blue */
+    --icon-color-macro-legal: #f59e0b;   /* Amber */
+    --icon-color-on-chain-sentiment: #14b8a6; /* Teal */
+    --icon-color-btc-analysis: #f97316;  /* Orange */
+    --icon-color-eth-analysis: #6366f1;  /* Indigo */
+    --icon-color-market-activity: #22c55e; /* Green */
+    --icon-color-expert-outlook: #8b5cf6;/* Violet */
+    --icon-color-outlook: #d946ef;      /* Fuchsia */
+    
+    /* -- Top Crypto Icon Colors -- */
+    --icon-color-btc: #F7931A;
+    --icon-color-eth: #627EEA;
+    --icon-color-usdt: #26A17B;
+    --icon-color-bnb: #F3BA2F;
+    --icon-color-sol: #a968fa;
+    --icon-color-xrp: #00A3FF;
+    --icon-color-usdc: #2775CA;
+    --icon-color-doge: #C3A634;
+    --icon-color-ada: #0033AD;
+    --icon-color-trx: #EF0027;
+}
+
+/* --- Bảng màu cho Dark Mode --- */
+[data-theme="dark"] {
+    /* -- Core Palette -- */
+    --bg-primary: #0d1117;
+    --bg-secondary: #161b22;
+    --bg-gradient-start: #0d1117;
+    --bg-gradient-end: #1f2937;
+    --text-primary: #e5e7eb;
+    --text-secondary: #9ca3af;
+    --text-accent: #818cf8;
+    --border-color: #30363d;
+    --card-bg: rgba(22, 27, 34, 0.7);
+    --card-border: rgba(48, 54, 61, 0.8);
+    --card-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.2);
+    --nav-link-bg-active: #312e81;
+    --accent-color: #818cf8;
+    --positive-color: #22c55e;
+    --negative-color: #ef4444;
+    --neutral-color: #f59e0b;
+    --bull-card-bg: #052e16;
+    --bear-card-bg: #450a0a;
+    --sideway-card-bg: #451a03;
+    --table-row-hover-bg: #1e293b;
+
+    /* -- Original Added Colors -- */
+    --crimson-color: #ff5277;
+    --tomato-color: #ff7e6b;
+    --teal-color: #00a0a0;
+    --steel-blue-color: #6ca5d6;
+    --slate-gray-color: #8c9ba8;
+    
+    /* -- Extended Color Palette (Mới) -- */
+    --gold-color: #fce57e;
+    --hot-pink-color: #ff80c1;
+    --indigo-color: #9370db; /* Medium Purple for better readability */
+    --lime-green-color: #55da55;
+    --dark-orange-color: #ff9d2d;
+    --royal-blue-color: #6a89f9;
+    --olive-drab-color: #8ab444;
+    --sienna-color: #c0724d;
+    --dark-violet-color: #ae47f5;
+    --deep-sky-blue-color: #33ccff;
+    --chocolate-color: #e58b45;
+    --medium-sea-green-color: #5ddc91;
+    --firebrick-color: #d14444;
+    --dark-slate-blue-color: #7d70cf;
+    --cadet-blue-color: #89c0c2;
+    --saddle-brown-color: #b1663c;
+
+    /* -- Gauge & Meter Colors (Dark Mode) -- */
+    --rsi-track-color: #374151;
+    --rsi-overbought-color: #f87171;
+    --rsi-oversold-color: #4ade80;
+    --rsi-neutral-color: #fb923c;
+    --fng-track-color: #374151;
+    --fng-extreme-fear-color: #f87171;
+    --fng-fear-color: #fb923c;
+    --fng-neutral-color: #9ca3af;
+    --fng-greed-color: #a3e635;
+    --fng-extreme-greed-color: #4ade80;
+    
+    /* -- Gauge Text Colors (Dark Mode) -- */
+    --gauge-value-text-color: #60a5fa;      /* Light blue for value text in dark mode */
+    --gauge-needle-color: #ffffff;          /* White for needle in dark mode */
+    --gauge-needle-pivot-color: #ffffff;    /* White for needle pivot in dark mode */
+    
+    /* Icon colors are generally kept the same for brand recognition, so no overrides needed unless desired */
+}

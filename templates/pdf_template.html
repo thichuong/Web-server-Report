@@ -3,12 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF Template</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="stylesheet" href="/static/css/pdf-template.css">
+    <title>{% if report %}Báo cáo #{{ report.id }} - {% endif %}Dashboard Toàn Cảnh Thị Trường</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/colors.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/chart.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pdf-template.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/report.css') }}">
+
+    {% if report and report.css_content %}
+        <style>
+            /* <![CDATA[ */
+            {{ report.css_content | safe }}
+            /* ]]> */
+        </style>
+    {% endif %}
 </head>
 <body class="pdf-template antialiased">
-    <main id="report-container"></main>
-    <script src="/static/js/report-initializer.js" defer></script>
+
+    {% include 'components/language_toggle.html' %}
+
+    <!-- Nút điều khiển in (ẩn khi in) -->
+    <div class="print-controls no-print">
+        <button onclick="window.print()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors mr-2">
+            <i class="fas fa-print mr-2"></i><span data-i18n="print-report">In Báo cáo</span>
+        </button>
+        <button onclick="window.close()" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
+            <i class="fas fa-times mr-2"></i><span data-i18n="close">Đóng</span>
+        </button>
+    </div>
+    
+    <div class="mobile-wrapper">
+        <div class="a4-container">
+            <header class="text-center mb-8">
+                <h1 class="font-extrabold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-green-500">
+                    <span id="title-vi" style="display: block;">Toàn Cảnh Thị Trường Tiền Mã Hóa</span>
+                    <span id="title-en" style="display: none;">Comprehensive Cryptocurrency Market Overview</span>
+                </h1>
+                {% if report %}
+                    <p class="text-base text-gray-600 max-w-full mx-auto">
+                        <span id="subtitle-vi" style="display: block;">
+                            Báo cáo #{{ report.id }} (tạo lúc {{ (report.created_at + timedelta(hours=7)).strftime('%d-%m-%Y %H:%M') }})
+                        </span>
+                        <span id="subtitle-en" style="display: none;">
+                            Report #{{ report.id }} (created at {{ (report.created_at + timedelta(hours=7)).strftime('%m-%d-%Y %H:%M') }})
+                        </span>
+                    </p>
+                {% else %}
+                    <p class="text-base text-gray-600 max-w-full mx-auto">
+                        <span id="description-vi" style="display: block;">Bài phân tích và tổng hợp</span>
+                        <span id="description-en" style="display: none;">Analysis and Summary</span>
+                    </p>
+                {% endif %}
+            </header>
+
+            <main id="report-container" class="max-w-none" {% if report %}data-report-id="{{ report.id }}"{% endif %}>
+                {% if report and report.html_content %}
+                    <div id="report-content-vi" style="display: block;">
+                        {{ report.html_content | safe }}
+                    </div>
+                    {% if report.html_content_en %}
+                        <div id="report-content-en" style="display: none;">
+                            {{ report.html_content_en | safe }}
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="placeholder avoid-break">
+                        <h2 data-i18n="no-report-created">Chưa có báo cáo nào được tạo.</h2>
+                        <p data-i18n="please-upload">Vui lòng sử dụng trang tải lên để tạo báo cáo đầu tiên của bạn.</p>
+                    </div>
+                {% endif %}
+            </main>
+        </div>
+    </div>
+    
+    <!-- Chart modules được tải trực tiếp với auto-discovery -->
+    <script>
+        {{ get_chart_modules_content() | safe }}
+    </script>
+    
+    {% if report and report.js_content %}
+        <script>
+            {{ report.js_content | safe }}
+        </script>
+    {% else %}
+        <script src="{{ url_for('static', filename='js/report.js') }}"></script>
+    {% endif %}
+   
+    <script src="{{ url_for('static', filename='js/report-initializer.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/pdf-template.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/language-toggle.js') }}" defer></script>
+
+    <script>
+        // Inline language toggle for PDF template (fallback)
+        (function () {
+            const STORAGE_KEY = 'app_lang';
+            function getLang() { return localStorage.getItem(STORAGE_KEY) || 'vi'; }
+            function setLang(lang) { localStorage.setItem(STORAGE_KEY, lang); applyLang(lang); }
+            function applyLang(lang) {
+                const en = document.getElementById('report-content-en');
+                const vi = document.getElementById('report-content-vi');
+                if (en) en.style.display = (lang === 'en') ? 'block' : 'none';
+                if (vi) vi.style.display = (lang === 'vi') ? 'block' : 'none';
+                const titleEn = document.getElementById('title-en');
+                const titleVi = document.getElementById('title-vi');
+                if (titleEn) titleEn.style.display = (lang === 'en') ? 'block' : 'none';
+                if (titleVi) titleVi.style.display = (lang === 'vi') ? 'block' : 'none';
+                const subtitleEn = document.getElementById('subtitle-en');
+                const subtitleVi = document.getElementById('subtitle-vi');
+                if (subtitleEn) subtitleEn.style.display = (lang === 'en') ? 'block' : 'none';
+                if (subtitleVi) subtitleVi.style.display = (lang === 'vi') ? 'block' : 'none';
+            }
+
+            document.addEventListener('click', function (e) {
+                const btn = e.target.closest && e.target.closest('.lang-btn');
+                if (!btn) return;
+                const lang = btn.getAttribute('data-lang');
+                if (lang) setLang(lang);
+            });
+
+            document.addEventListener('DOMContentLoaded', function () { applyLang(getLang()); });
+        })();
+    </script>
 </body>
 </html>

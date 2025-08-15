@@ -1,0 +1,87 @@
+/* Định dạng nhãn giá trị cho bar chart */
+.bar-value-label.h3 {
+    font-size: 11px;
+    font-weight: 600;
+    font-family: inherit;
+    fill: var(--text-primary);
+    pointer-events: none;
+}
+
+@media (max-width: 580px) {
+    .bar-value-label.h3 {
+        font-size: 9px;
+    }
+}
+/* static/css/bar-chart.css */
+
+/* --- HIỆU ỨNG VẼ BAN ĐẦU --- */
+
+.bar-rect {
+    transform: scaleY(0);
+    transform-origin: bottom;
+    animation: grow-bar 0.7s forwards cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes grow-bar { to { transform: scaleY(1); } }
+
+
+/* --- HIỆU ỨNG TƯƠNG TÁC KHI DI CHUỘT --- */
+
+.bar-rect {
+    transition: all 0.25s ease-in-out;
+}
+
+/* Làm sáng và nhấc nhẹ cột lên khi di chuột vào */
+.bar-group:hover .bar-rect {
+    filter: brightness(1.2);
+    transform: translateY(-3px);
+}
+
+/* --- BỐ CỤC (LAYOUT) --- */
+
+.bar-chart-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+    width: 100%;
+}
+
+.bar-chart-svg-wrapper {
+    flex-grow: 1;
+    min-width: 0; /* Ngăn SVG co lại không đúng cách */
+    position: relative; /* Để z-index hoạt động */
+    z-index: 1; /* Đảm bảo SVG (và tooltip bên trong) hiển thị trên các element khác như legend */
+}
+
+.bar-chart-legend {
+    flex-shrink: 0;
+    margin-top: 0.75rem !important;
+    align-self: initial; /* Reset align-self */
+    /* Kế thừa các kiểu từ .doughnut-legend cho nhất quán */
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem 1rem;
+}
+
+/* --- RESPONSIVE --- */
+
+/* Bố cục mặc định hiện tại là cột, vì vậy media query không còn cần thiết. */
+
+/* --- CUSTOM TOOLTIP --- */
+.bar-chart-tooltip {
+    pointer-events: none; /* Tooltip không bắt các sự kiện chuột */
+    transition: opacity 0.2s;
+}
+.bar-chart-tooltip .tooltip-bg {
+    fill: var(--card-bg);
+    stroke: var(--border-color);
+    stroke-width: 1px;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+}
+.bar-chart-tooltip .tooltip-text {
+    font-size: 12px;
+    font-weight: 500;
+    fill: var(--text-primary);
+}

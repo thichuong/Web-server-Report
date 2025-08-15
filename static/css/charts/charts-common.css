@@ -1,0 +1,24 @@
+/* static/css/charts-common.css */
+
+/* --- KIỂU CHUNG CHO CHÚ GIẢI (LEGEND) --- */
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.25s ease-in-out;
+}
+
+.legend-color-box {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+/* Hiệu ứng khi highlight chú giải (có thể dùng cho nhiều chart) */
+.legend-item.highlight {
+    color: var(--text-primary);
+    font-weight: 600;
+    transform: translateX(4px);
+}

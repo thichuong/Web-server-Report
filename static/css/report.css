@@ -1,3 +1,530 @@
-/* minimal report.css copied for client */
-#report-container { padding: 1rem; }
-.report-card { padding: 1rem; border-radius: 8px; }
+/* === COMPLETE REPORT STYLES === */
+
+/* === MAIN LAYOUT === */
+#report-container {
+    @media (min-width: 480px) {
+        #report-container section {
+            margin-bottom: 1.5rem;
+            padding: 0.5rem 0;
+            border-radius: 0.5rem;
+            background: transparent;
+            width: 80%;
+            box-shadow: none;
+        }
+    }
+}
+#report-container section {
+    margin-bottom: 1rem;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    background: var(--bg-secondary);
+    box-shadow: var(--card-shadow);
+}
+#report-container h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+    margin-top: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#report-container h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#report-container h4 {
+    font-size: 1.125rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+}
+#report-container li,
+#report-container p {
+    line-height: 1.6;
+    margin-bottom: 1rem;
+    color: var(--text-secondary);
+}
+
+#report-container strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+/* Monospace for numbers */
+#report-container .number,
+#report-container .price,
+#report-container .percentage {
+    font-family: var(--font-mono, 'Monaco', 'Menlo', 'Ubuntu Mono', monospace);
+    font-weight: 500;
+}
+
+/* === CARD SYSTEM === */
+#report-container .report-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    box-shadow: var(--card-shadow);
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s ease;
+    height: 100%;
+}
+
+#report-container .report-card:hover {
+    box-shadow: var(--card-shadow-hover);
+    transform: translateY(-2px);
+}
+
+#report-container .sub-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    box-shadow: var(--card-shadow);
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s ease;
+    height: 100%;
+}
+
+#report-container .sub-card:hover {
+    box-shadow: var(--card-shadow-hover);
+    transform: translateY(-2px);
+}
+
+#report-container .wide-card {
+    grid-column: 1 / -1;
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    box-shadow: var(--card-shadow);
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s ease;
+    height: 100%;
+}
+
+/* === GRID LAYOUTS === */
+#report-container .content-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+    align-items: start;
+}
+
+#report-container .content-grid .report-card,
+#report-container .content-grid .sub-card {
+    grid-column: span 1; /* Allow 2 cards per row */
+}
+
+/* If there's an odd card at the end, make it span full width */
+#report-container .content-grid .report-card:last-child:nth-child(odd),
+#report-container .content-grid .sub-card:last-child:nth-child(odd) {
+    grid-column: 1 / -1; /* Span full width if it's the last odd card */
+}
+
+#report-container .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+/* === CHART CONTAINERS === */
+#report-container .chart-container {
+    background-color: var(--bg-secondary); /* A lighter background for charts */
+    border-radius: 0.5rem;
+    padding: 1rem;
+    /*! border: 1px solid var(--border-color); */
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    min-height: 200px; /* Ensure charts have some height */
+    display: flex; /* To center chart if needed by JS */
+    justify-content: center;
+    align-items: center;
+    color: var(--text-primary); /* Ensure chart labels/text are readable */
+}
+#report-container .gauge-container,
+#report-container .doughnut-container,
+#report-container .line-chart-container,
+#report-container .bar-chart-container {
+    position: relative;
+    width: 100%;
+    min-height: 200px;
+    height: auto;
+    margin: 1rem 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+}
+
+#report-container .chart-legend {
+    margin-top: 1rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+#report-container .chart-value {
+    font-family: var(--font-mono, 'Monaco', 'Menlo', 'Ubuntu Mono', monospace);
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 1.125rem;
+}
+
+#report-container .chart-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* === COMPONENT STYLES === */
+#report-container .card-subtitle {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+}
+
+#report-container .impact-tag {
+    display: inline-block;
+    width: 90%;           /* primary width limit relative to its container */
+    max-width: 90%;       /* ensure it doesn't exceed container */
+    overflow: hidden;     /* hide overflowed content */
+    text-overflow: ellipsis; /* show ellipsis for overflow */
+    white-space: nowrap;  /* keep on single line */
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-light);
+    border-radius: 0.5rem;
+}
+
+
+#report-container .analysis-text {
+    margin-top: 1rem;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+}
+
+#report-container .analysis-text ul {
+    list-style-type: none;
+    padding-left: 0;
+    margin: 0;
+}
+
+#report-container .analysis-text li {
+    position: relative;
+    padding-left: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+#report-container .analysis-text li::before {
+    content: '•';
+    position: absolute;
+    left: 0;
+    color: var(--accent-color);
+    font-weight: bold;
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+/* === STAT ITEMS === */
+#report-container .stat-item {
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-light);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+#report-container .stat-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+#report-container .stat-label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+}
+
+#report-container .stat-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-family: var(--font-mono, 'Monaco', 'Menlo', 'Ubuntu Mono', monospace);
+}
+
+#report-container .stat-change {
+    font-size: 0.9rem;
+    font-weight: 500;
+    font-family: var(--font-mono, 'Monaco', 'Menlo', 'Ubuntu Mono', monospace);
+}
+
+/* === LEVEL INDICATORS === */
+#report-container .level-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+#report-container .level-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    border-left: 4px solid;
+    transition: all 0.2s ease;
+}
+
+#report-container .level-item:hover {
+    transform: translateX(4px);
+}
+
+#report-container .level-label {
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+#report-container .level-value {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    font-family: var(--font-mono, 'Monaco', 'Menlo', 'Ubuntu Mono', monospace);
+}
+
+/* === TABLE SYSTEM === */
+#report-container .table-container {
+    overflow-x: auto;
+    width: 100%;
+    margin-top: 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border-light);
+    -webkit-overflow-scrolling: touch;
+}
+
+#report-container table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: var(--card-bg);
+}
+
+#report-container th, 
+#report-container td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-light);
+    vertical-align: middle;
+}
+
+#report-container th {
+    background-color: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.875rem;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+#report-container td {
+    color: var(--text-primary);
+}
+
+#report-container tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+#report-container tbody tr:hover {
+    background-color: var(--table-row-hover-bg, rgba(0, 0, 0, 0.02));
+}
+
+#report-container td i.fa-fw {
+    margin-right: 0.5rem;
+}
+
+/* === INTERACTIVE ELEMENTS === */
+#report-container .interactive-element {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#report-container .interactive-element:hover {
+    opacity: 0.8;
+}
+
+#report-container .tooltip {
+    position: absolute;
+    background-color: var(--tooltip-bg, rgba(0, 0, 0, 0.9));
+    color: var(--tooltip-text, white);
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+/* === LOADING STATES === */
+#report-container .skeleton {
+    background: linear-gradient(90deg, var(--skeleton-base, #f0f0f0) 25%, var(--skeleton-highlight, #e0e0e0) 50%, var(--skeleton-base, #f0f0f0) 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+    border-radius: 0.25rem;
+}
+
+@keyframes skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* === RESPONSIVE DESIGN === */
+
+/* Tablet */
+@media (min-width: 768px) {
+    #report-container {
+        padding: 2rem;
+    }
+    
+    #report-container .content-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    #report-container .stat-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+/* === RESPONSIVE DESIGN === */
+
+/* Only mobile-specific styles for max-width: 580px 
+   Note: For crypto-table to work properly in card mode, 
+   HTML should include data-label attributes on each td element.
+   Example: <td data-label="Coin Name">Bitcoin</td>
+*/
+@media (max-width: 580px) {
+    #report-container {
+        padding: 0.75rem;
+        gap: 1rem;
+    }
+    #report-container h1 {
+        font-size: 1.5rem;
+    }
+    #report-container h2 {
+        font-size: 1.25rem;
+    }
+    #report-container .wide-card,
+    #report-container .report-card,
+    #report-container .sub-card {
+        padding: 0.75rem !important;
+    }
+    #report-container section {
+        margin-bottom: 1.5rem !important;
+        padding: 0.5rem 0 !important;
+        border-radius: 0.5rem;
+        box-shadow: none;
+        background: transparent;
+        width: 100%;
+    }
+    /* Crypto table card layout for mobile */
+    .crypto-table {
+        font-size: 0.8rem;
+    }
+    
+    .crypto-table thead {
+        display: none; /* Hide table header on mobile */
+    }
+    
+    .crypto-table tbody {
+        display: block;
+    }
+    
+    .crypto-table tbody tr {
+        display: block;
+        background-color: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 0.75rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        box-shadow: var(--card-shadow);
+        transition: all 0.3s ease;
+    }
+    
+    .crypto-table tbody tr:hover {
+        box-shadow: var(--card-shadow-hover);
+        transform: translateY(-2px);
+    }
+    
+    .crypto-table tbody td {
+        display: block;
+        padding: 0.5rem 0 !important;
+        border-bottom: none;
+        text-align: left;
+        position: relative;
+        padding-left: 40% !important;
+    }
+    
+    .crypto-table tbody td:before {
+        content: attr(data-label);
+        position: absolute;
+        left: 0;
+        width: 35%;
+        padding-right: 1rem;
+        white-space: nowrap;
+        font-weight: 600;
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+    }
+    
+    .crypto-table tbody td:last-child {
+        margin-bottom: 0;
+    }
+    
+    /* Adjust table container for mobile card layout */
+    .crypto-table .table-container {
+        border: none;
+        overflow: visible;
+    }
+    
+    .chart-container {
+        min-height: 200px !important;
+    }
+    .horizontal-layout {
+        flex-direction: column !important;
+    }
+}
+
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+    .report-card,
+    .sub-card,
+    .stats-card,
+    .chart-container * {
+        transition: none !important;
+        animation: none !important;
+    }
+}

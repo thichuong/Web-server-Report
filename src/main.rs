@@ -1,15 +1,21 @@
 use axum::{extract::{Path, Query, State}, http::StatusCode, response::{Html, IntoResponse, Response}, routing::get, Json, Router};
+use tower_http::services::ServeDir;
 use dotenvy::dotenv;
 use serde::Serialize;
 use sqlx::FromRow;
 use sqlx::PgPool;
 use std::{env, net::SocketAddr, sync::Arc};
+use tokio::sync::RwLock;
 use tokio::fs;
+use tera::{Tera, Context};
 
-#[derive(Clone)]
 struct AppState {
     db: PgPool,
     auto_update_secret: Option<String>,
+    // cache for concatenated chart modules JS (None until populated)
+    chart_modules_cache: RwLock<Option<String>>,
+    // Tera template engine
+    tera: Tera,
 }
 
 #[derive(FromRow, Serialize, Debug)]
@@ -32,18 +38,34 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let pool = PgPool::connect(&database_url).await?;
 
-    let state = AppState { db: pool, auto_update_secret };
+    // Initialize Tera template engine - only load specific templates we need
+    let mut tera = Tera::default();
+    tera.add_template_file("templates/index.html", Some("index.html")).expect("Failed to load index.html");
+    tera.add_template_file("templates/components/theme_toggle.html", Some("components/theme_toggle.html")).expect("Failed to load theme_toggle.html");
+    tera.add_template_file("templates/components/language_toggle.html", Some("components/language_toggle.html")).expect("Failed to load language_toggle.html");
+    tera.autoescape_on(vec![]); // Disable auto-escaping for safe content
+
+    let state = AppState { 
+        db: pool, 
+        auto_update_secret, 
+        chart_modules_cache: RwLock::new(None),
+        tera,
+    };
     let shared_state = Arc::new(state);
 
     let app = Router::new()
+        .nest_service("/static", ServeDir::new("static"))
         .route("/health", get(health))
-        .route("/", get(index))
+        // serve a simple homepage at / that links to the report index
+        .route("/", get(homepage))
+        // keep the existing index behaviour available at /index.html
+        .route("/index.html", get(index))
         .route("/report/:id", get(view_report))
         .route("/pdf-template/:id", get(pdf_template))
         .route("/reports", get(report_list))
         .route("/upload", get(upload_page))
         .route("/auto-update-system-:secret", get(auto_update))
-        .with_state(shared_state);
+    .with_state(shared_state);
 
     let host = env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
     let port: u16 = env::var("PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(8000);
@@ -63,18 +85,54 @@ async fn health() -> impl IntoResponse {
 
 async fn index(State(state): State<Arc<AppState>>) -> Response {
     let rec = sqlx::query_as::<_, Report>(
-        "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM report ORDER BY created_at DESC LIMIT 1",
+            "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM report ORDER BY created_at DESC LIMIT 1",
     )
     .fetch_optional(&state.db)
     .await;
 
+    // Get chart modules content
+    let chart_modules_content = get_chart_modules_content(&state).await;
+
+    // Create Tera context
+    let mut context = Context::new();
+    
     match rec {
-        Ok(Some(report)) => Html(report.html_content).into_response(),
-        Ok(None) => (StatusCode::NOT_FOUND, "No reports found").into_response(),
+        Ok(Some(report)) => {
+            context.insert("report", &report);
+        }
+        Ok(None) => {
+            // Create empty report for template
+            let empty_report = serde_json::json!({
+                "html_content": "",
+                "html_content_en": "",
+                "css_content": "",
+                "js_content": ""
+            });
+            context.insert("report", &empty_report);
+        }
         Err(e) => {
             eprintln!("DB error: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response()
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
         }
+    }
+
+    // Add chart modules function result
+    context.insert("chart_modules_content", &chart_modules_content);
+
+    // Render template with Tera
+    match state.tera.render("index.html", &context) {
+        Ok(html) => Html(html).into_response(),
+        Err(e) => {
+            eprintln!("Template render error: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Template render error").into_response()
+        }
+    }
+}
+
+async fn homepage() -> Response {
+    match fs::read_to_string("static/home.html").await {
+        Ok(s) => Html(s).into_response(),
+        Err(_) => (StatusCode::NOT_FOUND, "Home page not found").into_response(),
     }
 }
 
@@ -130,7 +188,7 @@ async fn report_list(Query(params): Query<std::collections::HashMap<String, Stri
 }
 
 async fn upload_page() -> Response {
-    match fs::read_to_string("Web-server-Report/static/upload.html").await {
+    match fs::read_to_string("static/upload.html").await {
         Ok(s) => Html(s).into_response(),
         Err(_) => (StatusCode::NOT_FOUND, "Upload page not found").into_response(),
     }
@@ -148,11 +206,80 @@ async fn auto_update(Path(secret): Path<String>, State(state): State<Arc<AppStat
                 eprintln!("Unauthorized access attempt with key: {}", secret);
                 (StatusCode::FORBIDDEN, Json(serde_json::json!({"error": "Access denied", "message": "Invalid secret key"}))).into_response()
             } else {
-                match fs::read_to_string("Web-server-Report/static/auto_update.html").await {
+                match fs::read_to_string("static/auto_update.html").await {
                     Ok(s) => Html(s).into_response(),
                     Err(_) => (StatusCode::NOT_FOUND, "Auto update page not found").into_response(),
                 }
             }
         }
     }
+}
+
+async fn get_chart_modules_content(state: &AppState) -> String {
+    use tokio::fs::read_dir;
+    use std::path::Path;
+
+    // If not in debug mode, try cache first
+    let debug = env::var("DEBUG").unwrap_or_default() == "1";
+    if !debug {
+        if let Some(cached) = state.chart_modules_cache.read().await.clone() {
+            return cached;
+        }
+    }
+
+    let source_dir = Path::new("static").join("js").join("chart_modules");
+
+    let priority_order = vec!["gauge.js", "bar.js", "line.js", "doughnut.js"];
+
+    let mut entries = match read_dir(&source_dir).await {
+        Ok(rd) => rd,
+        Err(_) => return "// No chart modules found".to_string(),
+    };
+
+    let mut all_files = Vec::new();
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        if let Ok(ft) = entry.file_type().await {
+            if ft.is_file() {
+                if let Some(name) = entry.file_name().to_str() {
+                    if name.ends_with(".js") {
+                        all_files.push(name.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    // Order files: priority first, then alphabetically
+    let mut ordered = Vec::new();
+    for p in &priority_order {
+        if let Some(idx) = all_files.iter().position(|f| f == p) {
+            ordered.push(all_files.remove(idx));
+        }
+    }
+    all_files.sort();
+    ordered.extend(all_files);
+
+    let mut parts: Vec<String> = Vec::new();
+    for filename in ordered {
+        let path = source_dir.join(&filename);
+        match tokio::fs::read_to_string(&path).await {
+            Ok(content) => {
+                let wrapped = format!("// ==================== {name} ====================\ntry {{\n{code}\n}} catch (error) {{\n    console.error('Error loading chart module {name}:', error);\n}}\n// ==================== End {name} ====================", name=filename, code=content);
+                parts.push(wrapped);
+            }
+            Err(_) => {
+                parts.push(format!("// Warning: {name} not found", name=filename));
+            }
+        }
+    }
+
+    let final_content = parts.join("\n\n");
+
+    // Cache if not debug
+    if !debug {
+        let mut w = state.chart_modules_cache.write().await;
+        *w = Some(final_content.clone());
+    }
+
+    final_content
 }

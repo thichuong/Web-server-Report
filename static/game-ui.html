@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dodge Game</title>
+    <style>
+        :root {
+            /* Light theme */
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8fafc;
+            --card-bg: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --text-accent: #3b82f6;
+            --accent-color: #6366f1;
+            --border-color: #e2e8f0;
+            --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            --negative-color: #ef4444;
+        }
+
+        [data-theme="dark"] {
+            /* Dark theme */
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --card-bg: #1e293b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-accent: #60a5fa;
+            --accent-color: #6366f1;
+            --border-color: #334155;
+            --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+            --negative-color: #f87171;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background-color 0.3s, color 0.3s;
+            overflow-x: hidden;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            padding: 1rem;
+            box-sizing: border-box;
+        }
+
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            background-color: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 16px;
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border-color);
+            max-width: 95vw;
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+            min-height: 700px;
+        }
+
+        .game-header {
+            margin-bottom: 1rem;
+            width: 100%;
+        }
+
+        .game-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .game-subtitle {
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            width: 100%;
+        }
+
+        .stat-card {
+            background-color: var(--bg-secondary);
+            padding: 0.75rem;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+        }
+
+        .stat-value {
+            font-size: 1.125rem;
+            font-weight: bold;
+            color: var(--accent-color);
+            margin: 0;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin: 0.25rem 0 0 0;
+        }
+
+        #gameCanvas {
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            background-color: var(--bg-primary);
+            display: block;
+            margin: 1rem auto;
+            width: 100%;
+            max-width: 400px;
+            height: 400px;
+        }
+
+        [data-theme="dark"] #gameCanvas {
+            background-color: var(--bg-primary);
+            box-shadow: 0 2px 8px rgba(255,255,255,0.1);
+        }
+
+        .game-instructions {
+            margin-top: 0.5rem;
+            width: 100%;
+        }
+
+        .instructions-text {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin: 0;
+        }
+
+        .game-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.875rem;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--border-color);
+        }
+
+        .btn-secondary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Loading animation */
+        .loading-text {
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 480px) {
+            body {
+                padding: 0.5rem;
+            }
+            
+            .game-container {
+                padding: 1rem;
+                max-width: 95vw;
+                min-height: 600px;
+            }
+            
+            #gameCanvas {
+                max-width: 350px;
+                height: 350px;
+            }
+            
+            .game-title {
+                font-size: 1.125rem;
+            }
+            
+            .stats-grid {
+                gap: 0.5rem;
+            }
+            
+            .stat-card {
+                padding: 0.5rem;
+            }
+            
+            .stat-value {
+                font-size: 1rem;
+            }
+            
+            .btn {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.8rem;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .game-container {
+                padding: 0.75rem;
+                min-height: 550px;
+            }
+            
+            #gameCanvas {
+                max-width: 320px;
+                height: 320px;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-header">
+            <h3 class="game-title">🎮 Mini Game</h3>
+            <p class="game-subtitle">Điều khiển khối vuông tránh kim cương!</p>
+            
+            <!-- Game Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div id="currentScore" class="stat-value">0</div>
+                    <div class="stat-label">Điểm hiện tại</div>
+                </div>
+                <div class="stat-card">
+                    <div id="highScore" class="stat-value">0</div>
+                    <div class="stat-label">Điểm cao nhất</div>
+                </div>
+                <div class="stat-card">
+                    <div id="gameSpeed" class="stat-value">2.0</div>
+                    <div class="stat-label">Tốc độ</div>
+                </div>
+                <div class="stat-card">
+                    <div id="gameTime" class="stat-value">0s</div>
+                    <div class="stat-label">Thời gian</div>
+                </div>
+            </div>
+        </div>
+        
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+        
+        <div class="game-instructions">
+            <p class="instructions-text">Click để đổi hướng • Tránh kim cương • Chạm biên -20 điểm</p>
+        </div>
+        
+        <!-- Game Controls -->
+        <div class="game-controls">
+            <button id="startBtn" class="btn btn-primary">
+                <span>▶</span> Bắt đầu
+            </button>
+            <button id="pauseBtn" class="btn btn-secondary" disabled>
+                <span>⏸</span> Tạm dừng
+            </button>
+            <button id="resetBtn" class="btn btn-secondary">
+                <span>🔄</span> Reset
+            </button>
+        </div>
+    </div>
+
+    <script src="js/dodge-game.js"></script>
+    <script>
+        // Auto-detect theme from parent window
+        function detectTheme() {
+            try {
+                if (window.parent && window.parent.document) {
+                    const parentTheme = window.parent.document.documentElement.getAttribute('data-theme');
+                    if (parentTheme) {
+                        document.documentElement.setAttribute('data-theme', parentTheme);
+                    }
+                }
+            } catch (e) {
+                // Fallback to light theme if parent access is denied
+                console.log('Cannot access parent theme, using light theme');
+            }
+        }
+
+        // Listen for theme changes from parent
+        function listenForThemeChanges() {
+            try {
+                if (window.parent && window.parent.document) {
+                    const observer = new MutationObserver((mutations) => {
+                        mutations.forEach((mutation) => {
+                            if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
+                                const newTheme = window.parent.document.documentElement.getAttribute('data-theme');
+                                if (newTheme) {
+                                    document.documentElement.setAttribute('data-theme', newTheme);
+                                } else {
+                                    document.documentElement.removeAttribute('data-theme');
+                                }
+                            }
+                        });
+                    });
+                    
+                    observer.observe(window.parent.document.documentElement, {
+                        attributes: true,
+                        attributeFilter: ['data-theme']
+                    });
+                }
+            } catch (e) {
+                console.log('Cannot observe parent theme changes');
+            }
+        }
+
+        // Game management
+        let dodgeGame = null;
+        let gameStats = {
+            highScore: parseInt(localStorage.getItem('dodgeGame_highScore')) || 0,
+            totalGames: parseInt(localStorage.getItem('dodgeGame_totalGames')) || 0
+        };
+
+        // DOM elements
+        const startBtn = document.getElementById('startBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const currentScoreEl = document.getElementById('currentScore');
+        const highScoreEl = document.getElementById('highScore');
+        const gameSpeedEl = document.getElementById('gameSpeed');
+        const gameTimeEl = document.getElementById('gameTime');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            detectTheme();
+            listenForThemeChanges();
+            updateStatsDisplay();
+            
+            // Setup button event listeners
+            setupGameControls();
+        });
+
+        function setupGameControls() {
+            // Game controls
+            startBtn.addEventListener('click', function() {
+                if (dodgeGame && dodgeGame.gameRunning) {
+                    pauseGame();
+                } else {
+                    startGame();
+                }
+            });
+            
+            pauseBtn.addEventListener('click', pauseGame);
+            resetBtn.addEventListener('click', resetGame);
+        }
+
+        function startGame() {
+            if (!dodgeGame) {
+                dodgeGame = new DodgeGame('gameCanvas', 'score');
+                
+                // Override game methods for stats tracking
+                const originalGameLoop = dodgeGame.gameLoop.bind(dodgeGame);
+                dodgeGame.gameLoop = function() {
+                    originalGameLoop();
+                    updateGameStats();
+                };
+                
+                // Override game over method
+                const originalGameOver = dodgeGame.gameOver.bind(dodgeGame);
+                dodgeGame.gameOver = function() {
+                    originalGameOver();
+                    onGameOver();
+                };
+            }
+            
+            dodgeGame.start();
+            updateButtonStates();
+            sendMessageToParent('gameStarted');
+        }
+
+        function pauseGame() {
+            if (dodgeGame && dodgeGame.gameRunning) {
+                dodgeGame.stop();
+                updateButtonStates();
+                sendMessageToParent('gamePaused');
+            }
+        }
+
+        function resetGame() {
+            if (dodgeGame) {
+                dodgeGame.stop();
+            }
+            dodgeGame = null;
+            
+            // Reset displays
+            currentScoreEl.textContent = '0';
+            gameSpeedEl.textContent = '2.0';
+            gameTimeEl.textContent = '0s';
+            
+            // Update button states
+            updateButtonStates();
+            
+            // Save stats
+            gameStats.totalGames++;
+            localStorage.setItem('dodgeGame_totalGames', gameStats.totalGames);
+            
+            sendMessageToParent('gameReset');
+        }
+
+        function onGameOver() {
+            updateButtonStates();
+            sendMessageToParent('gameOver', { score: dodgeGame.score });
+        }
+
+        function updateButtonStates() {
+            const isGameRunning = dodgeGame && dodgeGame.gameRunning;
+            const hasGame = dodgeGame !== null;
+            
+            if (isGameRunning) {
+                startBtn.innerHTML = '<span>⏸</span> Tạm dừng';
+                startBtn.className = 'btn btn-secondary';
+                pauseBtn.disabled = false;
+                resetBtn.disabled = false;
+            } else if (hasGame) {
+                startBtn.innerHTML = '<span>▶</span> Tiếp tục';
+                startBtn.className = 'btn btn-primary';
+                pauseBtn.disabled = true;
+                resetBtn.disabled = false;
+            } else {
+                startBtn.innerHTML = '<span>▶</span> Bắt đầu';
+                startBtn.className = 'btn btn-primary';
+                pauseBtn.disabled = true;
+                resetBtn.disabled = false;
+            }
+        }
+
+        function updateGameStats() {
+            if (!dodgeGame || !dodgeGame.gameRunning) return;
+            
+            // Update current score
+            const currentScore = dodgeGame.score;
+            currentScoreEl.textContent = currentScore;
+            
+            // Update high score
+            if (currentScore > gameStats.highScore) {
+                gameStats.highScore = currentScore;
+                localStorage.setItem('dodgeGame_highScore', gameStats.highScore);
+                updateStatsDisplay();
+            }
+            
+            // Update speed
+            gameSpeedEl.textContent = dodgeGame.speed.toFixed(1);
+            
+            // Update time
+            const seconds = Math.floor(dodgeGame.gameTime / 1000);
+            gameTimeEl.textContent = seconds + 's';
+        }
+
+        function updateStatsDisplay() {
+            highScoreEl.textContent = gameStats.highScore;
+        }
+
+        // Listen for messages from parent window
+        window.addEventListener('message', function(event) {
+            switch(event.data.type) {
+                case 'startGame':
+                    if (!dodgeGame || !dodgeGame.gameRunning) {
+                        startGame();
+                    }
+                    break;
+                case 'stopGame':
+                    if (dodgeGame && dodgeGame.gameRunning) {
+                        pauseGame();
+                    }
+                    break;
+                case 'pauseGame':
+                    pauseGame();
+                    break;
+                case 'resumeGame':
+                    if (dodgeGame && !dodgeGame.gameRunning) {
+                        startGame();
+                    }
+                    break;
+                case 'resetGame':
+                    resetGame();
+                    break;
+            }
+        });
+
+        // Send messages to parent
+        function sendMessageToParent(type, data = {}) {
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ type, ...data }, '*');
+            }
+        }
+
+        // Keyboard controls
+        document.addEventListener('keydown', function(event) {
+            if (dodgeGame && dodgeGame.gameRunning) {
+                if (event.code === 'Space' || event.code === 'ArrowLeft' || event.code === 'ArrowRight') {
+                    event.preventDefault();
+                    dodgeGame.handleCanvasClick();
+                }
+            }
+            
+            // Game controls
+            if (event.code === 'Enter') {
+                event.preventDefault();
+                if (dodgeGame && dodgeGame.gameRunning) {
+                    pauseGame();
+                } else {
+                    startGame();
+                }
+            }
+            
+            if (event.code === 'Escape') {
+                event.preventDefault();
+                resetGame();
+            }
+            
+            // Button shortcuts
+            if (event.code === 'KeyR') {
+                event.preventDefault();
+                resetGame();
+            }
+        });
+
+        // Initialize button states on load
+        setTimeout(() => {
+            updateButtonStates();
+        }, 100);
+
+        console.log('🎮 Enhanced Dodge Game UI Loaded with Controls!');
+    </script>
+</body>
+</html>

@@ -1,2 +1,6 @@
-/* minimal chart.css placeholder */
-.chart-container { min-height: 200px; }
+@import url('charts/bar-chart.css');
+@import url('charts/doughnut-chart.css');
+@import url('charts/bar-chart.css');
+@import url('charts/line-chart.css');
+@import url('charts/gauge-chart.css');
+@import url('charts/charts-common.css');

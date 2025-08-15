@@ -1,10 +1,277 @@
+/* static/style.css */
+
 @import url('colors.css');
 
 body {
     font-family: 'Inter', sans-serif;
     background: linear-gradient(180deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
     color: var(--text-secondary);
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-.theme-toggle { position: fixed; top: 1rem; right: 1rem; }
-.language-toggle { position: fixed; top: 5rem; right: 1rem; }
+/* --- Theme Toggle Button --- */
+.theme-toggle {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    z-index: 1000;
+    box-shadow: var(--card-shadow);
+    transition: all 0.3s ease;
+}
+.theme-toggle:hover {
+    transform: scale(1.1);
+}
+.theme-toggle .fa-sun { display: none; }
+.theme-toggle .fa-moon { display: block; }
+
+[data-theme="dark"] .theme-toggle .fa-sun { display: block; }
+[data-theme="dark"] .theme-toggle .fa-moon { display: none; }
+
+/* --- Language Toggle Button --- */
+.language-toggle {
+    position: fixed;
+    top: 5rem; /* Đặt bên dưới theme toggle */
+    right: 1rem; /* Cùng vị trí right với theme toggle */
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    z-index: 1000;
+    box-shadow: var(--card-shadow);
+    transition: all 0.3s ease;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+.language-toggle:hover {
+    transform: scale(1.1);
+}
+.language-toggle .lang-text {
+    font-weight: 600;
+    font-size: 0.625rem;
+    line-height: 1;
+}
+.language-toggle .fa-globe {
+    font-size: 0.875rem;
+}
+
+
+/* --- Cards, Headers, Sections using CSS Variables --- */
+
+header h1 {
+     color: var(--text-primary);
+     padding-bottom: 0.75rem;
+}
+header p {
+     color: var(--text-secondary);
+}
+
+.card {
+    background-color: var(--card-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--card-border);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    transition: all 0.3s ease-in-out;
+    box-shadow: var(--card-shadow);
+}
+/* .card:hover {
+    transform: translateY(-8px) scale(1.02);
+} */
+.card h3 {
+    color: var(--text-secondary);
+}
+.card .text-gray-900 { color: var(--text-primary); }
+.card .text-gray-500 { color: var(--text-secondary); }
+
+/* --- Text colors, Lists, Scenario Cards --- */
+.text-green-600 { color: var(--positive-color); }
+.text-red-600 { color: var(--negative-color); }
+.text-yellow-600 { color: var(--neutral-color); }
+
+
+/* --- CSS cho Đồng hồ đo (Gauge) --- */
+.gauge {
+    width: 180px;
+    height: 180px;
+    position: relative;
+}
+
+.gauge__body {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.gauge__track,
+.gauge__fill {
+    fill: none;
+    stroke-width: 18;
+    stroke-linecap: round;
+    transform: rotate(-90deg);
+    transform-origin: center;
+    transition: stroke-dashoffset 0.5s ease-in-out, stroke 0.5s ease-in-out;
+}
+
+.gauge__track {
+    stroke: var(--rsi-track-color);
+}
+
+.gauge__fill--rsi {
+    stroke: var(--rsi-neutral-color);
+}
+
+.gauge__fill--fng {
+    stroke: var(--fng-neutral-color);
+}
+
+.gauge__cover {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: calc(100% - 36px);
+    height: calc(100% - 36px);
+    border-radius: 50%;
+    background-color: var(--bg-secondary);
+}
+
+.gauge__value {
+    font-size: 2.25rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.gauge__label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+#report-navigation-panel h3 {
+    color: var(--text-primary);
+    padding-left: 0.5rem; /* Căn lề tiêu đề với các thẻ */
+}
+
+#report-navigation-panel a {
+    display: block; /* Hiển thị link dưới dạng block để tạo thành thẻ */
+    padding: 0.75rem 1.25rem;
+    border-radius: 0.75rem; /* Bo góc mượt mà hơn */
+    font-weight: 500;
+    color: var(--text-secondary);
+    border: 1px solid transparent; /* Border trong suốt để không bị giật layout khi hover */
+    transition: all 0.25s cubic-bezier(0.165, 0.84, 0.44, 1); /* Hiệu ứng chuyển động mượt mà */
+    position: relative; /* Cần cho hiệu ứng nâng lên */
+}
+
+#report-navigation-panel a:hover {
+    background-color: var(--card-bg);
+    border-color: var(--card-border);
+    box-shadow: var(--card-shadow);
+    color: var(--text-primary);
+    transform: scale(1.03) translateY(-2px); /* Hiệu ứng nâng lên và phóng to */
+}
+
+#report-navigation-panel a.active {
+    background-color: var(--nav-link-bg-active);
+    color: var(--text-accent);
+    font-weight: 700;
+    border-color: var(--accent-color);
+    box-shadow: var(--card-shadow);
+    transform: scale(1.05); /* Làm cho mục active nổi bật hơn */
+}
+
+/* --- Progress Log Indicator --- */
+#progress-log-indicator {
+    position: absolute;
+    bottom: 10px;
+    right: 20px;
+    background: linear-gradient(135deg, var(--accent-color), var(--accent-secondary));
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    z-index: 100;
+    display: none;
+    align-items: center;
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+    transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#progress-log-indicator:hover {
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+}
+
+#progress-log-indicator i {
+    animation: bounce 1.5s infinite;
+}
+
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-3px);
+    }
+    60% {
+        transform: translateY(-2px);
+    }
+}
+
+/* Dark theme adjustments for progress indicator */
+[data-theme="dark"] #progress-log-indicator {
+    background: linear-gradient(135deg, var(--accent-color), #7c3aed);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+}
+
+[data-theme="dark"] #progress-log-indicator:hover {
+    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.5);
+}
+
+/* --- Disclaimer styling (specific ID to avoid collisions) --- */
+#disclaimer p {
+    font-size: 0.95rem; /* slightly larger for readability */
+    color: var(--text-secondary);
+}
+
+#disclaimer strong[data-i18n="disclaimer-title"] {
+    display: inline-block;
+    margin-right: 0.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+@media (max-width: 640px) {
+    #disclaimer p { font-size: 0.9rem; }
+    #disclaimer strong[data-i18n="disclaimer-title"] { font-size: 0.95rem; }
+}
+
+

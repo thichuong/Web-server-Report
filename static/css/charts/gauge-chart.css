@@ -1,0 +1,241 @@
+/**
+ * =============================================================================
+ * GAUGE CHART STYLES (MODIFIED WITH HOVER EFFECTS)
+ * =============================================================================
+ * This file contains all the styles for the interactive gauge chart.
+ * It relies on variables defined in 'colors.css' for theming.
+ */
+
+
+.gauge-container {
+    width: 100%;
+    height: auto;
+    max-width: 800px; /* Tăng kích thước tối đa từ 560px lên 800px */
+    max-height: 600px; /* Tăng chiều cao tối đa từ 400px lên 600px */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0 auto; /* Căn giữa trong container */
+    position: relative; /* Để có thể căn giữa tuyệt đối nếu cần */
+    box-sizing: border-box; /* Đảm bảo padding/border không ảnh hưởng sizing */
+}
+
+
+.gauge-svg {
+    width: 100%;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
+    overflow: visible; /* Allows elements like the needle to not be clipped */
+    display: block; /* Loại bỏ khoảng trắng dưới inline element */
+    margin: 0 auto; /* Căn giữa SVG trong container */
+}
+
+
+/* --- SVG Paths --- */
+
+
+/* The main background track of the gauge */
+.gauge-track {
+    fill: none;
+    stroke: var(--bg-primary); /* Use background color for the track */
+    stroke-width: 32; /* Tăng từ 22 lên 32 để phù hợp với kích thước lớn hơn */
+    stroke-linecap: round;
+}
+
+
+/* Base style for the colored segments */
+.gauge-segment {
+    fill: none;
+    stroke-width: 32; /* Tăng từ 22 lên 32 để phù hợp với kích thước lớn hơn */
+    transition: stroke-width 0.3s ease, stroke 0.3s ease; /* Smooth transition for hover effect */
+}
+
+
+.gauge-segment:hover {
+    stroke-width: 38; /* Tăng từ 26 lên 38 để tương ứng với stroke-width mới */
+    cursor: pointer; /* Indicate interactivity */
+}
+
+
+/* Example of how to define darker color variables (in colors.css):
+:root {
+    --fng-extreme-fear-color: #ff6347;
+    --fng-extreme-fear-color-darker: #cc503a;
+    --fng-fear-color: #ff8c00;
+    --fng-fear-color-darker: #cc7000;
+    --fng-neutral-color: #20b2aa;
+    --fng-neutral-color-darker: #198f84;
+    --fng-greed-color: #32cd32;
+    --fng-greed-color-darker: #26a126;
+    --fng-extreme-greed-color: #00ff00;
+    --fng-extreme-greed-color-darker: #00cc00;
+}
+*/
+
+
+/* Apply darker stroke on hover */
+/*
+.gauge-segment:hover {
+    stroke-width: 26;
+    stroke: var(--fng-extreme-fear-color-darker); 
+}
+.gauge-segment:nth-child(2):hover {
+    stroke: var(--fng-fear-color-darker);
+}
+.gauge-segment:nth-child(3):hover {
+    stroke: var(--fng-neutral-color-darker);
+}
+.gauge-segment:nth-child(4):hover {
+    stroke: var(--fng-greed-color-darker);
+}
+.gauge-segment:nth-child(5):hover {
+    stroke: var(--fng-extreme-greed-color-darker);
+}
+*/
+
+
+/* --- Needle Elements --- */
+
+
+.gauge-needle-group {
+    /* Smooth transition for the rotation */
+    transition: transform 0.8s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+}
+
+
+.gauge-needle-pointer {
+    fill: var(--gauge-needle-color); /* Use dedicated needle color */
+}
+
+
+.gauge-needle-pivot {
+    fill: var(--gauge-needle-pivot-color); /* Use dedicated pivot color */
+}
+
+
+
+
+/* --- Text Elements --- */
+
+.gauge-text-group {
+    /* Đảm bảo text group luôn ở giữa */
+    transform-origin: center center;
+}
+
+.gauge-text {
+    text-anchor: middle; /* Center the text horizontally */
+    font-family: sans-serif;
+    dominant-baseline: central; /* Center the text vertically */
+}
+
+
+
+
+/* --- Text Elements --- */
+
+.gauge-text {
+    text-anchor: middle;
+    transition: transform 0.3s ease, fill 0.3s ease;
+    transform-origin: center; /* ADD THIS LINE */
+}
+
+.gauge-value-text {
+    fill: var(--gauge-value-text-color); /* Use dedicated text color */
+    font-size: 50px; /* Cập nhật để khớp với rule trên */
+    font-weight: 800;
+}
+
+.gauge-label-text {
+    font-size: 20px; /* Cập nhật để khớp với rule trên */
+    font-weight: 600;
+    /* The fill color is set dynamically via JavaScript */
+}
+
+/* --- ADD THIS NEW RULE FOR THE HOVER EFFECT --- */
+.gauge-value-text:hover,
+.gauge-label-text:hover {
+    transform: scale(1.1);   /* Scales the text up by 10% */
+    cursor: pointer;         /* Changes the cursor to a pointer */
+}
+
+/* --- RESPONSIVE DESIGN --- */
+/* Điều chỉnh kích thước cho màn hình nhỏ - TĂNG kích thước text cho mobile */
+@media (max-width: 768px) {
+    .gauge-container {
+        max-width: 350px; /* Tăng kích thước container từ 260px lên 350px */
+        max-height: 250px; /* Tăng từ 180px lên 250px */
+    }
+    
+    .gauge-value-text {
+        font-size: 46px; /* Tăng từ 36px lên 46px cho dễ đọc hơn */
+    }
+    
+    .gauge-label-text {
+        font-size: 22px; /* Tăng từ 18px lên 22px cho dễ đọc hơn */
+    }
+}
+
+/* Điều chỉnh kích thước cho màn hình rất nhỏ - GIỮ kích thước text lớn hơn */
+@media (max-width: 480px) {
+    .gauge-container {
+        max-width: 300px; /* Tăng từ 220px lên 300px */
+        max-height: 200px; /* Tăng từ 150px lên 200px */
+    }
+    
+    .gauge-value-text {
+        font-size: 40px; /* Tăng từ 32px lên 40px cho dễ đọc */
+    }
+    
+    .gauge-label-text {
+        font-size: 20px; /* Tăng từ 16px lên 20px cho dễ đọc */
+    }
+}
+
+/* Tối ưu cho màn hình điện thoại nhỏ (320px trở xuống) */
+@media (max-width: 320px) {
+    .gauge-container {
+        max-width: 200px;
+        max-height: 140px;
+    }
+    
+    .gauge-value-text {
+        font-size: 32px; /* Tăng từ 24px lên 32px cho dễ đọc */
+        font-weight: 900; /* Tăng độ đậm để nổi bật hơn */
+    }
+    
+    .gauge-label-text {
+        font-size: 16px; /* Tăng từ 12px lên 16px cho label */
+        font-weight: 700; /* Tăng độ đậm */
+    }
+}
+
+/* Adaptive sizing dựa trên kích thước container cha */
+.card .gauge-container,
+.report-card .gauge-container {
+    max-width: min(400px, 90%); /* Tăng từ 280px lên 400px - không quá 90% chiều rộng card */
+    max-height: min(300px, 60%); /* Tăng từ 200px lên 300px - không quá 60% chiều cao card */
+}
+
+/* Đảm bảo gauge căn giữa trong mọi layout */
+.gauge-container {
+    /* Flexbox fallback cho trình duyệt cũ */
+    -webkit-box-pack: center;
+    -webkit-box-align: center;
+    -ms-flex-pack: center;
+    -ms-flex-align: center;
+}
+
+/* Đảm bảo gauge căn giữa trong grid layout */
+.grid-item .gauge-container,
+.flex-item .gauge-container {
+    place-self: center; /* CSS Grid căn giữa */
+    align-self: center; /* Flexbox căn giữa */
+    justify-self: center; /* CSS Grid căn giữa */
+}
+
+/* Override cho các container đặc biệt */
+div[id*="gauge-container"] {
+    margin-left: auto !important;
+    margin-right: auto !important;
+}

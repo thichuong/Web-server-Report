@@ -1,0 +1,19 @@
+<!-- Validation Details Modal -->
+<div id="validation-overlay" class="loading-overlay" style="display: none;">
+    <div class="validation-content">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-bold">Chi Tiết Validation</h3>
+            <button onclick="closeValidationOverlay()" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div id="validation-details" class="validation-text">
+            <!-- Validation text will be inserted here -->
+        </div>
+        <div class="mt-4 flex justify-end">
+            <button onclick="closeValidationOverlay()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                <i class="fas fa-check mr-2"></i>Đóng
+            </button>
+        </div>
+    </div>
+</div>

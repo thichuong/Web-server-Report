@@ -1,0 +1,55 @@
+<!-- Status Card -->
+<div class="status-card">
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-bold" style="color: var(--text-primary);">
+            <i class="fas fa-info-circle mr-2" style="color: var(--accent-color);"></i>
+            Trạng Thái Hệ Thống
+            <span id="ws-status-indicator" class="ws-status-indicator ws-connecting">
+                <i class="fas fa-circle"></i> Connecting...
+            </span>
+        </h2>
+        <div class="flex gap-2">
+            <button id="pwa-install-button" class="pwa-install-button">
+                <i class="fas fa-download"></i> Install App
+            </button>
+            <button onclick="refreshStatus()" class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
+                <i class="fas fa-sync-alt mr-1"></i>Làm mới
+            </button>
+        </div>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+            <p class="text-sm font-medium mb-2" style="color: var(--text-secondary);">Connection Type:</p>
+            <div id="connection-type" class="status-indicator status-inactive">
+                <i class="fas fa-wifi mr-2"></i>Đang kết nối...
+            </div>
+        </div>
+        <div>
+            <p class="text-sm font-medium mb-2" style="color: var(--text-secondary);">Scheduler Status:</p>
+            <div id="scheduler-status" class="status-indicator status-inactive">
+                <i class="fas fa-circle mr-2"></i>Đang tải...
+            </div>
+        </div>
+        <div>
+            <p class="text-sm font-medium mb-2" style="color: var(--text-secondary);">Khoảng thời gian:</p>
+            <span id="interval-info" class="text-sm font-mono" style="color: var(--text-primary);">--</span>
+        </div>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        <div class="p-3 rounded-lg" style="background: var(--bg-secondary);">
+            <p class="text-sm font-medium mb-1" style="color: var(--text-secondary);">API Key Status:</p>
+            <span id="api-key-status" class="text-sm font-mono" style="color: var(--text-primary);">Đang kiểm tra...</span>
+        </div>
+        <div class="p-3 rounded-lg" style="background: var(--bg-secondary);">
+            <p class="text-sm font-medium mb-1" style="color: var(--text-secondary);">Tổng báo cáo:</p>
+            <span id="total-reports" class="text-sm font-mono" style="color: var(--text-primary);">--</span>
+        </div>
+    </div>
+    
+    <div class="mt-4 p-3 rounded-lg" style="background: var(--bg-secondary);">
+        <p class="text-sm font-medium mb-1" style="color: var(--text-secondary);">Báo cáo cuối cùng:</p>
+        <span id="latest-report-time" class="text-sm font-mono" style="color: var(--text-primary);">Chưa có báo cáo</span>
+    </div>
+</div>

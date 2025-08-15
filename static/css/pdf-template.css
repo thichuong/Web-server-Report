@@ -1,0 +1,160 @@
+/* PDF Template CSS */
+
+/* Page setup */
+@page {
+    margin: 0.5cm 0 0 0;
+}
+
+/* Base styles */
+.pdf-template {
+    font-family: 'Inter', sans-serif;
+    background: white !important;
+}
+
+.pdf-template body {
+    font-size: 12pt;
+    line-height: 1.4;
+    background: white !important;
+    background-image: none !important;
+}
+
+/* Hide unnecessary elements */
+.pdf-template .theme-toggle,
+.pdf-template .dashboard-section {
+    display: none !important;
+}
+
+/* Card override */
+.pdf-template .card {
+    background-color: white !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border: 1px solid #e5e7eb !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+    transform: none !important;
+    transition: none !important;
+}
+
+/* Container layout */
+.pdf-template .container,
+.pdf-template main {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+}
+
+.pdf-template header {
+    margin-bottom: 0.5cm !important;
+}
+
+.pdf-template .a4-container {
+    max-width: 100%;
+    width: 100%;
+    margin: 1cm auto;
+    background: white;
+    padding: 1cm;
+}
+
+/* Typography and spacing - shared for print and mobile */
+.pdf-template h1,
+.pdf-template h2,
+.pdf-template h3,
+.pdf-template p,
+.pdf-template section {
+    margin: 0.5cm 0 0 0 !important;
+}
+
+.pdf-template p {
+    orphans: 3;
+    widows: 3;
+}
+
+/* Print-specific styles */
+@media print {
+    .pdf-template * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    
+    .pdf-template .no-print,
+    .pdf-template .theme-toggle,
+    .pdf-template .language-toggle {
+        display: none !important;
+    }
+    
+    .pdf-template h1 { font-size: 22pt !important; line-height: 1.2 !important; }
+    .pdf-template h2 { font-size: 16pt !important; line-height: 1.3 !important; }
+    .pdf-template h3 { font-size: 14pt !important; line-height: 1.3 !important; }
+    .pdf-template p { font-size: 11pt !important; line-height: 1.5 !important; }
+    
+    .pdf-template .a4-container { margin: 0 !important; padding: 0.5cm !important; }
+    .pdf-template section { page-break-inside: avoid; }
+}
+
+/* Screen styles */
+@media screen {
+    .pdf-template body {
+        background-color: #f5f5f5;
+    }
+    
+    .pdf-template .mobile-wrapper {
+        width: 768px;
+        min-height: 100vh;
+        margin: 0 auto;
+        border: black 1px solid;
+    }
+    
+    .pdf-template .print-controls {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1000;
+        background: white;
+        padding: 10px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .pdf-template h1 { font-size: 22pt !important; line-height: 1.2 !important; }
+    .pdf-template h2 { font-size: 16pt !important; line-height: 1.3 !important; }
+    .pdf-template h3 { font-size: 14pt !important; line-height: 1.3 !important; }
+    .pdf-template p { font-size: 11pt !important; line-height: 1.5 !important; }
+    
+    .pdf-template .a4-container { margin: 0 !important; padding: 0.5cm !important; }
+    .pdf-template section { page-break-inside: avoid; }
+}
+
+/* Mobile responsive */
+@media screen and (max-width: 768px) {
+    .pdf-template .mobile-wrapper {
+        width: 100%;
+        padding: 0 10px;
+    }
+    
+    .pdf-template .print-controls {
+        top: 10px;
+        right: 10px;
+        padding: 8px;
+    }
+    
+    .pdf-template .print-controls button {
+        padding: 8px 12px !important;
+        font-size: 14px !important;
+        margin-right: 5px !important;
+    }
+    
+    .pdf-template * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    
+    .pdf-template h1 { font-size: 22pt !important; line-height: 1.2 !important; }
+    .pdf-template h2 { font-size: 16pt !important; line-height: 1.3 !important; }
+    .pdf-template h3 { font-size: 14pt !important; line-height: 1.3 !important; }
+    .pdf-template p { font-size: 11pt !important; line-height: 1.5 !important; }
+    
+    .pdf-template .a4-container { margin: 0 !important; padding: 0.5cm !important; }
+    .pdf-template section { page-break-inside: avoid; }
+}
