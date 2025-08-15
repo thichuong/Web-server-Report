@@ -1,0 +1,35 @@
+# Multi-stage build with Alpine for smaller image
+FROM rust:1.75-alpine as builder
+
+# Install build dependencies
+RUN apk add --no-cache musl-dev pkgconfig openssl-dev
+
+WORKDIR /usr/src/app
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
+
+# Build for musl target (static linking)
+RUN cargo build --release --target x86_64-unknown-linux-musl
+
+# Runtime stage - minimal Alpine
+FROM alpine:3.18
+
+# Install runtime dependencies
+RUN apk add --no-cache ca-certificates
+
+WORKDIR /app
+
+# Copy the statically linked binary
+COPY --from=builder /usr/src/app/target/x86_64-unknown-linux-musl/release/web-server-report .
+
+# Copy static files and templates
+COPY static ./static
+COPY templates ./templates
+
+# Create non-root user
+RUN adduser -D -s /bin/sh appuser && chown -R appuser:appuser /app
+USER appuser
+
+EXPOSE 8000
+
+CMD ["./web-server-report"]
