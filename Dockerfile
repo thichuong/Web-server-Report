@@ -38,8 +38,14 @@ WORKDIR /app
 
 # Copy the binary and assets with proper names
 COPY --from=builder /app/target/release/web-server-report ./web-server-report
-COPY --from=builder /app/static ./static
-COPY --from=builder /app/templates ./templates
+# Copy the entire reorganized `crypto_dashboard` tree into the runtime image.
+# Using a single path keeps the layout consistent with the repo move and
+# simplifies runtime file resolution (server expects `crypto_dashboard/...`).
+# If you need legacy `/static` or `/templates` paths inside the image for
+# backward compatibility, we can add copies or symlinks here — currently the
+# server serves `crypto_dashboard/assets` and loads templates from
+# `crypto_dashboard/templates`.
+COPY --from=builder /app/crypto_dashboard ./crypto_dashboard
 
 # Set proper permissions
 RUN chmod +x ./web-server-report
