@@ -1,0 +1,10 @@
+target
+**/*.rs.bk
+.git
+.gitignore
+Dockerfile
+.dockerignore
+.env
+**/*.log
+**/node_modules
+**/.cache

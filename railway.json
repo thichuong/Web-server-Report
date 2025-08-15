@@ -1,0 +1,18 @@
+{
+  "projectName": "web-server-report",
+  "services": [
+    {
+      "name": "web",
+      "deploy": {
+        "platform": "docker",
+        "dockerfilePath": "./Dockerfile"
+      },
+      "env": {
+        "DATABASE_URL": "",
+        "AUTO_UPDATE_SECRET_KEY": "",
+        "HOST": "0.0.0.0",
+        "PORT": "${PORT}"
+      }
+    }
+  ]
+}
