@@ -4,6 +4,6 @@
     "builder": "HEROKU"
   },
   "deploy": {
-    "startCommand": "./target/release/web-server-report"
+    "startCommand": "./start.sh"
   }
 }

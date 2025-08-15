@@ -9,4 +9,4 @@ nixPkgs = ["rustc", "cargo", "gcc", "pkg-config", "openssl"]
 cmd = "cargo build --release"
 
 [start]
-cmd = "target/release/web-server-report"
+cmd = "./start.sh"
