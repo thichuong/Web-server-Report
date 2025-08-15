@@ -1,5 +1,24 @@
 # Docker Build Troubleshooting Guide
 
+## 🚨 Latest Issue Fixed: Memory Error (Exit Code 137)
+
+**Error:**
+```
+process "/bin/sh -c apt-get update && apt-get install -y ca-certificates libssl3 && rm -rf /var/lib/apt/lists/*" 
+did not complete successfully: exit code: 137: context canceled
+```
+
+**Root Cause:**
+- Exit code 137 = SIGKILL (process killed due to memory constraints)
+- Railway build environment has memory limits
+- Large Docker images can exceed available memory during build
+
+**Solution Applied:**
+1. **Switched to distroless runtime** - Minimal memory footprint
+2. **Optimized build layers** - Reduced intermediate image sizes
+3. **Eliminated apt-get in runtime** - No package manager overhead
+4. **Added Alpine alternative** - Ultra-lightweight option
+
 ## ✅ Issue Fixed: Musl Target Compilation Error
 
 **Error:**
@@ -36,32 +55,46 @@ COPY src ./src
 RUN cargo build --release
 ```
 
-## 🐳 Alternative Dockerfiles Available
+## 🐳 Available Dockerfiles (Memory Optimized)
 
-### 1. `Dockerfile` (Main)
-- Standard build, reliable for Railway
-- Uses Rust 1.75-bookworm
-- GNU libc target (most compatible)
+### 1. `Dockerfile` (Main - Distroless)
+- **Memory optimized** - Uses Google's distroless base
+- Minimal runtime footprint (~20MB)
+- No package manager or shell in runtime
+- Best for production deployment
 
-### 2. `Dockerfile.secure` (Enhanced)
+### 2. `Dockerfile.alpine` (Ultra-lightweight)
+- Uses Alpine Linux (~5MB base)
+- Smallest possible image size
+- May have glibc compatibility issues
+- Fallback option if distroless fails
+
+### 3. `Dockerfile.secure` (Compatible)
+- Uses Debian slim base
 - Includes health checks
-- More recent base images
-- Additional security features
+- Larger but most compatible
+- Use if others fail
 
-## 🚀 Deployment Commands
+## 🚀 Deployment Commands (Memory Optimized)
 
 **Test locally:**
 ```bash
-./deploy.sh  # Includes build verification
+./deploy-optimized.sh  # Interactive memory optimization
 ```
 
-**Deploy to Railway:**
+**Quick Railway Deploy:**
 ```bash
 railway login
 railway init
 railway add postgresql
 railway variables set AUTO_UPDATE_SECRET_KEY=your_secret
 railway variables set HOST=0.0.0.0
+railway up
+```
+
+**Switch to Alpine if needed:**
+```bash
+# Update railway.json to use Dockerfile.alpine
 railway up
 ```
 

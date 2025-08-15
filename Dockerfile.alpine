@@ -1,0 +1,56 @@
+# Ultra-lightweight Dockerfile for Railway deployment
+# Optimized to avoid memory issues during build
+
+FROM rust:1.75-alpine as builder
+
+# Install build dependencies for Alpine
+RUN apk add --no-cache \
+    musl-dev \
+    openssl-dev \
+    pkgconfig \
+    ca-certificates
+
+# Set the working directory
+WORKDIR /app
+
+# Copy dependency files first
+COPY Cargo.toml Cargo.lock ./
+
+# Create dummy source to build deps
+RUN mkdir src && echo "fn main() {}" > src/main.rs
+
+# Build dependencies only
+RUN cargo build --release && rm src/main.rs
+
+# Copy source code
+COPY src ./src
+
+# Copy static files and templates
+COPY static ./static
+COPY templates ./templates
+
+# Build the application
+RUN cargo build --release
+
+# Use alpine for runtime (minimal)
+FROM alpine:3.19
+
+# Install runtime dependencies
+RUN apk add --no-cache ca-certificates libgcc
+
+# Create app directory
+WORKDIR /app
+
+# Copy binary and assets
+COPY --from=builder /app/target/release/web-server-report .
+COPY --from=builder /app/static ./static
+COPY --from=builder /app/templates ./templates
+
+# Make binary executable
+RUN chmod +x ./web-server-report
+
+# Expose port
+EXPOSE 8000
+
+# Run application
+CMD ["./web-server-report"]

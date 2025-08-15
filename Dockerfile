@@ -1,10 +1,12 @@
-# Use the official Rust image as base
-FROM rust:1.75-bookworm as builder
+# Use a more lightweight Rust image
+FROM rust:1.75-slim-bookworm as builder
 
-# Install required dependencies for building
-RUN apt-get update && apt-get install -y \
+# Install minimal build dependencies in a single layer
+RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     libssl-dev \
+    ca-certificates \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory
@@ -17,47 +19,32 @@ COPY Cargo.toml Cargo.lock ./
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 
 # Build dependencies first (this layer will be cached)
-RUN cargo build --release && rm -rf src
+RUN cargo build --release && rm -rf src target/release/deps/web_server_report*
 
 # Copy the actual source code
 COPY src ./src
 
-# Copy static files and templates
+# Copy static files and templates (needed for build verification)
 COPY static ./static
 COPY templates ./templates
 
-# Build the application in release mode
-RUN cargo build --release
+# Build the application in release mode with optimizations
+RUN CARGO_NET_GIT_FETCH_WITH_CLI=true cargo build --release
 
-# Use a minimal base image for the final stage
-FROM debian:bookworm-slim
-
-# Install necessary runtime dependencies
-RUN apt-get update && apt-get install -y \
-    ca-certificates \
-    libssl3 \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create a non-root user
-RUN useradd -m -u 1000 appuser
-
-# Set the working directory
-WORKDIR /app
+# Use distroless for minimal runtime footprint
+FROM gcr.io/distroless/cc-debian12
 
 # Copy the binary from the builder stage
-COPY --from=builder /app/target/release/web-server-report .
+COPY --from=builder /app/target/release/web-server-report /app/
 
 # Copy static files and templates
-COPY --from=builder /app/static ./static
-COPY --from=builder /app/templates ./templates
+COPY --from=builder /app/static /app/static
+COPY --from=builder /app/templates /app/templates
 
-# Change ownership to the app user
-RUN chown -R appuser:appuser /app
+# Set working directory
+WORKDIR /app
 
-# Switch to non-root user
-USER appuser
-
-# Expose the port (Railway will set the PORT environment variable)
+# Expose the port
 EXPOSE 8000
 
 # Run the application
