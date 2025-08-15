@@ -1,8 +1,8 @@
+[phases.build]
+cmd = "cargo build --release"
+
+[phases.install]
+cmds = ["mkdir -p /app", "cp -r static /app/", "cp -r templates /app/", "cp target/release/web-server-report /app/"]
+
 [start]
-cmd = "./target/release/web-server-report"
-
-[build]
-command = "cargo build --release"
-
-[phases.setup]
-nixPkgs = ["...", "libpq"]
+cmd = "/app/web-server-report"
