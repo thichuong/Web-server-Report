@@ -1,1 +1,1 @@
-web: ./start.sh
+web: target/release/web-server-report

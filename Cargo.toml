@@ -3,6 +3,10 @@ name = "web-server-report"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "web-server-report"
+path = "src/main.rs"
+
 [profile.release]
 opt-level = 2
 lto = "thin"
