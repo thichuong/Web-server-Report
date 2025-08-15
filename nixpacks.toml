@@ -1,10 +1,8 @@
 [start]
-cmd = "web"
+cmd = "./target/release/web-server-report"
 
 [build]
-# Lệnh build tùy chỉnh
 command = "cargo build --release"
 
 [phases.setup]
-# Thêm các gói hệ thống cần thiết bằng apt
 apt = ["libpq-dev"]
