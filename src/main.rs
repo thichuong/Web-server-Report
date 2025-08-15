@@ -45,6 +45,7 @@ async fn main() -> Result<(), anyhow::Error> {
     tera.add_template_file("templates/components/theme_toggle.html", Some("components/theme_toggle.html")).expect("Failed to load theme_toggle.html");
     tera.add_template_file("templates/components/language_toggle.html", Some("components/language_toggle.html")).expect("Failed to load language_toggle.html");
     tera.add_template_file("templates/report_list.html", Some("report_list.html")).expect("Failed to load report_list.html");
+    tera.add_template_file("templates/pdf_template.html", Some("pdf_template.html")).expect("Failed to load pdf_template.html");
     tera.autoescape_on(vec![]); // Disable auto-escaping for safe content
 
     let state = AppState { 
@@ -98,9 +99,9 @@ async fn index(State(state): State<Arc<AppState>>) -> Response {
     // Create Tera context
     let mut context = Context::new();
     
-    match rec {
+    match &rec {
         Ok(Some(report)) => {
-            context.insert("report", &report);
+            context.insert("report", report);
         }
         Ok(None) => {
             // Create empty report for template
@@ -120,6 +121,13 @@ async fn index(State(state): State<Arc<AppState>>) -> Response {
 
     // Add chart modules function result
     context.insert("chart_modules_content", &chart_modules_content);
+
+    // Insert pdf_url for the print button; if report exists, link to /pdf-template/<id>
+    let pdf_url = match &rec {
+        Ok(Some(r)) => format!("/pdf-template/{}", r.id),
+        _ => "#".to_string(),
+    };
+    context.insert("pdf_url", &pdf_url);
 
     // Render template with Tera
     match state.tera.render("index.html", &context) {
@@ -153,6 +161,8 @@ async fn view_report(Path(id): Path<i32>, State(state): State<Arc<AppState>>) ->
             let mut context = Context::new();
             context.insert("report", &report);
             context.insert("chart_modules_content", &chart_modules_content);
+            let pdf_url = format!("/pdf-template/{}", report.id);
+            context.insert("pdf_url", &pdf_url);
 
             match state.tera.render("index.html", &context) {
                 Ok(html) => Html(html).into_response(),
@@ -171,8 +181,40 @@ async fn view_report(Path(id): Path<i32>, State(state): State<Arc<AppState>>) ->
 }
 
 async fn pdf_template(Path(id): Path<i32>, State(state): State<Arc<AppState>>) -> Response {
-    // For simplicity return same html_content. You can wrap with PDF template if needed.
-    view_report(Path(id), State(state)).await
+    // Fetch the report by id and render a dedicated PDF-friendly template
+    let rec = sqlx::query_as::<_, Report>(
+        "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM report WHERE id = $1",
+    )
+    .bind(id)
+    .fetch_optional(&state.db)
+    .await;
+
+    match rec {
+        Ok(Some(report)) => {
+            let chart_modules_content = get_chart_modules_content(&state).await;
+
+            let mut context = Context::new();
+            context.insert("report", &report);
+            context.insert("chart_modules_content", &chart_modules_content);
+
+            // formatted created date in UTC+7 for display
+            let created_display = (report.created_at + chrono::Duration::hours(7)).format("%d-%m-%Y %H:%M").to_string();
+            context.insert("created_at_display", &created_display);
+
+            match state.tera.render("pdf_template.html", &context) {
+                Ok(html) => Html(html).into_response(),
+                Err(e) => {
+                    eprintln!("Template render error: {}", e);
+                    (StatusCode::INTERNAL_SERVER_ERROR, "Template render error").into_response()
+                }
+            }
+        }
+        Ok(None) => (StatusCode::NOT_FOUND, "Report not found").into_response(),
+        Err(e) => {
+            eprintln!("DB error: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response()
+        }
+    }
 }
 
 #[derive(FromRow, Serialize)]

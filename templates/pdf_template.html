@@ -7,11 +7,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/colors.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/chart.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/pdf-template.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/report.css') }}">
+    <link rel="stylesheet" href="/static/css/colors.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/chart.css">
+    <link rel="stylesheet" href="/static/css/pdf-template.css">
+    <link rel="stylesheet" href="/static/css/report.css">
 
     {% if report and report.css_content %}
         <style>
@@ -23,7 +23,7 @@
 </head>
 <body class="pdf-template antialiased">
 
-    {% include 'components/language_toggle.html' %}
+    {% include "components/language_toggle.html" %}
 
     <!-- Nút điều khiển in (ẩn khi in) -->
     <div class="print-controls no-print">
@@ -45,10 +45,10 @@
                 {% if report %}
                     <p class="text-base text-gray-600 max-w-full mx-auto">
                         <span id="subtitle-vi" style="display: block;">
-                            Báo cáo #{{ report.id }} (tạo lúc {{ (report.created_at + timedelta(hours=7)).strftime('%d-%m-%Y %H:%M') }})
+                            Báo cáo #{{ report.id }} (tạo lúc {{ created_at_display }})
                         </span>
                         <span id="subtitle-en" style="display: none;">
-                            Report #{{ report.id }} (created at {{ (report.created_at + timedelta(hours=7)).strftime('%m-%d-%Y %H:%M') }})
+                            Report #{{ report.id }} (created at {{ created_at_display }})
                         </span>
                     </p>
                 {% else %}
@@ -62,11 +62,11 @@
             <main id="report-container" class="max-w-none" {% if report %}data-report-id="{{ report.id }}"{% endif %}>
                 {% if report and report.html_content %}
                     <div id="report-content-vi" style="display: block;">
-                        {{ report.html_content | safe }}
+                        {{ report.html_content }}
                     </div>
                     {% if report.html_content_en %}
                         <div id="report-content-en" style="display: none;">
-                            {{ report.html_content_en | safe }}
+                            {{ report.html_content_en }}
                         </div>
                     {% endif %}
                 {% else %}
@@ -79,22 +79,22 @@
         </div>
     </div>
     
-    <!-- Chart modules được tải trực tiếp với auto-discovery -->
+    <!-- Chart modules injected from server context -->
     <script>
-        {{ get_chart_modules_content() | safe }}
+        {{ chart_modules_content }}
     </script>
     
     {% if report and report.js_content %}
         <script>
-            {{ report.js_content | safe }}
+            {{ report.js_content }}
         </script>
     {% else %}
-        <script src="{{ url_for('static', filename='js/report.js') }}"></script>
+        <script src="/static/js/report.js"></script>
     {% endif %}
    
-    <script src="{{ url_for('static', filename='js/report-initializer.js') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/pdf-template.js') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/language-toggle.js') }}" defer></script>
+    <script src="/static/js/report-initializer.js" defer></script>
+    <script src="/static/js/pdf-template.js" defer></script>
+    <script src="/static/js/language-toggle.js" defer></script>
 
     <script>
         // Inline language toggle for PDF template (fallback)
