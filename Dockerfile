@@ -1,31 +1,52 @@
-# Build stage - use Alpine for smaller download
-FROM rust:1.75-alpine as builder
+# Use Ubuntu for better compatibility
+FROM ubuntu:22.04 as builder
 
-# Install build dependencies
-RUN apk add --no-cache \
-    musl-dev \
-    openssl-dev \
-    openssl-libs-static \
-    pkgconfig
+# Avoid prompts from apt
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Rust and build dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    build-essential \
+    pkg-config \
+    libssl-dev \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
 
 WORKDIR /app
 
-# Copy all files
+# Copy source code
 COPY . .
 
-# Build for musl (static linking - no runtime deps needed)
-ENV RUSTFLAGS="-C target-feature=-crt-static"
+# Build the application
 RUN cargo build --release
 
-# Runtime stage - minimal distroless image
-FROM gcr.io/distroless/cc-debian12
+# Runtime stage
+FROM ubuntu:22.04
+
+# Install minimal runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl3 \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy the binary and assets
-COPY --from=builder /app/target/release/web-server-report .
+# Copy the binary and assets with proper names
+COPY --from=builder /app/target/release/web-server-report ./web-server-report
 COPY --from=builder /app/static ./static
 COPY --from=builder /app/templates ./templates
+
+# Set proper permissions
+RUN chmod +x ./web-server-report
+
+# Create non-root user
+RUN useradd -r -u 1001 -m appuser && chown -R appuser:appuser /app
+USER appuser
 
 EXPOSE 8000
 
