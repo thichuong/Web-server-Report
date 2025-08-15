@@ -41,7 +41,10 @@ async fn main() -> Result<(), anyhow::Error> {
 
     // Initialize Tera template engine - only load specific templates we need
     let mut tera = Tera::default();
-    tera.add_template_file("crypto_dashboard/templates/index.html", Some("index.html")).expect("Failed to load index.html");
+    // index.html was moved into `crypto_dashboard/pages/index/index.html` to group
+    // page-specific assets together. Load that file into Tera as the `index.html`
+    // template name.
+    tera.add_template_file("crypto_dashboard/pages/index/index.html", Some("index.html")).expect("Failed to load index.html");
     tera.add_template_file("crypto_dashboard/templates/components/theme_toggle.html", Some("components/theme_toggle.html")).expect("Failed to load theme_toggle.html");
     tera.add_template_file("crypto_dashboard/templates/components/language_toggle.html", Some("components/language_toggle.html")).expect("Failed to load language_toggle.html");
     tera.add_template_file("crypto_dashboard/templates/report_list.html", Some("report_list.html")).expect("Failed to load report_list.html");
@@ -60,7 +63,11 @@ async fn main() -> Result<(), anyhow::Error> {
     // mount for /static (optional) to avoid breaking external links. We also serve the
     // new asset path for the reorganized structure.
     let app = Router::new()
-        .nest_service("/crypto_dashboard/assets", ServeDir::new("crypto_dashboard/assets"))
+    .nest_service("/crypto_dashboard/assets", ServeDir::new("crypto_dashboard/assets"))
+    // expose grouped page folders under /crypto_dashboard/pages so page-local
+    // CSS/JS can be addressed with absolute URLs like
+    // /crypto_dashboard/pages/index/style.css
+    .nest_service("/crypto_dashboard/pages", ServeDir::new("crypto_dashboard/pages"))
         .nest_service("/static", ServeDir::new("crypto_dashboard/assets"))
         .route("/health", get(health))
         // serve a simple homepage at / that links to the report index
