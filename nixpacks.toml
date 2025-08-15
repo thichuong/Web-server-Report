@@ -1,2 +1,10 @@
+[start]
+cmd = "web"
+
+[build]
+# Lệnh build tùy chỉnh
+command = "cargo build --release"
+
 [phases.setup]
-nixPkgs = ["...","libpq"]
+# Thêm các gói hệ thống cần thiết bằng apt
+apt = ["libpq-dev"]
