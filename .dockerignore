@@ -1,10 +1,8 @@
-target
-**/*.rs.bk
-.git
+target/
+.git/
 .gitignore
-Dockerfile
-.dockerignore
+README.md
+rust_server.log
+*.log
 .env
-**/*.log
-**/node_modules
-**/.cache
+.env.local
