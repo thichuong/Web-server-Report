@@ -427,7 +427,21 @@
 */
 @media (max-width: 580px) {
     #report-container {
-        padding: 0.75rem;
+        padding: 0.5rem;
+        gap: 0.5rem;
+        /* Make the report container fill the available viewport width on mobile
+           while accounting for padding to avoid horizontal scrolling */
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        margin-left: 0;
+        margin-right: 0;
+    }
+    /* Prevent grid items from forcing a min-width > viewport on very small screens
+       The base rule uses minmax(350px, 1fr) which can cause overflow on narrow devices.
+       Force a single-column grid on mobile so .report-card matches normal card width. */
+    #report-container .content-grid {
+        grid-template-columns: 1fr;
         gap: 1rem;
     }
     #report-container h1 {
