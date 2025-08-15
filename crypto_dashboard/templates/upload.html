@@ -7,8 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/upload.css') }}">
+    <link rel="stylesheet" href="/crypto_dashboard/assets/css/style.css">
+    <link rel="stylesheet" href="/crypto_dashboard/assets/css/upload.css">
 </head>
 <body class="antialiased min-h-screen" style="background: linear-gradient(180deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);">
 
@@ -18,7 +18,7 @@
                 <h2>Đang xử lý báo cáo...</h2>
                 <p>Chơi game để giải trí trong lúc chờ!</p>
             </div>
-            <iframe src="{{ url_for('static', filename='game.html') }}" 
+            <iframe src="/crypto_dashboard/pages/game.html" 
                     class="game-iframe" 
                     id="game-iframe"
                     frameborder="0" 
@@ -136,7 +136,7 @@
                 <h3><i class="fas fa-gamepad mr-2"></i>Mini Game</h3>
                 <p>Chơi game để giải trí! Game sẽ tự động bắt đầu khi bạn nhấn "Xử lý và Tạo Báo cáo".</p>
             </div>
-            <iframe src="{{ url_for('static', filename='game.html') }}" 
+            <iframe src="/crypto_dashboard/pages/game.html" 
                     class="game-iframe" 
                     id="main-game-iframe"
                     frameborder="0" 
@@ -145,8 +145,8 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/theme-manager.js') }}" defer></script>
-    <script type="module" src="{{ url_for('static', filename='js/upload.js') }}" defer></script>
+    <script src="/crypto_dashboard/assets/js/theme-manager.js" defer></script>
+    <script type="module" src="/crypto_dashboard/assets/js/upload.js" defer></script>
 
 </body>
 </html>

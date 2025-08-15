@@ -9,17 +9,17 @@ const API_CACHE_NAME = 'crypto-api-v1';
 // Files to cache for offline functionality
 const STATIC_ASSETS = [
     '/',
-    '/static/css/style.css',
-    '/static/css/auto_upload.css',
-    '/static/js/main.js',
-    '/static/js/auto_update.js',
-    '/static/js/modules/websocket-client.js',
-    '/static/js/modules/status-manager.js',
-    '/static/js/modules/progress-tracker.js',
-    '/static/js/modules/api-client.js',
-    '/static/js/modules/log-manager.js',
-    '/static/js/modules/ui-controller.js',
-    '/static/js/modules/pwa-manager.js',
+    '/crypto_dashboard/assets/css/style.css',
+    '/crypto_dashboard/assets/css/auto_upload.css',
+    '/crypto_dashboard/assets/js/main.js',
+    '/crypto_dashboard/assets/js/auto_update.js',
+    '/crypto_dashboard/assets/js/modules/websocket-client.js',
+    '/crypto_dashboard/assets/js/modules/status-manager.js',
+    '/crypto_dashboard/assets/js/modules/progress-tracker.js',
+    '/crypto_dashboard/assets/js/modules/api-client.js',
+    '/crypto_dashboard/assets/js/modules/log-manager.js',
+    '/crypto_dashboard/assets/js/modules/ui-controller.js',
+    '/crypto_dashboard/assets/js/modules/pwa-manager.js',
     'https://cdn.tailwindcss.com',
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css',
     'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap'
@@ -237,20 +237,20 @@ self.addEventListener('push', (event) => {
     console.log('[SW] Push notification received');
     
     const defaultOptions = {
-        icon: '/static/icons/icon-192x192.png',
-        badge: '/static/icons/badge-72x72.png',
+    icon: '/crypto_dashboard/assets/icons/icon-192x192.png',
+    badge: '/crypto_dashboard/assets/icons/badge-72x72.png',
         vibrate: [200, 100, 200],
         requireInteraction: true,
         actions: [
             {
                 action: 'view',
                 title: 'View Dashboard',
-                icon: '/static/icons/view-icon.png'
+                icon: '/crypto_dashboard/assets/icons/view-icon.png'
             },
             {
                 action: 'dismiss',
                 title: 'Dismiss',
-                icon: '/static/icons/dismiss-icon.png'
+                icon: '/crypto_dashboard/assets/icons/dismiss-icon.png'
             }
         ]
     };

@@ -1,6 +1,6 @@
 <!-- Scripts -->
-<script src="{{ url_for('static', filename='js/theme-manager.js') }}" defer></script>
-<script type="module" src="{{ url_for('static', filename='js/auto_update.js') }}" defer></script>
+<script src="/crypto_dashboard/assets/js/theme-manager.js" defer></script>
+<script type="module" src="/crypto_dashboard/assets/js/auto_update.js" defer></script>
 
 <!-- Socket.IO CDN -->
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
@@ -9,11 +9,11 @@
 <script>
 // Make PWA manager available globally
 window.addEventListener('load', async () => {
-    const { pwaManager } = await import('{{ url_for("static", filename="js/modules/pwa-manager.js") }}');
+    const { pwaManager } = await import('/crypto_dashboard/assets/js/modules/pwa-manager.js');
     window.pwaManager = pwaManager;
     
     // Update WebSocket status indicator
-    const { wsClient } = await import('{{ url_for("static", filename="js/modules/websocket-client.js") }}');
+    const { wsClient } = await import('/crypto_dashboard/assets/js/modules/websocket-client.js');
     
     const wsStatusIndicator = document.getElementById('ws-status-indicator');
     const connectionTypeElement = document.getElementById('connection-type');

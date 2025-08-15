@@ -41,11 +41,11 @@ async fn main() -> Result<(), anyhow::Error> {
 
     // Initialize Tera template engine - only load specific templates we need
     let mut tera = Tera::default();
-    tera.add_template_file("templates/index.html", Some("index.html")).expect("Failed to load index.html");
-    tera.add_template_file("templates/components/theme_toggle.html", Some("components/theme_toggle.html")).expect("Failed to load theme_toggle.html");
-    tera.add_template_file("templates/components/language_toggle.html", Some("components/language_toggle.html")).expect("Failed to load language_toggle.html");
-    tera.add_template_file("templates/report_list.html", Some("report_list.html")).expect("Failed to load report_list.html");
-    tera.add_template_file("templates/pdf_template.html", Some("pdf_template.html")).expect("Failed to load pdf_template.html");
+    tera.add_template_file("crypto_dashboard/templates/index.html", Some("index.html")).expect("Failed to load index.html");
+    tera.add_template_file("crypto_dashboard/templates/components/theme_toggle.html", Some("components/theme_toggle.html")).expect("Failed to load theme_toggle.html");
+    tera.add_template_file("crypto_dashboard/templates/components/language_toggle.html", Some("components/language_toggle.html")).expect("Failed to load language_toggle.html");
+    tera.add_template_file("crypto_dashboard/templates/report_list.html", Some("report_list.html")).expect("Failed to load report_list.html");
+    tera.add_template_file("crypto_dashboard/templates/pdf_template.html", Some("pdf_template.html")).expect("Failed to load pdf_template.html");
     tera.autoescape_on(vec![]); // Disable auto-escaping for safe content
 
     let state = AppState { 
@@ -56,8 +56,12 @@ async fn main() -> Result<(), anyhow::Error> {
     };
     let shared_state = Arc::new(state);
 
+    // Serve crypto_dashboard assets at /crypto_dashboard/assets and keep a compatibility
+    // mount for /static (optional) to avoid breaking external links. We also serve the
+    // new asset path for the reorganized structure.
     let app = Router::new()
-        .nest_service("/static", ServeDir::new("static"))
+        .nest_service("/crypto_dashboard/assets", ServeDir::new("crypto_dashboard/assets"))
+        .nest_service("/static", ServeDir::new("crypto_dashboard/assets"))
         .route("/health", get(health))
         // serve a simple homepage at / that links to the report index
         .route("/", get(homepage))
@@ -140,7 +144,7 @@ async fn index(State(state): State<Arc<AppState>>) -> Response {
 }
 
 async fn homepage() -> Response {
-    match fs::read_to_string("static/home.html").await {
+    match fs::read_to_string("crypto_dashboard/pages/home.html").await {
         Ok(s) => Html(s).into_response(),
         Err(_) => (StatusCode::NOT_FOUND, "Home page not found").into_response(),
     }
@@ -343,7 +347,7 @@ async fn report_list(Query(params): Query<std::collections::HashMap<String, Stri
 }
 
 async fn upload_page() -> Response {
-    match fs::read_to_string("static/upload.html").await {
+    match fs::read_to_string("crypto_dashboard/templates/upload.html").await {
         Ok(s) => Html(s).into_response(),
         Err(_) => (StatusCode::NOT_FOUND, "Upload page not found").into_response(),
     }
@@ -361,7 +365,7 @@ async fn auto_update(Path(secret): Path<String>, State(state): State<Arc<AppStat
                 eprintln!("Unauthorized access attempt with key: {}", secret);
                 (StatusCode::FORBIDDEN, Json(serde_json::json!({"error": "Access denied", "message": "Invalid secret key"}))).into_response()
             } else {
-                match fs::read_to_string("static/auto_update.html").await {
+                match fs::read_to_string("crypto_dashboard/templates/auto_update.html").await {
                     Ok(s) => Html(s).into_response(),
                     Err(_) => (StatusCode::NOT_FOUND, "Auto update page not found").into_response(),
                 }
@@ -382,7 +386,7 @@ async fn get_chart_modules_content(state: &AppState) -> String {
         }
     }
 
-    let source_dir = Path::new("static").join("js").join("chart_modules");
+    let source_dir = Path::new("crypto_dashboard").join("assets").join("js").join("chart_modules");
 
     let priority_order = vec!["gauge.js", "bar.js", "line.js", "doughnut.js"];
 

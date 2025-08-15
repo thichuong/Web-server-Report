@@ -51,7 +51,7 @@ export class PWAManager {
      */
     async registerServiceWorker() {
         try {
-            const registration = await navigator.serviceWorker.register('/static/sw.js', {
+            const registration = await navigator.serviceWorker.register('/crypto_dashboard/assets/sw.js', {
                 scope: '/'
             });
             

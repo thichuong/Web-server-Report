@@ -138,11 +138,11 @@ export class UIController {
             LogManager.add(`📊 New report completed: Report #${data.data.id}`, 'success');
             
             // Show notification if app is in background
-            if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+                if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
                 new Notification('Report Completed', {
                     body: `New crypto analysis report is ready`,
-                    icon: '/static/icons/icon-192x192.png',
-                    badge: '/static/icons/badge-72x72.png'
+                    icon: '/crypto_dashboard/assets/icons/icon-192x192.png',
+                    badge: '/crypto_dashboard/assets/icons/badge-72x72.png'
                 });
             }
             
