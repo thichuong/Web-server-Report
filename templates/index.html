@@ -33,18 +33,26 @@
                 <a href="/reports" class="inline-block bg-gray-700 text-white font-bold py-3 px-6 rounded-lg">Lịch sử báo cáo</a>
             </div>
         </header>
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-x-12 pb-96">
+            <aside class="hidden lg:block lg:col-span-1">
+                 <nav id="report-navigation-panel" class="sticky top-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3 tracking-wide">Mục lục Báo cáo</h3>
+                    <ul id="report-nav-links" class="space-y-2">
+                        </ul>
+                </nav>
+            </aside>
+            <main id="report-container">
+                <!-- Vietnamese report content injected from DB -->
+                <div id="report-content-vi">
+                    {{ report.html_content }}
+                </div>
 
-        <main id="report-container">
-            <!-- Vietnamese report content injected from DB -->
-            <div id="report-content-vi">
-                {{ report.html_content }}
-            </div>
-
-            <!-- English report content (optional) -->
-            <div id="report-content-en" style="display:none;">
-                {{ report.html_content_en }}
-            </div>
-        </main>
+                <!-- English report content (optional) -->
+                <div id="report-content-en" style="display:none;">
+                    {{ report.html_content_en }}
+                </div>
+            </main>
+        </div>
     </div>
 
     <!-- Chart modules will be injected here -->
