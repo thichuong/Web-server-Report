@@ -20,7 +20,16 @@ if [ ! -f "Dockerfile" ]; then
     exit 1
 fi
 
-echo "✅ Dockerfile found"
+echo "✅ Dockerfile found (Fixed Docker build issues)"
+
+# Test local build
+echo "🔧 Testing local build..."
+if cargo build --release > /dev/null 2>&1; then
+    echo "✅ Local build successful"
+else
+    echo "❌ Local build failed. Please fix compilation errors first."
+    exit 1
+fi
 
 # Check if railway.json exists
 if [ ! -f "railway.json" ]; then
@@ -63,8 +72,16 @@ echo "2. Connect GitHub repo to Railway dashboard"
 echo "3. Set environment variables in Railway UI"
 echo "4. Deploy automatically"
 echo ""
+echo "🐳 Docker Build Notes:"
+echo "====================="
+echo "• Fixed musl target compilation issues"
+echo "• Uses standard GNU libc build (more reliable)"
+echo "• Includes dependency caching for faster builds"
+echo "• Non-root user for security"
+echo ""
 echo "📁 Files created for deployment:"
-echo "• Dockerfile - Container configuration"
+echo "• Dockerfile - Fixed container configuration"
+echo "• Dockerfile.secure - Alternative with health checks"
 echo "• railway.json - Railway deployment config"
 echo "• .dockerignore - Docker build optimization"
 echo "• RAILWAY_DEPLOY.md - Detailed deployment guide"

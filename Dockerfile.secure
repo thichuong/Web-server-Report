@@ -1,5 +1,5 @@
-# Use the official Rust image as base
-FROM rust:1.75-bookworm as builder
+# Alternative Dockerfile with more recent base images (for better security)
+FROM rust:1.76-bookworm as builder
 
 # Install required dependencies for building
 RUN apt-get update && apt-get install -y \
@@ -29,7 +29,7 @@ COPY templates ./templates
 # Build the application in release mode
 RUN cargo build --release
 
-# Use a minimal base image for the final stage
+# Use a more recent base image for better security
 FROM debian:bookworm-slim
 
 # Install necessary runtime dependencies
@@ -38,7 +38,7 @@ RUN apt-get update && apt-get install -y \
     libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user
+# Create a non-root user for security
 RUN useradd -m -u 1000 appuser
 
 # Set the working directory
@@ -59,6 +59,10 @@ USER appuser
 
 # Expose the port (Railway will set the PORT environment variable)
 EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
 
 # Run the application
 CMD ["./web-server-report"]
