@@ -21,8 +21,10 @@ struct AppState {
     auto_update_secret: Option<String>,
     // cache for concatenated chart modules JS (None until populated)
     chart_modules_cache: RwLock<Option<String>>,
-    // cache for the latest report to avoid querying DB on every index request
-    cached_latest_report: RwLock<Option<Report>>,
+    // cache reports by id to avoid querying DB on every view request
+    cached_reports: RwLock<std::collections::HashMap<i32, Report>>,
+    // cached latest report id for quick lookup of the most recent report
+    cached_latest_id: RwLock<Option<i32>>,
     // Tera template engine
     tera: Tera,
     // WebSocket service for real-time updates
@@ -83,7 +85,8 @@ async fn main() -> Result<(), anyhow::Error> {
         db: pool, 
         auto_update_secret, 
         chart_modules_cache: RwLock::new(None),
-        cached_latest_report: RwLock::new(None),
+    cached_reports: RwLock::new(std::collections::HashMap::new()),
+    cached_latest_id: RwLock::new(None),
         tera,
         websocket_service,
     };
@@ -95,14 +98,17 @@ async fn main() -> Result<(), anyhow::Error> {
         let s = Arc::clone(&shared_state);
         let pool_ref = s.db.clone();
         tokio::spawn(async move {
-            if let Ok(Some(report)) = sqlx::query_as::<_, Report>(
+        if let Ok(Some(report)) = sqlx::query_as::<_, Report>(
                 "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM report ORDER BY created_at DESC LIMIT 1",
             )
             .fetch_optional(&pool_ref)
             .await
             {
-                let mut w = s.cached_latest_report.write().await;
-                *w = Some(report);
+            // insert into per-id cache and mark as latest
+            let mut mapw = s.cached_reports.write().await;
+            mapw.insert(report.id, report.clone());
+            let mut lid = s.cached_latest_id.write().await;
+            *lid = Some(report.id);
             }
         });
     }
@@ -162,39 +168,38 @@ async fn health() -> impl IntoResponse {
 }
 
 async fn crypto_index(State(state): State<Arc<AppState>>) -> Response {
-    // Try cache first (fast path)
-    if let Some(cached) = state.cached_latest_report.read().await.clone() {
-        // Spawn chart module read concurrently while we prepare context
-        let chart_fut = get_chart_modules_content(&state);
-        let chart_modules_content = chart_fut.await;
+    // Try cache first (fast path) using cached_latest_id -> cached_reports map
+    if let Some(latest_id_opt) = *state.cached_latest_id.read().await {
+        if let Some(cached) = state.cached_reports.read().await.get(&latest_id_opt).cloned() {
+            let chart_modules_content = get_chart_modules_content(&state).await;
+            let mut context = Context::new();
+            context.insert("current_route", "dashboard");
+            context.insert("current_lang", "vi");
+            context.insert("current_time", &chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string());
+            context.insert("report", &cached);
+            context.insert("chart_modules_content", &chart_modules_content);
+            let pdf_url = format!("/pdf-template/{}", cached.id);
+            context.insert("pdf_url", &pdf_url);
 
-        let mut context = Context::new();
-        context.insert("current_route", "dashboard");
-        context.insert("current_lang", "vi");
-        context.insert("current_time", &chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string());
-        context.insert("report", &cached);
-        context.insert("chart_modules_content", &chart_modules_content);
-        let pdf_url = format!("/pdf-template/{}", cached.id);
-        context.insert("pdf_url", &pdf_url);
-
-        match state.tera.render("crypto/routes/reports/view.html", &context) {
-            Ok(html) => {
-                return Response::builder()
-                    .status(StatusCode::OK)
-                    .header("cache-control", "public, max-age=15") // short client cache to reduce repeat hits
-                    .header("content-type", "text/html; charset=utf-8")
-                    .body(html)
-                    .unwrap()
-                    .into_response();
-            }
-            Err(e) => {
-                eprintln!("Template render error: {:#?}", e);
-                let mut src = e.source();
-                while let Some(s) = src {
-                    eprintln!("Template render error source: {:#?}", s);
-                    src = s.source();
+            match state.tera.render("crypto/routes/reports/view.html", &context) {
+                Ok(html) => {
+                    return Response::builder()
+                        .status(StatusCode::OK)
+                        .header("cache-control", "public, max-age=15") // short client cache to reduce repeat hits
+                        .header("content-type", "text/html; charset=utf-8")
+                        .body(html)
+                        .unwrap()
+                        .into_response();
                 }
-                return (StatusCode::INTERNAL_SERVER_ERROR, "Template render error").into_response();
+                Err(e) => {
+                    eprintln!("Template render error: {:#?}", e);
+                    let mut src = e.source();
+                    while let Some(s) = src {
+                        eprintln!("Template render error source: {:#?}", s);
+                        src = s.source();
+                    }
+                    return (StatusCode::INTERNAL_SERVER_ERROR, "Template render error").into_response();
+                }
             }
         }
     }
@@ -215,9 +220,13 @@ async fn crypto_index(State(state): State<Arc<AppState>>) -> Response {
 
     match db_res {
         Ok(Some(report)) => {
-            // prime cache
-            let mut w = state.cached_latest_report.write().await;
-            *w = Some(report.clone());
+            // prime per-id cache and latest id
+            {
+                let mut mapw = state.cached_reports.write().await;
+                mapw.insert(report.id, report.clone());
+            }
+            let mut lid = state.cached_latest_id.write().await;
+            *lid = Some(report.id);
             context.insert("report", &report);
             let pdf_url = format!("/pdf-template/{}", report.id);
             context.insert("pdf_url", &pdf_url);
@@ -268,17 +277,74 @@ async fn homepage() -> Response {
 }
 
 async fn crypto_view_report(Path(id): Path<i32>, State(state): State<Arc<AppState>>) -> Response {
-    let rec = sqlx::query_as::<_, Report>(
+    // Fast path: check per-id cache
+    if let Some(cached) = state.cached_reports.read().await.get(&id).cloned() {
+        let chart_modules_content = get_chart_modules_content(&state).await;
+        let mut context = Context::new();
+        context.insert("report", &cached);
+        context.insert("chart_modules_content", &chart_modules_content);
+        let pdf_url = format!("/pdf-template/{}", cached.id);
+        context.insert("pdf_url", &pdf_url);
+
+        match state.tera.render("crypto/routes/reports/view.html", &context) {
+            Ok(html) => return Response::builder()
+                .status(StatusCode::OK)
+                .header("cache-control", "public, max-age=15")
+                .header("content-type", "text/html; charset=utf-8")
+                .body(html)
+                .unwrap()
+                .into_response(),
+            Err(e) => {
+                eprintln!("Template render error: {:#?}", e);
+                let mut src = e.source();
+                while let Some(s) = src {
+                    eprintln!("Template render error source: {:#?}", s);
+                    src = s.source();
+                }
+                return (StatusCode::INTERNAL_SERVER_ERROR, "Template render error").into_response();
+            }
+        }
+    }
+
+    // Cache miss or different id: fetch DB and chart modules concurrently
+    let db_fut = sqlx::query_as::<_, Report>(
         "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM report WHERE id = $1",
     )
     .bind(id)
-    .fetch_optional(&state.db)
-    .await;
+    .fetch_optional(&state.db);
 
-    match rec {
+    let chart_fut = get_chart_modules_content(&state);
+
+    let (db_res, chart_modules_content) = tokio::join!(db_fut, chart_fut);
+
+    match db_res {
         Ok(Some(report)) => {
-            // Build full page using the same index template so the report is shown with site chrome
-            let chart_modules_content = get_chart_modules_content(&state).await;
+            // Insert into per-id cache and maybe update latest id
+            {
+                let mut mapw = state.cached_reports.write().await;
+                mapw.insert(report.id, report.clone());
+            }
+            // update latest id if this report is newer
+            {
+                let mut lid = state.cached_latest_id.write().await;
+                match *lid {
+                    None => {
+                        *lid = Some(report.id);
+                    }
+                    Some(existing_id) => {
+                        // compare timestamps using cached_reports map
+                        let compare = {
+                            let read_map = state.cached_reports.read().await;
+                            read_map.get(&existing_id).map(|r| r.created_at)
+                        };
+                        if compare.map_or(true, |t| report.created_at > t) {
+                            *lid = Some(report.id);
+                        }
+                    }
+                }
+            }
+
+            // Build context and render
             let mut context = Context::new();
             context.insert("report", &report);
             context.insert("chart_modules_content", &chart_modules_content);
@@ -286,7 +352,13 @@ async fn crypto_view_report(Path(id): Path<i32>, State(state): State<Arc<AppStat
             context.insert("pdf_url", &pdf_url);
 
             match state.tera.render("crypto/routes/reports/view.html", &context) {
-                Ok(html) => Html(html).into_response(),
+                Ok(html) => Response::builder()
+                        .status(StatusCode::OK)
+                        .header("cache-control", "public, max-age=15")
+                        .header("content-type", "text/html; charset=utf-8")
+                        .body(html)
+                        .unwrap()
+                        .into_response(),
                 Err(e) => {
                     eprintln!("Template render error: {:#?}", e);
                     let mut src = e.source();
@@ -307,17 +379,67 @@ async fn crypto_view_report(Path(id): Path<i32>, State(state): State<Arc<AppStat
 }
 
 async fn pdf_template(Path(id): Path<i32>, State(state): State<Arc<AppState>>) -> Response {
-    // Fetch the report by id and render a dedicated PDF-friendly template
-    let rec = sqlx::query_as::<_, Report>(
+    // Fast path: return cached report if present
+    if let Some(cached) = state.cached_reports.read().await.get(&id).cloned() {
+        let chart_modules_content = get_chart_modules_content(&state).await;
+
+        let mut context = Context::new();
+        context.insert("report", &cached);
+        context.insert("chart_modules_content", &chart_modules_content);
+
+        // formatted created date in UTC+7 for display
+        let created_display = (cached.created_at + chrono::Duration::hours(7)).format("%d-%m-%Y %H:%M").to_string();
+        context.insert("created_at_display", &created_display);
+
+        match state.tera.render("crypto/routes/reports/pdf.html", &context) {
+            Ok(html) => return Html(html).into_response(),
+            Err(e) => {
+                eprintln!("Template render error: {:#?}", e);
+                let mut src = e.source();
+                while let Some(s) = src {
+                    eprintln!("Template render error source: {:#?}", s);
+                    src = s.source();
+                }
+                return (StatusCode::INTERNAL_SERVER_ERROR, "Template render error").into_response();
+            }
+        }
+    }
+
+    // Cache miss: fetch DB and chart modules concurrently
+    let db_fut = sqlx::query_as::<_, Report>(
         "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM report WHERE id = $1",
     )
     .bind(id)
-    .fetch_optional(&state.db)
-    .await;
+    .fetch_optional(&state.db);
 
-    match rec {
+    let chart_fut = get_chart_modules_content(&state);
+
+    let (db_res, chart_modules_content) = tokio::join!(db_fut, chart_fut);
+
+    match db_res {
         Ok(Some(report)) => {
-            let chart_modules_content = get_chart_modules_content(&state).await;
+            // insert into per-id cache
+            {
+                let mut mapw = state.cached_reports.write().await;
+                mapw.insert(report.id, report.clone());
+            }
+
+            // optionally update latest id if this is newer
+            {
+                let mut lid = state.cached_latest_id.write().await;
+                match *lid {
+                    None => *lid = Some(report.id),
+                    Some(existing_id) => {
+                        let compare = {
+                            let read_map = state.cached_reports.read().await;
+                            read_map.get(&existing_id).map(|r| r.created_at)
+                        };
+                        if compare.map_or(true, |t| report.created_at > t) {
+                            *lid = Some(report.id);
+                        }
+                    }
+                }
+            }
 
             let mut context = Context::new();
             context.insert("report", &report);

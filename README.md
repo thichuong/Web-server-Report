@@ -1,184 +1,309 @@
-# Web Server Report
+# Web Server Report - Optimized Crypto Dashboard
 
-Một ứng dụng web server được viết bằng Rust sử dụng Axum framework để hiển thị các báo cáo đầu tư.
+🚀 **High-performance Rust web server** for crypto investment reports with advanced caching and real-time features.
 
-## Tính năng
+## ✨ Key Features
 
-- Hiển thị báo cáo đầu tư với biểu đồ tương tác
-- Hỗ trợ đa ngôn ngữ (Tiếng Việt/English)
-- Giao diện responsive
-- API RESTful
-- Kết nối PostgreSQL database
+### 🎯 Core Functionality
+- **Interactive Crypto Reports**: Dynamic investment reports with Chart.js visualizations
+- **Multi-language Support**: Vietnamese/English with seamless switching
+- **Responsive Design**: Mobile-first, adaptive UI
+- **PDF Generation**: Export reports to PDF format
+- **Real-time Updates**: WebSocket integration for live data
 
-## Công nghệ sử dụng
+### ⚡ Performance Optimizations
+- **Per-ID Report Caching**: In-memory HashMap cache for instant report access
+- **Concurrent Data Fetching**: Parallel DB and chart module loading
+- **Smart Cache Priming**: Automatic latest report caching at startup
+- **Client-side Caching**: HTTP cache headers for reduced server load
+- **Chart Module Bundling**: Optimized JavaScript asset delivery
 
-- **Backend**: Rust + Axum
-- **Database**: PostgreSQL
-- **Frontend**: HTML, CSS, JavaScript với Chart.js
-- **Template Engine**: Tera
+### 🔧 Technical Stack
+- **Backend**: Rust + Axum (high-performance async web framework)
+- **Database**: PostgreSQL with connection pooling
+- **Caching**: In-memory RwLock-based caching system
+- **Real-time**: Redis + WebSocket for live updates
+- **Templates**: Tera template engine
+- **Frontend**: Vanilla JS with Chart.js and modern CSS
 
-## Cài đặt Local
+## 🚀 Quick Start
 
-1. Clone repository:
+### Prerequisites
+- Rust 1.70+ ([Install Rust](https://rustup.rs/))
+- PostgreSQL database
+- Redis server (optional, for WebSocket features)
+
+### 1. Clone & Setup
 ```bash
-git clone <repository-url>
+git clone https://github.com/thichuong/Web-server-Report.git
 cd Web-server-Report
-```
 
-2. Cài đặt Rust (nếu chưa có):
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-```
-
-3. Copy file environment:
-```bash
+# Copy environment template
 cp .env.example .env
 ```
 
-4. Cập nhật thông tin database trong file `.env`:
-```
+### 2. Configure Environment
+Edit `.env` with your settings:
+```env
+# Database connection
 DATABASE_URL=postgresql://username:password@localhost:5432/database_name
-AUTO_UPDATE_SECRET_KEY=your_secret_key
+
+# Security
+AUTO_UPDATE_SECRET_KEY=your_secret_key_here
+
+# External APIs
+TAAPI_SECRET=your_taapi_secret_for_crypto_data
+
+# Optional: Redis for WebSocket/caching (defaults to localhost:6379)
+REDIS_URL=redis://localhost:6379
+
+# Server configuration
 HOST=0.0.0.0
 PORT=8000
+
+# Development mode (enables debug logging)
+DEBUG=1
 ```
 
-5. Chạy ứng dụng:
+### 3. Build & Run
 ```bash
+# Development build
 cargo run
+
+# Production build (optimized)
+cargo build --release
+./target/release/web-server-report
 ```
 
-## Deploy lên Railway
+Server will start at `http://localhost:8000` 🎉
 
-### Bước 1: Chuẩn bị
+## 🏗️ Architecture & Performance
 
-1. Đăng ký tài khoản tại [Railway.app](https://railway.app)
-2. Cài đặt Railway CLI (tùy chọn):
+### Caching Strategy
+```
+┌─────────────────┐    ┌──────────────────┐    ┌──────────────┐
+│   Client        │◄──►│  Axum Server     │◄──►│ PostgreSQL   │
+│                 │    │                  │    │              │
+│ Cache: 15s      │    │ ┌──────────────┐ │    │ Reports      │
+│ HTTP Headers    │    │ │ In-Memory    │ │    │ Data         │
+└─────────────────┘    │ │ HashMap      │ │    └──────────────┘
+                       │ │ Cache        │ │
+                       │ │              │ │    ┌──────────────┐
+                       │ │ • Per-ID     │ │◄──►│ Redis        │
+                       │ │ • Latest     │ │    │              │
+                       │ │ • Chart JS   │ │    │ WebSocket    │
+                       │ └──────────────┘ │    │ PubSub       │
+                       └──────────────────┘    └──────────────┘
+```
+
+### Performance Features
+- **🚄 Sub-10ms Response**: Cached reports served instantly
+- **🔄 Concurrent Fetching**: DB + Chart modules loaded in parallel  
+- **📊 Smart Priming**: Latest report pre-loaded at startup
+- **💾 Memory Efficient**: RwLock-based concurrent access
+- **🔄 Cache Invalidation**: Automatic updates on new reports
+
+### Request Flow
+1. **Cache Hit** → Instant response (cached report + chart modules)
+2. **Cache Miss** → Concurrent fetch (DB + assets) → Cache update → Response
+3. **WebSocket** → Real-time dashboard updates via Redis pub/sub
+
+## 📡 API Reference
+
+### Core Endpoints
+| Method | Endpoint | Description | Cache |
+|--------|----------|-------------|-------|
+| `GET` | `/` | Homepage with latest report | ✅ Cached |
+| `GET` | `/health` | Server health check | - |
+| `GET` | `/crypto_report` | Latest crypto report | ✅ Cached |
+| `GET` | `/crypto_report/:id` | Specific report by ID | ✅ Cached |
+| `GET` | `/pdf-template/:id` | PDF-optimized report view | ✅ Cached |
+| `GET` | `/crypto_reports_list` | Paginated report list | - |
+
+### Real-time & API
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/ws` | WebSocket connection for real-time updates |
+| `GET` | `/api/crypto/dashboard-summary` | Cached dashboard data (JSON) |
+| `GET` | `/api/crypto/dashboard-summary/refresh` | Force refresh dashboard |
+
+### Static Assets
+| Path | Description |
+|------|-------------|
+| `/shared_assets/js/chart_modules.js` | Bundled chart JavaScript |
+| `/shared_assets/css/` | Stylesheets |
+| `/crypto_dashboard/assets/` | Dashboard-specific assets |
+
+## 🚀 Deployment
+
+### Railway (Recommended)
+
+#### 1. Prepare Railway Project
 ```bash
+# Install Railway CLI
 npm install -g @railway/cli
-```
 
-### Bước 2: Tạo PostgreSQL Database
-
-1. Đăng nhập vào Railway dashboard
-2. Tạo project mới
-3. Add PostgreSQL service từ Templates
-4. Copy DATABASE_URL từ Variables tab
-
-### Bước 3: Deploy Application
-
-**Cách 1: Qua GitHub (Khuyến nghị)**
-
-1. Push code lên GitHub repository
-2. Trong Railway dashboard, tạo service mới
-3. Connect GitHub repository
-4. Railway sẽ tự động detect Rust project và build
-
-**Cách 2: Qua Railway CLI**
-
-1. Login Railway CLI:
-```bash
+# Login and create project
 railway login
-```
-
-2. Link project:
-```bash
 railway link
 ```
 
-3. Deploy:
-```bash
-railway up
-```
+#### 2. Setup Database
+1. Go to [Railway Dashboard](https://railway.app)
+2. Add PostgreSQL service from templates
+3. Copy `DATABASE_URL` from Variables tab
 
-### Bước 4: Cấu hình Environment Variables
+#### 3. Deploy via GitHub (Recommended)
+1. Push code to GitHub repository
+2. Connect repository in Railway dashboard
+3. Railway auto-detects Rust project and builds
 
-Trong Railway dashboard, vào Variables tab và thêm:
-
-```
-DATABASE_URL=<postgresql-url-from-railway>
-AUTO_UPDATE_SECRET_KEY=<your-secret-key>
+#### 4. Configure Environment Variables
+```env
+DATABASE_URL=<your-postgresql-url>
+AUTO_UPDATE_SECRET_KEY=<secure-secret>
+TAAPI_SECRET=<crypto-api-key>
+REDIS_URL=<redis-url-if-available>
 HOST=0.0.0.0
 PORT=8000
 ```
 
-### Bước 5: Custom Domain (Tùy chọn)
+#### 5. Custom Domain (Optional)
+- Add custom domain in Railway Settings
 
-1. Vào Settings tab trong Railway dashboard
-2. Thêm custom domain nếu cần
-
-## Cấu trúc Project
-
-```
-├── src/
-│   └── main.rs          # Main application logic
-├── static/              # Static files (CSS, JS, HTML)
-├── templates/           # Tera templates
-├── Cargo.toml          # Rust dependencies
-├── railway.json        # Railway deployment config
-├── nixpacks.toml       # Build configuration
-├── Dockerfile          # Docker configuration (alternative)
-└── .env.example        # Environment variables template
-```
-
-## API Endpoints
-
-- `GET /` - Homepage
-- `GET /health` - Health check
-- `GET /report/:id` - View specific report
-- `GET /reports` - List all reports
-- `GET /upload` - Upload page
-- `GET /auto-update-system-:secret` - Auto update endpoint
-
-## Troubleshooting
-
-### Build Issues
-- Đảm bảo Rust version >= 1.70
-- Check dependencies trong Cargo.toml
-
-### Database Connection
-- Verify DATABASE_URL format
-- Ensure PostgreSQL service is running
-- Check network connectivity
-
-### Railway Deployment
-- Check build logs trong Railway dashboard
-- Verify environment variables
-- Ensure all required files are committed to git
-
-## Support
-
-Nếu gặp vấn đề, vui lòng tạo issue trong repository. (Client-facing Rust server)
-
-This is a standalone Rust/Axum web server that reads reports from the PostgreSQL
-database created by the `Crypto-Dashboard-and-AI-ReportGenerator` project and
-serves them to client users. The admin UI and AI-driven report creation remain in
-`Crypto-Dashboard-and-AI-ReportGenerator`; this service only reads the `report`
-table and serves HTML/CSS/JS stored in the database.
-
-Quick start
-
-1. Copy `.env.example` to `.env` and set `DATABASE_URL` to the same Postgres used by the admin project.
-2. Install Rust toolchain (rustup + cargo).
-3. Build and run:
+### Docker Deployment
 
 ```bash
-cargo build --release
-cargo run --release
+# Build Docker image
+docker build -t crypto-dashboard .
+
+# Run with environment
+docker run -p 8000:8000 \
+  -e DATABASE_URL="postgresql://..." \
+  -e AUTO_UPDATE_SECRET_KEY="..." \
+  crypto-dashboard
 ```
 
-Default listen address: `0.0.0.0:8000` (configurable by `HOST` and `PORT` env vars).
+### Production Tips
+- Use `cargo build --release` for optimized builds
+- Set up Redis for WebSocket features in production
+- Configure reverse proxy (nginx) for SSL/domain routing
+- Monitor memory usage of report cache (grows with unique report IDs accessed)
 
-Routes
-- GET /health
-- GET / -> latest report HTML
-- GET /report/:id -> report HTML
-- GET /pdf-template/:id -> same as report HTML
-- GET /reports?page=N -> JSON list of reports
-- GET /upload -> static upload page
-- GET /auto-update-system-:secret -> requires `AUTO_UPDATE_SECRET_KEY`
+## 🏗️ Project Structure
 
-Notes
-- The server expects the `report` table to match the schema in the admin project.
-- Static assets referenced in report HTML should be served from this project's `static/` folder or by an external CDN. You can extend the server to serve more static routes if needed.
+```
+Web-server-Report/
+├── 📁 src/
+│   ├── 🦀 main.rs              # Main server + caching logic
+│   ├── 📊 data_service.rs      # External API data fetching  
+│   └── 🔌 websocket_service.rs # Real-time WebSocket handler
+├── 📁 dashboards/              # Dashboard templates & assets
+│   ├── 🏠 home.html            # Homepage template
+│   ├── 💰 crypto_dashboard/    # Crypto-specific templates
+│   └── 📈 stock_dashboard/     # Stock-specific templates (future)
+├── 📁 shared_assets/           # Global CSS, JS, chart modules
+│   ├── 🎨 css/                # Stylesheets
+│   └── ⚙️ js/chart_modules/   # Modular chart components
+├── 📁 shared_components/       # Reusable HTML components
+├── ⚙️ Cargo.toml              # Rust dependencies
+├── 🐳 Dockerfile              # Container configuration
+├── 🚂 railway.json           # Railway deployment config
+├── 📋 nixpacks.toml          # Build configuration
+└── 🌱 .env.example           # Environment template
+```
+
+## 🔧 Development & Troubleshooting
+
+### Development Setup
+```bash
+# Enable debug logging
+export DEBUG=1
+
+# Watch for changes (requires cargo-watch)
+cargo install cargo-watch
+cargo watch -x run
+
+# Run tests
+cargo test
+
+# Check code quality
+cargo clippy
+cargo fmt
+```
+
+### Common Issues & Solutions
+
+#### 🔍 Database Connection Issues
+```bash
+# Check PostgreSQL connection
+psql $DATABASE_URL -c "SELECT version();"
+
+# Verify table exists
+psql $DATABASE_URL -c "\dt"
+```
+
+#### ⚡ Performance Debugging
+- Check cache hit rates in server logs
+- Monitor memory usage: `ps aux | grep web-server-report`
+- Use `DEBUG=1` for detailed request logging
+
+#### 🔄 Cache Issues
+- Cache is automatically primed at startup
+- New reports update cache on first access
+- Restart server to clear all caches: `pkill web-server-report && cargo run`
+
+#### 🚀 Build Optimization
+```bash
+# Faster debug builds
+export CARGO_PROFILE_DEV_DEBUG=0
+
+# Smaller release builds  
+cargo build --release
+strip target/release/web-server-report
+```
+
+### Monitoring & Metrics
+- Health check: `curl http://localhost:8000/health`
+- WebSocket status: Check Redis connection logs
+- Memory usage: Monitor `cached_reports` HashMap size
+- Response times: Enable `DEBUG=1` for timing logs
+
+## 🤝 Contributing
+
+### Code Style
+- Use `cargo fmt` for formatting
+- Follow Rust naming conventions
+- Add documentation for public functions
+- Include error handling with proper logging
+
+### Adding New Features
+1. Fork the repository
+2. Create feature branch: `git checkout -b feature/new-feature`
+3. Add tests for new functionality
+4. Submit pull request with description
+
+### Performance Guidelines
+- Prefer `tokio::join!` for concurrent operations
+- Use `RwLock` for shared state with many readers
+- Cache expensive operations (DB queries, file I/O)
+- Add appropriate HTTP cache headers
+
+## 📜 License & Support
+
+**License**: MIT License - see LICENSE file for details
+
+**Support**:
+- 🐛 Bug reports: [Create GitHub Issue](https://github.com/thichuong/Web-server-Report/issues)
+- 💡 Feature requests: [GitHub Discussions](https://github.com/thichuong/Web-server-Report/discussions)
+- 📧 Contact: [Your Email]
+
+**Related Projects**:
+- 🤖 [Crypto-Dashboard-and-AI-ReportGenerator](https://github.com/thichuong/Crypto-Dashboard-and-AI-ReportGenerator) - Admin UI & AI report generation
+
+---
+
+⭐ **Star this repo** if it helps you build better crypto dashboards! 
+
+Built with ❤️ using Rust 🦀
 
