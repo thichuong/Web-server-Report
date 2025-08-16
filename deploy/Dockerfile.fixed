@@ -31,8 +31,7 @@ COPY shared_assets ./shared_assets
 RUN cargo build --release --bin web-server-report
 
 # Runtime stage
-FROM ubuntu:22.04
-
+FROM debian:buster-slim as runner
 # Install runtime dependencies
 RUN apt-get update && \
     apt-get install -y \
