@@ -7,10 +7,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-    <link rel="stylesheet" href="/assets/css/colors.css">
-    <link rel="stylesheet" href="/assets/css/style.css">
-    <link rel="stylesheet" href="/assets/css/chart.css">
-    <link rel="stylesheet" href="/assets/css/report.css">
+    <link rel="stylesheet" href="/shared_assets/css/colors.css">
+    <link rel="stylesheet" href="/shared_assets/css/style.css">
+    <link rel="stylesheet" href="/shared_assets/css/chart.css">
+    <link rel="stylesheet" href="/shared_assets/css/report.css">
 
     <!-- report-specific CSS inserted from DB -->
     <style>
@@ -20,8 +20,8 @@
     </style>
 </head>
 <body class="antialiased">
-    {% include "components/theme_toggle.html" %}
-    {% include "components/language_toggle.html" %}
+    {% include "crypto/components/theme_toggle.html" %}
+    {% include "crypto/components/language_toggle.html" %}
 
     <div class="container mx-auto p-4 md:p-8">
         <header class="text-center mb-12">
@@ -36,7 +36,7 @@
                 <a href="{{ pdf_url }}" target="_blank" class="inline-block bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-green-700 transition-colors duration-300">
                     <i class="fas fa-print mr-2"></i> <span data-i18n="print-report">In Báo cáo</span>
                 </a>
-                <a href="/reports" class="inline-block bg-gray-700 text-white font-bold py-3 px-6 rounded-lg"><span data-i18n="view-report-history">Lịch sử báo cáo</span></a>
+                <a href="/crypto_reports_list" class="inline-block bg-gray-700 text-white font-bold py-3 px-6 rounded-lg"><span data-i18n="view-report-history">Lịch sử báo cáo</span></a>
             </div>
         </header>
         <!-- Tuyên bố miễn trừ trách nhiệm: chỉ mang tính chất tham khảo (i18n) -->
@@ -81,8 +81,8 @@
         {{ report.js_content }}
     </script>
 
-    <script src="/assets/js/theme-manager.js" defer></script>
-    <script src="/assets/js/dashboard.js" defer></script>
-    <script src="/assets/js/language-toggle.js" defer></script>
+    <script src="/shared_components/core/theme-manager.js" defer></script>
+    <script src="/crypto_dashboard/assets/dashboard.js" defer></script>
+    <script src="/shared_components/core/language-toggle.js" defer></script>
 </body>
 </html>

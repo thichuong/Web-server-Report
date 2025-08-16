@@ -1,4 +1,6 @@
-<!DOCTYPE html>
+<!DOCTYPE h    <link rel="stylesheet" href="/shared_assets/css/colors.css">
+    <link rel="stylesheet" href="/crypto_dashboard/assets/css/pdf-template.css">
+    <link rel="stylesheet" href="/shared_assets/css/chart.css">>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
@@ -7,11 +9,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-    <link rel="stylesheet" href="/crypto_dashboard/assets/css/colors.css">
-    <link rel="stylesheet" href="/crypto_dashboard/assets/css/style.css">
-    <link rel="stylesheet" href="/crypto_dashboard/assets/css/chart.css">
-    <link rel="stylesheet" href="/crypto_dashboard/assets/css/pdf-template.css">
-    <link rel="stylesheet" href="/crypto_dashboard/assets/css/report.css">
+    <link rel="stylesheet" href="/shared_assets/css/colors.css">
+    <link rel="stylesheet" href="/shared_assets/css/style.css">
+    <link rel="stylesheet" href="/shared_assets/css/chart.css">
+    <link rel="stylesheet" href="/shared_assets/css/pdf-template.css">
+    <link rel="stylesheet" href="/shared_assets/css/report.css">
 
     {% if report and report.css_content %}
         <style>
@@ -23,7 +25,7 @@
 </head>
 <body class="pdf-template antialiased">
 
-    {% include "components/language_toggle.html" %}
+    {% include "crypto/components/language_toggle.html" %}
 
     <!-- Nút điều khiển in (ẩn khi in) -->
     <div class="print-controls no-print">
@@ -92,9 +94,9 @@
         <script src="/crypto_dashboard/assets/js/report.js"></script>
     {% endif %}
    
-    <script src="/crypto_dashboard/assets/js/report-initializer.js" defer></script>
-    <script src="/crypto_dashboard/assets/js/pdf-template.js" defer></script>
-    <script src="/crypto_dashboard/assets/js/language-toggle.js" defer></script>
+    <script src="/shared_components/report-initializer.js" defer></script>
+    <script src="/shared_components/pdf-template.js" defer></script>
+    <script src="/shared_components/core/language-toggle.js" defer></script>
 
     <script>
         // Inline language toggle for PDF template (fallback)
