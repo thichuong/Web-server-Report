@@ -15,17 +15,31 @@ RUN apt-get update && apt-get install -y \
 ENV CARGO_NET_RETRY=10
 ENV CARGO_NET_TIMEOUT=300
 
+# Copy dependency files first for better caching
+COPY Cargo.toml Cargo.lock ./
 # Copy Cargo.toml and add dependency override
-COPY Cargo.toml ./
 RUN echo "" >> Cargo.toml && \
     echo "[dependencies.base64ct]" >> Cargo.toml && \
     echo "version = \"=1.6.0\"" >> Cargo.toml
 
-# Copy source code
-COPY src ./src
-COPY dashboards ./dashboards
-COPY shared_components ./shared_components
-COPY shared_assets ./shared_assets
+
+# Tạo một project "dummy" để cache dependencies
+# Điều này giúp Docker cache lại lớp layer chứa dependencies
+# Lớp này chỉ build lại khi Cargo.toml hoặc Cargo.lock thay đổi
+RUN mkdir src && \
+    echo "fn main() {}" > src/main.rs && \
+    cargo build --release --locked
+
+# Dọn dẹp project dummy
+RUN rm -rf src
+
+# Sao chép toàn bộ mã nguồn ứng dụng
+COPY . .
+
+# Xóa target cũ và build lại ứng dụng thực sự
+# Bước này sẽ sử dụng lại dependencies đã được cache
+RUN rm -rf target/release && \
+    cargo build --release --locked
 
 # Build without lock file to resolve compatible versions
 RUN cargo build --release --bin web-server-report
