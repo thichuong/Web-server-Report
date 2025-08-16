@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-    <link rel="stylesheet" href="/crypto_dashboard/assets/css/style.css">
+    <link rel="stylesheet" href="/shared_assets/css/style.css">
 </head>
 <body class="antialiased min-h-screen" style="background: linear-gradient(180deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);">
 
@@ -104,7 +104,7 @@
                         <!-- Page Numbers -->
                         {# Use page_numbers computed in handler; page_numbers is list of Option<i64> represented as null or number in JSON #}
                         {% for pn in reports.page_numbers %}
-                            {% if pn is defined and pn is not none %}
+                            {% if pn is defined and pn %}
                                 {% set page_num = pn | int %}
                                 {% if page_num != reports.page %}
                                     <a href="/crypto_reports_list?page={{ page_num }}" class="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200">

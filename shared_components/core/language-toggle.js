@@ -7,6 +7,12 @@
 
     // Minimal translation map for elements used in dashboard/report
     const translations = {
+    // Dashboard card titles
+    'btc-price': { vi: 'Giá BTC', en: 'BTC Price' },
+    'market-cap': { vi: 'Tổng Vốn Hóa', en: 'Market Capitalization' },
+    'volume-24h': { vi: 'Khối Lượng Giao Dịch 24h', en: '24h Trading Volume' },
+    'fear-greed-title': { vi: 'Chỉ số Sợ hãi & Tham lam', en: 'Fear & Greed Index' },
+    'rsi-btc-title': { vi: 'Chỉ số Sức mạnh Tương đối (RSI 14) - BTC', en: 'Relative Strength Index (RSI 14) - BTC' },
         'create-report': { vi: 'Tạo Báo cáo Mới', en: 'Create New Report' },
         'view-report-history': { vi: 'Xem Lịch Sử Báo Cáo', en: 'View Report History' },
     'home': { vi: 'Trang chủ', en: 'Home' },

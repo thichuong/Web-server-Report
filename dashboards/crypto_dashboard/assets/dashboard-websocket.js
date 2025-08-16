@@ -1,4 +1,120 @@
-// dashboard.js - Logic riêng cho trang dashboard chính
+// dashboard-websocket.js - Combined dashboard logic and WebSocket functionality
+
+// ===== WEBSOCKET MANAGER =====
+
+/**
+ * WebSocket connection manager for real-time dashboard updates
+ */
+class DashboardWebSocket {
+    constructor() {
+        this.socket = null;
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 5;
+        this.reconnectDelay = 1000; // Start with 1 second
+        this.isConnecting = false;
+        this.heartbeatInterval = null;
+    }
+
+    connect() {
+        if (this.isConnecting || (this.socket && this.socket.readyState === WebSocket.CONNECTING)) {
+            return;
+        }
+
+        this.isConnecting = true;
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+        console.log('🔌 Connecting to WebSocket:', wsUrl);
+
+        try {
+            this.socket = new WebSocket(wsUrl);
+            
+            this.socket.onopen = () => {
+                console.log('✅ WebSocket connected');
+                this.reconnectAttempts = 0;
+                this.reconnectDelay = 1000;
+                this.isConnecting = false;
+                
+                // Send ping to keep connection alive
+                this.startHeartbeat();
+            };
+
+            this.socket.onmessage = (event) => {
+                try {
+                    const message = JSON.parse(event.data);
+                    this.handleMessage(message);
+                } catch (error) {
+                    console.error('❌ Error parsing WebSocket message:', error);
+                }
+            };
+
+            this.socket.onclose = (event) => {
+                console.log('🔌 WebSocket disconnected:', event.code, event.reason);
+                this.isConnecting = false;
+                this.stopHeartbeat();
+                
+                // Attempt to reconnect if not manually closed
+                if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
+                    setTimeout(() => this.reconnect(), this.reconnectDelay);
+                }
+            };
+
+            this.socket.onerror = (error) => {
+                console.error('❌ WebSocket error:', error);
+                this.isConnecting = false;
+            };
+
+        } catch (error) {
+            console.error('❌ Failed to create WebSocket connection:', error);
+            this.isConnecting = false;
+        }
+    }
+
+    reconnect() {
+        this.reconnectAttempts++;
+        this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000); // Max 30 seconds
+        
+        console.log(`🔄 Reconnecting... Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
+        this.connect();
+    }
+
+    handleMessage(message) {
+        console.log('📨 Received WebSocket message:', message.type);
+        
+        if (message.type === 'dashboard_update' && message.data) {
+            // Cache the data for language switching
+            window.dashboardSummaryCache = message.data;
+            
+            // Update dashboard UI
+            updateDashboardFromData(message.data);
+        }
+    }
+
+    startHeartbeat() {
+        this.heartbeatInterval = setInterval(() => {
+            if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+                this.socket.send('ping');
+            }
+        }, 30000); // Ping every 30 seconds
+    }
+
+    stopHeartbeat() {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
+    }
+
+    disconnect() {
+        this.stopHeartbeat();
+        if (this.socket) {
+            this.socket.close(1000, 'Manual disconnect');
+            this.socket = null;
+        }
+    }
+}
+
+// ===== DASHBOARD UTILITIES =====
 
 /**
  * Định dạng số lớn thành dạng ngắn gọn (nghìn tỷ, tỷ, triệu).
@@ -54,6 +170,83 @@ function displayError(containerId, message) {
         const errorMsg = message || getTranslatedText('error-loading-data');
         container.innerHTML = `<p class="text-sm text-red-600">${errorMsg}</p>`;
     }
+}
+
+// ===== DASHBOARD DATA MANAGEMENT =====
+
+/**
+ * Update dashboard UI from data object (used by both HTTP API and WebSocket)
+ */
+function updateDashboardFromData(data) {
+    // Cập nhật Vốn hóa thị trường
+    const marketCapContainer = selectDashboardElementByLang('market-cap-container');
+    if (marketCapContainer) {
+        marketCapContainer.innerHTML = `
+            <p class="text-3xl font-bold text-gray-900">${'$' + formatNumber(data.market_cap)}</p>
+            <p class="text-sm text-gray-500">${getTranslatedText('whole-market')}</p>`;
+        // cache numeric value so we can re-render visuals without re-fetch
+        try { marketCapContainer.dataset.marketCap = String(data.market_cap); } catch(e){}
+    }
+
+    // Cập nhật Khối lượng giao dịch
+    const volumeContainer = selectDashboardElementByLang('volume-24h-container');
+    if (volumeContainer) {
+        volumeContainer.innerHTML = `
+            <p class="text-3xl font-bold text-gray-900">${'$' + formatNumber(data.volume_24h)}</p>
+            <p class="text-sm text-gray-500">${getTranslatedText('whole-market')}</p>`;
+        try { volumeContainer.dataset.volume24h = String(data.volume_24h); } catch(e){}
+    }
+
+    // Cập nhật giá BTC
+    const btcContainer = selectDashboardElementByLang('btc-price-container');
+    if (btcContainer) {
+        const change = data.btc_change_24h;
+        const changeClass = change >= 0 ? 'text-green-600' : 'text-red-600';
+        btcContainer.innerHTML = `
+            <p class="text-3xl font-bold text-gray-900">${'$' + (data.btc_price_usd ? data.btc_price_usd.toLocaleString('en-US') : 'N/A')}</p>
+            <p class="text-sm font-semibold ${changeClass}">${change !== null ? change.toFixed(2) : 'N/A'}% (24h)</p>`;
+        try { btcContainer.dataset.btcPriceUsd = String(data.btc_price_usd); btcContainer.dataset.btcChange24h = String(data.btc_change_24h); } catch(e){}
+    }
+
+    // Cập nhật chỉ số Sợ hãi & Tham lam
+    const fngContainer = selectDashboardElementByLang('fear-greed-container');
+    const fngValue = parseInt(data.fng_value, 10);
+    if (!isNaN(fngValue) && fngContainer) {
+        const fngConfig = {
+            min: 0, max: 100,
+            segments: [
+                { limit: 24, color: 'var(--fng-extreme-fear-color)', label: getTranslatedText('extreme-fear') },
+                { limit: 49, color: 'var(--fng-fear-color)', label: getTranslatedText('fear') },
+                { limit: 54, color: 'var(--fng-neutral-color)', label: getTranslatedText('neutral') },
+                { limit: 74, color: 'var(--fng-greed-color)', label: getTranslatedText('greed') },
+                { limit: 100, color: 'var(--fng-extreme-greed-color)', label: getTranslatedText('extreme-greed') }
+            ]
+        };
+        createGauge(fngContainer, fngValue, fngConfig);
+        try { fngContainer.dataset.value = String(fngValue); } catch(e){}
+    } else {
+        displayError('fear-greed-container', 'Giá trị F&G không hợp lệ.');
+    }
+
+    // Cập nhật chỉ số RSI
+    const rsiContainer = selectDashboardElementByLang('rsi-container');
+    const rsiValue = data.rsi_14;
+    if (rsiValue !== null && rsiValue !== undefined && rsiContainer) {
+        const rsiConfig = {
+            min: 0, max: 100,
+            segments: [
+                { limit: 30, color: 'var(--rsi-oversold-color)', label: getTranslatedText('oversold') },
+                { limit: 70, color: 'var(--rsi-neutral-color)', label: getTranslatedText('neutral') },
+                { limit: 100, color: 'var(--rsi-overbought-color)', label: getTranslatedText('overbought') }
+            ]
+        };
+        createGauge(rsiContainer, rsiValue, rsiConfig);
+        try { rsiContainer.dataset.value = String(rsiValue); } catch(e){}
+    } else {
+         displayError('rsi-container', 'Không nhận được giá trị RSI.');
+    }
+
+    console.log('✅ Dashboard UI updated successfully');
 }
 
 /**
@@ -213,78 +406,7 @@ async function fetchDashboardSummary() {
     }
 }
 
-/**
- * Update dashboard UI from data object (used by both HTTP API and WebSocket)
- */
-function updateDashboardFromData(data) {
-    // Cập nhật Vốn hóa thị trường
-    const marketCapContainer = selectDashboardElementByLang('market-cap-container');
-    if (marketCapContainer) {
-        marketCapContainer.innerHTML = `
-            <p class="text-3xl font-bold text-gray-900">${'$' + formatNumber(data.market_cap)}</p>
-            <p class="text-sm text-gray-500">${getTranslatedText('whole-market')}</p>`;
-        // cache numeric value so we can re-render visuals without re-fetch
-        try { marketCapContainer.dataset.marketCap = String(data.market_cap); } catch(e){}
-    }
-
-    // Cập nhật Khối lượng giao dịch
-    const volumeContainer = selectDashboardElementByLang('volume-24h-container');
-    if (volumeContainer) {
-        volumeContainer.innerHTML = `
-            <p class="text-3xl font-bold text-gray-900">${'$' + formatNumber(data.volume_24h)}</p>
-            <p class="text-sm text-gray-500">${getTranslatedText('whole-market')}</p>`;
-        try { volumeContainer.dataset.volume24h = String(data.volume_24h); } catch(e){}
-    }
-
-    // Cập nhật giá BTC
-    const btcContainer = selectDashboardElementByLang('btc-price-container');
-    if (btcContainer) {
-        const change = data.btc_change_24h;
-        const changeClass = change >= 0 ? 'text-green-600' : 'text-red-600';
-        btcContainer.innerHTML = `
-            <p class="text-3xl font-bold text-gray-900">${'$' + (data.btc_price_usd ? data.btc_price_usd.toLocaleString('en-US') : 'N/A')}</p>
-            <p class="text-sm font-semibold ${changeClass}">${change !== null ? change.toFixed(2) : 'N/A'}% (24h)</p>`;
-        try { btcContainer.dataset.btcPriceUsd = String(data.btc_price_usd); btcContainer.dataset.btcChange24h = String(data.btc_change_24h); } catch(e){}
-    }
-
-    // Cập nhật chỉ số Sợ hãi & Tham lam
-    const fngContainer = selectDashboardElementByLang('fear-greed-container');
-    const fngValue = parseInt(data.fng_value, 10);
-    if (!isNaN(fngValue)) {
-        const fngConfig = {
-            min: 0, max: 100,
-            segments: [
-                { limit: 24, color: 'var(--fng-extreme-fear-color)', label: getTranslatedText('extreme-fear') },
-                { limit: 49, color: 'var(--fng-fear-color)', label: getTranslatedText('fear') },
-                { limit: 54, color: 'var(--fng-neutral-color)', label: getTranslatedText('neutral') },
-                { limit: 74, color: 'var(--fng-greed-color)', label: getTranslatedText('greed') },
-                { limit: 100, color: 'var(--fng-extreme-greed-color)', label: getTranslatedText('extreme-greed') }
-            ]
-        };
-        createGauge(fngContainer, fngValue, fngConfig);
-        try { fngContainer.dataset.value = String(fngValue); } catch(e){}
-    } else {
-        displayError('fear-greed-container', 'Giá trị F&G không hợp lệ.');
-    }
-
-    // Cập nhật chỉ số RSI
-    const rsiContainer = selectDashboardElementByLang('rsi-container');
-    const rsiValue = data.rsi_14;
-    if (rsiValue !== null && rsiValue !== undefined) {
-        const rsiConfig = {
-            min: 0, max: 100,
-            segments: [
-                { limit: 30, color: 'var(--rsi-oversold-color)', label: getTranslatedText('oversold') },
-                { limit: 70, color: 'var(--rsi-neutral-color)', label: getTranslatedText('neutral') },
-                { limit: 100, color: 'var(--rsi-overbought-color)', label: getTranslatedText('overbought') }
-            ]
-        };
-        createGauge(rsiContainer, rsiValue, rsiConfig);
-        try { rsiContainer.dataset.value = String(rsiValue); } catch(e){}
-    } else {
-         displayError('rsi-container', 'Không nhận được giá trị RSI.');
-    }
-}
+// ===== FALLBACK & ERROR HANDLING =====
 
 /**
  * Hiển thị dữ liệu mặc định khi API không khả dụng
@@ -374,6 +496,8 @@ function showErrorNotification(message) {
         }
     }, 5000);
 }
+
+// ===== REPORT NAVIGATION =====
 
 /**
  * Tải nội dung báo cáo từ file tĩnh và tạo mục lục điều hướng.
@@ -510,14 +634,19 @@ async function CreateNav() {
         // Lưu observer vào DOM node để có thể disconnect khi tạo lại nav
         reportContainer._navObserver = observer;
 
-        // Note: initializeAllVisuals_report() is now called from language-toggle.js
- 
     } catch (error) {
         console.error('Lỗi tải báo cáo:', error);
-        document.getElementById('report-container').innerHTML = '<p class="text-red-600 font-semibold">Lỗi: Không thể tải nội dung báo cáo chi tiết.</p>';
+        const reportContainer = document.getElementById('report-container');
+        if (reportContainer) {
+            reportContainer.innerHTML = '<p class="text-red-600 font-semibold">Lỗi: Không thể tải nội dung báo cáo chi tiết.</p>';
+        }
     }
 }
 
+// ===== MAIN INITIALIZATION =====
+
+// Global WebSocket instance
+let dashboardWebSocket = null;
 
 /**
  * Hàm khởi tạo dashboard

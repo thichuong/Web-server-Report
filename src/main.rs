@@ -9,6 +9,7 @@ use serde_json::json;
 use tokio::sync::RwLock;
 use tokio::fs;
 use tera::{Tera, Context};
+use std::error::Error as StdError;
 
 mod data_service;
 mod websocket_service;
@@ -191,7 +192,13 @@ async fn crypto_index(State(state): State<Arc<AppState>>) -> Response {
     match state.tera.render("crypto/routes/reports/view.html", &context) {
         Ok(html) => Html(html).into_response(),
         Err(e) => {
-            eprintln!("Template render error: {}", e);
+            eprintln!("Template render error: {:#?}", e);
+            // Print source chain for deeper error context
+            let mut src = e.source();
+            while let Some(s) = src {
+                eprintln!("Template render error source: {:#?}", s);
+                src = s.source();
+            }
             (StatusCode::INTERNAL_SERVER_ERROR, "Template render error").into_response()
         }
     }
@@ -225,7 +232,12 @@ async fn crypto_view_report(Path(id): Path<i32>, State(state): State<Arc<AppStat
             match state.tera.render("crypto/routes/reports/view.html", &context) {
                 Ok(html) => Html(html).into_response(),
                 Err(e) => {
-                    eprintln!("Template render error: {}", e);
+                    eprintln!("Template render error: {:#?}", e);
+                    let mut src = e.source();
+                    while let Some(s) = src {
+                        eprintln!("Template render error source: {:#?}", s);
+                        src = s.source();
+                    }
                     (StatusCode::INTERNAL_SERVER_ERROR, "Template render error").into_response()
                 }
             }
@@ -262,7 +274,12 @@ async fn pdf_template(Path(id): Path<i32>, State(state): State<Arc<AppState>>) -
             match state.tera.render("crypto/routes/reports/pdf.html", &context) {
                 Ok(html) => Html(html).into_response(),
                 Err(e) => {
-                    eprintln!("Template render error: {}", e);
+                    eprintln!("Template render error: {:#?}", e);
+                    let mut src = e.source();
+                    while let Some(s) = src {
+                        eprintln!("Template render error source: {:#?}", s);
+                        src = s.source();
+                    }
                     (StatusCode::INTERNAL_SERVER_ERROR, "Template render error").into_response()
                 }
             }
@@ -394,7 +411,17 @@ async fn report_list(Query(params): Query<std::collections::HashMap<String, Stri
     match state.tera.render("crypto/routes/reports/list.html", &context) {
         Ok(html) => Html(html).into_response(),
         Err(e) => {
-            eprintln!("Template render error: {}", e);
+            eprintln!("Template render error: {:#?}", e);
+            let mut src = e.source();
+            while let Some(s) = src {
+                eprintln!("Template render error source: {:#?}", s);
+                src = s.source();
+            }
+            // Dump the reports JSON context to help diagnose template issues
+            match serde_json::to_string_pretty(&reports) {
+                Ok(s) => eprintln!("reports context: {}", s),
+                Err(_) => eprintln!("Failed to serialize reports context for debugging"),
+            }
             (StatusCode::INTERNAL_SERVER_ERROR, "Template render error").into_response()
         }
     }
