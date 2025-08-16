@@ -20,7 +20,7 @@ lazy_static! {
             .danger_accept_invalid_certs(false)   // Đảm bảo cert validation
             .tls_built_in_root_certs(true)       // Sử dụng built-in CA certificates
             .https_only(false)                    // Allow HTTP for local dev
-            .http2_prior_knowledge()              // Use HTTP/2 when possible
+            // REMOVED: http2_prior_knowledge() - causes frame size errors
             // User Agent để tránh bị block
             .user_agent("Mozilla/5.0 (compatible; RustWebServer/1.0)")
             // Retry configuration
