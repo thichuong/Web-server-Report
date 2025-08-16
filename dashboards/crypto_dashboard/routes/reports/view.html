@@ -39,6 +39,57 @@
                 <a href="/crypto_reports_list" class="inline-block bg-gray-700 text-white font-bold py-3 px-6 rounded-lg"><span data-i18n="view-report-history">Lịch sử báo cáo</span></a>
             </div>
         </header>
+
+        <div class="space-y-6 mb-12">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="card">
+                    <div class="flex items-center mb-2">
+                        <i class="fab fa-bitcoin text-yellow-500 text-3xl mr-3"></i>
+                        <h3 class="text-lg font-semibold text-gray-700">Giá BTC</h3>
+                    </div>
+                    <div id="btc-price-container">
+                        <div class="skeleton h-9 w-3/4 mb-2"></div>
+                        <div class="skeleton h-5 w-1/2"></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="flex items-center mb-2">
+                        <i class="fas fa-globe-americas text-blue-500 text-3xl mr-3"></i>
+                        <h3 class="text-lg font-semibold text-gray-700">Tổng Vốn Hóa</h3>
+                    </div>
+                    <div id="market-cap-container">
+                        <div class="skeleton h-9 w-3/4 mb-2"></div>
+                        <div class="skeleton h-5 w-1/2"></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="flex items-center mb-2">
+                        <i class="fas fa-chart-line text-green-500 text-3xl mr-3"></i>
+                        <h3 class="text-lg font-semibold text-gray-700">Khối Lượng Giao Dịch 24h</h3>
+                    </div>
+                     <div id="volume-24h-container">
+                        <div class="skeleton h-9 w-3/4 mb-2"></div>
+                        <div class="skeleton h-5 w-1/2"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="card">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4 text-center">Chỉ số Sợ hãi & Tham lam</h3>
+                    <div id="fear-greed-container" class="w-full max-w-sm mx-auto">
+                        <div class="skeleton h-48 w-full rounded-full"></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4 text-center">Chỉ số Sức mạnh Tương đối (RSI 14) - BTC</h3>
+                    <div id="rsi-container" class="w-full max-w-sm mx-auto">
+                        <div class="skeleton h-48 w-full rounded-full"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Tuyên bố miễn trừ trách nhiệm: chỉ mang tính chất tham khảo (i18n) -->
         <div id="disclaimer" class="mb-6">
             <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
@@ -82,6 +133,7 @@
     </script>
 
     <script src="/shared_components/core/theme-manager.js" defer></script>
+    <script src="/shared_components/websocket-dashboard.js" defer></script>
     <script src="/crypto_dashboard/assets/dashboard.js" defer></script>
     <script src="/shared_components/core/language-toggle.js" defer></script>
 </body>

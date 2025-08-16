@@ -1,4 +1,4 @@
-use axum::{extract::{Path, Query, State}, http::StatusCode, response::{Html, IntoResponse, Response}, routing::get, Json, Router};
+use axum::{extract::{Path, Query, State, ws::WebSocketUpgrade}, http::StatusCode, response::{Html, IntoResponse, Response}, routing::get, Json, Router};
 use tower_http::services::ServeDir;
 use dotenvy::dotenv;
 use serde::Serialize;
@@ -10,6 +10,11 @@ use tokio::sync::RwLock;
 use tokio::fs;
 use tera::{Tera, Context};
 
+mod data_service;
+mod websocket_service;
+
+use data_service::DataService;
+
 struct AppState {
     db: PgPool,
     auto_update_secret: Option<String>,
@@ -17,6 +22,8 @@ struct AppState {
     chart_modules_cache: RwLock<Option<String>>,
     // Tera template engine
     tera: Tera,
+    // WebSocket service for real-time updates
+    websocket_service: Arc<crate::websocket_service::WebSocketService>,
 }
 
 #[derive(FromRow, Serialize, Debug)]
@@ -36,8 +43,19 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set in .env");
     let auto_update_secret = env::var("AUTO_UPDATE_SECRET_KEY").ok();
+    let taapi_secret = env::var("TAAPI_SECRET").expect("TAAPI_SECRET must be set in .env");
+    let redis_url = env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
 
     let pool = PgPool::connect(&database_url).await?;
+
+    // Initialize data service
+    let data_service = DataService::new(taapi_secret);
+    
+    // Initialize WebSocket service
+    let websocket_service = Arc::new(crate::websocket_service::WebSocketService::new(&redis_url, data_service)?);
+    
+    // Start background data updates
+    websocket_service.start_background_updates().await;
 
     // Initialize Tera template engine with new architecture
     let mut tera = Tera::default();
@@ -63,6 +81,7 @@ async fn main() -> Result<(), anyhow::Error> {
         auto_update_secret, 
         chart_modules_cache: RwLock::new(None),
         tera,
+        websocket_service,
     };
     let shared_state = Arc::new(state);
 
@@ -97,6 +116,11 @@ async fn main() -> Result<(), anyhow::Error> {
         .route("/crypto_reports_list", get(report_list))
         .route("/upload", get(upload_page))
         .route("/auto-update-system-:secret", get(auto_update))
+        // New WebSocket and API routes
+        .route("/ws", get(websocket_handler))
+        .route("/api/crypto/dashboard-summary", get(dashboard_summary_api))
+        .route("/api/crypto/dashboard-summary/refresh", get(force_refresh_dashboard))
+        .route("/shared_assets/js/chart_modules.js", get(serve_chart_modules))
     .with_state(shared_state);
 
     let host = env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
@@ -471,4 +495,82 @@ async fn get_chart_modules_content(state: &AppState) -> String {
     }
 
     final_content
+}
+
+async fn serve_chart_modules(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let content = get_chart_modules_content(&state).await;
+    Response::builder()
+        .status(StatusCode::OK)
+        .header("content-type", "application/javascript")
+        .header("cache-control", "public, max-age=3600")
+        .body(content)
+        .unwrap()
+}
+
+// WebSocket handler for real-time updates
+async fn websocket_handler(
+    ws: WebSocketUpgrade,
+    State(state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    ws.on_upgrade(move |socket| async move {
+        state.websocket_service.handle_websocket(socket).await;
+    })
+}
+
+// API endpoint to get cached dashboard summary
+async fn dashboard_summary_api(
+    State(state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    match state.websocket_service.get_cached_dashboard_data().await {
+        Ok(Some(data)) => Json(data).into_response(),
+        Ok(None) => {
+            // No cached data, try to fetch fresh data
+            match state.websocket_service.force_update_dashboard().await {
+                Ok(data) => Json(data).into_response(),
+                Err(e) => {
+                    eprintln!("Failed to fetch dashboard data: {}", e);
+                    (
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        Json(json!({
+                            "error": "Service temporarily unavailable",
+                            "message": "Unable to fetch dashboard data"
+                        }))
+                    ).into_response()
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("Redis error: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": "Internal server error",
+                    "message": "Database connection failed"
+                }))
+            ).into_response()
+        }
+    }
+}
+
+// API endpoint to force refresh dashboard data
+async fn force_refresh_dashboard(
+    State(state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    match state.websocket_service.force_update_dashboard().await {
+        Ok(data) => Json(json!({
+            "status": "success",
+            "message": "Dashboard data refreshed",
+            "data": data
+        })).into_response(),
+        Err(e) => {
+            eprintln!("Failed to refresh dashboard data: {}", e);
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({
+                    "error": "Service temporarily unavailable",
+                    "message": format!("Unable to refresh dashboard data: {}", e)
+                }))
+            ).into_response()
+        }
+    }
 }

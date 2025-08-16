@@ -15,6 +15,15 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 
 WORKDIR /app
 
+# Copy dependency files first for better caching
+COPY Cargo.toml Cargo.lock ./
+
+# Create dummy main for dependency compilation
+RUN mkdir src && echo "fn main() {}" > src/main.rs
+
+# Build dependencies only (this layer will be cached)
+RUN cargo build --release && rm -rf src target/release/deps/web_server_report*
+
 # Copy source code
 COPY . .
 
@@ -28,6 +37,7 @@ FROM ubuntu:22.04
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl3 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
