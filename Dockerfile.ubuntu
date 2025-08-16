@@ -32,12 +32,18 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy the binary and assets
+# Copy the binary and required assets
 COPY --from=builder /app/target/release/web-server-report .
-# Copy the entire reorganized `crypto_dashboard` directory into the runtime
-# image. The server is wired to look up templates and assets under
-# `crypto_dashboard` so a single copy is sufficient and keeps the image tidy.
-COPY --from=builder /app/crypto_dashboard ./crypto_dashboard
+
+# Copy the new dashboard structure
+COPY --from=builder /app/dashboards ./dashboards
+
+# Copy shared components and assets
+COPY --from=builder /app/shared_components ./shared_components
+COPY --from=builder /app/shared_assets ./shared_assets
+
+# Copy any additional static files if needed  
+COPY --from=builder /app/static ./static
 
 # Create non-root user
 RUN useradd -r -u 1001 appuser && chown -R appuser:appuser /app
