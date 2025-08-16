@@ -21,13 +21,15 @@ struct AppState {
     auto_update_secret: Option<String>,
     // cache for concatenated chart modules JS (None until populated)
     chart_modules_cache: RwLock<Option<String>>,
+    // cache for the latest report to avoid querying DB on every index request
+    cached_latest_report: RwLock<Option<Report>>,
     // Tera template engine
     tera: Tera,
     // WebSocket service for real-time updates
     websocket_service: Arc<crate::websocket_service::WebSocketService>,
 }
 
-#[derive(FromRow, Serialize, Debug)]
+#[derive(FromRow, Serialize, Debug, Clone)]
 struct Report {
     id: i32,
     html_content: String,
@@ -81,10 +83,29 @@ async fn main() -> Result<(), anyhow::Error> {
         db: pool, 
         auto_update_secret, 
         chart_modules_cache: RwLock::new(None),
+        cached_latest_report: RwLock::new(None),
         tera,
         websocket_service,
     };
     let shared_state = Arc::new(state);
+
+    // Prime the latest-report cache once at startup to reduce first-request latency
+    // (best-effort; failure won't stop the server)
+    {
+        let s = Arc::clone(&shared_state);
+        let pool_ref = s.db.clone();
+        tokio::spawn(async move {
+            if let Ok(Some(report)) = sqlx::query_as::<_, Report>(
+                "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM report ORDER BY created_at DESC LIMIT 1",
+            )
+            .fetch_optional(&pool_ref)
+            .await
+            {
+                let mut w = s.cached_latest_report.write().await;
+                *w = Some(report);
+            }
+        });
+    }
 
     // Serve crypto_dashboard assets at /crypto_dashboard/assets and keep a compatibility
     // mount for /static (optional) to avoid breaking external links. We also serve the
@@ -141,29 +162,67 @@ async fn health() -> impl IntoResponse {
 }
 
 async fn crypto_index(State(state): State<Arc<AppState>>) -> Response {
-    let rec = sqlx::query_as::<_, Report>(
-            "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM report ORDER BY created_at DESC LIMIT 1",
-    )
-    .fetch_optional(&state.db)
-    .await;
+    // Try cache first (fast path)
+    if let Some(cached) = state.cached_latest_report.read().await.clone() {
+        // Spawn chart module read concurrently while we prepare context
+        let chart_fut = get_chart_modules_content(&state);
+        let chart_modules_content = chart_fut.await;
 
-    // Get chart modules content
-    let chart_modules_content = get_chart_modules_content(&state).await;
+        let mut context = Context::new();
+        context.insert("current_route", "dashboard");
+        context.insert("current_lang", "vi");
+        context.insert("current_time", &chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string());
+        context.insert("report", &cached);
+        context.insert("chart_modules_content", &chart_modules_content);
+        let pdf_url = format!("/pdf-template/{}", cached.id);
+        context.insert("pdf_url", &pdf_url);
 
-    // Create Tera context for new architecture
+        match state.tera.render("crypto/routes/reports/view.html", &context) {
+            Ok(html) => {
+                return Response::builder()
+                    .status(StatusCode::OK)
+                    .header("cache-control", "public, max-age=15") // short client cache to reduce repeat hits
+                    .header("content-type", "text/html; charset=utf-8")
+                    .body(html)
+                    .unwrap()
+                    .into_response();
+            }
+            Err(e) => {
+                eprintln!("Template render error: {:#?}", e);
+                let mut src = e.source();
+                while let Some(s) = src {
+                    eprintln!("Template render error source: {:#?}", s);
+                    src = s.source();
+                }
+                return (StatusCode::INTERNAL_SERVER_ERROR, "Template render error").into_response();
+            }
+        }
+    }
+
+    // Cache miss: fetch DB and chart modules concurrently to reduce latency
+    let db_fut = sqlx::query_as::<_, Report>(
+        "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM report ORDER BY created_at DESC LIMIT 1",
+    ).fetch_optional(&state.db);
+    let chart_fut = get_chart_modules_content(&state);
+
+    let (db_res, chart_modules_content) = tokio::join!(db_fut, chart_fut);
+
+    // Create Tera context
     let mut context = Context::new();
-    
-    // Add common template variables
     context.insert("current_route", "dashboard");
-    context.insert("current_lang", "vi"); // Default language
+    context.insert("current_lang", "vi");
     context.insert("current_time", &chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string());
-    
-    match &rec {
+
+    match db_res {
         Ok(Some(report)) => {
-            context.insert("report", report);
+            // prime cache
+            let mut w = state.cached_latest_report.write().await;
+            *w = Some(report.clone());
+            context.insert("report", &report);
+            let pdf_url = format!("/pdf-template/{}", report.id);
+            context.insert("pdf_url", &pdf_url);
         }
         Ok(None) => {
-            // Create empty report for template
             let empty_report = serde_json::json!({
                 "html_content": "",
                 "html_content_en": "",
@@ -171,6 +230,7 @@ async fn crypto_index(State(state): State<Arc<AppState>>) -> Response {
                 "js_content": ""
             });
             context.insert("report", &empty_report);
+            context.insert("pdf_url", &"#");
         }
         Err(e) => {
             eprintln!("DB error: {}", e);
@@ -178,22 +238,18 @@ async fn crypto_index(State(state): State<Arc<AppState>>) -> Response {
         }
     }
 
-    // Add chart modules function result
     context.insert("chart_modules_content", &chart_modules_content);
 
-    // Insert pdf_url for the print button; if report exists, link to /pdf-template/<id>
-    let pdf_url = match &rec {
-        Ok(Some(r)) => format!("/pdf-template/{}", r.id),
-        _ => "#".to_string(),
-    };
-    context.insert("pdf_url", &pdf_url);
-
-    // Use reports view template directly
     match state.tera.render("crypto/routes/reports/view.html", &context) {
-        Ok(html) => Html(html).into_response(),
+        Ok(html) => Response::builder()
+                .status(StatusCode::OK)
+                .header("cache-control", "public, max-age=15")
+                .header("content-type", "text/html; charset=utf-8")
+                .body(html)
+                .unwrap()
+                .into_response(),
         Err(e) => {
             eprintln!("Template render error: {:#?}", e);
-            // Print source chain for deeper error context
             let mut src = e.source();
             while let Some(s) = src {
                 eprintln!("Template render error source: {:#?}", s);
