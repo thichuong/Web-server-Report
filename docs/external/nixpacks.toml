@@ -1,0 +1,12 @@
+# Force Nixpacks to use Rust
+[variables]
+NIXPACKS_METADATA = "rust"
+
+[phases.setup]
+nixPkgs = ["rustc", "cargo", "gcc", "pkg-config", "openssl"]
+
+[phases.build]
+cmd = "cargo build --release"
+
+[start]
+cmd = "target/release/web-server-report"
