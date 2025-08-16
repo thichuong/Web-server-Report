@@ -3,6 +3,7 @@
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::time::Duration;
 use anyhow::{Result, Context};
 
 // API URLs
@@ -78,21 +79,54 @@ impl DataService {
     pub async fn fetch_dashboard_summary(&self) -> Result<DashboardSummary> {
         println!("🔄 Fetching dashboard summary from external APIs...");
 
-        // Fetch all data concurrently
-        let (global_result, btc_result, fng_result, rsi_result) = tokio::try_join!(
-            self.fetch_global_data(),
-            self.fetch_btc_price(),
-            self.fetch_fear_greed(),
-            self.fetch_rsi()
-        )?;
+        // Fetch all data concurrently với better error handling
+        let (global_result, btc_result, fng_result, rsi_result) = tokio::join!(
+            self.fetch_global_data_with_retry(),
+            self.fetch_btc_price_with_retry(),
+            self.fetch_fear_greed_with_retry(),
+            self.fetch_rsi_with_retry()
+        );
+
+        // Handle partial failures gracefully
+        let (market_cap, volume_24h) = match global_result {
+            Ok(data) => data,
+            Err(e) => {
+                eprintln!("⚠️ Failed to fetch global data: {}", e);
+                (0.0, 0.0) // Default values
+            }
+        };
+
+        let (btc_price_usd, btc_change_24h) = match btc_result {
+            Ok(data) => data,
+            Err(e) => {
+                eprintln!("⚠️ Failed to fetch BTC price: {}", e);
+                (0.0, 0.0) // Default values
+            }
+        };
+
+        let fng_value = match fng_result {
+            Ok(value) => value,
+            Err(e) => {
+                eprintln!("⚠️ Failed to fetch Fear & Greed: {}", e);
+                50 // Neutral default
+            }
+        };
+
+        let rsi_14 = match rsi_result {
+            Ok(value) => value,
+            Err(e) => {
+                eprintln!("⚠️ Failed to fetch RSI: {}", e);
+                50.0 // Neutral default
+            }
+        };
 
         let summary = DashboardSummary {
-            market_cap: global_result.0,
-            volume_24h: global_result.1,
-            btc_price_usd: btc_result.0,
-            btc_change_24h: btc_result.1,
-            fng_value: fng_result,
-            rsi_14: rsi_result,
+            market_cap,
+            volume_24h,
+            btc_price_usd,
+            btc_change_24h,
+            fng_value,
+            rsi_14,
             last_updated: chrono::Utc::now(),
         };
 
@@ -100,12 +134,61 @@ impl DataService {
         Ok(summary)
     }
 
+    // Retry wrapper methods with exponential backoff
+    async fn fetch_global_data_with_retry(&self) -> Result<(f64, f64)> {
+        self.retry_with_backoff(|| self.fetch_global_data(), 3).await
+    }
+
+    async fn fetch_btc_price_with_retry(&self) -> Result<(f64, f64)> {
+        self.retry_with_backoff(|| self.fetch_btc_price(), 3).await
+    }
+
+    async fn fetch_fear_greed_with_retry(&self) -> Result<u32> {
+        self.retry_with_backoff(|| self.fetch_fear_greed(), 3).await
+    }
+
+    async fn fetch_rsi_with_retry(&self) -> Result<f64> {
+        self.retry_with_backoff(|| self.fetch_rsi(), 3).await
+    }
+
+    // Generic retry logic with exponential backoff
+    async fn retry_with_backoff<T, F, Fut>(&self, mut operation: F, max_retries: u32) -> Result<T>
+    where
+        F: FnMut() -> Fut,
+        Fut: std::future::Future<Output = Result<T>>,
+    {
+        let mut retries = 0;
+        loop {
+            match operation().await {
+                Ok(result) => return Ok(result),
+                Err(err) => {
+                    retries += 1;
+                    if retries >= max_retries {
+                        return Err(err);
+                    }
+                    
+                    // Exponential backoff: 1s, 2s, 4s
+                    let delay = Duration::from_secs(2u64.pow(retries - 1));
+                    println!("⏳ Retry {}/{} after {}s: {}", retries, max_retries, delay.as_secs(), err);
+                    tokio::time::sleep(delay).await;
+                }
+            }
+        }
+    }
+
     async fn fetch_global_data(&self) -> Result<(f64, f64)> {
         let response = self.client
             .get(BASE_GLOBAL_URL)
+            .header("Accept", "application/json")
+            .header("User-Agent", "Mozilla/5.0 (compatible; RustWebServer/1.0)")
             .send()
             .await
-            .context("Failed to fetch global data")?;
+            .context("Failed to fetch global data - SSL/network error")?;
+
+        // Check response status
+        if !response.status().is_success() {
+            anyhow::bail!("Global data API returned error: {}", response.status());
+        }
 
         let global_data: CoinGeckoGlobal = response
             .json()
@@ -129,9 +212,16 @@ impl DataService {
     async fn fetch_btc_price(&self) -> Result<(f64, f64)> {
         let response = self.client
             .get(BASE_BTC_PRICE_URL)
+            .header("Accept", "application/json")
+            .header("User-Agent", "Mozilla/5.0 (compatible; RustWebServer/1.0)")
             .send()
             .await
-            .context("Failed to fetch BTC price")?;
+            .context("Failed to fetch BTC price - SSL/network error")?;
+
+        // Check response status
+        if !response.status().is_success() {
+            anyhow::bail!("BTC price API returned error: {}", response.status());
+        }
 
         let btc_data: CoinGeckoBtcPrice = response
             .json()
@@ -148,9 +238,16 @@ impl DataService {
     async fn fetch_fear_greed(&self) -> Result<u32> {
         let response = self.client
             .get(BASE_FNG_URL)
+            .header("Accept", "application/json")
+            .header("User-Agent", "Mozilla/5.0 (compatible; RustWebServer/1.0)")
             .send()
             .await
-            .context("Failed to fetch Fear & Greed index")?;
+            .context("Failed to fetch Fear & Greed index - SSL/network error")?;
+
+        // Check response status
+        if !response.status().is_success() {
+            anyhow::bail!("Fear & Greed API returned error: {}", response.status());
+        }
 
         let fng_data: FearGreedResponse = response
             .json()
@@ -173,9 +270,16 @@ impl DataService {
         
         let response = self.client
             .get(&url)
+            .header("Accept", "application/json")
+            .header("User-Agent", "Mozilla/5.0 (compatible; RustWebServer/1.0)")
             .send()
             .await
-            .context("Failed to fetch RSI data")?;
+            .context("Failed to fetch RSI data - SSL/network error")?;
+
+        // Check response status
+        if !response.status().is_success() {
+            anyhow::bail!("RSI API returned error: {}", response.status());
+        }
 
         let rsi_data: TaapiRsiResponse = response
             .json()

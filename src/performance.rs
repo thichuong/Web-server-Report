@@ -7,15 +7,24 @@ use dashmap::DashMap;
 use lazy_static::lazy_static;
 use threadpool::ThreadPool;
 
-// Global optimized HTTP client với connection pooling
+// Global optimized HTTP client với connection pooling và SSL configuration
 lazy_static! {
     pub static ref OPTIMIZED_HTTP_CLIENT: reqwest::Client = {
         reqwest::Client::builder()
-            .timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(30))     // Tăng timeout cho Railway
+            .connect_timeout(Duration::from_secs(10))  // Connection timeout riêng biệt
             .pool_max_idle_per_host(20)           // Reuse connections
             .pool_idle_timeout(Duration::from_secs(30))
             .tcp_keepalive(Duration::from_secs(60))
+            // SSL/TLS Configuration cho production
+            .danger_accept_invalid_certs(false)   // Đảm bảo cert validation
+            .tls_built_in_root_certs(true)       // Sử dụng built-in CA certificates
+            .https_only(false)                    // Allow HTTP for local dev
             .http2_prior_knowledge()              // Use HTTP/2 when possible
+            // User Agent để tránh bị block
+            .user_agent("Mozilla/5.0 (compatible; RustWebServer/1.0)")
+            // Retry configuration
+            .tcp_nodelay(true)                    // Disable Nagle algorithm
             .build()
             .expect("Failed to create optimized HTTP client")
     };

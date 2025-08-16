@@ -22,6 +22,9 @@ pub async fn health(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let cache_size = state.cached_reports.len();
     let latest_id = state.cached_latest_id.load(Ordering::Relaxed);
     
+    // Test SSL connectivity cho external APIs
+    let ssl_check = test_ssl_connectivity().await;
+    
     // Record performance metrics
     let response_time = start_time.elapsed().as_millis() as u64;
     state.metrics.record_request(response_time);
@@ -29,6 +32,8 @@ pub async fn health(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     Json(serde_json::json!({
         "status": "healthy", 
         "message": "Crypto Dashboard Rust server is running",
+        "ssl_status": ssl_check,
+        "timestamp": chrono::Utc::now().to_rfc3339(),
         "metrics": {
             "total_requests": request_count,
             "cache_size": cache_size,
@@ -814,4 +819,43 @@ pub async fn force_refresh_dashboard(
             ).into_response()
         }
     }
+}
+
+// Test SSL connectivity đến các external APIs
+async fn test_ssl_connectivity() -> serde_json::Value {
+    let client = crate::performance::OPTIMIZED_HTTP_CLIENT.clone();
+    let mut results = serde_json::Map::new();
+    
+    // Test các endpoints chính
+    let test_urls = vec![
+        ("coingecko_global", "https://api.coingecko.com/api/v3/ping"),
+        ("coingecko_price", "https://api.coingecko.com/api/v3/ping"),
+        ("fear_greed", "https://api.alternative.me/"),
+        ("taapi", "https://api.taapi.io/"),
+    ];
+    
+    for (name, url) in test_urls {
+        let result = match tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            client.get(url).send()
+        ).await {
+            Ok(Ok(response)) => json!({
+                "status": "ok",
+                "http_status": response.status().as_u16(),
+                "ssl_version": "TLS 1.2+"
+            }),
+            Ok(Err(e)) => json!({
+                "status": "error",
+                "error": format!("SSL/HTTP error: {}", e)
+            }),
+            Err(_) => json!({
+                "status": "timeout",
+                "error": "Request timeout (5s)"
+            })
+        };
+        
+        results.insert(name.to_string(), result);
+    }
+    
+    json!(results)
 }

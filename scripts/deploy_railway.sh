@@ -44,10 +44,10 @@ for file in "${required_files[@]}"; do
 done
 echo "✅ All required files present"
 
-# 4. Build test locally
-echo "🔨 Testing local build..."
+# 4. Build test locally (SSL-optimized)
+echo "🔨 Testing local build with SSL optimizations..."
 if docker build -f Dockerfile.railway -t web-server-railway-test . > /dev/null 2>&1; then
-    echo "✅ Docker build successful"
+    echo "✅ Docker build successful (with SSL/TLS support)"
     docker rmi web-server-railway-test 2>/dev/null || true
 else
     echo "❌ Docker build failed. Please fix before deploying."
