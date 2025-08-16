@@ -27,7 +27,7 @@ Web-server-Report/
 │   │   └── charts/                    # Chart styling
 │   └── js/                            # JavaScript chung
 │       └── chart_modules/             # Chart components
-└── 🐳 Dockerfile & Dockerfile.ubuntu  # Docker đã cập nhật
+└── 🐳 Dockerfile & Dockerfile.ubuntu  # Docker đã tối ưu (không cần static)
 ```
 
 ### 🚀 Cải Tiến Chính / Key Improvements
@@ -68,7 +68,7 @@ Web-server-Report/
 **Asset Serving:**
 - `/shared_assets/*` → `shared_assets/`
 - `/crypto_assets/*` → `dashboards/crypto_dashboard/assets/`
-- `/static/*` → `static/`
+- `/static/*` → `dashboards/crypto_dashboard/assets/` (legacy compatibility)
 
 ### 🔧 Technical Stack
 

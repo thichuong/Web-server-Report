@@ -42,9 +42,6 @@ COPY --from=builder /app/dashboards ./dashboards
 COPY --from=builder /app/shared_components ./shared_components
 COPY --from=builder /app/shared_assets ./shared_assets
 
-# Copy any additional static files if needed  
-COPY --from=builder /app/static ./static
-
 # Create non-root user
 RUN useradd -r -u 1001 appuser && chown -R appuser:appuser /app
 USER appuser

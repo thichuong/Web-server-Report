@@ -46,9 +46,6 @@ COPY --from=builder /app/dashboards ./dashboards
 COPY --from=builder /app/shared_components ./shared_components
 COPY --from=builder /app/shared_assets ./shared_assets
 
-# Copy any additional static files if needed
-COPY --from=builder /app/static ./static
-
 # Set proper permissions
 RUN chmod +x ./web-server-report
 
