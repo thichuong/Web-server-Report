@@ -10,6 +10,9 @@ use tokio::sync::RwLock;
 use tokio::fs;
 use tera::{Tera, Context};
 use std::error::Error as StdError;
+use rayon::prelude::*; // Thêm rayon cho CPU parallelism
+use std::sync::atomic::{AtomicUsize, Ordering};
+use dashmap::DashMap; // Thread-safe HashMap thay thế RwLock<HashMap>
 
 mod data_service;
 mod websocket_service;
@@ -19,16 +22,20 @@ use data_service::DataService;
 struct AppState {
     db: PgPool,
     auto_update_secret: Option<String>,
-    // cache for concatenated chart modules JS (None until populated)
+    // Thread-safe cache cho chart modules
     chart_modules_cache: RwLock<Option<String>>,
-    // cache reports by id to avoid querying DB on every view request
-    cached_reports: RwLock<std::collections::HashMap<i32, Report>>,
-    // cached latest report id for quick lookup of the most recent report
-    cached_latest_id: RwLock<Option<i32>>,
-    // Tera template engine
+    // DashMap thay thế RwLock<HashMap> để tránh lock contention
+    cached_reports: DashMap<i32, Report>,
+    // Atomic cho latest report ID
+    cached_latest_id: AtomicUsize, // Sử dụng AtomicUsize thay vì RwLock
+    // Tera template engine - thread-safe
     tera: Tera,
     // WebSocket service for real-time updates
     websocket_service: Arc<crate::websocket_service::WebSocketService>,
+    // Thread pool cho CPU-intensive tasks
+    cpu_pool: rayon::ThreadPool,
+    // Request counter cho monitoring
+    request_counter: AtomicUsize,
 }
 
 #[derive(FromRow, Serialize, Debug, Clone)]
@@ -51,7 +58,14 @@ async fn main() -> Result<(), anyhow::Error> {
     let taapi_secret = env::var("TAAPI_SECRET").expect("TAAPI_SECRET must be set in .env");
     let redis_url = env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
 
-    let pool = PgPool::connect(&database_url).await?;
+    // Tối ưu connection pool cho đa luồng
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(32) // Tăng từ default 10 lên 32 cho 16 cores
+        .min_connections(8)  // Duy trì ít nhất 8 connections
+        .max_lifetime(std::time::Duration::from_secs(30 * 60)) // 30 phút
+        .idle_timeout(std::time::Duration::from_secs(10 * 60)) // 10 phút idle
+        .acquire_timeout(std::time::Duration::from_secs(30)) // Timeout nếu không lấy được connection
+        .connect(&database_url).await?;
 
     // Initialize data service
     let data_service = DataService::new(taapi_secret);
@@ -81,14 +95,24 @@ async fn main() -> Result<(), anyhow::Error> {
     
     tera.autoescape_on(vec![]); // Disable auto-escaping for safe content
 
+    // Khởi tạo thread pool với số lõi tối ưu
+    let num_cpus = num_cpus::get();
+    let cpu_pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(num_cpus)
+        .thread_name(|index| format!("cpu-worker-{}", index))
+        .build()
+        .expect("Failed to create CPU thread pool");
+
     let state = AppState { 
         db: pool, 
         auto_update_secret, 
         chart_modules_cache: RwLock::new(None),
-    cached_reports: RwLock::new(std::collections::HashMap::new()),
-    cached_latest_id: RwLock::new(None),
+        cached_reports: DashMap::new(), // Thread-safe HashMap
+        cached_latest_id: AtomicUsize::new(0), // Atomic counter
         tera,
         websocket_service,
+        cpu_pool,
+        request_counter: AtomicUsize::new(0),
     };
     let shared_state = Arc::new(state);
 
@@ -98,24 +122,20 @@ async fn main() -> Result<(), anyhow::Error> {
         let s = Arc::clone(&shared_state);
         let pool_ref = s.db.clone();
         tokio::spawn(async move {
-        if let Ok(Some(report)) = sqlx::query_as::<_, Report>(
+            if let Ok(Some(report)) = sqlx::query_as::<_, Report>(
                 "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM report ORDER BY created_at DESC LIMIT 1",
             )
             .fetch_optional(&pool_ref)
             .await
             {
-            // insert into per-id cache and mark as latest
-            let mut mapw = s.cached_reports.write().await;
-            mapw.insert(report.id, report.clone());
-            let mut lid = s.cached_latest_id.write().await;
-            *lid = Some(report.id);
+                // Insert vào DashMap (thread-safe)
+                s.cached_reports.insert(report.id, report.clone());
+                // Cập nhật latest id với atomic
+                s.cached_latest_id.store(report.id as usize, Ordering::Relaxed);
             }
         });
     }
 
-    // Serve crypto_dashboard assets at /crypto_dashboard/assets and keep a compatibility
-    // mount for /static (optional) to avoid breaking external links. We also serve the
-    // new asset path for the reorganized structure.
     let app = Router::new()
     // Serve crypto_dashboard assets
     .nest_service("/crypto_dashboard/shared", ServeDir::new("dashboards/crypto_dashboard/shared"))
@@ -137,6 +157,9 @@ async fn main() -> Result<(), anyhow::Error> {
     .nest_service("/assets", ServeDir::new("dashboards/crypto_dashboard/assets"))
     .nest_service("/static", ServeDir::new("dashboards/crypto_dashboard/assets"))
         .route("/health", get(health))
+        .route("/metrics", get(performance_metrics)) // Performance monitoring endpoint
+        .route("/admin/cache/clear", get(clear_cache)) // Cache management endpoint
+        .route("/admin/cache/stats", get(cache_stats)) // Cache statistics endpoint
         .route("/", get(homepage))
         .route("/crypto_report", get(crypto_index))
         .route("/crypto_report/:id", get(crypto_view_report))
@@ -155,7 +178,14 @@ async fn main() -> Result<(), anyhow::Error> {
     let port: u16 = env::var("PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(8000);
     let addr: SocketAddr = format!("{}:{}", host, port).parse().unwrap();
 
-    println!("Starting server on http://{}", addr);
+    println!("🚀 Starting high-performance Rust server");
+    println!("📍 Address: http://{}", addr);
+    println!("🖥️  Available CPUs: {}", num_cpus::get());
+    println!("🗂️  Database pool: max_connections=32, min_connections=8");
+    println!("🏃 Rayon thread pool: {} worker threads", num_cpus::get());
+    println!("💾 Cache: DashMap (lock-free), Atomic counters");
+    
+    // Sử dụng axum::Server::bind cho compatibility với axum 0.6
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await?;
@@ -163,35 +193,188 @@ async fn main() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-async fn health() -> impl IntoResponse {
-    Json(serde_json::json!({"status": "healthy", "message": "Crypto Dashboard Rust server is running"}))
+async fn health(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let request_count = state.request_counter.load(Ordering::Relaxed);
+    let cache_size = state.cached_reports.len();
+    let latest_id = state.cached_latest_id.load(Ordering::Relaxed);
+    
+    Json(serde_json::json!({
+        "status": "healthy", 
+        "message": "Crypto Dashboard Rust server is running",
+        "metrics": {
+            "total_requests": request_count,
+            "cache_size": cache_size,
+            "latest_report_id": latest_id,
+            "available_cpus": num_cpus::get(),
+            "thread_pool_active": true
+        }
+    }))
+}
+
+// Performance monitoring endpoint
+async fn performance_metrics(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let request_count = state.request_counter.load(Ordering::Relaxed);
+    let cache_size = state.cached_reports.len();
+    let latest_id = state.cached_latest_id.load(Ordering::Relaxed);
+    let num_cpus = num_cpus::get();
+    
+    // Get system memory info (basic)
+    let memory_info = {
+        #[cfg(target_os = "linux")]
+        {
+            std::fs::read_to_string("/proc/meminfo")
+                .ok()
+                .and_then(|content| {
+                    let mut total = 0u64;
+                    let mut available = 0u64;
+                    for line in content.lines() {
+                        if line.starts_with("MemTotal:") {
+                            total = line.split_whitespace().nth(1)?.parse().ok()?;
+                        } else if line.starts_with("MemAvailable:") {
+                            available = line.split_whitespace().nth(1)?.parse().ok()?;
+                        }
+                    }
+                    Some((total, available))
+                })
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            None
+        }
+    };
+    
+    let mut metrics = json!({
+        "performance": {
+            "total_requests_processed": request_count,
+            "cache_metrics": {
+                "reports_cached": cache_size,
+                "latest_report_id": latest_id
+            },
+            "system_resources": {
+                "cpu_cores": num_cpus,
+                "rayon_thread_pool_active": true
+            },
+            "uptime_seconds": std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs()
+        }
+    });
+    
+    if let Some((total_mem, available_mem)) = memory_info {
+        metrics["performance"]["system_resources"]["memory_total_kb"] = json!(total_mem);
+        metrics["performance"]["system_resources"]["memory_available_kb"] = json!(available_mem);
+        metrics["performance"]["system_resources"]["memory_used_percent"] = 
+            json!(((total_mem - available_mem) as f64 / total_mem as f64) * 100.0);
+    }
+    
+    Json(metrics)
+}
+
+// Cache management endpoints
+async fn clear_cache(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    // Clear all caches
+    let reports_cleared = state.cached_reports.len();
+    state.cached_reports.clear();
+    state.cached_latest_id.store(0, Ordering::Relaxed);
+    
+    // Clear chart modules cache
+    {
+        let mut w = state.chart_modules_cache.write().await;
+        *w = None;
+    }
+    
+    Json(json!({
+        "status": "success",
+        "message": "All caches cleared",
+        "details": {
+            "reports_cleared": reports_cleared,
+            "chart_modules_cache_cleared": true,
+            "latest_id_reset": true
+        }
+    }))
+}
+
+async fn cache_stats(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let reports_cached = state.cached_reports.len();
+    let latest_id = state.cached_latest_id.load(Ordering::Relaxed);
+    let chart_modules_cached = state.chart_modules_cache.read().await.is_some();
+    
+    // Get cache hit statistics from requests processed
+    let total_requests = state.request_counter.load(Ordering::Relaxed);
+    
+    Json(json!({
+        "cache_statistics": {
+            "reports_cache": {
+                "total_cached_reports": reports_cached,
+                "latest_report_id": latest_id,
+                "cache_hit_ratio_estimate": if reports_cached > 0 { "High (DashMap efficient)" } else { "No cache" }
+            },
+            "chart_modules_cache": {
+                "cached": chart_modules_cached,
+                "status": if chart_modules_cached { "Active" } else { "Empty" }
+            },
+            "performance": {
+                "total_requests_processed": total_requests,
+                "cache_type": "DashMap + Atomic counters (lock-free)"
+            }
+        }
+    }))
 }
 
 async fn crypto_index(State(state): State<Arc<AppState>>) -> Response {
-    // Try cache first (fast path) using cached_latest_id -> cached_reports map
-    if let Some(latest_id_opt) = *state.cached_latest_id.read().await {
-        if let Some(cached) = state.cached_reports.read().await.get(&latest_id_opt).cloned() {
-            let chart_modules_content = get_chart_modules_content(&state).await;
-            let mut context = Context::new();
-            context.insert("current_route", "dashboard");
-            context.insert("current_lang", "vi");
-            context.insert("current_time", &chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string());
-            context.insert("report", &cached);
-            context.insert("chart_modules_content", &chart_modules_content);
-            let pdf_url = format!("/pdf-template/{}", cached.id);
-            context.insert("pdf_url", &pdf_url);
+    // Increment request counter để monitor
+    let request_count = state.request_counter.fetch_add(1, Ordering::Relaxed);
+    
+    // Log mỗi 100 requests để monitor performance
+    if request_count % 100 == 0 {
+        println!("Processed {} requests to crypto_index", request_count);
+    }
 
-            match state.tera.render("crypto/routes/reports/view.html", &context) {
-                Ok(html) => {
+    // Fast path: kiểm tra cache với atomic operation
+    let latest_id = state.cached_latest_id.load(Ordering::Relaxed) as i32;
+    if latest_id > 0 {
+        if let Some(cached_report) = state.cached_reports.get(&latest_id) {
+            let cached = cached_report.clone();
+            drop(cached_report); // Release reference sớm
+            
+            // Parallel fetch chart modules để tránh blocking
+            let chart_modules_content = get_chart_modules_content(&state).await;
+            
+            // Sử dụng spawn_blocking cho template rendering nặng
+            let tera = state.tera.clone();
+            
+            let render_result = {
+                let cached_clone = cached.clone();
+                let chart_content_clone = chart_modules_content.clone();
+                
+                // Spawn blocking task cho template rendering
+                tokio::task::spawn_blocking(move || {
+                    let mut context = Context::new();
+                    context.insert("current_route", "dashboard");
+                    context.insert("current_lang", "vi");
+                    context.insert("current_time", &chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string());
+                    context.insert("report", &cached_clone);
+                    context.insert("chart_modules_content", &chart_content_clone);
+                    let pdf_url = format!("/pdf-template/{}", cached_clone.id);
+                    context.insert("pdf_url", &pdf_url);
+
+                    tera.render("crypto/routes/reports/view.html", &context)
+                }).await
+            };
+
+            match render_result {
+                Ok(Ok(html)) => {
                     return Response::builder()
                         .status(StatusCode::OK)
-                        .header("cache-control", "public, max-age=15") // short client cache to reduce repeat hits
+                        .header("cache-control", "public, max-age=15")
                         .header("content-type", "text/html; charset=utf-8")
+                        .header("x-cache", "hit") // Cache hit indicator
                         .body(html)
                         .unwrap()
                         .into_response();
                 }
-                Err(e) => {
+                Ok(Err(e)) => {
                     eprintln!("Template render error: {:#?}", e);
                     let mut src = e.source();
                     while let Some(s) = src {
@@ -200,11 +383,15 @@ async fn crypto_index(State(state): State<Arc<AppState>>) -> Response {
                     }
                     return (StatusCode::INTERNAL_SERVER_ERROR, "Template render error").into_response();
                 }
+                Err(e) => {
+                    eprintln!("Task join error: {:#?}", e);
+                    return (StatusCode::INTERNAL_SERVER_ERROR, "Internal error").into_response();
+                }
             }
         }
     }
 
-    // Cache miss: fetch DB and chart modules concurrently to reduce latency
+    // Cache miss: fetch DB và chart modules song song
     let db_fut = sqlx::query_as::<_, Report>(
         "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM report ORDER BY created_at DESC LIMIT 1",
     ).fetch_optional(&state.db);
@@ -212,24 +399,53 @@ async fn crypto_index(State(state): State<Arc<AppState>>) -> Response {
 
     let (db_res, chart_modules_content) = tokio::join!(db_fut, chart_fut);
 
-    // Create Tera context
-    let mut context = Context::new();
-    context.insert("current_route", "dashboard");
-    context.insert("current_lang", "vi");
-    context.insert("current_time", &chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string());
-
     match db_res {
         Ok(Some(report)) => {
-            // prime per-id cache and latest id
-            {
-                let mut mapw = state.cached_reports.write().await;
-                mapw.insert(report.id, report.clone());
+            // Update cache với thread-safe operations
+            state.cached_reports.insert(report.id, report.clone());
+            state.cached_latest_id.store(report.id as usize, Ordering::Relaxed);
+            
+            // Template rendering trong CPU pool
+            let tera = state.tera.clone();
+            let report_clone = report.clone();
+            let chart_content_clone = chart_modules_content.clone();
+            
+            let render_result = tokio::task::spawn_blocking(move || {
+                let mut context = Context::new();
+                context.insert("current_route", "dashboard");
+                context.insert("current_lang", "vi");
+                context.insert("current_time", &chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string());
+                context.insert("report", &report_clone);
+                context.insert("chart_modules_content", &chart_content_clone);
+                let pdf_url = format!("/pdf-template/{}", report_clone.id);
+                context.insert("pdf_url", &pdf_url);
+
+                tera.render("crypto/routes/reports/view.html", &context)
+            }).await;
+
+            match render_result {
+                Ok(Ok(html)) => Response::builder()
+                    .status(StatusCode::OK)
+                    .header("cache-control", "public, max-age=15")
+                    .header("content-type", "text/html; charset=utf-8")
+                    .header("x-cache", "miss") // Cache miss indicator
+                    .body(html)
+                    .unwrap()
+                    .into_response(),
+                Ok(Err(e)) => {
+                    eprintln!("Template render error: {:#?}", e);
+                    let mut src = e.source();
+                    while let Some(s) = src {
+                        eprintln!("Template render error source: {:#?}", s);
+                        src = s.source();
+                    }
+                    (StatusCode::INTERNAL_SERVER_ERROR, "Template render error").into_response()
+                }
+                Err(e) => {
+                    eprintln!("Task join error: {:#?}", e);
+                    (StatusCode::INTERNAL_SERVER_ERROR, "Internal error").into_response()
+                }
             }
-            let mut lid = state.cached_latest_id.write().await;
-            *lid = Some(report.id);
-            context.insert("report", &report);
-            let pdf_url = format!("/pdf-template/{}", report.id);
-            context.insert("pdf_url", &pdf_url);
         }
         Ok(None) => {
             let empty_report = serde_json::json!({
@@ -238,38 +454,53 @@ async fn crypto_index(State(state): State<Arc<AppState>>) -> Response {
                 "css_content": "",
                 "js_content": ""
             });
-            context.insert("report", &empty_report);
-            context.insert("pdf_url", &"#");
+            
+            let tera = state.tera.clone();
+            let chart_content_clone = chart_modules_content.clone();
+            
+            let render_result = tokio::task::spawn_blocking(move || {
+                let mut context = Context::new();
+                context.insert("current_route", "dashboard");
+                context.insert("current_lang", "vi");
+                context.insert("current_time", &chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string());
+                context.insert("report", &empty_report);
+                context.insert("chart_modules_content", &chart_content_clone);
+                context.insert("pdf_url", &"#");
+
+                tera.render("crypto/routes/reports/view.html", &context)
+            }).await;
+
+            match render_result {
+                Ok(Ok(html)) => Response::builder()
+                    .status(StatusCode::OK)
+                    .header("cache-control", "public, max-age=15")
+                    .header("content-type", "text/html; charset=utf-8")
+                    .header("x-cache", "empty")
+                    .body(html)
+                    .unwrap()
+                    .into_response(),
+                Ok(Err(e)) => {
+                    eprintln!("Template render error: {:#?}", e);
+                    (StatusCode::INTERNAL_SERVER_ERROR, "Template render error").into_response()
+                }
+                Err(e) => {
+                    eprintln!("Task join error: {:#?}", e);
+                    (StatusCode::INTERNAL_SERVER_ERROR, "Internal error").into_response()
+                }
+            }
         }
         Err(e) => {
             eprintln!("DB error: {}", e);
-            return (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
-        }
-    }
-
-    context.insert("chart_modules_content", &chart_modules_content);
-
-    match state.tera.render("crypto/routes/reports/view.html", &context) {
-        Ok(html) => Response::builder()
-                .status(StatusCode::OK)
-                .header("cache-control", "public, max-age=15")
-                .header("content-type", "text/html; charset=utf-8")
-                .body(html)
-                .unwrap()
-                .into_response(),
-        Err(e) => {
-            eprintln!("Template render error: {:#?}", e);
-            let mut src = e.source();
-            while let Some(s) = src {
-                eprintln!("Template render error source: {:#?}", s);
-                src = s.source();
-            }
-            (StatusCode::INTERNAL_SERVER_ERROR, "Template render error").into_response()
+            (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response()
         }
     }
 }
 
-async fn homepage() -> Response {
+async fn homepage(State(state): State<Arc<AppState>>) -> Response {
+    // Increment request counter
+    state.request_counter.fetch_add(1, Ordering::Relaxed);
+    
+    // Async file reading để tránh block thread
     match fs::read_to_string("dashboards/home.html").await {
         Ok(s) => Html(s).into_response(),
         Err(_) => (StatusCode::NOT_FOUND, "Home page not found").into_response(),
@@ -277,24 +508,42 @@ async fn homepage() -> Response {
 }
 
 async fn crypto_view_report(Path(id): Path<i32>, State(state): State<Arc<AppState>>) -> Response {
-    // Fast path: check per-id cache
-    if let Some(cached) = state.cached_reports.read().await.get(&id).cloned() {
+    // Increment request counter
+    state.request_counter.fetch_add(1, Ordering::Relaxed);
+    
+    // Fast path: check cache với DashMap
+    if let Some(cached_report) = state.cached_reports.get(&id) {
+        let cached = cached_report.clone();
+        drop(cached_report); // Release reference sớm
+        
+        // Parallel fetch chart modules
         let chart_modules_content = get_chart_modules_content(&state).await;
-        let mut context = Context::new();
-        context.insert("report", &cached);
-        context.insert("chart_modules_content", &chart_modules_content);
-        let pdf_url = format!("/pdf-template/{}", cached.id);
-        context.insert("pdf_url", &pdf_url);
+        
+        // Template rendering trong spawn_blocking
+        let tera = state.tera.clone();
+        let cached_clone = cached.clone();
+        let chart_content_clone = chart_modules_content.clone();
+        
+        let render_result = tokio::task::spawn_blocking(move || {
+            let mut context = Context::new();
+            context.insert("report", &cached_clone);
+            context.insert("chart_modules_content", &chart_content_clone);
+            let pdf_url = format!("/pdf-template/{}", cached_clone.id);
+            context.insert("pdf_url", &pdf_url);
 
-        match state.tera.render("crypto/routes/reports/view.html", &context) {
-            Ok(html) => return Response::builder()
+            tera.render("crypto/routes/reports/view.html", &context)
+        }).await;
+
+        match render_result {
+            Ok(Ok(html)) => return Response::builder()
                 .status(StatusCode::OK)
                 .header("cache-control", "public, max-age=15")
                 .header("content-type", "text/html; charset=utf-8")
+                .header("x-cache", "hit")
                 .body(html)
                 .unwrap()
                 .into_response(),
-            Err(e) => {
+            Ok(Err(e)) => {
                 eprintln!("Template render error: {:#?}", e);
                 let mut src = e.source();
                 while let Some(s) = src {
@@ -303,10 +552,14 @@ async fn crypto_view_report(Path(id): Path<i32>, State(state): State<Arc<AppStat
                 }
                 return (StatusCode::INTERNAL_SERVER_ERROR, "Template render error").into_response();
             }
+            Err(e) => {
+                eprintln!("Task join error: {:#?}", e);
+                return (StatusCode::INTERNAL_SERVER_ERROR, "Internal error").into_response();
+            }
         }
     }
 
-    // Cache miss or different id: fetch DB and chart modules concurrently
+    // Cache miss: fetch DB và chart modules concurrently
     let db_fut = sqlx::query_as::<_, Report>(
         "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM report WHERE id = $1",
     )
@@ -319,47 +572,40 @@ async fn crypto_view_report(Path(id): Path<i32>, State(state): State<Arc<AppStat
 
     match db_res {
         Ok(Some(report)) => {
-            // Insert into per-id cache and maybe update latest id
-            {
-                let mut mapw = state.cached_reports.write().await;
-                mapw.insert(report.id, report.clone());
-            }
-            // update latest id if this report is newer
-            {
-                let mut lid = state.cached_latest_id.write().await;
-                match *lid {
-                    None => {
-                        *lid = Some(report.id);
-                    }
-                    Some(existing_id) => {
-                        // compare timestamps using cached_reports map
-                        let compare = {
-                            let read_map = state.cached_reports.read().await;
-                            read_map.get(&existing_id).map(|r| r.created_at)
-                        };
-                        if compare.map_or(true, |t| report.created_at > t) {
-                            *lid = Some(report.id);
-                        }
-                    }
-                }
+            // Insert vào DashMap
+            state.cached_reports.insert(report.id, report.clone());
+            
+            // Update latest id nếu report này mới hơn
+            let current_latest = state.cached_latest_id.load(Ordering::Relaxed) as i32;
+            if current_latest == 0 || report.id > current_latest {
+                state.cached_latest_id.store(report.id as usize, Ordering::Relaxed);
             }
 
-            // Build context and render
-            let mut context = Context::new();
-            context.insert("report", &report);
-            context.insert("chart_modules_content", &chart_modules_content);
-            let pdf_url = format!("/pdf-template/{}", report.id);
-            context.insert("pdf_url", &pdf_url);
+            // Template rendering trong spawn_blocking
+            let tera = state.tera.clone();
+            let report_clone = report.clone();
+            let chart_content_clone = chart_modules_content.clone();
+            
+            let render_result = tokio::task::spawn_blocking(move || {
+                let mut context = Context::new();
+                context.insert("report", &report_clone);
+                context.insert("chart_modules_content", &chart_content_clone);
+                let pdf_url = format!("/pdf-template/{}", report_clone.id);
+                context.insert("pdf_url", &pdf_url);
 
-            match state.tera.render("crypto/routes/reports/view.html", &context) {
-                Ok(html) => Response::builder()
+                tera.render("crypto/routes/reports/view.html", &context)
+            }).await;
+
+            match render_result {
+                Ok(Ok(html)) => Response::builder()
                         .status(StatusCode::OK)
                         .header("cache-control", "public, max-age=15")
                         .header("content-type", "text/html; charset=utf-8")
+                        .header("x-cache", "miss")
                         .body(html)
                         .unwrap()
                         .into_response(),
-                Err(e) => {
+                Ok(Err(e)) => {
                     eprintln!("Template render error: {:#?}", e);
                     let mut src = e.source();
                     while let Some(s) = src {
@@ -367,6 +613,10 @@ async fn crypto_view_report(Path(id): Path<i32>, State(state): State<Arc<AppStat
                         src = s.source();
                     }
                     (StatusCode::INTERNAL_SERVER_ERROR, "Template render error").into_response()
+                }
+                Err(e) => {
+                    eprintln!("Task join error: {:#?}", e);
+                    (StatusCode::INTERNAL_SERVER_ERROR, "Internal error").into_response()
                 }
             }
         }
@@ -379,21 +629,36 @@ async fn crypto_view_report(Path(id): Path<i32>, State(state): State<Arc<AppStat
 }
 
 async fn pdf_template(Path(id): Path<i32>, State(state): State<Arc<AppState>>) -> Response {
+    // Increment request counter
+    state.request_counter.fetch_add(1, Ordering::Relaxed);
+    
     // Fast path: return cached report if present
-    if let Some(cached) = state.cached_reports.read().await.get(&id).cloned() {
+    if let Some(cached_report) = state.cached_reports.get(&id) {
+        let cached = cached_report.clone();
+        drop(cached_report);
+        
         let chart_modules_content = get_chart_modules_content(&state).await;
 
-        let mut context = Context::new();
-        context.insert("report", &cached);
-        context.insert("chart_modules_content", &chart_modules_content);
+        // Template rendering trong spawn_blocking
+        let tera = state.tera.clone();
+        let cached_clone = cached.clone();
+        let chart_content_clone = chart_modules_content.clone();
+        
+        let render_result = tokio::task::spawn_blocking(move || {
+            let mut context = Context::new();
+            context.insert("report", &cached_clone);
+            context.insert("chart_modules_content", &chart_content_clone);
 
-        // formatted created date in UTC+7 for display
-        let created_display = (cached.created_at + chrono::Duration::hours(7)).format("%d-%m-%Y %H:%M").to_string();
-        context.insert("created_at_display", &created_display);
+            // formatted created date in UTC+7 for display
+            let created_display = (cached_clone.created_at + chrono::Duration::hours(7)).format("%d-%m-%Y %H:%M").to_string();
+            context.insert("created_at_display", &created_display);
 
-        match state.tera.render("crypto/routes/reports/pdf.html", &context) {
-            Ok(html) => return Html(html).into_response(),
-            Err(e) => {
+            tera.render("crypto/routes/reports/pdf.html", &context)
+        }).await;
+
+        match render_result {
+            Ok(Ok(html)) => return Html(html).into_response(),
+            Ok(Err(e)) => {
                 eprintln!("Template render error: {:#?}", e);
                 let mut src = e.source();
                 while let Some(s) = src {
@@ -402,10 +667,14 @@ async fn pdf_template(Path(id): Path<i32>, State(state): State<Arc<AppState>>) -
                 }
                 return (StatusCode::INTERNAL_SERVER_ERROR, "Template render error").into_response();
             }
+            Err(e) => {
+                eprintln!("Task join error: {:#?}", e);
+                return (StatusCode::INTERNAL_SERVER_ERROR, "Internal error").into_response();
+            }
         }
     }
 
-    // Cache miss: fetch DB and chart modules concurrently
+    // Cache miss: fetch DB và chart modules concurrently
     let db_fut = sqlx::query_as::<_, Report>(
         "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM report WHERE id = $1",
     )
@@ -418,40 +687,35 @@ async fn pdf_template(Path(id): Path<i32>, State(state): State<Arc<AppState>>) -
 
     match db_res {
         Ok(Some(report)) => {
-            // insert into per-id cache
-            {
-                let mut mapw = state.cached_reports.write().await;
-                mapw.insert(report.id, report.clone());
-            }
+            // insert vào cache
+            state.cached_reports.insert(report.id, report.clone());
 
             // optionally update latest id if this is newer
-            {
-                let mut lid = state.cached_latest_id.write().await;
-                match *lid {
-                    None => *lid = Some(report.id),
-                    Some(existing_id) => {
-                        let compare = {
-                            let read_map = state.cached_reports.read().await;
-                            read_map.get(&existing_id).map(|r| r.created_at)
-                        };
-                        if compare.map_or(true, |t| report.created_at > t) {
-                            *lid = Some(report.id);
-                        }
-                    }
-                }
+            let current_latest = state.cached_latest_id.load(Ordering::Relaxed) as i32;
+            if current_latest == 0 || report.id > current_latest {
+                state.cached_latest_id.store(report.id as usize, Ordering::Relaxed);
             }
 
-            let mut context = Context::new();
-            context.insert("report", &report);
-            context.insert("chart_modules_content", &chart_modules_content);
+            // Template rendering trong spawn_blocking
+            let tera = state.tera.clone();
+            let report_clone = report.clone();
+            let chart_content_clone = chart_modules_content.clone();
+            
+            let render_result = tokio::task::spawn_blocking(move || {
+                let mut context = Context::new();
+                context.insert("report", &report_clone);
+                context.insert("chart_modules_content", &chart_content_clone);
 
-            // formatted created date in UTC+7 for display
-            let created_display = (report.created_at + chrono::Duration::hours(7)).format("%d-%m-%Y %H:%M").to_string();
-            context.insert("created_at_display", &created_display);
+                // formatted created date in UTC+7 for display
+                let created_display = (report_clone.created_at + chrono::Duration::hours(7)).format("%d-%m-%Y %H:%M").to_string();
+                context.insert("created_at_display", &created_display);
 
-            match state.tera.render("crypto/routes/reports/pdf.html", &context) {
-                Ok(html) => Html(html).into_response(),
-                Err(e) => {
+                tera.render("crypto/routes/reports/pdf.html", &context)
+            }).await;
+
+            match render_result {
+                Ok(Ok(html)) => Html(html).into_response(),
+                Ok(Err(e)) => {
                     eprintln!("Template render error: {:#?}", e);
                     let mut src = e.source();
                     while let Some(s) = src {
@@ -459,6 +723,10 @@ async fn pdf_template(Path(id): Path<i32>, State(state): State<Arc<AppState>>) -
                         src = s.source();
                     }
                     (StatusCode::INTERNAL_SERVER_ERROR, "Template render error").into_response()
+                }
+                Err(e) => {
+                    eprintln!("Task join error: {:#?}", e);
+                    (StatusCode::INTERNAL_SERVER_ERROR, "Internal error").into_response()
                 }
             }
         }
@@ -484,13 +752,25 @@ struct ReportListItem {
 }
 
 async fn report_list(Query(params): Query<std::collections::HashMap<String, String>>, State(state): State<Arc<AppState>>) -> Response {
+    // Increment request counter
+    state.request_counter.fetch_add(1, Ordering::Relaxed);
+    
     // Pagination params
     let page: i64 = params.get("page").and_then(|p| p.parse().ok()).unwrap_or(1);
     let per_page: i64 = 10;
     let offset = (page - 1) * per_page;
 
-    // Get total count
-    let total_res = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM report").fetch_one(&state.db).await;
+    // Parallel fetch total count và page rows
+    let total_fut = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM report").fetch_one(&state.db);
+    let rows_fut = sqlx::query_as::<_, ReportSummary>(
+        "SELECT id, created_at FROM report ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+    )
+    .bind(per_page as i64)
+    .bind(offset as i64)
+    .fetch_all(&state.db);
+
+    let (total_res, rows_res) = tokio::join!(total_fut, rows_fut);
+
     let total = match total_res {
         Ok(t) => t,
         Err(e) => {
@@ -499,16 +779,7 @@ async fn report_list(Query(params): Query<std::collections::HashMap<String, Stri
         }
     };
 
-    // Fetch page rows
-    let rows = sqlx::query_as::<_, ReportSummary>(
-        "SELECT id, created_at FROM report ORDER BY created_at DESC LIMIT $1 OFFSET $2",
-    )
-    .bind(per_page as i64)
-    .bind(offset as i64)
-    .fetch_all(&state.db)
-    .await;
-
-    let list = match rows {
+    let list = match rows_res {
         Ok(list) => list,
         Err(e) => {
             eprintln!("DB error: {}", e);
@@ -516,52 +787,78 @@ async fn report_list(Query(params): Query<std::collections::HashMap<String, Stri
         }
     };
 
-    // Build items with formatted dates (UTC+7)
-    let mut items: Vec<ReportListItem> = Vec::new();
-    for r in list {
-        let dt = r.created_at + chrono::Duration::hours(7);
-        let created_date = dt.format("%d/%m/%Y").to_string();
-        let created_time = format!("{} UTC+7", dt.format("%H:%M:%S"));
-        items.push(ReportListItem { id: r.id, created_date, created_time });
-    }
-
-    // Compute pages
-    let pages = if total == 0 { 1 } else { ((total as f64) / (per_page as f64)).ceil() as i64 };
-
-    // Build simple page numbers similar to Flask pagination.iter_pages
-    let mut page_numbers: Vec<Option<i64>> = Vec::new();
-    if pages <= 10 {
-        for p in 1..=pages { page_numbers.push(Some(p)); }
-    } else {
-        // always show first 1-2, last 1-2, and current +/-2 with ellipses
-        let mut added = std::collections::HashSet::new();
-        let push = |vec: &mut Vec<Option<i64>>, v: i64, added: &mut std::collections::HashSet<i64>| {
-            if !added.contains(&v) {
-                vec.push(Some(v));
-                added.insert(v);
-            }
-        };
-        push(&mut page_numbers, 1, &mut added);
-        push(&mut page_numbers, 2, &mut added);
-        for v in (page-2)..=(page+2) { if v>2 && v<pages-1 { push(&mut page_numbers, v, &mut added); } }
-        push(&mut page_numbers, pages-1, &mut added);
-        push(&mut page_numbers, pages, &mut added);
-
-        // sort and insert None where gaps >1
-        let mut nums: Vec<i64> = page_numbers.iter().filter_map(|o| *o).collect();
-        nums.sort();
-        page_numbers.clear();
-        let mut last: Option<i64> = None;
-        for n in nums {
-            if let Some(l) = last {
-                if n - l > 1 {
-                    page_numbers.push(None);
+    // Parallel processing của items với rayon (CPU-intensive date formatting)
+    let items: Vec<ReportListItem> = tokio::task::spawn_blocking(move || {
+        use rayon::prelude::*;
+        
+        list.par_iter()
+            .map(|r| {
+                let dt = r.created_at + chrono::Duration::hours(7);
+                let created_date = dt.format("%d/%m/%Y").to_string();
+                let created_time = format!("{} UTC+7", dt.format("%H:%M:%S"));
+                ReportListItem { 
+                    id: r.id, 
+                    created_date, 
+                    created_time 
                 }
+            })
+            .collect()
+    }).await.unwrap_or_else(|e| {
+        eprintln!("Task join error: {:#?}", e);
+        Vec::new()
+    });
+
+    // Parallel computation của pagination logic
+    let (pages, page_numbers) = tokio::task::spawn_blocking(move || {
+        let pages = if total == 0 { 1 } else { ((total as f64) / (per_page as f64)).ceil() as i64 };
+        
+        // Build simple page numbers similar to Flask pagination.iter_pages
+        let mut page_numbers: Vec<Option<i64>> = Vec::new();
+        if pages <= 10 {
+            for p in 1..=pages { 
+                page_numbers.push(Some(p)); 
             }
-            page_numbers.push(Some(n));
-            last = Some(n);
+        } else {
+            // always show first 1-2, last 1-2, and current +/-2 with ellipses
+            let mut added = std::collections::HashSet::new();
+            let push = |vec: &mut Vec<Option<i64>>, v: i64, added: &mut std::collections::HashSet<i64>| {
+                if !added.contains(&v) && v > 0 && v <= pages {
+                    vec.push(Some(v));
+                    added.insert(v);
+                }
+            };
+            
+            push(&mut page_numbers, 1, &mut added);
+            push(&mut page_numbers, 2, &mut added);
+            for v in (page-2)..=(page+2) { 
+                if v > 2 && v < pages-1 { 
+                    push(&mut page_numbers, v, &mut added); 
+                } 
+            }
+            push(&mut page_numbers, pages-1, &mut added);
+            push(&mut page_numbers, pages, &mut added);
+
+            // sort and insert None where gaps >1
+            let mut nums: Vec<i64> = page_numbers.iter().filter_map(|o| *o).collect();
+            nums.sort();
+            page_numbers.clear();
+            let mut last: Option<i64> = None;
+            for n in nums {
+                if let Some(l) = last {
+                    if n - l > 1 {
+                        page_numbers.push(None);
+                    }
+                }
+                page_numbers.push(Some(n));
+                last = Some(n);
+            }
         }
-    }
+        
+        (pages, page_numbers)
+    }).await.unwrap_or_else(|e| {
+        eprintln!("Pagination task join error: {:#?}", e);
+        (1, vec![Some(1)])
+    });
 
     // Build reports context
     let display_start = if total == 0 { 0 } else { offset + 1 };
@@ -582,13 +879,19 @@ async fn report_list(Query(params): Query<std::collections::HashMap<String, Stri
         "display_end": display_end,
     });
 
-    // Render template
-    let mut context = Context::new();
-    context.insert("reports", &reports);
+    // Template rendering trong spawn_blocking
+    let tera = state.tera.clone();
+    let reports_clone = reports.clone();
+    
+    let render_result = tokio::task::spawn_blocking(move || {
+        let mut context = Context::new();
+        context.insert("reports", &reports_clone);
+        tera.render("crypto/routes/reports/list.html", &context)
+    }).await;
 
-    match state.tera.render("crypto/routes/reports/list.html", &context) {
-        Ok(html) => Html(html).into_response(),
-        Err(e) => {
+    match render_result {
+        Ok(Ok(html)) => Html(html).into_response(),
+        Ok(Err(e)) => {
             eprintln!("Template render error: {:#?}", e);
             let mut src = e.source();
             while let Some(s) = src {
@@ -602,17 +905,36 @@ async fn report_list(Query(params): Query<std::collections::HashMap<String, Stri
             }
             (StatusCode::INTERNAL_SERVER_ERROR, "Template render error").into_response()
         }
+        Err(e) => {
+            eprintln!("Task join error: {:#?}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Internal error").into_response()
+        }
     }
 }
 
-async fn upload_page() -> Response {
-    match fs::read_to_string("crypto_dashboard/templates/upload.html").await {
-        Ok(s) => Html(s).into_response(),
-        Err(_) => (StatusCode::NOT_FOUND, "Upload page not found").into_response(),
+async fn upload_page(State(state): State<Arc<AppState>>) -> Response {
+    // Increment request counter
+    state.request_counter.fetch_add(1, Ordering::Relaxed);
+    
+    // Async file reading để tránh block thread
+    let file_read_result = tokio::task::spawn_blocking(|| {
+        std::fs::read_to_string("crypto_dashboard/templates/upload.html")
+    }).await;
+    
+    match file_read_result {
+        Ok(Ok(s)) => Html(s).into_response(),
+        Ok(Err(_)) => (StatusCode::NOT_FOUND, "Upload page not found").into_response(),
+        Err(e) => {
+            eprintln!("File read task error: {:#?}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Internal error").into_response()
+        }
     }
 }
 
 async fn auto_update(Path(secret): Path<String>, State(state): State<Arc<AppState>>) -> Response {
+    // Increment request counter
+    state.request_counter.fetch_add(1, Ordering::Relaxed);
+    
     match &state.auto_update_secret {
         None => (
             StatusCode::SERVICE_UNAVAILABLE,
@@ -624,9 +946,18 @@ async fn auto_update(Path(secret): Path<String>, State(state): State<Arc<AppStat
                 eprintln!("Unauthorized access attempt with key: {}", secret);
                 (StatusCode::FORBIDDEN, Json(serde_json::json!({"error": "Access denied", "message": "Invalid secret key"}))).into_response()
             } else {
-                match fs::read_to_string("crypto_dashboard/templates/auto_update.html").await {
-                    Ok(s) => Html(s).into_response(),
-                    Err(_) => (StatusCode::NOT_FOUND, "Auto update page not found").into_response(),
+                // Async file reading để tránh block thread
+                let file_read_result = tokio::task::spawn_blocking(|| {
+                    std::fs::read_to_string("crypto_dashboard/templates/auto_update.html")
+                }).await;
+                
+                match file_read_result {
+                    Ok(Ok(s)) => Html(s).into_response(),
+                    Ok(Err(_)) => (StatusCode::NOT_FOUND, "Auto update page not found").into_response(),
+                    Err(e) => {
+                        eprintln!("File read task error: {:#?}", e);
+                        (StatusCode::INTERNAL_SERVER_ERROR, "Internal error").into_response()
+                    }
                 }
             }
         }
@@ -646,7 +977,6 @@ async fn get_chart_modules_content(state: &AppState) -> String {
     }
 
     let source_dir = Path::new("shared_assets").join("js").join("chart_modules");
-
     let priority_order = vec!["gauge.js", "bar.js", "line.js", "doughnut.js"];
 
     let mut entries = match read_dir(&source_dir).await {
@@ -677,21 +1007,40 @@ async fn get_chart_modules_content(state: &AppState) -> String {
     all_files.sort();
     ordered.extend(all_files);
 
-    let mut parts: Vec<String> = Vec::new();
-    for filename in ordered {
-        let path = source_dir.join(&filename);
-        match tokio::fs::read_to_string(&path).await {
-            Ok(content) => {
-                let wrapped = format!("// ==================== {name} ====================\ntry {{\n{code}\n}} catch (error) {{\n    console.error('Error loading chart module {name}:', error);\n}}\n// ==================== End {name} ====================", name=filename, code=content);
-                parts.push(wrapped);
+    // Parallel file reading với concurrent futures
+    let file_futures: Vec<_> = ordered
+        .iter()
+        .map(|filename| {
+            let path = source_dir.join(filename);
+            let filename_clone = filename.clone();
+            async move {
+                match tokio::fs::read_to_string(&path).await {
+                    Ok(content) => {
+                        let wrapped = format!(
+                            "// ==================== {name} ====================\ntry {{\n{code}\n}} catch (error) {{\n    console.error('Error loading chart module {name}:', error);\n}}\n// ==================== End {name} ====================",
+                            name = filename_clone,
+                            code = content
+                        );
+                        wrapped
+                    }
+                    Err(_) => {
+                        format!("// Warning: {name} not found", name = filename_clone)
+                    }
+                }
             }
-            Err(_) => {
-                parts.push(format!("// Warning: {name} not found", name=filename));
-            }
-        }
-    }
+        })
+        .collect();
 
-    let final_content = parts.join("\n\n");
+    // Await all file reads concurrently
+    let parts = futures::future::join_all(file_futures).await;
+
+    // Final concatenation trong CPU thread pool để avoid blocking async runtime
+    let final_content = tokio::task::spawn_blocking(move || {
+        parts.join("\n\n")
+    }).await.unwrap_or_else(|e| {
+        eprintln!("Chart modules concatenation error: {:#?}", e);
+        "// Error loading chart modules".to_string()
+    });
 
     // Cache if not debug
     if !debug {

@@ -32,3 +32,8 @@ tera = "1.19"
 redis = { version = "0.32", features = ["tokio-comp", "connection-manager"] }
 # HTTP client dependencies
 reqwest = { version = "0.11", features = ["json"] }
+# Concurrency và parallelism dependencies
+rayon = "1.8"          # Data parallelism cho CPU-intensive tasks
+dashmap = "5.5"        # Thread-safe HashMap
+num_cpus = "1.16"      # Detect số cores CPU
+futures = "0.3"        # Async utilities cho concurrent operations
