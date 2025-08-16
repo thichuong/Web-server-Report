@@ -1,0 +1,81 @@
+# Multi-stage optimized Dockerfile for Railway deployment
+FROM rust:1.82-slim as builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Update Cargo to latest version for edition2024 support
+RUN rustup update && cargo --version
+
+# Copy dependency files for better layer caching
+COPY Cargo.toml Cargo.lock ./
+
+# Create dummy source for dependency compilation
+RUN mkdir src && echo "fn main() {}" > src/main.rs
+
+# Build dependencies without --locked to allow updates
+RUN cargo build --release
+RUN rm src/main.rs && rm -rf target/release/deps/web_server_report*
+
+# Copy actual source code
+COPY src src
+
+# Build the optimized application without --locked
+RUN touch src/main.rs && \
+    RUSTFLAGS="-C target-cpu=generic -C opt-level=3" \
+    cargo build --release
+
+# Runtime stage with minimal Ubuntu
+FROM ubuntu:22.04
+
+# Install only runtime dependencies
+RUN apt-get update && \
+    apt-get install -y \
+        ca-certificates \
+        libssl3 \
+        curl \
+        && \
+    rm -rf /var/lib/apt/lists/* && \
+    apt-get clean
+
+WORKDIR /app
+
+# Copy the optimized binary
+COPY --from=builder /app/target/release/web-server-report ./web-server-report
+
+# Copy application assets
+COPY dashboards ./dashboards
+COPY shared_components ./shared_components  
+COPY shared_assets ./shared_assets
+
+# Set proper permissions
+RUN chmod +x ./web-server-report
+
+# Create non-root user for security
+RUN useradd -r -u 1001 -m appuser && \
+    chown -R appuser:appuser /app
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Health check optimized for Railway
+HEALTHCHECK --interval=30s --timeout=10s --start-period=45s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Set runtime optimizations
+ENV RUST_LOG=info \
+    TOKIO_THREAD_STACK_SIZE=4194304 \
+    RAYON_NUM_THREADS=0
+
+# Railway-specific environment variables
+ENV HOST=0.0.0.0 \
+    PORT=8000
+
+CMD ["./web-server-report"]

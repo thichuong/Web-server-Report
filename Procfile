@@ -1,1 +1,1 @@
-web: target/release/web-server-report
+web: ./target/release/web-server-report

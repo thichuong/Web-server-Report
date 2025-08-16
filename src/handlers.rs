@@ -5,7 +5,7 @@ use axum::{
     Json,
 };
 use serde_json::json;
-use std::{collections::HashMap, error::Error as StdError, sync::Arc, sync::atomic::Ordering};
+use std::{collections::HashMap, error::Error as StdError, sync::Arc, sync::atomic::Ordering, time::Instant};
 use tera::Context;
 use tokio::fs;
 
@@ -16,9 +16,15 @@ use crate::{
 };
 
 pub async fn health(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let start_time = Instant::now();
+    
     let request_count = state.request_counter.load(Ordering::Relaxed);
     let cache_size = state.cached_reports.len();
     let latest_id = state.cached_latest_id.load(Ordering::Relaxed);
+    
+    // Record performance metrics
+    let response_time = start_time.elapsed().as_millis() as u64;
+    state.metrics.record_request(response_time);
     
     Json(serde_json::json!({
         "status": "healthy", 
@@ -28,7 +34,9 @@ pub async fn health(State(state): State<Arc<AppState>>) -> impl IntoResponse {
             "cache_size": cache_size,
             "latest_report_id": latest_id,
             "available_cpus": num_cpus::get(),
-            "thread_pool_active": true
+            "thread_pool_active": true,
+            "avg_response_time_ms": state.metrics.avg_response_time(),
+            "cache_hit_rate": state.report_cache.hit_rate()
         }
     }))
 }
@@ -38,6 +46,10 @@ pub async fn performance_metrics(State(state): State<Arc<AppState>>) -> impl Int
     let cache_size = state.cached_reports.len();
     let latest_id = state.cached_latest_id.load(Ordering::Relaxed);
     let num_cpus = num_cpus::get();
+    
+    // Get advanced cache statistics
+    let cache_stats = state.report_cache.stats().await;
+    let performance_stats = state.metrics.clone();
     
     // Get system memory info (basic)
     let memory_info = {
@@ -67,9 +79,16 @@ pub async fn performance_metrics(State(state): State<Arc<AppState>>) -> impl Int
     let mut metrics = json!({
         "performance": {
             "total_requests_processed": request_count,
+            "avg_response_time_ms": performance_stats.avg_response_time(),
             "cache_metrics": {
                 "reports_cached": cache_size,
-                "latest_report_id": latest_id
+                "latest_report_id": latest_id,
+                "l1_cache": {
+                    "entries": cache_stats.entries,
+                    "hits": cache_stats.hits,
+                    "misses": cache_stats.misses,
+                    "hit_rate": cache_stats.hit_rate
+                }
             },
             "system_resources": {
                 "cpu_cores": num_cpus,

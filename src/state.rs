@@ -5,9 +5,13 @@ use dashmap::DashMap;
 use tera::Tera;
 use crate::models::Report;
 use crate::data_service::DataService;
+use crate::performance::{MultiLevelCache, PerformanceMetrics};
+use std::time::Duration;
 
 pub struct AppState {
     pub db: PgPool,
+    // Optimized multi-level cache
+    pub report_cache: MultiLevelCache<i32, Report>,
     // Thread-safe cache cho chart modules
     pub chart_modules_cache: RwLock<Option<String>>,
     // DashMap thay thế RwLock<HashMap> để tránh lock contention
@@ -18,6 +22,8 @@ pub struct AppState {
     pub tera: Tera,
     // WebSocket service for real-time updates
     pub websocket_service: Arc<crate::websocket_service::WebSocketService>,
+    // Performance metrics
+    pub metrics: Arc<PerformanceMetrics>,
     // Request counter cho monitoring
     pub request_counter: AtomicUsize,
 }
@@ -67,11 +73,13 @@ impl AppState {
 
         Ok(Self {
             db,
+            report_cache: MultiLevelCache::new(1000, Duration::from_secs(3600)), // 1000 reports, 1 hour TTL
             chart_modules_cache: RwLock::new(None),
             cached_reports: DashMap::new(), // Thread-safe HashMap
             cached_latest_id: AtomicUsize::new(0), // Atomic counter
             tera,
             websocket_service,
+            metrics: Arc::new(PerformanceMetrics::default()),
             request_counter: AtomicUsize::new(0),
         })
     }

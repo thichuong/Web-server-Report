@@ -8,6 +8,7 @@ mod state;
 mod handlers;
 mod routes;
 mod utils;
+mod performance;
 
 use state::AppState;
 use routes::create_router;
@@ -20,13 +21,14 @@ async fn main() -> Result<(), anyhow::Error> {
     let taapi_secret = env::var("TAAPI_SECRET").expect("TAAPI_SECRET must be set in .env");
     let redis_url = env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
 
-    // Tối ưu connection pool cho đa luồng
+    // Tối ưu connection pool cho high performance
     let pool = sqlx::postgres::PgPoolOptions::new()
-        .max_connections(32) // Tăng từ default 10 lên 32 cho 16 cores
-        .min_connections(8)  // Duy trì ít nhất 8 connections
-        .max_lifetime(std::time::Duration::from_secs(30 * 60)) // 30 phút
-        .idle_timeout(std::time::Duration::from_secs(10 * 60)) // 10 phút idle
-        .acquire_timeout(std::time::Duration::from_secs(30)) // Timeout nếu không lấy được connection
+        .max_connections((num_cpus::get() * 4) as u32) // 4x CPU cores cho high concurrency
+        .min_connections(num_cpus::get() as u32)       // Ít nhất 1 connection/core
+        .max_lifetime(std::time::Duration::from_secs(1800)) // 30 phút
+        .idle_timeout(std::time::Duration::from_secs(600))  // 10 phút idle
+        .acquire_timeout(std::time::Duration::from_secs(10)) // Giảm timeout
+        .test_before_acquire(false) // Tắt test connection để tăng tốc
         .connect(&database_url).await?;
 
     // Initialize AppState
@@ -51,9 +53,10 @@ async fn main() -> Result<(), anyhow::Error> {
     println!("🚀 Starting high-performance Rust server");
     println!("📍 Address: http://{}", addr);
     println!("🖥️  Available CPUs: {}", num_cpus::get());
-    println!("🗂️  Database pool: max_connections=32, min_connections=8");
+    println!("🗂️  Database pool: max_connections={}, min_connections={}", num_cpus::get() * 4, num_cpus::get());
     println!("🏃 Rayon thread pool: {} worker threads", num_cpus::get());
     println!("💾 Cache: DashMap (lock-free), Atomic counters");
+    println!("⚡ Optimizations: LTO=fat, opt-level=3, codegen-units=1");
     
     // Sử dụng axum::Server::bind cho compatibility với axum 0.6
     axum::Server::bind(&addr)

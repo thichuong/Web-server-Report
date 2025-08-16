@@ -66,10 +66,8 @@ pub struct DataService {
 
 impl DataService {
     pub fn new(taapi_secret: String) -> Self {
-        let client = Client::builder()
-            .timeout(std::time::Duration::from_secs(10))
-            .build()
-            .expect("Failed to create HTTP client");
+        // Sử dụng optimized HTTP client từ performance module
+        let client = crate::performance::OPTIMIZED_HTTP_CLIENT.clone();
         
         Self {
             client,

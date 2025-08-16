@@ -8,14 +8,26 @@ default-run = "web-server-report"
 name = "web-server-report"
 path = "src/main.rs"
 
+# Optimized development profile - faster compile + good performance
+[profile.dev]
+opt-level = 1              # Some optimization for better runtime performance
+debug = true               # Keep debug info for development
+lto = false               # No LTO for faster compile time
+codegen-units = 16        # Parallel compilation
+panic = "unwind"          # Allow debugging panics
+overflow-checks = true    # Keep safety checks in dev
+
 [profile.release]
-opt-level = 2
-lto = "thin"
-codegen-units = 4
+opt-level = 3              # Maximum optimization
+lto = "fat"               # Full Link Time Optimization
+codegen-units = 1         # Single codegen unit for better optimization  
+panic = "abort"           # Abort on panic (smaller binary, faster)
+strip = true             # Strip debug symbols
+overflow-checks = false   # Disable overflow checks in release
 
 # Enable static linking for musl
-[target.x86_64-unknown-linux-musl]
-rustflags = ["-C", "target-feature=+crt-static"]
+# [target.x86_64-unknown-linux-musl]
+# rustflags = ["-C", "target-feature=+crt-static"]
 
 [dependencies]
 axum = { version = "0.6", features = ["ws"] }
@@ -37,3 +49,10 @@ rayon = "1.8"          # Data parallelism cho CPU-intensive tasks
 dashmap = "5.5"        # Thread-safe HashMap
 num_cpus = "1.16"      # Detect số cores CPU
 futures = "0.3"        # Async utilities cho concurrent operations
+# Performance optimization dependencies
+moka = { version = "0.12", features = ["future"] }  # High-performance async cache
+lazy_static = "1.4"    # Static initialization
+threadpool = "1.8"     # Dedicated thread pool cho CPU tasks
+parking_lot = "0.12"   # Fast synchronization primitives
+ahash = "0.8"         # Faster hash function
+smallvec = "1.11"     # Stack-allocated vectors

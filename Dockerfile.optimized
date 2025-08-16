@@ -1,0 +1,65 @@
+# Multi-stage build để tối ưu performance và size
+FROM rust:1.75-slim as builder
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy dependency files first for better caching
+COPY Cargo.toml Cargo.lock ./
+
+# Pre-build dependencies (this layer will be cached)
+RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release && rm -rf src
+
+# Copy source code
+COPY . .
+
+# Build application with maximum optimization
+ENV RUSTFLAGS="-C target-cpu=native -C target-feature=+avx2"
+RUN cargo build --release --locked
+
+# Runtime stage - minimal image
+FROM debian:bookworm-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libpq5 \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -r -s /bin/false -m -d /app app
+
+# Copy binary from builder stage
+COPY --from=builder /app/target/release/web-server-report /usr/local/bin/
+
+# Copy static files
+COPY --from=builder /app/dashboards /app/dashboards
+COPY --from=builder /app/shared_assets /app/shared_assets
+COPY --from=builder /app/shared_components /app/shared_components
+
+# Set ownership
+RUN chown -R app:app /app
+
+# Switch to non-root user
+USER app
+WORKDIR /app
+
+# Set runtime optimizations
+ENV RUST_LOG=info
+ENV TOKIO_THREAD_STACK_SIZE=4194304
+ENV RAYON_NUM_THREADS=0
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Expose port
+EXPOSE 8000
+
+# Start application
+CMD ["/usr/local/bin/web-server-report"]
