@@ -1,0 +1,67 @@
+# Railway Dockerfile - build without lock file to avoid edition2024
+FROM rust:1.82-slim as builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    ca-certificates \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set environment variables
+ENV CARGO_NET_RETRY=10
+ENV CARGO_NET_TIMEOUT=300
+
+# Copy source code first (without Cargo.lock)
+COPY Cargo.toml ./
+COPY src ./src
+COPY dashboards ./dashboards
+COPY shared_components ./shared_components
+COPY shared_assets ./shared_assets
+
+# Build without lock file - let Cargo resolve compatible versions
+RUN cargo build --release --bin web-server-report
+
+# Runtime stage
+FROM ubuntu:22.04
+
+# Install runtime dependencies
+RUN apt-get update && \
+    apt-get install -y \
+        ca-certificates \
+        libssl3 \
+        curl \
+        tzdata \
+        && \
+    rm -rf /var/lib/apt/lists/* && \
+    apt-get clean
+
+WORKDIR /app
+
+# Copy the binary and assets
+COPY --from=builder /app/target/release/web-server-report ./web-server-report
+COPY --from=builder /app/dashboards ./dashboards
+COPY --from=builder /app/shared_components ./shared_components  
+COPY --from=builder /app/shared_assets ./shared_assets
+
+# Set permissions and create non-root user
+RUN chmod +x ./web-server-report && \
+    useradd -r -u 1001 -m appuser && \
+    chown -R appuser:appuser /app
+
+USER appuser
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=45s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Environment variables
+ENV RUST_LOG=info \
+    HOST=0.0.0.0 \
+    PORT=8000
+
+CMD ["./web-server-report"]
