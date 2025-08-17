@@ -20,6 +20,10 @@ RUN mkdir src && echo "fn main() {}" > src/main.rs && \
 
 # Copy source and build
 COPY . .
+
+# Thêm dòng này để tối ưu hóa CPU
+ENV RUSTFLAGS="-C target-cpu=x86-64-v3"
+
 RUN cargo build --release
 
 # Runtime stage - Debian bookworm-slim (newer & smaller than bullseye)
