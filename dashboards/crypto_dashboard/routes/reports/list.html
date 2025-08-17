@@ -12,6 +12,7 @@
 <body class="antialiased min-h-screen" style="background: linear-gradient(180deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);">
 
     {% include 'crypto/components/theme_toggle.html' %}
+    {% include 'crypto/components/language_toggle.html' %}
 
     <div class="container mx-auto p-4 md:p-8">
         <!-- Nút quay lại trang chủ đặt ở đầu -->
@@ -27,7 +28,7 @@
                 <i class="fas fa-chart-line mr-3 text-indigo-600"></i>
                 <span data-i18n="view-report-history">Lịch Sử Báo Cáo</span>
             </h1>
-            <p class="text-lg mt-2" style="color: var(--text-secondary);">Xem lại các báo cáo đã được tạo trước đây.</p>
+            <p class="text-lg mt-2" style="color: var(--text-secondary);"><span data-i18n="report-history-desc">Xem lại các báo cáo đã được tạo trước đây.</span></p>
         </header>
 
         <div class="max-w-6xl mx-auto">
@@ -37,10 +38,10 @@
                         <thead>
                             <tr style="background-color: var(--bg-secondary); border-bottom: 2px solid var(--border-color);">
                                 <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">
-                                    <i class="fas fa-calendar-alt mr-2"></i>Ngày Tạo
+                                    <i class="fas fa-calendar-alt mr-2"></i><span data-i18n="created-date">Ngày Tạo</span>
                                 </th>
                                 <th class="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">
-                                    <i class="fas fa-cog mr-2"></i>Hành Động
+                                    <i class="fas fa-cog mr-2"></i><span data-i18n="actions">Hành Động</span>
                                 </th>
                             </tr>
                         </thead>
@@ -60,7 +61,7 @@
                                     <td class="px-6 py-5 text-sm text-center">
                                         <a href="/crypto_report/{{ report.id }}" class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-lg shadow-lg hover:from-indigo-600 hover:to-purple-700 hover:shadow-xl transform hover:scale-105 transition-all duration-300">
                                             <i class="fas fa-eye mr-2"></i>
-                                            Xem Chi Tiết
+                                            <span data-i18n="view-details">Xem Chi Tiết</span>
                                         </a>
                                     </td>
                                 </tr>
@@ -72,8 +73,8 @@
                                             <div class="w-16 h-16 bg-gradient-to-r from-gray-400 to-gray-500 rounded-full flex items-center justify-center mb-4">
                                                 <i class="fas fa-chart-line text-white text-2xl"></i>
                                             </div>
-                                            <p class="text-lg font-medium mb-2" style="color: var(--text-secondary);">Chưa có báo cáo nào</p>
-                                            <p class="text-sm" style="color: var(--text-secondary);">Hãy tạo báo cáo đầu tiên của bạn!</p>
+                                            <p class="text-lg font-medium mb-2" style="color: var(--text-secondary);"><span data-i18n="no-reports">Chưa có báo cáo nào</span></p>
+                                            <p class="text-sm" style="color: var(--text-secondary);"><span data-i18n="create-first-report">Hãy tạo báo cáo đầu tiên của bạn!</span></p>
                                             <a href="/" class="mt-4 inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-blue-600 text-white font-semibold rounded-lg shadow-lg hover:from-green-600 hover:to-blue-700 hover:shadow-xl transform hover:scale-105 transition-all duration-300">
                                                 <i class="fas fa-plus mr-2"></i>
                                                 <span data-i18n="create-report">Tạo Báo Cáo Mới</span>
@@ -135,7 +136,7 @@
                 
                 <!-- Pagination Info -->
                 <div class="mt-4 text-center text-sm" style="color: var(--text-secondary);">
-                    Hiển thị {{ reports.display_start }} - {{ reports.display_end }} trong tổng số {{ reports.total }} báo cáo
+                    <span data-i18n="showing">Hiển thị</span> {{ reports.display_start }} - {{ reports.display_end }} <span data-i18n="of-total">trong tổng số</span> {{ reports.total }} <span data-i18n="reports">báo cáo</span>
                 </div>
                 {% endif %}
             </div>
@@ -149,7 +150,7 @@
                             <i class="fas fa-chart-bar text-white text-xl"></i>
                         </div>
                     </div>
-                    <h3 class="text-lg font-semibold mb-2" style="color: var(--text-primary);">Tổng Báo Cáo</h3>
+                    <h3 class="text-lg font-semibold mb-2" style="color: var(--text-primary);"><span data-i18n="total-reports">Tổng Báo Cáo</span></h3>
                     <p class="text-3xl font-bold text-indigo-600">{{ reports.total }}</p>
                 </div>
                 
@@ -159,7 +160,7 @@
                             <i class="fas fa-calendar-check text-white text-xl"></i>
                         </div>
                     </div>
-                    <h3 class="text-lg font-semibold mb-2" style="color: var(--text-primary);">Báo Cáo Mới Nhất</h3>
+                    <h3 class="text-lg font-semibold mb-2" style="color: var(--text-primary);"><span data-i18n="latest-report">Báo Cáo Mới Nhất</span></h3>
                     <p class="text-sm font-medium" style="color: var(--text-secondary);">{{ reports.items[0].created_date }}</p>
                 </div>
                 
@@ -169,7 +170,7 @@
                             <i class="fas fa-file-alt text-white text-xl"></i>
                         </div>
                     </div>
-                    <h3 class="text-lg font-semibold mb-2" style="color: var(--text-primary);">Trang Hiện Tại</h3>
+                    <h3 class="text-lg font-semibold mb-2" style="color: var(--text-primary);"><span data-i18n="current-page">Trang Hiện Tại</span></h3>
                     <p class="text-sm font-medium text-indigo-600">{{ reports.page }} / {{ reports.pages }}</p>
                 </div>
             </div>
@@ -178,5 +179,7 @@
     </div>
     
     <script src="/shared_components/core/theme-manager.js" defer></script>
+    <script src="/crypto_dashboard/assets/translations.js" defer></script>
+    <script src="/shared_components/core/language-toggle.js" defer></script>
 </body>
 </html>

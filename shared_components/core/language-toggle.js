@@ -6,43 +6,67 @@
     const DEFAULT_LANG = 'vi';
 
     // Minimal translation map for elements used in dashboard/report
-    const translations = {
-    // Dashboard card titles
-    'btc-price': { vi: 'Giá BTC', en: 'BTC Price' },
-    'market-cap': { vi: 'Tổng Vốn Hóa', en: 'Market Capitalization' },
-    'volume-24h': { vi: 'Khối Lượng Giao Dịch 24h', en: '24h Trading Volume' },
-    'fear-greed-title': { vi: 'Chỉ số Sợ hãi & Tham lam', en: 'Fear & Greed Index' },
-    'rsi-btc-title': { vi: 'Chỉ số Sức mạnh Tương đối (RSI 14) - BTC', en: 'Relative Strength Index (RSI 14) - BTC' },
-        'create-report': { vi: 'Tạo Báo cáo Mới', en: 'Create New Report' },
-        'view-report-history': { vi: 'Xem Lịch Sử Báo Cáo', en: 'View Report History' },
-    'home': { vi: 'Trang chủ', en: 'Home' },
-    'view-report': { vi: 'Xem báo cáo mới nhất', en: 'View the latest report' },
-        'print-report': { vi: 'In Báo cáo', en: 'Print Report' },
-    'report-display': { vi: 'Hiển thị báo cáo', en: 'Displaying report' },
-    'site-title': { vi: 'Toàn Cảnh Thị Trường Tiền Mã Hóa', en: 'Crypto Market Overview' },
-        'created-at': { vi: 'tạo lúc', en: 'created at' },
-        'analysis-summary': { vi: 'Bài phân tích và tổng hợp', en: 'Analysis and summary' },
-        'close': { vi: 'Đóng', en: 'Close' },
-        'no-report-created': { vi: 'Chưa có báo cáo nào được tạo.', en: 'No reports have been created yet.' },
-        'please-upload': { vi: 'Vui lòng sử dụng trang tải lên để tạo báo cáo đầu tiên của bạn.', en: 'Please use the upload page to create your first report.' },
-        'whole-market': { vi: 'Toàn bộ thị trường', en: 'Whole market' },
-        'loading': { vi: 'Đang tải...', en: 'Loading...' },
-        'connection-issue': { vi: 'Lỗi kết nối', en: 'Connection issue' },
-    // Disclaimer
-    'disclaimer-title': { vi: 'Tuyên bố miễn trừ trách nhiệm:', en: 'Disclaimer:' },
-    'disclaimer-body': { vi: 'Nội dung và phân tích trên trang này chỉ mang tính chất tham khảo và không cấu thành lời khuyên đầu tư. Mọi quyết định đầu tư là trách nhiệm của người đọc.', en: 'The content and analysis on this site are for informational purposes only and do not constitute investment advice. All investment decisions are the responsibility of the reader.' },
-        // Fear & Greed / RSI labels
-        'extreme-fear': { vi: 'Sợ hãi Tột độ', en: 'Extreme Fear' },
-        'fear': { vi: 'Sợ hãi', en: 'Fear' },
-        'neutral': { vi: 'Trung lập', en: 'Neutral' },
-        'greed': { vi: 'Tham lam', en: 'Greed' },
-        'extreme-greed': { vi: 'Tham lam Tột độ', en: 'Extreme Greed' },
-        'oversold': { vi: 'Quá bán', en: 'Oversold' },
-    'overbought': { vi: 'Quá mua', en: 'Overbought' },
-    'bitcoin': { vi: 'Bitcoin', en: 'Bitcoin' },
-    'altcoins': { vi: 'Altcoins', en: 'Altcoins' }
-    };
+    // Use helper to centralize how we obtain the translations object from the page.
 
+    /**
+     * Centralized function to get current translations data
+     * Similar to callInitializeReportVisuals approach - get data when needed
+     */
+    function getTranslationsData() {
+        try {
+            // Method 1: Try the function if available
+            if (typeof get_translations_data === 'function') {
+                return get_translations_data();
+            }
+            // Method 2: Try global variables that might have been set
+            else if (window.translations_data && typeof window.translations_data === 'object') {
+                return window.translations_data;
+            }
+            else if (window.translations && typeof window.translations === 'object') {
+                return window.translations;
+            }
+            else {
+                // Return empty object as fallback
+                return {};
+            }
+        } catch (error) {
+            console.warn('Could not get translations data:', error);
+            return {};
+        }
+    }
+
+    // Setter to inject translations from external script (e.g. dashboards/.../translations.js)
+    function setTranslations(obj) {
+        if (!obj || typeof obj !== 'object') return;
+        // Store in global variables for getTranslationsData() to access
+        try { 
+            window.translations_data = obj; 
+            window.translations = obj; 
+        } catch (e) {}
+        // If language already initialized, re-run update to apply translations
+        try {
+            const lang = (window.languageManager && window.languageManager.currentLanguage) ? window.languageManager.currentLanguage : document.documentElement.lang || DEFAULT_LANG;
+            updateUI(lang);
+        } catch (e) {}
+    }
+
+    // expose setter so the translations file can call it after loading
+    try {
+        window.setTranslations = setTranslations;
+        window.languageManager = window.languageManager || {};
+        window.languageManager.setTranslations = setTranslations;
+        
+        // Dispatch event to notify other scripts that language-toggle is ready
+        setTimeout(() => {
+            try {
+                const event = new CustomEvent('languageToggleReady');
+                window.dispatchEvent(event);
+            } catch (e) {
+                console.warn('Could not dispatch languageToggleReady event:', e);
+            }
+        }, 50);
+    } catch (e) {}
+    
     function getPreferredLanguage(){
         try { return localStorage.getItem(LANG_KEY) || DEFAULT_LANG; } catch(e){ return DEFAULT_LANG; }
     }
@@ -63,6 +87,9 @@
     }
 
     function updateUI(lang){
+        // Get current translations data (similar to callInitializeReportVisuals approach)
+        const translations_data = getTranslationsData();
+        
         // update html lang attribute
         document.documentElement.lang = (lang === 'en') ? 'en' : 'vi';
 
@@ -95,7 +122,7 @@
         document.querySelectorAll('[data-i18n]').forEach(el => {
             const key = el.getAttribute('data-i18n');
             if (!key) return;
-            const map = translations[key];
+            const map = translations_data[key];
             if (!map || !map[lang]) return;
 
             // If element has explicit language child spans, toggle them instead
@@ -116,7 +143,8 @@
             window.languageManager = window.languageManager || {};
             window.languageManager.currentLanguage = lang;
             window.languageManager.getTranslatedText = function(key) {
-                const m = translations[key];
+                const translations_data = getTranslationsData();
+                const m = translations_data[key];
                 if (m && m[lang]) return m[lang];
                 return key;
             };
