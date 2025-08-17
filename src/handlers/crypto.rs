@@ -1,11 +1,10 @@
 use axum::{
-    extract::{Path, Query, State, ws::WebSocketUpgrade},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::{Html, IntoResponse, Response},
-    Json,
 };
 use serde_json::json;
-use std::{collections::HashMap, error::Error as StdError, sync::Arc, sync::atomic::Ordering, time::Instant};
+use std::{collections::HashMap, error::Error as StdError, sync::Arc, sync::atomic::Ordering};
 use tera::Context;
 use tokio::fs;
 
@@ -14,156 +13,6 @@ use crate::{
     state::AppState,
     utils,
 };
-
-pub async fn health(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let start_time = Instant::now();
-    
-    let request_count = state.request_counter.load(Ordering::Relaxed);
-    let report_cache_stats = state.report_cache.stats().await;
-    let latest_id = state.cached_latest_id.load(Ordering::Relaxed);
-    
-    // Test SSL connectivity cho external APIs
-    let ssl_check = test_ssl_connectivity().await;
-    
-    // Get unified cache stats
-    let cache_stats = state.cache_manager.stats().await;
-    let cache_health = state.cache_manager.health_check().await;
-    
-    // Record performance metrics
-    let response_time = start_time.elapsed().as_millis() as u64;
-    state.metrics.record_request(response_time);
-    
-    Json(serde_json::json!({
-        "status": "healthy", 
-        "message": "Crypto Dashboard Rust server with Unified Cache Manager",
-        "ssl_status": ssl_check,
-        "timestamp": chrono::Utc::now().to_rfc3339(),
-        "metrics": {
-            "total_requests": request_count,
-            "cache_size": report_cache_stats.entries,
-            "latest_report_id": latest_id,
-            "available_cpus": num_cpus::get(),
-            "thread_pool_active": true,
-            "avg_response_time_ms": state.metrics.avg_response_time(),
-            "cache_hit_rate": state.report_cache.hit_rate()
-        },
-        "cache_system": {
-            "type": "unified_multi_tier",
-            "l1_entries": cache_stats.l1_entry_count,
-            "l1_hit_count": cache_stats.l1_hit_count,
-            "l1_miss_count": cache_stats.l1_miss_count,
-            "l1_hit_rate": cache_stats.l1_hit_rate,
-            "l2_healthy": cache_health.l2_healthy,
-            "overall_healthy": cache_health.overall_healthy
-        }
-    }))
-}
-
-pub async fn performance_metrics(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let request_count = state.request_counter.load(Ordering::Relaxed);
-    
-    Json(serde_json::json!({
-        "performance": {
-            "total_requests": request_count,
-            "avg_response_time_ms": state.metrics.avg_response_time(),
-            "cache_size": state.report_cache.stats().await.entries,
-            "cache_hit_rate": state.report_cache.hit_rate(),
-        },
-        "system": {
-            "available_cpus": num_cpus::get(),
-            "thread_pool_active": true,
-        }
-    }))
-}
-
-// Enhanced cache statistics endpoint with unified cache manager
-pub async fn cache_stats(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let cache_stats = state.cache_manager.stats().await;
-    let cache_health = state.cache_manager.health_check().await;
-    
-    Json(serde_json::json!({
-        "cache_system": "Unified Multi-Tier (L1: In-Memory + L2: Redis)",
-        "l1_cache": {
-            "type": "moka::future::Cache",
-            "entry_count": cache_stats.l1_entry_count,
-            "hit_count": cache_stats.l1_hit_count,
-            "miss_count": cache_stats.l1_miss_count,
-            "hit_rate_percent": cache_stats.l1_hit_rate,
-            "max_capacity": 2000,
-            "ttl_seconds": 300,
-            "healthy": cache_health.l1_healthy
-        },
-        "l2_cache": {
-            "type": "Redis",
-            "ttl_seconds": 3600,
-            "healthy": cache_health.l2_healthy,
-            "status": if cache_health.l2_healthy { "connected" } else { "disconnected" }
-        },
-        "report_cache": {
-            "entry_count": state.report_cache.stats().await.entries,
-            "hit_rate_percent": state.report_cache.hit_rate(),
-            "latest_report_id": state.cached_latest_id.load(Ordering::Relaxed)
-        },
-        "overall_health": cache_health.overall_healthy
-    }))
-}
-
-// Enhanced cache clearing with pattern support
-pub async fn clear_cache(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let mut operations = Vec::new();
-    
-    // Clear L1 cache (immediate)
-    match state.cache_manager.clear_pattern("*").await {
-        Ok(cleared_count) => {
-            operations.push(format!("Cleared {} Redis keys", cleared_count));
-        },
-        Err(e) => {
-            return Json(serde_json::json!({
-                "success": false,
-                "error": format!("Failed to clear Redis cache: {}", e)
-            }));
-        }
-    }
-    
-    // Clear report cache - note: L1 cache doesn't have a direct clear method
-    // So we'll rely on TTL expiration for now, but we can track clears in operations
-    let report_cache_stats = state.report_cache.stats().await;
-    operations.push(format!("Report cache has {} entries (will expire via TTL)", report_cache_stats.entries));
-    
-    Json(serde_json::json!({
-        "success": true,
-        "message": "All caches cleared successfully",
-        "operations": operations,
-        "timestamp": chrono::Utc::now().to_rfc3339()
-    }))
-}
-
-// Dashboard summary API endpoint with unified cache
-pub async fn api_dashboard_summary(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let start_time = Instant::now();
-    
-    match state.data_service.fetch_dashboard_summary().await {
-        Ok(summary) => {
-            let response_time = start_time.elapsed().as_millis() as u64;
-            state.metrics.record_request(response_time);
-            state.request_counter.fetch_add(1, Ordering::Relaxed);
-
-            // Return the raw summary object (frontend expects top-level fields like market_cap)
-            Json(summary).into_response()
-        },
-        Err(e) => {
-            eprintln!("❌ Dashboard summary API error: {}", e);
-
-            (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(json!({
-                    "error": "Failed to fetch dashboard data",
-                    "details": e.to_string()
-                }))
-            ).into_response()
-        }
-    }
-}
 
 pub async fn homepage(State(state): State<Arc<AppState>>) -> Response {
     // Increment request counter
@@ -245,7 +94,7 @@ pub async fn crypto_index(State(state): State<Arc<AppState>>) -> Response {
 
     // Cache miss: fetch DB và chart modules song song
     let db_fut = sqlx::query_as::<_, Report>(
-        "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM report ORDER BY created_at DESC LIMIT 1",
+        "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report ORDER BY created_at DESC LIMIT 1",
     ).fetch_optional(&state.db);
     let chart_fut = utils::get_chart_modules_content(&state.chart_modules_cache);
 
@@ -401,7 +250,7 @@ pub async fn crypto_view_report(Path(id): Path<i32>, State(state): State<Arc<App
 
     // Cache miss: fetch DB và chart modules concurrently
     let db_fut = sqlx::query_as::<_, Report>(
-        "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM report WHERE id = $1",
+        "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report WHERE id = $1",
     )
     .bind(id)
     .fetch_optional(&state.db);
@@ -515,7 +364,7 @@ pub async fn pdf_template(Path(id): Path<i32>, State(state): State<Arc<AppState>
 
     // Cache miss: fetch DB và chart modules concurrently
     let db_fut = sqlx::query_as::<_, Report>(
-        "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM report WHERE id = $1",
+        "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report WHERE id = $1",
     )
     .bind(id)
     .fetch_optional(&state.db);
@@ -587,9 +436,9 @@ pub async fn report_list(Query(params): Query<HashMap<String, String>>, State(st
     let offset = (page - 1) * per_page;
 
     // Parallel fetch total count và page rows
-    let total_fut = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM report").fetch_one(&state.db);
+    let total_fut = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM crypto_report").fetch_one(&state.db);
     let rows_fut = sqlx::query_as::<_, ReportSummary>(
-        "SELECT id, created_at FROM report ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+        "SELECT id, created_at FROM crypto_report ORDER BY created_at DESC LIMIT $1 OFFSET $2",
     )
     .bind(per_page as i64)
     .bind(offset as i64)
@@ -740,102 +589,10 @@ pub async fn report_list(Query(params): Query<HashMap<String, String>>, State(st
 
 pub async fn serve_chart_modules(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let content = utils::get_chart_modules_content(&state.chart_modules_cache).await;
-    Response::builder()
+    axum::response::Response::builder()
         .status(StatusCode::OK)
         .header("content-type", "application/javascript")
         .header("cache-control", "public, max-age=3600")
         .body(content)
         .unwrap()
-}
-
-// WebSocket handler for real-time updates
-pub async fn websocket_handler(
-    ws: WebSocketUpgrade,
-    State(state): State<Arc<AppState>>,
-) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| async move {
-        state.websocket_service.handle_websocket(socket).await;
-    })
-}
-
-// API endpoint to get cached dashboard summary với intelligent fallback
-pub async fn dashboard_summary_api(
-    State(state): State<Arc<AppState>>,
-) -> impl IntoResponse {
-    match state.websocket_service.get_dashboard_data_with_fallback().await {
-        Ok(data) => Json(data).into_response(),
-        Err(e) => {
-            eprintln!("Failed to fetch dashboard data with fallback: {}", e);
-            (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(json!({
-                    "error": "Service temporarily unavailable",
-                    "message": format!("Unable to fetch dashboard data: {}", e),
-                    "suggestion": "Dashboard data may be temporarily unavailable due to API rate limits. Please try again in a few minutes."
-                }))
-            ).into_response()
-        }
-    }
-}
-
-// API endpoint to force refresh dashboard data
-pub async fn force_refresh_dashboard(
-    State(state): State<Arc<AppState>>,
-) -> impl IntoResponse {
-    match state.websocket_service.force_update_dashboard().await {
-        Ok(data) => Json(json!({
-            "status": "success",
-            "message": "Dashboard data refreshed",
-            "data": data
-        })).into_response(),
-        Err(e) => {
-            eprintln!("Failed to refresh dashboard data: {}", e);
-            (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(json!({
-                    "error": "Service temporarily unavailable",
-                    "message": format!("Unable to refresh dashboard data: {}", e)
-                }))
-            ).into_response()
-        }
-    }
-}
-
-// Test SSL connectivity đến các external APIs
-async fn test_ssl_connectivity() -> serde_json::Value {
-    let client = crate::performance::OPTIMIZED_HTTP_CLIENT.clone();
-    let mut results = serde_json::Map::new();
-    
-    // Test các endpoints chính
-    let test_urls = vec![
-        ("coingecko_global", "https://api.coingecko.com/api/v3/ping"),
-        ("coingecko_price", "https://api.coingecko.com/api/v3/ping"),
-        ("fear_greed", "https://api.alternative.me/"),
-        ("taapi", "https://api.taapi.io/"),
-    ];
-    
-    for (name, url) in test_urls {
-        let result = match tokio::time::timeout(
-            std::time::Duration::from_secs(5),
-            client.get(url).send()
-        ).await {
-            Ok(Ok(response)) => json!({
-                "status": "ok",
-                "http_status": response.status().as_u16(),
-                "ssl_version": "TLS 1.2+"
-            }),
-            Ok(Err(e)) => json!({
-                "status": "error",
-                "error": format!("SSL/HTTP error: {}", e)
-            }),
-            Err(_) => json!({
-                "status": "timeout",
-                "error": "Request timeout (5s)"
-            })
-        };
-        
-        results.insert(name.to_string(), result);
-    }
-    
-    json!(results)
 }
