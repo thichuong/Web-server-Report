@@ -1,10 +1,9 @@
 [build]
-jobs = 2
+# Remove jobs = 0 as it causes issues
 
 [net]
-retry = 5
+retry = 3  # Faster retries
 git-fetch-with-cli = true
-download-buffer-size = "64MB"
 
 [target.x86_64-unknown-linux-musl]
 linker = "rust-lld"
@@ -13,11 +12,18 @@ rustflags = ["-C", "target-feature=+crt-static"]
 [target.x86_64-unknown-linux-gnu]
 linker = "cc"
 
-# Merged from .cargo/config (deprecated file name)
+# Production optimizations for Railway
 [env]
-RUST_LOG = { value = "info", force = false }
-TOKIO_THREAD_STACK_SIZE = { value = "4194304", force = false }
-RAYON_NUM_THREADS = { value = "0", force = false }
+RUST_LOG = { value = "warn", force = false }  # Less logging for performance
+TOKIO_THREAD_STACK_SIZE = { value = "8388608", force = false }  # 8MB stack
+MALLOC_ARENA_MAX = { value = "4", force = false }  # Memory optimization
+
+# Release profile optimizations
+[profile.release]
+lto = "fat"         # Full Link Time Optimization
+codegen-units = 1   # Single codegen unit for max optimization
+panic = "abort"     # Abort on panic for smaller binary
+strip = "symbols"   # Strip debug symbols
 
 [profile.dev.package."*"]
 opt-level = 2

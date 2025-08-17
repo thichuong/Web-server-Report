@@ -1,25 +1,14 @@
-# Optimized Nixpacks configuration for Railway (root-level)
+# Simplified Nixpacks configuration for Railway - Let Nixpacks auto-detect
 [variables]
-NIXPACKS_METADATA = "rust"
-RUST_LOG = "info"
-TOKIO_THREAD_STACK_SIZE = "4194304"
+RUST_LOG = "warn"
+TOKIO_THREAD_STACK_SIZE = "8388608"
 RAYON_NUM_THREADS = "0"
 CARGO_REGISTRIES_CRATES_IO_PROTOCOL = "sparse"
 CARGO_HTTP_MULTIPLEXING = "true"
-CARGO_NET_RETRY = "5"
+CARGO_NET_RETRY = "3"
 CARGO_NET_GIT_FETCH_WITH_CLI = "true"
+MALLOC_ARENA_MAX = "4"
+RUST_BACKTRACE = "0"
 
-[phases.setup]
-nixPkgs = ["rustc", "cargo", "gcc", "pkg-config", "openssl", "git"]
-
-[phases.build]
-cmd = """
-export CARGO_TERM_VERBOSE=true
-export RUSTFLAGS="-C target-cpu=generic -C opt-level=3"
-cargo build --release --locked -v
-mkdir -p bin
-cp target/release/web-server-report bin/
-"""
-
-[start]
-cmd = "bin/web-server-report"
+# Let Nixpacks auto-detect setup and build phases
+# Only override start command via Procfile and railway.json
