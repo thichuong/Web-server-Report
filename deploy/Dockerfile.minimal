@@ -21,8 +21,6 @@ RUN mkdir src && echo "fn main() {}" > src/main.rs && \
 # Copy source and build
 COPY . .
 
-# Thêm dòng này để tối ưu hóa CPU
-ENV RUSTFLAGS="-C target-cpu=x86-64-v3"
 
 RUN cargo build --release
 
@@ -60,7 +58,6 @@ ENV RUST_LOG=warn \
     DATABASE_URL="" \
     TAAPI_SECRET="" \
     REDIS_URL="" \
-    HOST="0.0.0.0" \
-    PORT="8000"
+    HOST="0.0.0.0"
 
 CMD ["./web-server-report"]

@@ -1,0 +1,25 @@
+# Optimized Nixpacks configuration for Railway (root-level)
+[variables]
+NIXPACKS_METADATA = "rust"
+RUST_LOG = "info"
+TOKIO_THREAD_STACK_SIZE = "4194304"
+RAYON_NUM_THREADS = "0"
+CARGO_REGISTRIES_CRATES_IO_PROTOCOL = "sparse"
+CARGO_HTTP_MULTIPLEXING = "true"
+CARGO_NET_RETRY = "5"
+CARGO_NET_GIT_FETCH_WITH_CLI = "true"
+
+[phases.setup]
+nixPkgs = ["rustc", "cargo", "gcc", "pkg-config", "openssl", "git"]
+
+[phases.build]
+cmd = """
+export CARGO_TERM_VERBOSE=true
+export RUSTFLAGS="-C target-cpu=generic -C opt-level=3"
+cargo fetch -v || true
+cargo update -v || true
+cargo build --release --locked -v
+"""
+
+[start]
+cmd = "./target/release/web-server-report"

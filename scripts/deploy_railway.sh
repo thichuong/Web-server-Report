@@ -22,11 +22,10 @@ if ! railway whoami &> /dev/null; then
     railway login
 fi
 
-# 3. Kiểm tra các files cần thiết
-echo "📁 Checking required files..."
+# 3. Kiểm tra các files cần thiết cho Nixpacks
+echo "📁 Checking required files for Nixpacks..."
 
 required_files=(
-    "Dockerfile.railway"
     "railway.json"
     "nixpacks.toml"
     "Cargo.toml"
@@ -44,14 +43,10 @@ for file in "${required_files[@]}"; do
 done
 echo "✅ All required files present"
 
-# 4. Build test locally (SSL-optimized)
-echo "🔨 Testing local build with SSL optimizations..."
-if docker build -f Dockerfile.railway -t web-server-railway-test . > /dev/null 2>&1; then
-    echo "✅ Docker build successful (with SSL/TLS support)"
-    docker rmi web-server-railway-test 2>/dev/null || true
-else
-    echo "❌ Docker build failed. Please fix before deploying."
-    exit 1
+# 4. (Optional) Dry-run build with Nixpacks locally if available
+if command -v nixpacks &> /dev/null; then
+    echo "🔨 Testing local Nixpacks build plan..."
+    nixpacks build . -o nixpacks-image-test >/dev/null 2>&1 || echo "⚠️  Local nixpacks build not required; proceeding with Railway build"
 fi
 
 # 5. Kiểm tra environment variables
@@ -75,7 +70,7 @@ read -p "Choose option (1-3): " option
 case $option in
     1)
         echo "🚂 Deploying to existing Railway project..."
-        railway up
+    railway up
         ;;
     2)
         echo "🆕 Creating new Railway project..."

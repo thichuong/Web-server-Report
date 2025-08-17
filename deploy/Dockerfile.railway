@@ -65,8 +65,7 @@ ENV RUST_LOG=info \
     DATABASE_URL="" \
     TAAPI_SECRET="" \
     REDIS_URL="redis://localhost:6379" \
-    HOST="0.0.0.0" \
-    PORT="8000"
+    HOST="0.0.0.0"
 
 # Start command
 CMD ["./web-server-report"]
