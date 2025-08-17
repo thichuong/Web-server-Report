@@ -41,7 +41,8 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         
         // WebSocket and API routes
         .route("/ws", get(websocket_handler))
-        .route("/api/crypto/dashboard-summary", get(dashboard_summary_api))
+        .route("/api/crypto/dashboard-summary", get(api_dashboard_summary)) // New cached endpoint
+        .route("/api/crypto/dashboard-summary/cached", get(dashboard_summary_api))
         .route("/api/crypto/dashboard-summary/refresh", get(force_refresh_dashboard))
         .route("/shared_assets/js/chart_modules.js", get(serve_chart_modules))
         

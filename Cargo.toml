@@ -48,12 +48,14 @@ reqwest = { version = "0.11", features = ["json"] }
 rayon = "1.8"          # Data parallelism cho CPU-intensive tasks
 dashmap = "5.5"        # Thread-safe HashMap
 num_cpus = "1.16"      # Detect số cores CPU
+# Cache dependencies - Multi-tier cache system
+moka = { version = "0.12", features = ["future"] }  # L1 In-memory cache
+bb8-redis = "0.15"     # Redis connection pool for L2 cache
 
 # Constraint problematic dependencies
 base64ct = "=1.6.0"    # Pin to avoid edition2024 requirement
 futures = "0.3"        # Async utilities cho concurrent operations
 # Performance optimization dependencies
-moka = { version = "0.12", features = ["future"] }  # High-performance async cache
 lazy_static = "1.4"    # Static initialization
 threadpool = "1.8"     # Dedicated thread pool cho CPU tasks
 parking_lot = "0.12"   # Fast synchronization primitives

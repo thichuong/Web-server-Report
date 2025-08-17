@@ -400,9 +400,17 @@ async function fetchDashboardSummary() {
         
         // Hiển thị fallback data thay vì chỉ hiển thị lỗi
         displayFallbackData();
-        
-        // Hiển thị thông báo lỗi nhẹ nhàng
-        showErrorNotification(getTranslatedText('connection-issue'));
+
+        // Nếu đã có cached data hoặc UI đã được cập nhật, không cần hiện toast lỗi
+        const hasCached = !!window.dashboardSummaryCache;
+        const uiPopulated = document.getElementById('market-cap-container') && document.getElementById('market-cap-container').innerText.trim().length > 0;
+
+        if (!hasCached && !uiPopulated) {
+            // Hiển thị thông báo lỗi nhẹ nhàng nếu không có dữ liệu để hiển thị
+            showErrorNotification(getTranslatedText('connection-issue'));
+        } else {
+            console.log('ℹ️ Có cached data hoặc UI đã hiển thị, bỏ qua thông báo lỗi');
+        }
     }
 }
 

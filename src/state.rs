@@ -6,11 +6,16 @@ use tera::Tera;
 use crate::models::Report;
 use crate::data_service::DataService;
 use crate::performance::{MultiLevelCache, PerformanceMetrics};
+use crate::cache::CacheManager;
 use std::time::Duration;
 
 pub struct AppState {
     pub db: PgPool,
-    // Optimized multi-level cache
+    // Unified cache manager for all caching operations
+    pub cache_manager: Arc<CacheManager>,
+    // Data service with cache integration
+    pub data_service: DataService,
+    // Optimized multi-level cache for reports
     pub report_cache: MultiLevelCache<i32, Report>,
     // Thread-safe cache cho chart modules
     pub chart_modules_cache: RwLock<Option<String>>,
@@ -29,32 +34,35 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub async fn new(
-        db: PgPool,
-        taapi_secret: String,
-        redis_url: &str,
-    ) -> Result<Self, anyhow::Error> {
-        // Initialize data service
-        let data_service = DataService::new(taapi_secret);
+    pub async fn new(database_url: &str, redis_url: &str, taapi_secret: String) -> Result<Self, anyhow::Error> {
+        // Initialize database connection
+        let db = PgPool::connect(database_url).await?;
+        
+        // Initialize unified cache manager
+        let cache_manager = Arc::new(CacheManager::new(redis_url).await?);
+        
+        // Initialize data service with cache manager integration
+        let data_service = DataService::with_cache_manager(taapi_secret, cache_manager.clone());
         
         // Initialize WebSocket service
-        let websocket_service = Arc::new(
-            crate::websocket_service::WebSocketService::new(redis_url, data_service)?
-        );
-        
-        // Start background data updates
-        websocket_service.start_background_updates().await;
+        let websocket_service = Arc::new(crate::websocket_service::WebSocketService::new(&redis_url, data_service.clone())?);
 
-        // Initialize Tera template engine with new architecture
-        let mut tera = Tera::default();
+        // Initialize Tera template engine
+        let mut tera = match Tera::new("dashboards/**/*.html") {
+            Ok(t) => t,
+            Err(e) => {
+                println!("Warning: Template parsing error: {}", e);
+                Tera::default()
+            }
+        };
         
-        // Load shared components (global)
-        tera.add_template_file("shared_components/theme_toggle.html", Some("shared/components/theme_toggle.html"))
-            .expect("Failed to load shared theme_toggle.html");
-        tera.add_template_file("shared_components/language_toggle.html", Some("shared/components/language_toggle.html"))
-            .expect("Failed to load shared language_toggle.html");
+        // Register shared components for backward compatibility
+        tera.add_template_file("shared_components/theme_toggle.html", Some("crypto/components/theme_toggle.html"))
+            .expect("Failed to load legacy crypto theme_toggle.html");
+        tera.add_template_file("shared_components/language_toggle.html", Some("crypto/components/language_toggle.html"))
+            .expect("Failed to load legacy crypto language_toggle.html");
         
-        // Load route-specific templates for crypto_dashboard
+        // Explicitly register crypto dashboard templates with logical names used across the codebase
         tera.add_template_file("dashboards/crypto_dashboard/routes/reports/view.html", Some("crypto/routes/reports/view.html"))
             .expect("Failed to load crypto reports view template");
         tera.add_template_file("dashboards/crypto_dashboard/routes/reports/pdf.html", Some("crypto/routes/reports/pdf.html"))
@@ -62,17 +70,12 @@ impl AppState {
         tera.add_template_file("dashboards/crypto_dashboard/routes/reports/list.html", Some("crypto/routes/reports/list.html"))
             .expect("Failed to load crypto reports list template");
         
-        // Load legacy templates for backwards compatibility (keeping for fallback)
-        // Add legacy components as well for backwards compatibility
-        tera.add_template_file("shared_components/theme_toggle.html", Some("crypto/components/theme_toggle.html"))
-            .expect("Failed to load legacy crypto theme_toggle.html");
-        tera.add_template_file("shared_components/language_toggle.html", Some("crypto/components/language_toggle.html"))
-            .expect("Failed to load legacy crypto language_toggle.html");
-        
         tera.autoescape_on(vec![]); // Disable auto-escaping for safe content
 
         Ok(Self {
             db,
+            cache_manager,
+            data_service,
             report_cache: MultiLevelCache::new(1000, Duration::from_secs(3600)), // 1000 reports, 1 hour TTL
             chart_modules_cache: RwLock::new(None),
             cached_reports: DashMap::new(), // Thread-safe HashMap
@@ -93,9 +96,9 @@ impl AppState {
         .fetch_optional(&self.db)
         .await
         {
-            // Insert vào DashMap (thread-safe)
-            self.cached_reports.insert(report.id, report.clone());
-            // Cập nhật latest id với atomic
+            // Insert into L1 cache (report_cache)
+            self.report_cache.insert(report.id, report.clone()).await;
+            // Update latest id with atomic
             self.cached_latest_id.store(report.id as usize, std::sync::atomic::Ordering::Relaxed);
         }
     }

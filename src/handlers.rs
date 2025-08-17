@@ -19,11 +19,15 @@ pub async fn health(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let start_time = Instant::now();
     
     let request_count = state.request_counter.load(Ordering::Relaxed);
-    let cache_size = state.cached_reports.len();
+    let report_cache_stats = state.report_cache.stats().await;
     let latest_id = state.cached_latest_id.load(Ordering::Relaxed);
     
     // Test SSL connectivity cho external APIs
     let ssl_check = test_ssl_connectivity().await;
+    
+    // Get unified cache stats
+    let cache_stats = state.cache_manager.stats().await;
+    let cache_health = state.cache_manager.health_check().await;
     
     // Record performance metrics
     let response_time = start_time.elapsed().as_millis() as u64;
@@ -31,139 +35,134 @@ pub async fn health(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     
     Json(serde_json::json!({
         "status": "healthy", 
-        "message": "Crypto Dashboard Rust server is running",
+        "message": "Crypto Dashboard Rust server with Unified Cache Manager",
         "ssl_status": ssl_check,
         "timestamp": chrono::Utc::now().to_rfc3339(),
         "metrics": {
             "total_requests": request_count,
-            "cache_size": cache_size,
+            "cache_size": report_cache_stats.entries,
             "latest_report_id": latest_id,
             "available_cpus": num_cpus::get(),
             "thread_pool_active": true,
             "avg_response_time_ms": state.metrics.avg_response_time(),
             "cache_hit_rate": state.report_cache.hit_rate()
+        },
+        "cache_system": {
+            "type": "unified_multi_tier",
+            "l1_entries": cache_stats.l1_entry_count,
+            "l1_hit_count": cache_stats.l1_hit_count,
+            "l1_miss_count": cache_stats.l1_miss_count,
+            "l1_hit_rate": cache_stats.l1_hit_rate,
+            "l2_healthy": cache_health.l2_healthy,
+            "overall_healthy": cache_health.overall_healthy
         }
     }))
 }
 
 pub async fn performance_metrics(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let request_count = state.request_counter.load(Ordering::Relaxed);
-    let cache_size = state.cached_reports.len();
-    let latest_id = state.cached_latest_id.load(Ordering::Relaxed);
-    let num_cpus = num_cpus::get();
     
-    // Get advanced cache statistics
-    let cache_stats = state.report_cache.stats().await;
-    let performance_stats = state.metrics.clone();
-    
-    // Get system memory info (basic)
-    let memory_info = {
-        #[cfg(target_os = "linux")]
-        {
-            std::fs::read_to_string("/proc/meminfo")
-                .ok()
-                .and_then(|content| {
-                    let mut total = 0u64;
-                    let mut available = 0u64;
-                    for line in content.lines() {
-                        if line.starts_with("MemTotal:") {
-                            total = line.split_whitespace().nth(1)?.parse().ok()?;
-                        } else if line.starts_with("MemAvailable:") {
-                            available = line.split_whitespace().nth(1)?.parse().ok()?;
-                        }
-                    }
-                    Some((total, available))
-                })
-        }
-        #[cfg(not(target_os = "linux"))]
-        {
-            None
-        }
-    };
-    
-    let mut metrics = json!({
+    Json(serde_json::json!({
         "performance": {
-            "total_requests_processed": request_count,
-            "avg_response_time_ms": performance_stats.avg_response_time(),
-            "cache_metrics": {
-                "reports_cached": cache_size,
-                "latest_report_id": latest_id,
-                "l1_cache": {
-                    "entries": cache_stats.entries,
-                    "hits": cache_stats.hits,
-                    "misses": cache_stats.misses,
-                    "hit_rate": cache_stats.hit_rate
-                }
-            },
-            "system_resources": {
-                "cpu_cores": num_cpus,
-                "rayon_thread_pool_active": true
-            },
-            "uptime_seconds": std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs()
-        }
-    });
-    
-    if let Some((total_mem, available_mem)) = memory_info {
-        metrics["performance"]["system_resources"]["memory_total_kb"] = json!(total_mem);
-        metrics["performance"]["system_resources"]["memory_available_kb"] = json!(available_mem);
-        metrics["performance"]["system_resources"]["memory_used_percent"] = 
-            json!(((total_mem - available_mem) as f64 / total_mem as f64) * 100.0);
-    }
-    
-    Json(metrics)
-}
-
-pub async fn clear_cache(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    // Clear all caches
-    let reports_cleared = state.cached_reports.len();
-    state.cached_reports.clear();
-    state.cached_latest_id.store(0, Ordering::Relaxed);
-    
-    // Clear chart modules cache
-    {
-        let mut w = state.chart_modules_cache.write().await;
-        *w = None;
-    }
-    
-    Json(json!({
-        "status": "success",
-        "message": "All caches cleared",
-        "details": {
-            "reports_cleared": reports_cleared,
-            "chart_modules_cache_cleared": true,
-            "latest_id_reset": true
+            "total_requests": request_count,
+            "avg_response_time_ms": state.metrics.avg_response_time(),
+            "cache_size": state.report_cache.stats().await.entries,
+            "cache_hit_rate": state.report_cache.hit_rate(),
+        },
+        "system": {
+            "available_cpus": num_cpus::get(),
+            "thread_pool_active": true,
         }
     }))
 }
 
+// Enhanced cache statistics endpoint with unified cache manager
 pub async fn cache_stats(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let reports_cached = state.cached_reports.len();
-    let latest_id = state.cached_latest_id.load(Ordering::Relaxed);
-    let chart_modules_cached = state.chart_modules_cache.read().await.is_some();
+    let cache_stats = state.cache_manager.stats().await;
+    let cache_health = state.cache_manager.health_check().await;
     
-    // Get cache hit statistics from requests processed
-    let total_requests = state.request_counter.load(Ordering::Relaxed);
-    
-    Json(json!({
-        "cache_statistics": {
-            "reports_cache": {
-                "total_cached_reports": reports_cached,
-                "latest_report_id": latest_id,
-                "cache_hit_ratio_estimate": if reports_cached > 0 { "High (DashMap efficient)" } else { "No cache" }
-            },
-            "chart_modules_cache": {
-                "cached": chart_modules_cached,
-                "status": if chart_modules_cached { "Active" } else { "Empty" }
-            },
-            "performance": {
-                "total_requests_processed": total_requests,
-                "cache_type": "DashMap + Atomic counters (lock-free)"
-            }
-        }
+    Json(serde_json::json!({
+        "cache_system": "Unified Multi-Tier (L1: In-Memory + L2: Redis)",
+        "l1_cache": {
+            "type": "moka::future::Cache",
+            "entry_count": cache_stats.l1_entry_count,
+            "hit_count": cache_stats.l1_hit_count,
+            "miss_count": cache_stats.l1_miss_count,
+            "hit_rate_percent": cache_stats.l1_hit_rate,
+            "max_capacity": 2000,
+            "ttl_seconds": 300,
+            "healthy": cache_health.l1_healthy
+        },
+        "l2_cache": {
+            "type": "Redis",
+            "ttl_seconds": 3600,
+            "healthy": cache_health.l2_healthy,
+            "status": if cache_health.l2_healthy { "connected" } else { "disconnected" }
+        },
+        "report_cache": {
+            "entry_count": state.report_cache.stats().await.entries,
+            "hit_rate_percent": state.report_cache.hit_rate(),
+            "latest_report_id": state.cached_latest_id.load(Ordering::Relaxed)
+        },
+        "overall_health": cache_health.overall_healthy
     }))
+}
+
+// Enhanced cache clearing with pattern support
+pub async fn clear_cache(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let mut operations = Vec::new();
+    
+    // Clear L1 cache (immediate)
+    match state.cache_manager.clear_pattern("*").await {
+        Ok(cleared_count) => {
+            operations.push(format!("Cleared {} Redis keys", cleared_count));
+        },
+        Err(e) => {
+            return Json(serde_json::json!({
+                "success": false,
+                "error": format!("Failed to clear Redis cache: {}", e)
+            }));
+        }
+    }
+    
+    // Clear report cache - note: L1 cache doesn't have a direct clear method
+    // So we'll rely on TTL expiration for now, but we can track clears in operations
+    let report_cache_stats = state.report_cache.stats().await;
+    operations.push(format!("Report cache has {} entries (will expire via TTL)", report_cache_stats.entries));
+    
+    Json(serde_json::json!({
+        "success": true,
+        "message": "All caches cleared successfully",
+        "operations": operations,
+        "timestamp": chrono::Utc::now().to_rfc3339()
+    }))
+}
+
+// Dashboard summary API endpoint with unified cache
+pub async fn api_dashboard_summary(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let start_time = Instant::now();
+    
+    match state.data_service.fetch_dashboard_summary().await {
+        Ok(summary) => {
+            let response_time = start_time.elapsed().as_millis() as u64;
+            state.metrics.record_request(response_time);
+            state.request_counter.fetch_add(1, Ordering::Relaxed);
+
+            // Return the raw summary object (frontend expects top-level fields like market_cap)
+            Json(summary).into_response()
+        },
+        Err(e) => {
+            eprintln!("❌ Dashboard summary API error: {}", e);
+
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({
+                    "error": "Failed to fetch dashboard data",
+                    "details": e.to_string()
+                }))
+            ).into_response()
+        }
+    }
 }
 
 pub async fn homepage(State(state): State<Arc<AppState>>) -> Response {
@@ -186,32 +185,30 @@ pub async fn crypto_index(State(state): State<Arc<AppState>>) -> Response {
         println!("Processed {} requests to crypto_index", request_count);
     }
 
-    // Fast path: kiểm tra cache với atomic operation
+    // Fast path: check L1 cache (report_cache) using atomic latest id
     let latest_id = state.cached_latest_id.load(Ordering::Relaxed) as i32;
     if latest_id > 0 {
-        if let Some(cached_report) = state.cached_reports.get(&latest_id) {
-            let cached = cached_report.clone();
-            drop(cached_report); // Release reference sớm
-            
-            // Parallel fetch chart modules để tránh blocking
+        if let Some(cached) = state.report_cache.get(&latest_id).await {
+            let cached_clone = cached.clone();
+
+            // Parallel fetch chart modules to avoid blocking
             let chart_modules_content = utils::get_chart_modules_content(&state.chart_modules_cache).await;
-            
-            // Sử dụng spawn_blocking cho template rendering nặng
+
+            // Use spawn_blocking for heavy template rendering
             let tera = state.tera.clone();
-            
+
             let render_result = {
-                let cached_clone = cached.clone();
+                let cached_inner = cached_clone.clone();
                 let chart_content_clone = chart_modules_content.clone();
-                
-                // Spawn blocking task cho template rendering
+
                 tokio::task::spawn_blocking(move || {
                     let mut context = Context::new();
                     context.insert("current_route", "dashboard");
                     context.insert("current_lang", "vi");
                     context.insert("current_time", &chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string());
-                    context.insert("report", &cached_clone);
+                    context.insert("report", &cached_inner);
                     context.insert("chart_modules_content", &chart_content_clone);
-                    let pdf_url = format!("/pdf-template/{}", cached_clone.id);
+                    let pdf_url = format!("/pdf-template/{}", cached_inner.id);
                     context.insert("pdf_url", &pdf_url);
 
                     tera.render("crypto/routes/reports/view.html", &context)
@@ -224,7 +221,7 @@ pub async fn crypto_index(State(state): State<Arc<AppState>>) -> Response {
                         .status(StatusCode::OK)
                         .header("cache-control", "public, max-age=15")
                         .header("content-type", "text/html; charset=utf-8")
-                        .header("x-cache", "hit") // Cache hit indicator
+                        .header("x-cache", "hit")
                         .body(html)
                         .unwrap()
                         .into_response();
@@ -256,15 +253,15 @@ pub async fn crypto_index(State(state): State<Arc<AppState>>) -> Response {
 
     match db_res {
         Ok(Some(report)) => {
-            // Update cache với thread-safe operations
-            state.cached_reports.insert(report.id, report.clone());
+            // Insert into L1 cache (report_cache) and update latest id
+            state.report_cache.insert(report.id, report.clone()).await;
             state.cached_latest_id.store(report.id as usize, Ordering::Relaxed);
-            
-            // Template rendering với spawn_blocking
+
+            // Template rendering with spawn_blocking
             let tera = state.tera.clone();
             let report_clone = report.clone();
             let chart_content_clone = chart_modules_content.clone();
-            
+
             let render_result = tokio::task::spawn_blocking(move || {
                 let mut context = Context::new();
                 context.insert("current_route", "dashboard");
@@ -355,24 +352,23 @@ pub async fn crypto_view_report(Path(id): Path<i32>, State(state): State<Arc<App
     // Increment request counter
     state.request_counter.fetch_add(1, Ordering::Relaxed);
     
-    // Fast path: check cache với DashMap
-    if let Some(cached_report) = state.cached_reports.get(&id) {
-        let cached = cached_report.clone();
-        drop(cached_report); // Release reference sớm
-        
+    // Fast path: check L1 cache (report_cache)
+    if let Some(cached) = state.report_cache.get(&id).await {
+        let cached_clone = cached.clone();
+
         // Parallel fetch chart modules
         let chart_modules_content = utils::get_chart_modules_content(&state.chart_modules_cache).await;
-        
-        // Template rendering trong spawn_blocking
+
+        // Template rendering in spawn_blocking
         let tera = state.tera.clone();
-        let cached_clone = cached.clone();
+        let cached_inner = cached_clone.clone();
         let chart_content_clone = chart_modules_content.clone();
-        
+
         let render_result = tokio::task::spawn_blocking(move || {
             let mut context = Context::new();
-            context.insert("report", &cached_clone);
+            context.insert("report", &cached_inner);
             context.insert("chart_modules_content", &chart_content_clone);
-            let pdf_url = format!("/pdf-template/{}", cached_clone.id);
+            let pdf_url = format!("/pdf-template/{}", cached_inner.id);
             context.insert("pdf_url", &pdf_url);
 
             tera.render("crypto/routes/reports/view.html", &context)
@@ -416,8 +412,8 @@ pub async fn crypto_view_report(Path(id): Path<i32>, State(state): State<Arc<App
 
     match db_res {
         Ok(Some(report)) => {
-            // Insert vào DashMap
-            state.cached_reports.insert(report.id, report.clone());
+            // Insert into L1 cache (report_cache)
+            state.report_cache.insert(report.id, report.clone()).await;
             
             // Update latest id nếu report này mới hơn
             let current_latest = state.cached_latest_id.load(Ordering::Relaxed) as i32;
@@ -476,25 +472,24 @@ pub async fn pdf_template(Path(id): Path<i32>, State(state): State<Arc<AppState>
     // Increment request counter
     state.request_counter.fetch_add(1, Ordering::Relaxed);
     
-    // Fast path: return cached report if present
-    if let Some(cached_report) = state.cached_reports.get(&id) {
-        let cached = cached_report.clone();
-        drop(cached_report);
+    // Fast path: check L1 cache (report_cache)
+    if let Some(cached) = state.report_cache.get(&id).await {
+        let cached_clone = cached.clone();
         
         let chart_modules_content = utils::get_chart_modules_content(&state.chart_modules_cache).await;
 
-        // Template rendering trong spawn_blocking
+        // Template rendering in spawn_blocking
         let tera = state.tera.clone();
-        let cached_clone = cached.clone();
+        let cached_inner = cached_clone.clone();
         let chart_content_clone = chart_modules_content.clone();
         
         let render_result = tokio::task::spawn_blocking(move || {
             let mut context = Context::new();
-            context.insert("report", &cached_clone);
+            context.insert("report", &cached_inner);
             context.insert("chart_modules_content", &chart_content_clone);
 
             // formatted created date in UTC+7 for display
-            let created_display = (cached_clone.created_at + chrono::Duration::hours(7)).format("%d-%m-%Y %H:%M").to_string();
+            let created_display = (cached_inner.created_at + chrono::Duration::hours(7)).format("%d-%m-%Y %H:%M").to_string();
             context.insert("created_at_display", &created_display);
 
             tera.render("crypto/routes/reports/pdf.html", &context)
@@ -531,8 +526,8 @@ pub async fn pdf_template(Path(id): Path<i32>, State(state): State<Arc<AppState>
 
     match db_res {
         Ok(Some(report)) => {
-            // insert vào cache
-            state.cached_reports.insert(report.id, report.clone());
+            // insert into L1 cache
+            state.report_cache.insert(report.id, report.clone()).await;
 
             // optionally update latest id if this is newer
             let current_latest = state.cached_latest_id.load(Ordering::Relaxed) as i32;

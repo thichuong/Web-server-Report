@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
 use anyhow::{Result, Context};
+use std::sync::Arc;
+use crate::cache::{CacheManager, CacheKeys};
 
 // API URLs
 const BASE_GLOBAL_URL: &str = "https://api.coingecko.com/api/v3/global";
@@ -20,6 +22,24 @@ pub struct DashboardSummary {
     pub btc_change_24h: f64,
     pub fng_value: u32,
     pub rsi_14: f64,
+    pub last_updated: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MarketData {
+    pub symbol: String,
+    pub price: f64,
+    pub volume_24h: f64,
+    pub change_24h: f64,
+    pub last_updated: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TechnicalIndicator {
+    pub symbol: String,
+    pub indicator: String,
+    pub period: String,
+    pub value: f64,
     pub last_updated: chrono::DateTime<chrono::Utc>,
 }
 
@@ -60,9 +80,12 @@ struct TaapiRsiResponse {
     value: f64,
 }
 
+#[derive(Clone)]
 pub struct DataService {
     client: Client,
     taapi_secret: String,
+    // Unified cache manager for all caching operations
+    cache_manager: Option<Arc<CacheManager>>,
 }
 
 impl DataService {
@@ -73,10 +96,37 @@ impl DataService {
         Self {
             client,
             taapi_secret,
+            cache_manager: None,
         }
     }
 
+    pub fn with_cache_manager(taapi_secret: String, cache_manager: Arc<CacheManager>) -> Self {
+        // Sử dụng optimized HTTP client từ performance module
+        let client = crate::performance::OPTIMIZED_HTTP_CLIENT.clone();
+        
+        Self {
+            client,
+            taapi_secret,
+            cache_manager: Some(cache_manager),
+        }
+    }
+
+    /// Main dashboard summary method - automatically uses cache if available
     pub async fn fetch_dashboard_summary(&self) -> Result<DashboardSummary> {
+        // If cache manager is available, use cache-or-compute pattern
+        if let Some(cache_manager) = &self.cache_manager {
+            return cache_manager.cache_dashboard_data(|| {
+                self.fetch_dashboard_summary_direct()
+            }).await;
+        }
+
+        // Fallback to direct fetch if no cache
+        self.fetch_dashboard_summary_direct().await
+    }
+
+    /// Direct fetch without caching (for internal use)
+    /// Direct fetch without caching (for internal use)
+    async fn fetch_dashboard_summary_direct(&self) -> Result<DashboardSummary> {
         println!("🔄 Fetching dashboard summary from external APIs...");
 
         // Fetch all data concurrently với better error handling
@@ -132,6 +182,80 @@ impl DataService {
 
         println!("✅ Dashboard summary fetched successfully");
         Ok(summary)
+    }
+
+    /// Fetch market data with intelligent caching
+    pub async fn fetch_market_data(&self, symbol: &str) -> Result<MarketData> {
+        if let Some(cache_manager) = &self.cache_manager {
+            return cache_manager.cache_market_data(symbol, || {
+                self.fetch_market_data_direct(symbol)
+            }).await;
+        }
+
+        self.fetch_market_data_direct(symbol).await
+    }
+
+    async fn fetch_market_data_direct(&self, symbol: &str) -> Result<MarketData> {
+        // Implementation for fetching specific market data
+        println!("🔄 Fetching market data for {}", symbol);
+        
+        // Example: Fetch price, volume, change data for a specific symbol
+        // This would call the appropriate API endpoints
+        
+        // Placeholder implementation
+        Ok(MarketData {
+            symbol: symbol.to_string(),
+            price: 0.0,
+            volume_24h: 0.0,
+            change_24h: 0.0,
+            last_updated: chrono::Utc::now(),
+        })
+    }
+
+    /// Fetch technical indicator with caching
+    pub async fn fetch_technical_indicator(&self, symbol: &str, indicator: &str, period: &str) -> Result<TechnicalIndicator> {
+        if let Some(cache_manager) = &self.cache_manager {
+            let key = CacheKeys::technical_indicator(symbol, indicator, period);
+            return cache_manager.cache_or_compute(&key, 300, || { // 5 minute TTL for technical indicators
+                self.fetch_technical_indicator_direct(symbol, indicator, period)
+            }).await;
+        }
+
+        self.fetch_technical_indicator_direct(symbol, indicator, period).await
+    }
+
+    async fn fetch_technical_indicator_direct(&self, symbol: &str, indicator: &str, period: &str) -> Result<TechnicalIndicator> {
+        println!("🔄 Fetching {} indicator for {} (period: {})", indicator, symbol, period);
+        
+        // Placeholder implementation - would call TAAPI or similar service
+        Ok(TechnicalIndicator {
+            symbol: symbol.to_string(),
+            indicator: indicator.to_string(),
+            period: period.to_string(),
+            value: 0.0,
+            last_updated: chrono::Utc::now(),
+        })
+    }
+
+    /// Cache management methods
+    pub async fn invalidate_cache(&self, pattern: &str) -> Result<u32> {
+        if let Some(cache_manager) = &self.cache_manager {
+            return cache_manager.clear_pattern(pattern).await;
+        }
+        Ok(0)
+    }
+
+    pub async fn get_cache_stats(&self) -> Option<crate::cache::CacheStats> {
+        self.cache_manager.as_ref().map(|_cm| {
+            // Note: This would need to be made async in a real implementation
+            // For now, return a placeholder
+            crate::cache::CacheStats {
+                l1_entry_count: 0,
+                l1_hit_count: 0,
+                l1_miss_count: 0,
+                l1_hit_rate: 0.0,
+            }
+        })
     }
 
     // Retry wrapper methods with exponential backoff

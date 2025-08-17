@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 // src/performance.rs - Performance optimization utilities
 
 use std::sync::Arc;
