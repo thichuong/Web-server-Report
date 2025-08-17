@@ -151,7 +151,7 @@ impl DataService {
         self.retry_with_backoff(|| self.fetch_rsi(), 3).await
     }
 
-    // Generic retry logic with exponential backoff
+    // Generic retry logic với exponential backoff và special handling cho rate limits
     async fn retry_with_backoff<T, F, Fut>(&self, mut operation: F, max_retries: u32) -> Result<T>
     where
         F: FnMut() -> Fut,
@@ -167,9 +167,17 @@ impl DataService {
                         return Err(err);
                     }
                     
-                    // Exponential backoff: 1s, 2s, 4s
-                    let delay = Duration::from_secs(2u64.pow(retries - 1));
-                    println!("⏳ Retry {}/{} after {}s: {}", retries, max_retries, delay.as_secs(), err);
+                    // Special handling cho 429 Too Many Requests
+                    let delay = if err.to_string().contains("429") || err.to_string().contains("Too Many Requests") {
+                        // Longer delay for rate limit errors - 2 minutes base
+                        Duration::from_secs(120 * 2u64.pow(retries - 1)) // 2m, 4m, 8m
+                    } else {
+                        // Normal exponential backoff: 10s, 20s, 40s
+                        Duration::from_secs(10 * 2u64.pow(retries - 1))
+                    };
+                    
+                    println!("⏳ Retry {}/{} after {}s for error: {}", 
+                        retries, max_retries, delay.as_secs(), err);
                     tokio::time::sleep(delay).await;
                 }
             }

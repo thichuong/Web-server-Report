@@ -763,35 +763,20 @@ pub async fn websocket_handler(
     })
 }
 
-// API endpoint to get cached dashboard summary
+// API endpoint to get cached dashboard summary với intelligent fallback
 pub async fn dashboard_summary_api(
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
-    match state.websocket_service.get_cached_dashboard_data().await {
-        Ok(Some(data)) => Json(data).into_response(),
-        Ok(None) => {
-            // No cached data, try to fetch fresh data
-            match state.websocket_service.force_update_dashboard().await {
-                Ok(data) => Json(data).into_response(),
-                Err(e) => {
-                    eprintln!("Failed to fetch dashboard data: {}", e);
-                    (
-                        StatusCode::SERVICE_UNAVAILABLE,
-                        Json(json!({
-                            "error": "Service temporarily unavailable",
-                            "message": "Unable to fetch dashboard data"
-                        }))
-                    ).into_response()
-                }
-            }
-        }
+    match state.websocket_service.get_dashboard_data_with_fallback().await {
+        Ok(data) => Json(data).into_response(),
         Err(e) => {
-            eprintln!("Redis error: {}", e);
+            eprintln!("Failed to fetch dashboard data with fallback: {}", e);
             (
-                StatusCode::INTERNAL_SERVER_ERROR,
+                StatusCode::SERVICE_UNAVAILABLE,
                 Json(json!({
-                    "error": "Internal server error",
-                    "message": "Database connection failed"
+                    "error": "Service temporarily unavailable",
+                    "message": format!("Unable to fetch dashboard data: {}", e),
+                    "suggestion": "Dashboard data may be temporarily unavailable due to API rate limits. Please try again in a few minutes."
                 }))
             ).into_response()
         }

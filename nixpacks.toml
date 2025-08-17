@@ -16,10 +16,10 @@ nixPkgs = ["rustc", "cargo", "gcc", "pkg-config", "openssl", "git"]
 cmd = """
 export CARGO_TERM_VERBOSE=true
 export RUSTFLAGS="-C target-cpu=generic -C opt-level=3"
-cargo fetch -v || true
-cargo update -v || true
 cargo build --release --locked -v
+mkdir -p bin
+cp target/release/web-server-report bin/
 """
 
 [start]
-cmd = "./target/release/web-server-report"
+cmd = "bin/web-server-report"
