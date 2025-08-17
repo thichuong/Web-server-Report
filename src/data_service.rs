@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 // src/data_service.rs - Service để fetch dữ liệu từ external APIs
 
 use reqwest::Client;

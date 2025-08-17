@@ -1,7 +1,7 @@
 use sqlx::PgPool;
 use std::sync::{Arc, atomic::AtomicUsize};
 use tokio::sync::RwLock;
-use dashmap::DashMap;
+// dashmap removed; MultiLevelCache is used for reports instead
 use tera::Tera;
 use crate::models::Report;
 use crate::data_service::DataService;
@@ -19,8 +19,6 @@ pub struct AppState {
     pub report_cache: MultiLevelCache<i32, Report>,
     // Thread-safe cache cho chart modules
     pub chart_modules_cache: RwLock<Option<String>>,
-    // DashMap thay thế RwLock<HashMap> để tránh lock contention
-    pub cached_reports: DashMap<i32, Report>,
     // Atomic cho latest report ID
     pub cached_latest_id: AtomicUsize, // Sử dụng AtomicUsize thay vì RwLock
     // Tera template engine - thread-safe
@@ -44,8 +42,8 @@ impl AppState {
         // Initialize data service with cache manager integration
         let data_service = DataService::with_cache_manager(taapi_secret, cache_manager.clone());
         
-        // Initialize WebSocket service
-        let websocket_service = Arc::new(crate::websocket_service::WebSocketService::new(&redis_url, data_service.clone())?);
+        // Initialize WebSocket service with CacheManager
+        let websocket_service = Arc::new(crate::websocket_service::WebSocketService::new(cache_manager.clone(), data_service.clone())?);
 
         // Initialize Tera template engine
         let mut tera = match Tera::new("dashboards/**/*.html") {
@@ -78,7 +76,7 @@ impl AppState {
             data_service,
             report_cache: MultiLevelCache::new(1000, Duration::from_secs(3600)), // 1000 reports, 1 hour TTL
             chart_modules_cache: RwLock::new(None),
-            cached_reports: DashMap::new(), // Thread-safe HashMap
+            // cached_reports removed: replaced by `report_cache` (MultiLevelCache)
             cached_latest_id: AtomicUsize::new(0), // Atomic counter
             tera,
             websocket_service,
