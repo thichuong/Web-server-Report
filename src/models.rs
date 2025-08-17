@@ -1,7 +1,7 @@
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use sqlx::FromRow;
 
-#[derive(FromRow, Serialize, Debug, Clone)]
+#[derive(FromRow, Serialize, Deserialize, Debug, Clone)]
 pub struct Report {
     pub id: i32,
     pub html_content: String,
