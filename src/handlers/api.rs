@@ -78,3 +78,17 @@ pub async fn force_refresh_dashboard(
         }
     }
 }
+
+// API endpoint to get rate limiting status for monitoring
+pub async fn api_rate_limit_status(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let rate_limit_status = state.data_service.get_rate_limit_status();
+    
+    Json(json!({
+        "rate_limit_status": rate_limit_status,
+        "timestamp": chrono::Utc::now(),
+        "server_info": {
+            "total_requests": state.request_counter.load(Ordering::Relaxed),
+            "uptime_seconds": state.start_time.elapsed().as_secs()
+        }
+    })).into_response()
+}

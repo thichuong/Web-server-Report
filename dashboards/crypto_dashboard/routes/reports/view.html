@@ -17,6 +17,62 @@
         /* <![CDATA[ */
         {{ report.css_content }}
         /* ]]> */
+        
+        /* Auto-loading enhancements */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            z-index: 9999;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .loading-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .card {
+            transition: all 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        #refresh-dashboard:hover {
+            transform: translateY(-1px);
+        }
+        
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+        
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
     </style>
 </head>
 <body class="antialiased">
@@ -40,6 +96,20 @@
                     <i class="fas fa-print mr-2"></i> <span data-i18n="print-report">In Báo cáo</span>
                 </a>
                 <a href="/crypto_reports_list" class="inline-block bg-gray-700 text-white font-bold py-3 px-6 rounded-lg"><span data-i18n="view-report-history">Lịch sử báo cáo</span></a>
+                <button id="refresh-dashboard" class="inline-block bg-purple-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-700 transition-colors duration-300">
+                    <i class="fas fa-sync-alt mr-2"></i> <span data-i18n="refresh-data">Cập nhật dữ liệu</span>
+                </button>
+            </div>
+            
+            <!-- Status indicator -->
+            <div id="dashboard-status" class="mt-4 text-center">
+                <div id="websocket-status" class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium">
+                    <div class="w-2 h-2 bg-gray-400 rounded-full mr-2 animate-pulse"></div>
+                    <span data-i18n="connecting">Đang kết nối...</span>
+                </div>
+                <div id="last-update" class="mt-2 text-xs text-gray-500">
+                    <span data-i18n="last-update">Cập nhật lần cuối</span>: <span id="last-update-time">--</span>
+                </div>
             </div>
         </header>
 
@@ -49,6 +119,9 @@
                     <div class="flex items-center mb-2">
                         <i class="fab fa-bitcoin text-yellow-500 text-3xl mr-3"></i>
                         <h3 class="text-lg font-semibold text-gray-700" data-i18n="btc-price">Giá BTC</h3>
+                        <div id="btc-refresh-indicator" class="ml-auto opacity-0 transition-opacity duration-300">
+                            <i class="fas fa-sync-alt text-green-500 text-sm animate-spin"></i>
+                        </div>
                     </div>
                     <div id="btc-price-container">
                         <div class="skeleton h-9 w-3/4 mb-2"></div>

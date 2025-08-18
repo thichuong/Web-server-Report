@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::time::Duration;
 use anyhow::{Result, Context};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, AtomicBool, Ordering};
 use crate::cache::{CacheManager, CacheKeys};
 
 // API URLs
@@ -42,6 +43,13 @@ pub struct TechnicalIndicator {
     pub period: String,
     pub value: f64,
     pub last_updated: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RateLimitStatus {
+    pub btc_api_circuit_breaker_open: bool,
+    pub seconds_since_last_btc_fetch: u64,
+    pub can_fetch_btc_now: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -87,6 +95,9 @@ pub struct DataService {
     taapi_secret: String,
     // Unified cache manager for all caching operations
     cache_manager: Option<Arc<CacheManager>>,
+    // Rate limiting protection
+    last_btc_fetch: Arc<AtomicU64>,
+    btc_api_circuit_breaker: Arc<AtomicBool>,
 }
 
 impl DataService {
@@ -98,6 +109,8 @@ impl DataService {
             client,
             taapi_secret,
             cache_manager: None,
+            last_btc_fetch: Arc::new(AtomicU64::new(0)),
+            btc_api_circuit_breaker: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -109,19 +122,181 @@ impl DataService {
             client,
             taapi_secret,
             cache_manager: Some(cache_manager),
+            last_btc_fetch: Arc::new(AtomicU64::new(0)),
+            btc_api_circuit_breaker: Arc::new(AtomicBool::new(false)),
         }
     }
 
-    /// Main dashboard summary method - automatically uses cache if available
+    /// Main dashboard summary method - BTC price real-time, other data cached
+    /// 
+    /// This method implements an optimized caching strategy with rate limiting:
+    /// - BTC price: Cached for 3 seconds minimum to prevent API spam
+    /// - Other data (market cap, volume, Fear & Greed, RSI): Cached for 10 minutes
+    /// - Circuit breaker protection for rate-limited APIs
+    /// 
+    /// This provides near real-time BTC price updates while staying within rate limits
+    /// and protecting against client spam.
     pub async fn fetch_dashboard_summary(&self) -> Result<DashboardSummary> {
-        // If cache manager is available, use cache-or-compute pattern
+        // First check if we have a very recent complete dashboard cache (30 seconds)
+        // This protects against rapid client requests
         if let Some(cache_manager) = &self.cache_manager {
-            return cache_manager.cache_dashboard_data(|| {
-                self.fetch_dashboard_summary_direct()
-            }).await;
+            let rapid_cache_key = CacheKeys::dashboard_summary();
+            if let Ok(Some(recent_summary)) = cache_manager.get::<DashboardSummary>(&rapid_cache_key).await {
+                println!("🎯 Using rapid cache (30s protection against client spam)");
+                return Ok(recent_summary);
+            }
         }
 
-        // Fallback to direct fetch if no cache
+        // If no rapid cache, use the optimized real-time method
+        let summary = self.fetch_dashboard_summary_with_realtime_btc().await?;
+
+        // Cache complete summary for 30 seconds to protect against client spam
+        if let Some(cache_manager) = &self.cache_manager {
+            let rapid_cache_key = CacheKeys::dashboard_summary();
+            let _ = cache_manager.set_with_ttl(&rapid_cache_key, &summary, 30).await; // 30 seconds anti-spam cache
+        }
+
+        Ok(summary)
+    }
+
+    /// Fetch dashboard summary with real-time BTC price and cached other data
+    /// Uses intelligent BTC caching: 3-second minimum interval between API calls
+    async fn fetch_dashboard_summary_with_realtime_btc(&self) -> Result<DashboardSummary> {
+        println!("🔄 Fetching dashboard summary with optimized BTC price...");
+
+        // Try to get recently cached BTC price first (3-second cache)
+        let btc_cache_key = CacheKeys::price_data("btc", "realtime");
+        let (btc_price_usd, btc_change_24h) = if let Some(cache_manager) = &self.cache_manager {
+            // Try to get BTC price from short-term cache (3 seconds)
+            if let Ok(Some(cached_btc)) = cache_manager.get::<(f64, f64)>(&btc_cache_key).await {
+                println!("🎯 Using cached BTC price (within 3s window)");
+                cached_btc
+            } else {
+                // Fetch fresh BTC price and cache it for 3 seconds
+                match self.fetch_btc_price_with_retry().await {
+                    Ok(btc_data) => {
+                        // Cache BTC price for 3 seconds to prevent API spam
+                        let _ = cache_manager.set_with_ttl(&btc_cache_key, &btc_data, 3).await;
+                        btc_data
+                    }
+                    Err(e) => {
+                        eprintln!("⚠️ Failed to fetch BTC price: {}", e);
+                        // Try to get older cached BTC data as fallback (up to 1 minute)
+                        let fallback_key = CacheKeys::price_data("btc", "fallback");
+                        if let Ok(Some(fallback_btc)) = cache_manager.get::<(f64, f64)>(&fallback_key).await {
+                            println!("🔄 Using fallback cached BTC price");
+                            fallback_btc
+                        } else {
+                            (0.0, 0.0)
+                        }
+                    }
+                }
+            }
+        } else {
+            // No cache manager, fetch directly with rate limiting
+            match self.fetch_btc_price_with_retry().await {
+                Ok(data) => data,
+                Err(e) => {
+                    eprintln!("⚠️ Failed to fetch BTC price: {}", e);
+                    (0.0, 0.0)
+                }
+            }
+        };
+
+        // Store successful BTC fetch as fallback for future errors
+        if btc_price_usd > 0.0 {
+            if let Some(cache_manager) = &self.cache_manager {
+                let fallback_key = CacheKeys::price_data("btc", "fallback");
+                let _ = cache_manager.set_with_ttl(&fallback_key, &(btc_price_usd, btc_change_24h), 60).await; // 1 minute fallback
+            }
+        }
+
+        // For other data, try to use cached values first
+        if let Some(cache_manager) = &self.cache_manager {
+            // Try to get cached non-BTC data
+            if let Ok(Some(mut cached_summary)) = cache_manager.get::<DashboardSummary>(&CacheKeys::dashboard_summary_non_btc()).await {
+                // Update with fresh/cached BTC data
+                cached_summary.btc_price_usd = btc_price_usd;
+                cached_summary.btc_change_24h = btc_change_24h;
+                cached_summary.last_updated = chrono::Utc::now();
+                
+                println!("✅ Dashboard summary with cached data + optimized BTC");
+                return Ok(cached_summary);
+            }
+        }
+
+        // If no cached data available, fetch everything fresh
+        self.fetch_dashboard_summary_direct_non_btc(btc_price_usd, btc_change_24h).await
+    }
+
+    /// Fetch non-BTC dashboard data and cache it separately
+    async fn fetch_dashboard_summary_direct_non_btc(&self, btc_price_usd: f64, btc_change_24h: f64) -> Result<DashboardSummary> {
+        println!("🔄 Fetching non-BTC dashboard data from external APIs...");
+
+        // Fetch non-BTC data concurrently
+        let (global_result, fng_result, rsi_result) = tokio::join!(
+            self.fetch_global_data_with_retry(),
+            self.fetch_fear_greed_with_retry(),
+            self.fetch_rsi_with_retry()
+        );
+
+        // Handle partial failures gracefully
+        let (market_cap, volume_24h) = match global_result {
+            Ok(data) => data,
+            Err(e) => {
+                eprintln!("⚠️ Failed to fetch global data: {}", e);
+                (0.0, 0.0)
+            }
+        };
+
+        let fng_value = match fng_result {
+            Ok(value) => value,
+            Err(e) => {
+                eprintln!("⚠️ Failed to fetch Fear & Greed: {}", e);
+                50 // Neutral default
+            }
+        };
+
+        let rsi_14 = match rsi_result {
+            Ok(value) => value,
+            Err(e) => {
+                eprintln!("⚠️ Failed to fetch RSI: {}", e);
+                50.0 // Neutral default
+            }
+        };
+
+        let summary = DashboardSummary {
+            market_cap,
+            volume_24h,
+            btc_price_usd,
+            btc_change_24h,
+            fng_value,
+            rsi_14,
+            last_updated: chrono::Utc::now(),
+        };
+
+        // Cache non-BTC data for future use
+        if let Some(cache_manager) = &self.cache_manager {
+            let non_btc_summary = DashboardSummary {
+                market_cap,
+                volume_24h,
+                btc_price_usd: 0.0, // Will be replaced with real-time data
+                btc_change_24h: 0.0, // Will be replaced with real-time data
+                fng_value,
+                rsi_14,
+                last_updated: chrono::Utc::now(),
+            };
+            
+            // Cache non-BTC data with longer TTL since it changes less frequently
+            let _ = cache_manager.set_with_ttl(&CacheKeys::dashboard_summary_non_btc(), &non_btc_summary, 600).await; // 10 minutes TTL
+        }
+
+        println!("✅ Dashboard summary with fresh non-BTC data + real-time BTC");
+        Ok(summary)
+    }
+
+    /// Legacy method - fetches all data fresh (for backward compatibility)
+    pub async fn fetch_dashboard_summary_all_fresh(&self) -> Result<DashboardSummary> {
         self.fetch_dashboard_summary_direct().await
     }
 
@@ -259,13 +434,74 @@ impl DataService {
         })
     }
 
+    /// Get current rate limiting status for monitoring
+    pub fn get_rate_limit_status(&self) -> RateLimitStatus {
+        let now = chrono::Utc::now().timestamp() as u64;
+        let last_fetch = self.last_btc_fetch.load(Ordering::Relaxed);
+        let circuit_breaker_open = self.btc_api_circuit_breaker.load(Ordering::Relaxed);
+        
+        RateLimitStatus {
+            btc_api_circuit_breaker_open: circuit_breaker_open,
+            seconds_since_last_btc_fetch: if last_fetch > 0 { now - last_fetch } else { 0 },
+            can_fetch_btc_now: !circuit_breaker_open && (last_fetch == 0 || (now - last_fetch) >= 3),
+        }
+    }
+
     // Retry wrapper methods with exponential backoff
     async fn fetch_global_data_with_retry(&self) -> Result<(f64, f64)> {
         self.retry_with_backoff(|| self.fetch_global_data(), 3).await
     }
 
     async fn fetch_btc_price_with_retry(&self) -> Result<(f64, f64)> {
-        self.retry_with_backoff(|| self.fetch_btc_price(), 3).await
+        self.fetch_btc_price_with_rate_limit().await
+    }
+
+    /// BTC price fetch with intelligent rate limiting and circuit breaker
+    async fn fetch_btc_price_with_rate_limit(&self) -> Result<(f64, f64)> {
+        // Check if circuit breaker is open (API temporarily blocked due to rate limits)
+        if self.btc_api_circuit_breaker.load(Ordering::Relaxed) {
+            println!("⚠️ BTC API circuit breaker is open, skipping API call");
+            anyhow::bail!("BTC API circuit breaker is active");
+        }
+
+        // Get current timestamp in seconds
+        let now = chrono::Utc::now().timestamp() as u64;
+        let last_fetch = self.last_btc_fetch.load(Ordering::Relaxed);
+        
+        // Enforce minimum 3-second interval between API calls
+        if last_fetch > 0 && (now - last_fetch) < 3 {
+            let wait_time = 3 - (now - last_fetch);
+            println!("⏳ Rate limiting: waiting {}s before BTC API call", wait_time);
+            tokio::time::sleep(Duration::from_secs(wait_time)).await;
+        }
+
+        // Update last fetch timestamp
+        self.last_btc_fetch.store(now, Ordering::Relaxed);
+
+        // Try to fetch with circuit breaker protection
+        match self.retry_with_backoff(|| self.fetch_btc_price(), 3).await {
+            Ok(result) => {
+                // Successful fetch - reset circuit breaker if it was open
+                self.btc_api_circuit_breaker.store(false, Ordering::Relaxed);
+                Ok(result)
+            }
+            Err(err) => {
+                // Check if it's a rate limit error
+                if err.to_string().contains("429") || err.to_string().contains("Too Many Requests") {
+                    println!("🚨 BTC API rate limited - opening circuit breaker for 5 minutes");
+                    self.btc_api_circuit_breaker.store(true, Ordering::Relaxed);
+                    
+                    // Schedule circuit breaker reset after 5 minutes
+                    let circuit_breaker = self.btc_api_circuit_breaker.clone();
+                    tokio::spawn(async move {
+                        tokio::time::sleep(Duration::from_secs(300)).await; // 5 minutes
+                        circuit_breaker.store(false, Ordering::Relaxed);
+                        println!("🔄 BTC API circuit breaker reset");
+                    });
+                }
+                Err(err)
+            }
+        }
     }
 
     async fn fetch_fear_greed_with_retry(&self) -> Result<u32> {
@@ -294,11 +530,12 @@ impl DataService {
                     
                     // Special handling cho 429 Too Many Requests
                     let delay = if err.to_string().contains("429") || err.to_string().contains("Too Many Requests") {
-                        // Longer delay for rate limit errors - 2 minutes base
-                        Duration::from_secs(120 * 2u64.pow(retries - 1)) // 2m, 4m, 8m
+                        // For rate limit errors - progressive delays: 30s, 60s, 120s
+                        let base_delay = 30 * (1 << (retries - 1)); // 30s, 60s, 120s
+                        Duration::from_secs(base_delay.min(300)) // Cap at 5 minutes max
                     } else {
-                        // Normal exponential backoff: 10s, 20s, 40s
-                        Duration::from_secs(10 * 2u64.pow(retries - 1))
+                        // Normal exponential backoff: 5s, 10s, 20s
+                        Duration::from_secs(5 * 2u64.pow(retries - 1))
                     };
                     
                     println!("⏳ Retry {}/{} after {}s for error: {}", 

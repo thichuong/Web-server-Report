@@ -25,6 +25,7 @@ class DashboardWebSocket {
         const wsUrl = `${protocol}//${window.location.host}/ws`;
 
         console.log('🔌 Connecting to WebSocket:', wsUrl);
+        updateWebSocketStatus('connecting', getTranslatedText('connecting') || 'Đang kết nối...');
 
         try {
             this.socket = new WebSocket(wsUrl);
@@ -34,6 +35,9 @@ class DashboardWebSocket {
                 this.reconnectAttempts = 0;
                 this.reconnectDelay = 1000;
                 this.isConnecting = false;
+                
+                // Update status indicator
+                updateWebSocketStatus('connected', getTranslatedText('real-time-connected') || 'Kết nối thời gian thực');
                 
                 // Send ping to keep connection alive
                 this.startHeartbeat();
@@ -53,6 +57,10 @@ class DashboardWebSocket {
                 this.isConnecting = false;
                 this.stopHeartbeat();
                 
+                if (event.code !== 1000) { // Not a normal closure
+                    updateWebSocketStatus('disconnected', getTranslatedText('connection-lost') || 'Mất kết nối');
+                }
+                
                 // Attempt to reconnect if not manually closed
                 if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
                     setTimeout(() => this.reconnect(), this.reconnectDelay);
@@ -62,6 +70,7 @@ class DashboardWebSocket {
             this.socket.onerror = (error) => {
                 console.error('❌ WebSocket error:', error);
                 this.isConnecting = false;
+                updateWebSocketStatus('error', getTranslatedText('connection-error') || 'Lỗi kết nối');
             };
 
         } catch (error) {
@@ -197,14 +206,18 @@ function updateDashboardFromData(data) {
         try { volumeContainer.dataset.volume24h = String(data.volume_24h); } catch(e){}
     }
 
-    // Cập nhật giá BTC
+    // Cập nhật giá BTC với visual feedback
     const btcContainer = selectDashboardElementByLang('btc-price-container');
     if (btcContainer) {
+        // Show refresh indicator briefly
+        showBtcRefreshIndicator();
+        
         const change = data.btc_change_24h;
         const changeClass = change >= 0 ? 'text-green-600' : 'text-red-600';
+        const changeIcon = change >= 0 ? '📈' : '📉';
         btcContainer.innerHTML = `
             <p class="text-3xl font-bold text-gray-900">${'$' + (data.btc_price_usd ? data.btc_price_usd.toLocaleString('en-US') : 'N/A')}</p>
-            <p class="text-sm font-semibold ${changeClass}">${change !== null ? change.toFixed(2) : 'N/A'}% (24h)</p>`;
+            <p class="text-sm font-semibold ${changeClass}">${changeIcon} ${change !== null ? change.toFixed(2) : 'N/A'}% (24h)</p>`;
         try { btcContainer.dataset.btcPriceUsd = String(data.btc_price_usd); btcContainer.dataset.btcChange24h = String(data.btc_change_24h); } catch(e){}
     }
 
@@ -247,6 +260,119 @@ function updateDashboardFromData(data) {
     }
 
     console.log('✅ Dashboard UI updated successfully');
+    
+    // Update last updated time
+    updateLastUpdatedTime();
+}
+
+// ===== UI ENHANCEMENT FUNCTIONS =====
+
+/**
+ * Show BTC refresh indicator briefly
+ */
+function showBtcRefreshIndicator() {
+    const indicator = document.getElementById('btc-refresh-indicator');
+    if (indicator) {
+        indicator.style.opacity = '1';
+        setTimeout(() => {
+            indicator.style.opacity = '0';
+        }, 1000);
+    }
+}
+
+/**
+ * Update WebSocket status indicator
+ */
+function updateWebSocketStatus(status, message) {
+    const statusElement = document.getElementById('websocket-status');
+    if (!statusElement) return;
+    
+    const statusClasses = {
+        'connecting': 'bg-yellow-100 text-yellow-800',
+        'connected': 'bg-green-100 text-green-800',
+        'disconnected': 'bg-red-100 text-red-800',
+        'error': 'bg-red-100 text-red-800'
+    };
+    
+    const statusIcons = {
+        'connecting': 'fas fa-sync-alt animate-spin text-yellow-600',
+        'connected': 'fas fa-check-circle text-green-600',
+        'disconnected': 'fas fa-times-circle text-red-600',
+        'error': 'fas fa-exclamation-triangle text-red-600'
+    };
+    
+    const statusIcon = statusIcons[status] || 'fas fa-circle text-gray-400';
+    const statusClass = statusClasses[status] || 'bg-gray-100 text-gray-800';
+    
+    statusElement.className = `inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${statusClass}`;
+    statusElement.innerHTML = `
+        <div class="w-2 h-2 mr-2">
+            <i class="${statusIcon}"></i>
+        </div>
+        <span>${message}</span>
+    `;
+}
+
+/**
+ * Update last updated time
+ */
+function updateLastUpdatedTime() {
+    const timeElement = document.getElementById('last-update-time');
+    if (timeElement) {
+        const now = new Date();
+        const lang = (window.languageManager && window.languageManager.currentLanguage) || 'vi';
+        
+        try {
+            const timeOptions = { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit',
+                timeZone: 'Asia/Ho_Chi_Minh', 
+                hour12: false 
+            };
+            const timeFormatter = new Intl.DateTimeFormat((lang === 'en') ? 'en-US' : 'vi-VN', timeOptions);
+            timeElement.textContent = timeFormatter.format(now) + ' (GMT+7)';
+        } catch (e) {
+            timeElement.textContent = now.toLocaleTimeString();
+        }
+    }
+}
+
+/**
+ * Manual refresh function
+ */
+async function manualRefreshDashboard() {
+    const refreshBtn = document.getElementById('refresh-dashboard');
+    if (refreshBtn) {
+        const originalText = refreshBtn.innerHTML;
+        refreshBtn.innerHTML = '<i class="fas fa-sync-alt animate-spin mr-2"></i> <span data-i18n="refreshing">Đang cập nhật...</span>';
+        refreshBtn.disabled = true;
+    }
+    
+    try {
+        await fetchDashboardSummary();
+        
+        // Show success feedback
+        updateWebSocketStatus('connected', getTranslatedText('data-updated') || 'Dữ liệu đã được cập nhật');
+        
+        setTimeout(() => {
+            if (dashboardWebSocket && dashboardWebSocket.socket && dashboardWebSocket.socket.readyState === WebSocket.OPEN) {
+                updateWebSocketStatus('connected', getTranslatedText('real-time-connected') || 'Kết nối thời gian thực');
+            }
+        }, 2000);
+        
+    } catch (error) {
+        console.error('Manual refresh failed:', error);
+        updateWebSocketStatus('error', getTranslatedText('refresh-failed') || 'Lỗi cập nhật dữ liệu');
+    } finally {
+        // Reset button
+        setTimeout(() => {
+            if (refreshBtn) {
+                refreshBtn.innerHTML = '<i class="fas fa-sync-alt mr-2"></i> <span data-i18n="refresh-data">Cập nhật dữ liệu</span>';
+                refreshBtn.disabled = false;
+            }
+        }, 1000);
+    }
 }
 
 /**
@@ -665,6 +791,17 @@ function initDashboard() {
         document.getElementById('volume-24h-container') || 
         document.getElementById('btc-price-container')) {
         
+        console.log('🚀 Initializing dashboard...');
+        
+        // Set initial status
+        updateWebSocketStatus('connecting', getTranslatedText('connecting') || 'Đang kết nối...');
+        
+        // Set up refresh button
+        const refreshBtn = document.getElementById('refresh-dashboard');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', manualRefreshDashboard);
+        }
+        
         // Initialize WebSocket connection for real-time updates
         if (!dashboardWebSocket && typeof DashboardWebSocket !== 'undefined') {
             dashboardWebSocket = new DashboardWebSocket();
@@ -683,6 +820,7 @@ function initDashboard() {
                 !dashboardWebSocket.socket || 
                 dashboardWebSocket.socket.readyState !== WebSocket.OPEN) {
                 console.log('📡 WebSocket unavailable, falling back to HTTP polling');
+                updateWebSocketStatus('connecting', getTranslatedText('reconnecting') || 'Đang kết nối lại...');
                 fetchDashboardSummary();
             }
         }, 600000); // 10 phút

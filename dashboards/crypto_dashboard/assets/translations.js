@@ -56,7 +56,20 @@ function get_translations_data()
     'oversold': { vi: 'Quá bán', en: 'Oversold' },
     'overbought': { vi: 'Quá mua', en: 'Overbought' },
     'bitcoin': { vi: 'Bitcoin', en: 'Bitcoin' },
-    'altcoins': { vi: 'Altcoins', en: 'Altcoins' }
+    'altcoins': { vi: 'Altcoins', en: 'Altcoins' },
+    
+    // Dashboard status and controls
+    'refresh-data': { vi: 'Cập nhật dữ liệu', en: 'Refresh Data' },
+    'refreshing': { vi: 'Đang cập nhật...', en: 'Refreshing...' },
+    'connecting': { vi: 'Đang kết nối...', en: 'Connecting...' },
+    'reconnecting': { vi: 'Đang kết nối lại...', en: 'Reconnecting...' },
+    'real-time-connected': { vi: 'Kết nối thời gian thực', en: 'Real-time connected' },
+    'connection-lost': { vi: 'Mất kết nối', en: 'Connection lost' },
+    'connection-error': { vi: 'Lỗi kết nối', en: 'Connection error' },
+    'data-updated': { vi: 'Dữ liệu đã được cập nhật', en: 'Data updated successfully' },
+    'refresh-failed': { vi: 'Lỗi cập nhật dữ liệu', en: 'Failed to refresh data' },
+    'last-update': { vi: 'Cập nhật lần cuối', en: 'Last updated' },
+    'error-loading-data': { vi: 'Lỗi tải dữ liệu', en: 'Error loading data' }
     };
     return translations_data;
 }

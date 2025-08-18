@@ -414,6 +414,10 @@ impl CacheKeys {
         "dashboard:summary".to_string()
     }
     
+    pub fn dashboard_summary_non_btc() -> String {
+        "dashboard:summary:non_btc".to_string()
+    }
+    
     pub fn crypto_report(symbol: &str, timeframe: &str) -> String {
         format!("crypto:report:{}:{}", symbol.to_lowercase(), timeframe)
     }

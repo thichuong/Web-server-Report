@@ -7,7 +7,7 @@ use crate::models::Report;
 use crate::data_service::DataService;
 use crate::performance::{MultiLevelCache, PerformanceMetrics};
 use crate::cache::CacheManager;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub struct AppState {
     pub db: PgPool,
@@ -29,6 +29,8 @@ pub struct AppState {
     pub metrics: Arc<PerformanceMetrics>,
     // Request counter cho monitoring
     pub request_counter: AtomicUsize,
+    // Server start time for uptime monitoring
+    pub start_time: Instant,
 }
 
 impl AppState {
@@ -82,6 +84,7 @@ impl AppState {
             websocket_service,
             metrics: Arc::new(PerformanceMetrics::default()),
             request_counter: AtomicUsize::new(0),
+            start_time: Instant::now(),
         })
     }
 

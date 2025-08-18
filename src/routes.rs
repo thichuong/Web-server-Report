@@ -44,6 +44,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/api/crypto/dashboard-summary", get(api_dashboard_summary)) // New cached endpoint
         .route("/api/crypto/dashboard-summary/cached", get(dashboard_summary_api))
         .route("/api/crypto/dashboard-summary/refresh", get(force_refresh_dashboard))
+        .route("/api/crypto/rate-limit-status", get(api_rate_limit_status)) // Rate limit monitoring
         .route("/shared_assets/js/chart_modules.js", get(serve_chart_modules))
         
         .with_state(state)
