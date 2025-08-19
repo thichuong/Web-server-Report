@@ -449,7 +449,7 @@ strip target/release/web-server-report
 
 ## 📜 License & Support
 
-**License**: MIT License - see LICENSE file for details
+**License**: Apache License 2.0 - see LICENSE file for details
 
 **Support**:
 - 🐛 Bug reports: [Create GitHub Issue](https://github.com/thichuong/Web-server-Report/issues)
