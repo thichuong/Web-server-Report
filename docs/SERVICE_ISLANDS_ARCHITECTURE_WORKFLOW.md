@@ -84,7 +84,7 @@ Service Islands là một pattern kiến trúc độc đáo được thiết k�
 
 #### 🧩 **Shared Components Island** 
 ```rust
-src/features/shared_components/
+shared_components/
 ├── mod.rs           # Service Island API
 ├── template_registry.rs    # Template management  
 ├── model_registry.rs       # Data model definitions
@@ -98,7 +98,7 @@ src/features/shared_components/
 
 #### 💾 **Cache System Island**
 ```rust
-src/features/cache_system/
+cache_system/
 ├── mod.rs           # Service Island API
 ├── l1_cache.rs      # Moka in-memory cache (2000 entries, 5min TTL)
 ├── l2_cache.rs      # Redis distributed cache (1hr TTL)
@@ -114,7 +114,7 @@ src/features/cache_system/
 
 #### 🌐 **External APIs Island**
 ```rust
-src/features/external_apis/
+external_apis/
 ├── mod.rs           # Service Island API  
 ├── market_data_api.rs      # Crypto market data fetching
 ├── rate_limiter.rs         # API rate limiting (10 req/min)
@@ -130,7 +130,7 @@ src/features/external_apis/
 
 #### 🔌 **WebSocket Service Island**
 ```rust
-src/features/websocket_service/
+websocket_service/
 ├── mod.rs           # Service Island API
 ├── connection_manager.rs   # WebSocket connection pooling
 ├── message_handler.rs      # Real-time message processing  
@@ -146,7 +146,7 @@ src/features/websocket_service/
 
 #### 🔍 **Health System Island**
 ```rust
-src/features/health_system/
+health_system/
 ├── mod.rs           # Service Island API
 ├── health_checker.rs       # System health monitoring
 ├── ssl_tester.rs          # SSL certificate validation
@@ -164,7 +164,7 @@ src/features/health_system/
 
 #### 🎯 **Dashboard Island**
 ```rust
-src/features/dashboard/
+dashboard/
 ├── mod.rs              # Service Island API
 ├── template_renderer.rs       # Template rendering engine
 ├── report_manager.rs          # Report data management
@@ -179,7 +179,7 @@ src/features/dashboard/
 
 #### 📊 **Crypto Reports Island**  
 ```rust
-src/features/crypto_reports/
+crypto_reports/
 ├── mod.rs              # Service Island API
 ├── pdf_generator.rs           # PDF generation với A4 optimization
 ├── report_creator.rs          # Report creation business logic
