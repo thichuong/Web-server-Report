@@ -23,7 +23,7 @@ impl Default for L2CacheConfig {
         Self {
             redis_url: "redis://127.0.0.1:6379".to_string(),
             max_connections: 10,
-            default_ttl: Duration::from_secs(3600), // 1 hour
+            default_ttl: Duration::from_secs(10800), // Increased from 3600s (1hr) to 10800s (3hrs)
         }
     }
 }

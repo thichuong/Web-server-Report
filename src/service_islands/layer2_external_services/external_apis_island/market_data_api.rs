@@ -9,11 +9,11 @@ use anyhow::Result;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
-// API URLs - extracted from existing data_service.rs
-const BASE_GLOBAL_URL: &str = "https://api.coingecko.com/api/v3/global";
-const BASE_BTC_PRICE_URL: &str = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true";
-const BASE_FNG_URL: &str = "https://api.alternative.me/fng/?limit=1";
-const BASE_RSI_URL_TEMPLATE: &str = "https://api.taapi.io/rsi?secret={secret}&exchange=binance&symbol=BTC/USDT&interval=1d";
+// API URLs - extracted from existing data_service.rs with cache-friendly grouping
+const BASE_GLOBAL_URL: &str = "https://api.coingecko.com/api/v3/global"; // 30 sec cache
+const BASE_BTC_PRICE_URL: &str = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true"; // 30 sec cache
+const BASE_FNG_URL: &str = "https://api.alternative.me/fng/?limit=1"; // 5 min cache
+const BASE_RSI_URL_TEMPLATE: &str = "https://api.taapi.io/rsi?secret={secret}&exchange=binance&symbol=BTC/USDT&interval=1d"; // 5 min cache
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DashboardSummary {

@@ -3,10 +3,9 @@
 //! This component contains HTTP handlers for WebSocket operations.
 
 use axum::{
-    extract::{ws::WebSocket, WebSocketUpgrade, State},
+    extract::{WebSocketUpgrade, State},
     response::Response,
 };
-use serde_json::json;
 
 use crate::state::AppState;
 

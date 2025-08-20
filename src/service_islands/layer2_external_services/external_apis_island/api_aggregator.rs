@@ -11,28 +11,15 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::time::{timeout, Duration};
 use futures::FutureExt;
 use super::MarketDataApi;
-
-/// Aggregated dashboard data
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct AggregatedDashboardData {
-    pub market_cap: f64,
-    pub volume_24h: f64,
-    pub btc_price_usd: f64,
-    pub btc_change_24h: f64,
-    pub fng_value: u32,
-    pub rsi_14: f64,
-    pub data_sources: HashMap<String, String>,
-    pub fetch_duration_ms: u64,
-    pub partial_failure: bool,
-    pub last_updated: chrono::DateTime<chrono::Utc>,
-}
+use crate::service_islands::layer1_infrastructure::CacheSystemIsland;
 
 /// API Aggregator
 /// 
-/// Coordinates data fetching from multiple APIs and provides unified dashboard data.
+/// Coordinates data fetching from multiple APIs and provides unified dashboard data with individual caching.
 pub struct ApiAggregator {
     market_api: Arc<MarketDataApi>,
     client: Client,
+    cache_system: Option<Arc<CacheSystemIsland>>,
     // Statistics
     total_aggregations: Arc<AtomicUsize>,
     successful_aggregations: Arc<AtomicUsize>,
@@ -40,7 +27,7 @@ pub struct ApiAggregator {
 }
 
 impl ApiAggregator {
-    /// Create a new ApiAggregator
+    /// Create a new ApiAggregator with cache integration
     pub async fn new(taapi_secret: String) -> Result<Self> {
         println!("📊 Initializing API Aggregator...");
         
@@ -63,10 +50,18 @@ impl ApiAggregator {
         Ok(Self {
             market_api,
             client,
+            cache_system: None, // Will be set by with_cache method
             total_aggregations: Arc::new(AtomicUsize::new(0)),
             successful_aggregations: Arc::new(AtomicUsize::new(0)),
             partial_failures: Arc::new(AtomicUsize::new(0)),
         })
+    }
+    
+    /// Create ApiAggregator with cache system
+    pub async fn with_cache(taapi_secret: String, cache_system: Arc<CacheSystemIsland>) -> Result<Self> {
+        let mut aggregator = Self::new(taapi_secret).await?;
+        aggregator.cache_system = Some(cache_system);
+        Ok(aggregator)
     }
     
     /// Health check for API Aggregator
@@ -101,11 +96,11 @@ impl ApiAggregator {
         
         println!("🔄 Starting dashboard data aggregation...");
         
-        // Fetch data from multiple sources concurrently with timeouts
-        let btc_future = timeout(Duration::from_secs(10), self.market_api.fetch_btc_price());
-        let global_future = timeout(Duration::from_secs(10), self.market_api.fetch_global_data());
-        let fng_future = timeout(Duration::from_secs(10), self.market_api.fetch_fear_greed_index());
-        let rsi_future = timeout(Duration::from_secs(10), self.market_api.fetch_rsi());
+        // Fetch data from multiple sources concurrently with timeouts and individual caching
+        let btc_future = timeout(Duration::from_secs(10), self.fetch_btc_with_cache());
+        let global_future = timeout(Duration::from_secs(10), self.fetch_global_with_cache());
+        let fng_future = timeout(Duration::from_secs(10), self.fetch_fng_with_cache());
+        let rsi_future = timeout(Duration::from_secs(10), self.fetch_rsi_with_cache());
         
         let (btc_result, global_result, fng_result, rsi_result) = tokio::join!(
             btc_future,
@@ -130,13 +125,13 @@ impl ApiAggregator {
                 eprintln!("⚠️ BTC data fetch failed: {}", e);
                 data_sources.insert("btc_price".to_string(), "failed".to_string());
                 partial_failure = true;
-                (0.0, 0.0)
+                (0.0, 0.0) // Keep 0.0 to show loading state on client
             }
             Err(_) => {
                 eprintln!("⚠️ BTC data fetch timeout");
                 data_sources.insert("btc_price".to_string(), "timeout".to_string());
                 partial_failure = true;
-                (0.0, 0.0)
+                (0.0, 0.0) // Keep 0.0 to show loading state on client
             }
         };
         
@@ -153,13 +148,13 @@ impl ApiAggregator {
                 eprintln!("⚠️ Global data fetch failed: {}", e);
                 data_sources.insert("market_data".to_string(), "failed".to_string());
                 partial_failure = true;
-                (0.0, 0.0)
+                (0.0, 0.0) // Keep 0.0 to show loading state on client
             }
             Err(_) => {
                 eprintln!("⚠️ Global data fetch timeout");
                 data_sources.insert("market_data".to_string(), "timeout".to_string());
                 partial_failure = true;
-                (0.0, 0.0)
+                (0.0, 0.0) // Keep 0.0 to show loading state on client
             }
         };
         
@@ -203,100 +198,130 @@ impl ApiAggregator {
             }
         };
         
-        let fetch_duration = start_time.elapsed().as_millis() as u64;
-        
-        // Create aggregated response
-        let aggregated_data = AggregatedDashboardData {
-            market_cap,
-            volume_24h,
-            btc_price_usd: btc_price,
-            btc_change_24h: btc_change,
-            fng_value,
-            rsi_14: rsi_value,
-            data_sources,
-            fetch_duration_ms: fetch_duration,
-            partial_failure,
-            last_updated: chrono::Utc::now(),
-        };
+        let duration = start_time.elapsed();
         
         // Update statistics
         if partial_failure {
             self.partial_failures.fetch_add(1, Ordering::Relaxed);
-            println!("⚠️ Dashboard data aggregated with partial failures in {}ms", fetch_duration);
+            println!("⚠️ Dashboard data aggregated with partial failures in {}ms", duration.as_millis());
         } else {
             self.successful_aggregations.fetch_add(1, Ordering::Relaxed);
-            println!("✅ Dashboard data aggregated successfully in {}ms", fetch_duration);
+            println!("✅ Dashboard data aggregated successfully in {}ms", duration.as_millis());
         }
         
-        Ok(serde_json::to_value(aggregated_data)?)
-    }
-    
-    /// Fetch optimized BTC price (real-time)
-    pub async fn fetch_btc_price_optimized(&self) -> Result<serde_json::Value> {
-        self.total_aggregations.fetch_add(1, Ordering::Relaxed);
-        
-        // Single API call for BTC price with short timeout
-        match timeout(Duration::from_secs(5), self.market_api.fetch_btc_price()).await {
-            Ok(Ok(btc_data)) => {
-                self.successful_aggregations.fetch_add(1, Ordering::Relaxed);
-                Ok(btc_data)
-            }
-            Ok(Err(e)) => {
-                self.partial_failures.fetch_add(1, Ordering::Relaxed);
-                Err(e)
-            }
-            Err(_) => {
-                self.partial_failures.fetch_add(1, Ordering::Relaxed);
-                Err(anyhow::anyhow!("BTC price fetch timeout"))
-            }
-        }
-    }
-    
-    /// Fetch non-critical data (Fear & Greed, RSI) with longer timeouts
-    pub async fn fetch_supplementary_data(&self) -> Result<serde_json::Value> {
-        self.total_aggregations.fetch_add(1, Ordering::Relaxed);
-        
-        let fng_future = timeout(Duration::from_secs(15), self.market_api.fetch_fear_greed_index());
-        let rsi_future = timeout(Duration::from_secs(15), self.market_api.fetch_rsi());
-        
-        let (fng_result, rsi_result) = tokio::join!(
-            fng_future,
-            rsi_future
-        );
-        
-        let mut partial_failure = false;
-        
-        let fng_value = match fng_result {
-            Ok(Ok(data)) => data["value"].as_u64().unwrap_or(50) as u32,
-            _ => {
-                partial_failure = true;
-                50
-            }
-        };
-        
-        let rsi_value = match rsi_result {
-            Ok(Ok(data)) => data["value"].as_f64().unwrap_or(50.0),
-            _ => {
-                partial_failure = true;
-                50.0
-            }
-        };
-        
-        if partial_failure {
-            self.partial_failures.fetch_add(1, Ordering::Relaxed);
-        } else {
-            self.successful_aggregations.fetch_add(1, Ordering::Relaxed);
-        }
-        
+        // Return structured JSON with proper field names for WebSocket extraction
         Ok(serde_json::json!({
-            "fear_greed_value": fng_value,
+            "btc_price_usd": btc_price,
+            "btc_change_24h": btc_change,
+            "market_cap_usd": market_cap,
+            "volume_24h_usd": volume_24h,
+            "fng_value": fng_value,
             "rsi_14": rsi_value,
+            "data_sources": data_sources,
+            "fetch_duration_ms": duration.as_millis() as u64,
             "partial_failure": partial_failure,
-            "last_updated": chrono::Utc::now().to_rfc3339()
+            "last_updated": chrono::Utc::now().to_rfc3339(),
+            "timestamp": chrono::Utc::now().to_rfc3339()
         }))
     }
     
-    /// Get aggregator statistics
+    /// Fetch BTC data with CoinGecko-specific caching (30 seconds)
+    async fn fetch_btc_with_cache(&self) -> Result<serde_json::Value> {
+        let cache_key = "btc_coingecko_30s";
+        
+        // Try cache first
+        if let Some(ref cache) = self.cache_system {
+            if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
+                return Ok(cached_data);
+            }
+        }
+        
+        // Fetch from API
+        match self.market_api.fetch_btc_price().await {
+            Ok(data) => {
+                // Cache with 30-second TTL for CoinGecko
+                if let Some(ref cache) = self.cache_system {
+                    let _ = cache.cache_manager.set(cache_key, data.clone(), Some(Duration::from_secs(30))).await;
+                }
+                Ok(data)
+            }
+            Err(e) => Err(e)
+        }
+    }
+    
+    /// Fetch global data with CoinGecko-specific caching (30 seconds)
+    async fn fetch_global_with_cache(&self) -> Result<serde_json::Value> {
+        let cache_key = "global_coingecko_30s";
+        
+        // Try cache first
+        if let Some(ref cache) = self.cache_system {
+            if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
+                return Ok(cached_data);
+            }
+        }
+        
+        // Fetch from API
+        match self.market_api.fetch_global_data().await {
+            Ok(data) => {
+                // Cache with 30-second TTL for CoinGecko
+                if let Some(ref cache) = self.cache_system {
+                    let _ = cache.cache_manager.set(cache_key, data.clone(), Some(Duration::from_secs(30))).await;
+                }
+                Ok(data)
+            }
+            Err(e) => Err(e)
+        }
+    }
+    
+    /// Fetch Fear & Greed with Alternative.me-specific caching (5 minutes)
+    async fn fetch_fng_with_cache(&self) -> Result<serde_json::Value> {
+        let cache_key = "fng_alternative_5m";
+        
+        // Try cache first
+        if let Some(ref cache) = self.cache_system {
+            if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
+                return Ok(cached_data);
+            }
+        }
+        
+        // Fetch from API
+        match self.market_api.fetch_fear_greed_index().await {
+            Ok(data) => {
+                // Cache with 5-minute TTL for Alternative.me
+                if let Some(ref cache) = self.cache_system {
+                    let _ = cache.cache_manager.set(cache_key, data.clone(), Some(Duration::from_secs(300))).await;
+                }
+                Ok(data)
+            }
+            Err(e) => Err(e)
+        }
+    }
+    
+    /// Fetch RSI with TAAPI-specific caching (5 minutes)
+    async fn fetch_rsi_with_cache(&self) -> Result<serde_json::Value> {
+        let cache_key = "rsi_taapi_5m";
+        
+        // Try cache first
+        if let Some(ref cache) = self.cache_system {
+            if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
+                return Ok(cached_data);
+            }
+        }
+        
+        // Fetch from API
+        match self.market_api.fetch_rsi().await {
+            Ok(data) => {
+                // Cache with 5-minute TTL for TAAPI
+                if let Some(ref cache) = self.cache_system {
+                    let _ = cache.cache_manager.set(cache_key, data.clone(), Some(Duration::from_secs(300))).await;
+                }
+                Ok(data)
+            }
+            Err(e) => Err(e)
+        }
+    }
+    
+    /// Get API statistics
     pub async fn get_statistics(&self) -> serde_json::Value {
         let total = self.total_aggregations.load(Ordering::Relaxed);
         let successful = self.successful_aggregations.load(Ordering::Relaxed);
@@ -308,19 +333,12 @@ impl ApiAggregator {
             0.0
         };
         
-        let partial_failure_rate = if total > 0 {
-            (partial as f64 / total as f64) * 100.0
-        } else {
-            0.0
-        };
-        
         serde_json::json!({
             "total_aggregations": total,
             "successful_aggregations": successful,
             "partial_failures": partial,
             "success_rate_percent": success_rate,
-            "partial_failure_rate_percent": partial_failure_rate,
-            "component_status": "active"
+            "last_updated": chrono::Utc::now().to_rfc3339()
         })
     }
 }

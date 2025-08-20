@@ -6,5 +6,3 @@
 pub mod dashboard;
 pub mod crypto_reports;
 
-pub use dashboard::DashboardIsland;
-pub use crypto_reports::CryptoReportsIsland;

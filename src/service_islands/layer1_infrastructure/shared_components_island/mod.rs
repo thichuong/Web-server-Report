@@ -7,9 +7,7 @@
 //! - Configuration management
 
 use std::sync::Arc;
-use std::collections::HashMap;
 use anyhow::Result;
-use tera::Tera;
 use serde_json;
 
 pub mod template_registry;

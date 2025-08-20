@@ -6,12 +6,12 @@
 
 use axum::{
     extract::State,
-    http::StatusCode,
     response::IntoResponse,
     Json,
 };
 use serde_json::json;
-use std::{sync::Arc, sync::atomic::Ordering, time::Instant};
+use std::sync::Arc;
+use tokio::fs;
 
 // Import from current state - will be refactored when lower layers are implemented
 use crate::state::AppState;
@@ -100,5 +100,16 @@ impl DashboardHandlers {
                 "uptime_seconds": 0
             }
         })).into_response()
+    }
+
+    /// Homepage handler - serves the main dashboard homepage
+    /// 
+    /// Reads the home.html file asynchronously to avoid blocking the thread.
+    /// This follows the pattern from the archived crypto handler.
+    pub async fn homepage(&self) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        match fs::read_to_string("dashboards/home.html").await {
+            Ok(content) => Ok(content),
+            Err(e) => Err(Box::new(e)),
+        }
     }
 }

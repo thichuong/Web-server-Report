@@ -69,9 +69,30 @@
             animation: loading 1.5s infinite;
         }
         
-        @keyframes loading {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
+        .ws-status-connected { color: green; }
+        .ws-status-connecting { color: orange; }
+        .ws-status-disconnected { color: red; }
+        .ws-status-closed { color: gray; }
+        
+        .positive-change { color: green; }
+        .negative-change { color: red; }
+        
+        .real-time-data {
+            position: relative;
+        }
+        
+        .real-time-data::after {
+            content: "🔴";
+            position: absolute;
+            top: -2px;
+            right: -15px;
+            font-size: 8px;
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
         }
     </style>
 </head>
@@ -99,6 +120,21 @@
                 <button id="refresh-dashboard" class="inline-block bg-purple-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-700 transition-colors duration-300">
                     <i class="fas fa-sync-alt mr-2"></i> <span data-i18n="refresh-data">Cập nhật dữ liệu</span>
                 </button>
+            </div>
+            
+            <!-- Real-time WebSocket Status -->
+            <div class="mt-4 text-center">
+                <span class="text-sm text-gray-600">
+                    Real-time status: 
+                    <span id="websocket-status" class="font-semibold">connecting...</span>
+                    <i class="fas fa-circle ml-2 text-xs" id="status-indicator"></i>
+                </span>
+            </div>
+            
+            <!-- Error notification -->
+            <div id="error-notification" class="mt-4 max-w-md mx-auto bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded" style="display: none;">
+                <strong class="font-bold">Connection Error!</strong>
+                <span class="block sm:inline" id="error-message">Real-time data unavailable.</span>
             </div>
             
             <!-- Status indicator -->

@@ -1,3 +1,5 @@
+#![allow(dead_code, unused_imports, unused_variables)]
+
 use dotenvy::dotenv;
 use std::{env, net::SocketAddr, sync::Arc};
 

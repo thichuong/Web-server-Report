@@ -3,7 +3,6 @@
 //! This component handles WebSocket connection pooling and lifecycle management.
 
 use axum::extract::ws::WebSocket;
-use std::sync::Arc;
 use tokio::sync::broadcast;
 
 /// Connection Manager

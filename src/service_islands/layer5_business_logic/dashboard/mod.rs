@@ -11,7 +11,6 @@ pub mod template_renderer;
 pub mod report_manager;
 pub mod ui_components;
 
-use std::sync::Arc;
 
 /// Dashboard Island
 /// 

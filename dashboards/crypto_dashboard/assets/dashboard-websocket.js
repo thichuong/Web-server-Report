@@ -17,6 +17,7 @@ class DashboardWebSocket {
 
     connect() {
         if (this.isConnecting || (this.socket && this.socket.readyState === WebSocket.CONNECTING)) {
+            console.log('🔍 [DEBUG] WebSocket already connecting, skipping...');
             return;
         }
 
@@ -24,6 +25,10 @@ class DashboardWebSocket {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/ws`;
 
+        console.log('🔍 [DEBUG] WebSocket connection details:');
+        console.log('  📍 Protocol:', protocol);
+        console.log('  🌐 Host:', window.location.host);
+        console.log('  🔗 Full URL:', wsUrl);
         console.log('🔌 Connecting to WebSocket:', wsUrl);
         updateWebSocketStatus('connecting', getTranslatedText('connecting') || 'Đang kết nối...');
 
@@ -90,12 +95,59 @@ class DashboardWebSocket {
     handleMessage(message) {
         console.log('📨 Received WebSocket message:', message.type);
         
-        if (message.type === 'dashboard_update' && message.data) {
-            // Cache the data for language switching
-            window.dashboardSummaryCache = message.data;
-            
-            // Update dashboard UI
-            updateDashboardFromData(message.data);
+        switch (message.type) {
+            case 'connected':
+                console.log('✅ WebSocket connection confirmed:', message.message);
+                break;
+                
+            case 'pong':
+                console.log('🏓 Pong received at:', message.timestamp);
+                break;
+                
+            case 'btc_price_update':
+                console.log('₿ BTC price update received:', message.data);
+                if (message.data) {
+                    // Update BTC price container with real-time data
+                    updateBtcPriceFromWebSocket(message.data);
+                }
+                break;
+                
+            case 'dashboard_data':
+                console.log('📊 Dashboard data received:', message.data);
+                if (message.data) {
+                    // Cache the data for language switching
+                    window.dashboardSummaryCache = message.data;
+                    
+                    // Update entire dashboard UI with real-time data
+                    updateDashboardFromData(message.data);
+                    console.log('✅ Dashboard updated from WebSocket data');
+                }
+                break;
+                
+            case 'market_update':
+                console.log('📈 Market update received:', message.data);
+                if (message.data) {
+                    // Partial update for specific market data
+                    updateMarketDataFromWebSocket(message.data);
+                }
+                break;
+                
+            case 'dashboard_update':
+                if (message.data) {
+                    // Cache the data for language switching
+                    window.dashboardSummaryCache = message.data;
+                    
+                    // Update dashboard UI
+                    updateDashboardFromData(message.data);
+                }
+                break;
+                
+            case 'echo':
+                console.log('🔁 Echo received:', message.data, 'at:', message.timestamp);
+                break;
+                
+            default:
+                console.log('❓ Unknown WebSocket message type:', message.type, message);
         }
     }
 
@@ -121,6 +173,77 @@ class DashboardWebSocket {
             this.socket = null;
         }
     }
+}
+
+// ===== WEBSOCKET DATA HANDLERS =====
+
+// Helper function để update BTC price từ WebSocket
+function updateBtcPriceFromWebSocket(btcData) {
+    console.log('🔄 Updating BTC price from WebSocket:', btcData);
+    
+    const btcContainer = selectDashboardElementByLang('btc-price-container');
+    
+    // Handle both formats: direct BTC data or full dashboard data
+    const priceValue = btcData.btc_price_usd || btcData.price_usd || 0;
+    const changeValue = btcData.btc_change_24h || btcData.change_24h || 0;
+    
+    if (btcContainer && priceValue) {
+        showBtcRefreshIndicator();
+        
+        const price = parseFloat(priceValue) || 0;
+        const change = parseFloat(changeValue) || 0;
+        const changeClass = change >= 0 ? 'text-green-600' : 'text-red-600';
+        const changeIcon = change >= 0 ? '📈' : '📉';
+        
+        btcContainer.innerHTML = `
+            <p class="text-3xl font-bold text-gray-900">$${price.toLocaleString('en-US')}</p>
+            <p class="text-sm font-semibold ${changeClass}">${changeIcon} ${change.toFixed(2)}% (24h)</p>`;
+            
+        try { 
+            btcContainer.dataset.btcPriceUsd = String(price); 
+            btcContainer.dataset.btcChange24h = String(change); 
+        } catch(e){}
+        
+        console.log('✅ BTC price container updated');
+    }
+}
+
+// Helper function để update market data từ WebSocket
+function updateMarketDataFromWebSocket(marketData) {
+    console.log('🔄 Updating market data from WebSocket:', marketData);
+    
+    // Update Market Cap
+    if (marketData.market_cap_usd) {
+        const marketCapContainer = selectDashboardElementByLang('market-cap-container');
+        if (marketCapContainer) {
+            const marketCap = parseFloat(marketData.market_cap_usd) || 0;
+            marketCapContainer.innerHTML = `
+                <p class="text-3xl font-bold text-gray-900">$${(marketCap / 1e12).toFixed(2)}T</p>
+                <p class="text-sm text-gray-600">Market Cap</p>`;
+        }
+    }
+    
+    // Update Volume
+    if (marketData.volume_24h_usd) {
+        const volumeContainer = selectDashboardElementByLang('volume-container');
+        if (volumeContainer) {
+            const volume = parseFloat(marketData.volume_24h_usd) || 0;
+            volumeContainer.innerHTML = `
+                <p class="text-3xl font-bold text-gray-900">$${(volume / 1e9).toFixed(1)}B</p>
+                <p class="text-sm text-gray-600">24h Volume</p>`;
+        }
+    }
+    
+    // Update Fear & Greed if available
+    if (marketData.fng_value) {
+        const fngContainer = selectDashboardElementByLang('fear-greed-container');
+        const fngValue = parseInt(marketData.fng_value, 10);
+        if (!isNaN(fngValue) && fngContainer) {
+            updateFearGreedIndex(fngContainer, fngValue);
+        }
+    }
+    
+    console.log('✅ Market data updated from WebSocket');
 }
 
 // ===== DASHBOARD UTILITIES =====
@@ -187,23 +310,38 @@ function displayError(containerId, message) {
  * Update dashboard UI from data object (used by both HTTP API and WebSocket)
  */
 function updateDashboardFromData(data) {
+    // 🔍 DEBUG: Log the received data structure
+    console.log('🔍 [DEBUG] updateDashboardFromData received:', data);
+    console.log('🔍 [DEBUG] Data types:', {
+        market_cap_usd: typeof data.market_cap_usd,
+        volume_24h_usd: typeof data.volume_24h_usd,
+        btc_price_usd: typeof data.btc_price_usd,
+        btc_change_24h: typeof data.btc_change_24h,
+        fng_value: typeof data.fng_value,
+        rsi_14: typeof data.rsi_14
+    });
+    
     // Cập nhật Vốn hóa thị trường
     const marketCapContainer = selectDashboardElementByLang('market-cap-container');
     if (marketCapContainer) {
+        const marketCapValue = parseFloat(data.market_cap_usd || data.market_cap) || 0;
+        console.log('🔍 [DEBUG] Market Cap parsed:', marketCapValue);
         marketCapContainer.innerHTML = `
-            <p class="text-3xl font-bold text-gray-900">${'$' + formatNumber(data.market_cap)}</p>
+            <p class="text-3xl font-bold text-gray-900">${'$' + formatNumber(marketCapValue)}</p>
             <p class="text-sm text-gray-500">${getTranslatedText('whole-market')}</p>`;
         // cache numeric value so we can re-render visuals without re-fetch
-        try { marketCapContainer.dataset.marketCap = String(data.market_cap); } catch(e){}
+        try { marketCapContainer.dataset.marketCap = String(marketCapValue); } catch(e){}
     }
 
     // Cập nhật Khối lượng giao dịch
     const volumeContainer = selectDashboardElementByLang('volume-24h-container');
     if (volumeContainer) {
+        const volumeValue = parseFloat(data.volume_24h_usd || data.volume_24h) || 0;
+        console.log('🔍 [DEBUG] Volume parsed:', volumeValue);
         volumeContainer.innerHTML = `
-            <p class="text-3xl font-bold text-gray-900">${'$' + formatNumber(data.volume_24h)}</p>
+            <p class="text-3xl font-bold text-gray-900">${'$' + formatNumber(volumeValue)}</p>
             <p class="text-sm text-gray-500">${getTranslatedText('whole-market')}</p>`;
-        try { volumeContainer.dataset.volume24h = String(data.volume_24h); } catch(e){}
+        try { volumeContainer.dataset.volume24h = String(volumeValue); } catch(e){}
     }
 
     // Cập nhật giá BTC với visual feedback
@@ -212,18 +350,24 @@ function updateDashboardFromData(data) {
         // Show refresh indicator briefly
         showBtcRefreshIndicator();
         
-        const change = data.btc_change_24h;
-        const changeClass = change >= 0 ? 'text-green-600' : 'text-red-600';
-        const changeIcon = change >= 0 ? '📈' : '📉';
+        const btcPrice = parseFloat(data.btc_price_usd) || 0;
+        const change = parseFloat(data.btc_change_24h) || 0;
+        console.log('🔍 [DEBUG] BTC Price parsed:', btcPrice, 'Change:', change);
+        
+        // Safely handle change value - could be undefined, null, or 0
+        const safeChange = (change !== undefined && change !== null) ? change : 0;
+        const changeClass = safeChange >= 0 ? 'text-green-600' : 'text-red-600';
+        const changeIcon = safeChange >= 0 ? '📈' : '📉';
         btcContainer.innerHTML = `
-            <p class="text-3xl font-bold text-gray-900">${'$' + (data.btc_price_usd ? data.btc_price_usd.toLocaleString('en-US') : 'N/A')}</p>
-            <p class="text-sm font-semibold ${changeClass}">${changeIcon} ${change !== null ? change.toFixed(2) : 'N/A'}% (24h)</p>`;
-        try { btcContainer.dataset.btcPriceUsd = String(data.btc_price_usd); btcContainer.dataset.btcChange24h = String(data.btc_change_24h); } catch(e){}
+            <p class="text-3xl font-bold text-gray-900">${btcPrice > 0 ? '$' + btcPrice.toLocaleString('en-US') : '$N/A'}</p>
+            <p class="text-sm font-semibold ${changeClass}">${changeIcon} ${safeChange.toFixed(2)}% (24h)</p>`;
+        try { btcContainer.dataset.btcPriceUsd = String(btcPrice); btcContainer.dataset.btcChange24h = String(change); } catch(e){}
     }
 
     // Cập nhật chỉ số Sợ hãi & Tham lam
     const fngContainer = selectDashboardElementByLang('fear-greed-container');
     const fngValue = parseInt(data.fng_value, 10);
+    console.log('🔍 [DEBUG] F&G Value parsed:', fngValue, 'from:', data.fng_value);
     if (!isNaN(fngValue) && fngContainer) {
         const fngConfig = {
             min: 0, max: 100,
@@ -238,13 +382,15 @@ function updateDashboardFromData(data) {
         createGauge(fngContainer, fngValue, fngConfig);
         try { fngContainer.dataset.value = String(fngValue); } catch(e){}
     } else {
+        console.log('❌ [DEBUG] F&G Value invalid or container not found');
         displayError('fear-greed-container', 'Giá trị F&G không hợp lệ.');
     }
 
     // Cập nhật chỉ số RSI
     const rsiContainer = selectDashboardElementByLang('rsi-container');
-    const rsiValue = data.rsi_14;
-    if (rsiValue !== null && rsiValue !== undefined && rsiContainer) {
+    const rsiValue = parseFloat(data.rsi_14);
+    console.log('🔍 [DEBUG] RSI Value parsed:', rsiValue, 'from:', data.rsi_14);
+    if (rsiValue !== null && rsiValue !== undefined && !isNaN(rsiValue) && rsiContainer) {
         const rsiConfig = {
             min: 0, max: 100,
             segments: [
@@ -256,7 +402,8 @@ function updateDashboardFromData(data) {
         createGauge(rsiContainer, rsiValue, rsiConfig);
         try { rsiContainer.dataset.value = String(rsiValue); } catch(e){}
     } else {
-         displayError('rsi-container', 'Không nhận được giá trị RSI.');
+        console.log('❌ [DEBUG] RSI Value invalid or container not found');
+        displayError('rsi-container', 'Không nhận được giá trị RSI.');
     }
 
     console.log('✅ Dashboard UI updated successfully');
@@ -803,10 +950,20 @@ function initDashboard() {
         }
         
         // Initialize WebSocket connection for real-time updates
+        console.log('🔍 [DEBUG] Checking WebSocket initialization...');
+        console.log('  🔍 dashboardWebSocket exists:', !!dashboardWebSocket);
+        console.log('  🔍 DashboardWebSocket class exists:', typeof DashboardWebSocket !== 'undefined');
+        
         if (!dashboardWebSocket && typeof DashboardWebSocket !== 'undefined') {
+            console.log('🚀 [DEBUG] Creating new WebSocket connection...');
             dashboardWebSocket = new DashboardWebSocket();
             dashboardWebSocket.connect();
             console.log('🚀 WebSocket connection initialized');
+        } else {
+            console.log('⚠️ [DEBUG] WebSocket initialization skipped:', {
+                dashboardWebSocketExists: !!dashboardWebSocket,
+                DashboardWebSocketClassExists: typeof DashboardWebSocket !== 'undefined'
+            });
         }
         
         // Gọi hàm tổng hợp một lần khi tải trang (fallback nếu WebSocket chưa sẵn sàng)

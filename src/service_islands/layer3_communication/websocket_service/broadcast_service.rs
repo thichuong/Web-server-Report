@@ -36,7 +36,7 @@ impl BroadcastService {
         println!("🔄 Starting background broadcast service...");
         
         tokio::spawn(async move {
-            let mut interval = interval(Duration::from_secs(600)); // 10 minutes
+            let mut interval = interval(Duration::from_secs(900)); // Increased from 600s (10min) to 900s (15min)
             let mut consecutive_failures = 0u32;
             
             loop {

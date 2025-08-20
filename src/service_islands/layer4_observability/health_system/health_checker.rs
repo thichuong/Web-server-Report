@@ -10,7 +10,7 @@ use axum::{
     Json,
 };
 use serde_json::json;
-use std::{sync::Arc, sync::atomic::Ordering, time::Instant};
+use std::{sync::Arc, time::Instant};
 
 // Import from current state - will be refactored when lower layers are implemented
 use crate::state::AppState;

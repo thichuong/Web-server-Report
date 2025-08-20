@@ -11,6 +11,7 @@ pub mod layer4_observability;
 pub mod layer5_business_logic;
 
 use std::sync::Arc;
+use crate::state::AppState;
 
 use layer1_infrastructure::{
     SharedComponentsIsland,
@@ -35,6 +36,9 @@ use layer5_business_logic::{
 /// This struct holds references to all service islands and provides
 /// unified initialization and health checking capabilities.
 pub struct ServiceIslands {
+    // Global AppState with Tera engine for template rendering
+    pub app_state: Arc<AppState>,
+    
     // Layer 1: Infrastructure Islands
     pub shared_components: Arc<SharedComponentsIsland>,
     pub cache_system: Arc<CacheSystemIsland>,
@@ -61,36 +65,40 @@ impl ServiceIslands {
     pub async fn initialize() -> Result<Self, anyhow::Error> {
         println!("🏝️ Initializing Service Islands Architecture...");
         
+        // Initialize global AppState with Tera template engine and database
+        let app_state = Arc::new(AppState::new().await?);
+        
         // Initialize Layer 1: Infrastructure (foundation layer)
         println!("🏗️ Initializing Layer 1: Infrastructure Islands...");
         let shared_components = Arc::new(SharedComponentsIsland::new().await?);
         let cache_system = Arc::new(CacheSystemIsland::new().await?);
         
-        // Initialize Layer 2: External Services (depends on Layer 1)
-        println!("🌐 Initializing Layer 2: External Services Islands...");
-        let external_apis = Arc::new(ExternalApisIsland::new(
-            std::env::var("TAAPI_SECRET").unwrap_or_else(|_| "default_secret".to_string())
+        // Initialize Layer 2: External Services (depends on Layer 1 - Cache System)
+        println!("🌐 Initializing Layer 2: External Services Islands with Cache...");
+        let external_apis = Arc::new(ExternalApisIsland::with_cache(
+            std::env::var("TAAPI_SECRET").unwrap_or_else(|_| "default_secret".to_string()),
+            cache_system.clone()
         ).await?);
         
         // Initialize Layer 4: Observability
         println!("🔍 Initializing Layer 4: Observability Islands...");
         let health_system = Arc::new(HealthSystemIsland::new().await?);
         
-        // Initialize Layer 3: Communication
-        println!("📡 Initializing Layer 3: Communication Islands...");
-        let websocket_service = Arc::new(WebSocketServiceIsland::new().await?);
+        // Initialize Layer 3: Communication (depends on Layer 2)
+        println!("📡 Initializing Layer 3: Communication Islands with Layer 2 dependencies...");
+        let websocket_service = Arc::new(WebSocketServiceIsland::with_external_apis(external_apis.clone()).await?);
         
-        // Initialize Layer 5: Business Logic
+        // Initialize Layer 5: Business Logic (depends on Layer 2, 3, 4)
         println!("📊 Initializing Layer 5: Business Logic Islands...");
         let dashboard = Arc::new(DashboardIsland::new().await?);
-        let crypto_reports = Arc::new(CryptoReportsIsland::new().await?);
+        let crypto_reports = Arc::new(CryptoReportsIsland::with_dependencies(external_apis.clone()).await?);
         
         println!("✅ Layer 1 Infrastructure Islands initialized!");
-        println!("✅ Layer 2 External Services Islands initialized!");
+        println!("✅ Layer 2 External Services Islands initialized with Cache!");
         println!("✅ Layer 4 Observability Islands initialized!");
         println!("✅ Layer 3 Communication Islands initialized!");
         println!("✅ Layer 5 Business Logic Islands initialized!");
-        println!("✅ Service Islands Architecture initialized successfully!");
+        println!("✅ Service Islands Architecture initialized with API caching!");
         
         println!("📊 Architecture Status:");
         println!("  🏝️ Total Islands: 7/7 (100% complete)");
@@ -102,6 +110,7 @@ impl ServiceIslands {
         println!("  📱 Layer 5 - Business Logic: 2/2 islands");
         
         Ok(Self {
+            app_state,
             shared_components,
             cache_system,
             external_apis,

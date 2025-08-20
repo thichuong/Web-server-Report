@@ -21,8 +21,8 @@ impl Default for L1CacheConfig {
     fn default() -> Self {
         Self {
             max_capacity: 2000,
-            time_to_live: Duration::from_secs(300), // 5 minutes
-            time_to_idle: Duration::from_secs(120), // 2 minutes
+            time_to_live: Duration::from_secs(900), // Increased from 300s (5min) to 900s (15min)
+            time_to_idle: Duration::from_secs(300), // Increased from 120s (2min) to 300s (5min)
         }
     }
 }

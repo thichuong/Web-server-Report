@@ -22,9 +22,9 @@ pub struct RateLimitConfig {
 impl Default for RateLimitConfig {
     fn default() -> Self {
         Self {
-            requests_per_minute: 10,
-            burst_size: 5,
-            cooldown_seconds: 60,
+            requests_per_minute: 4,   // Reduced from 10 to 4 requests per minute
+            burst_size: 2,            // Reduced from 5 to 2 burst requests  
+            cooldown_seconds: 90,     // Increased from 60 to 90 seconds cooldown
         }
     }
 }

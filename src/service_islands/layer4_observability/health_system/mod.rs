@@ -12,7 +12,6 @@ pub mod ssl_tester;
 pub mod performance_monitor;
 pub mod connectivity_tester;
 
-use std::sync::Arc;
 
 /// Health System Island
 /// 
