@@ -66,6 +66,8 @@ impl TemplateRegistry {
         
         // Report templates
         templates.insert("crypto_report".to_string(), "Cryptocurrency report template".to_string());
+        templates.insert("crypto_report_list".to_string(), "Cryptocurrency reports list template".to_string());
+        templates.insert("crypto_report_pdf".to_string(), "Cryptocurrency PDF report template".to_string());
         templates.insert("pdf_report".to_string(), "PDF report template".to_string());
         
         Ok(templates)
