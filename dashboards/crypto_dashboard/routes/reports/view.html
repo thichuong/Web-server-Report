@@ -59,20 +59,11 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
         
-        #refresh-dashboard:hover {
-            transform: translateY(-1px);
-        }
-        
         .skeleton {
             background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
             background-size: 200% 100%;
             animation: loading 1.5s infinite;
         }
-        
-        .ws-status-connected { color: green; }
-        .ws-status-connecting { color: orange; }
-        .ws-status-disconnected { color: red; }
-        .ws-status-closed { color: gray; }
         
         .positive-change { color: green; }
         .negative-change { color: red; }
@@ -117,35 +108,6 @@
                     <i class="fas fa-print mr-2"></i> <span data-i18n="print-report">In Báo cáo</span>
                 </a>
                 <a href="/crypto_reports_list" class="inline-block bg-gray-700 text-white font-bold py-3 px-6 rounded-lg"><span data-i18n="view-report-history">Lịch sử báo cáo</span></a>
-                <button id="refresh-dashboard" class="inline-block bg-purple-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-700 transition-colors duration-300">
-                    <i class="fas fa-sync-alt mr-2"></i> <span data-i18n="refresh-data">Cập nhật dữ liệu</span>
-                </button>
-            </div>
-            
-            <!-- Real-time WebSocket Status -->
-            <div class="mt-4 text-center">
-                <span class="text-sm text-gray-600">
-                    Real-time status: 
-                    <span id="websocket-status" class="font-semibold">connecting...</span>
-                    <i class="fas fa-circle ml-2 text-xs" id="status-indicator"></i>
-                </span>
-            </div>
-            
-            <!-- Error notification -->
-            <div id="error-notification" class="mt-4 max-w-md mx-auto bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded" style="display: none;">
-                <strong class="font-bold">Connection Error!</strong>
-                <span class="block sm:inline" id="error-message">Real-time data unavailable.</span>
-            </div>
-            
-            <!-- Status indicator -->
-            <div id="dashboard-status" class="mt-4 text-center">
-                <div id="websocket-status" class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium">
-                    <div class="w-2 h-2 bg-gray-400 rounded-full mr-2 animate-pulse"></div>
-                    <span data-i18n="connecting">Đang kết nối...</span>
-                </div>
-                <div id="last-update" class="mt-2 text-xs text-gray-500">
-                    <span data-i18n="last-update">Cập nhật lần cuối</span>: <span id="last-update-time">--</span>
-                </div>
             </div>
         </header>
 
@@ -155,9 +117,6 @@
                     <div class="flex items-center mb-2">
                         <i class="fab fa-bitcoin text-yellow-500 text-3xl mr-3"></i>
                         <h3 class="text-lg font-semibold text-gray-700" data-i18n="btc-price">Giá BTC</h3>
-                        <div id="btc-refresh-indicator" class="ml-auto opacity-0 transition-opacity duration-300">
-                            <i class="fas fa-sync-alt text-green-500 text-sm animate-spin"></i>
-                        </div>
                     </div>
                     <div id="btc-price-container">
                         <div class="skeleton h-9 w-3/4 mb-2"></div>

@@ -9,7 +9,6 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use serde::{Serialize, Deserialize};
-use sqlx::{self, FromRow};
 use std::{collections::HashMap, error::Error as StdError, sync::Arc, sync::atomic::Ordering, path::Path, env};
 use tera::Context;
 use tokio::fs::read_dir;
@@ -17,32 +16,9 @@ use tokio::fs::read_dir;
 // Import from current state - will be refactored when lower layers are implemented
 use crate::state::AppState;
 
-/// Report model - exactly from archive_old_code/models.rs
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct Report {
-    pub id: i32,
-    pub html_content: String,
-    pub css_content: Option<String>,
-    pub js_content: Option<String>,
-    pub html_content_en: Option<String>,
-    pub js_content_en: Option<String>,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-}
-
-/// Report summary for listing - from archive_old_code/models.rs
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct ReportSummary {
-    pub id: i32,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-}
-
-/// Report list item with formatted dates - from archive_old_code/models.rs
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ReportListItem {
-    pub id: i32,
-    pub created_date: String,
-    pub created_time: String,
-}
+// Import from our specialized components
+use super::report_creator::{Report, ReportSummary, ReportListItem, ReportCreator};
+use super::pdf_generator::PdfGenerator;
 
 /// Crypto Handlers
 /// 
@@ -50,14 +26,16 @@ pub struct ReportListItem {
 /// These handlers manage crypto report generation, PDF creation, and API interactions.
 /// ONLY uses Template Engine like archive_old_code/handlers/crypto.rs
 pub struct CryptoHandlers {
-    // Component state will be added here as we implement lower layers
+    pub report_creator: ReportCreator,
+    pub pdf_generator: PdfGenerator,
 }
 
 impl CryptoHandlers {
     /// Create a new CryptoHandlers instance
     pub fn new() -> Self {
         Self {
-            // Initialize component state
+            report_creator: ReportCreator::new(),
+            pdf_generator: PdfGenerator::new(),
         }
     }
     
@@ -102,7 +80,7 @@ impl CryptoHandlers {
                 context.insert("current_route", "dashboard");
                 context.insert("current_lang", "vi");
                 context.insert("current_time", &chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string());
-                let pdf_url = format!("/pdf-template/{}", report_clone.id);
+                let pdf_url = format!("/crypto_report/{}/pdf", report_clone.id);
                 context.insert("pdf_url", &pdf_url);
             }
             
@@ -770,79 +748,9 @@ impl CryptoHandlers {
 
     /// Generate PDF template for a specific crypto report by ID
     /// 
-    /// This method fetches a report by ID and renders it using the PDF-optimized template
-    /// "crypto/routes/reports/pdf.html" with proper context for print-friendly output
+    /// Delegates to PdfGenerator component for clean architecture separation
     pub async fn crypto_report_pdf_with_tera(&self, app_state: &Arc<AppState>, report_id: i32) -> Result<String, Box<dyn StdError + Send + Sync>> {
-        println!("📄 CryptoHandlers::crypto_report_pdf_with_tera - Report ID: {}", report_id);
-        
-        // TODO: L1/L2 Cache logic (similar to crypto_report_by_id_with_tera but with different cache key)
-        let cache_key = format!("crypto_report_pdf_{}", report_id);
-        println!("Processed 0 requests to crypto_report_pdf");
-        println!("🔍 L1 Cache miss for PDF report ID: {} - checking L2 cache (Redis)", report_id);
-        println!("🔍 L1+L2 Cache miss for PDF report ID: {} - fetching from DB", report_id);
-        
-        // Fetch and cache report by ID using the existing method
-        let report_option = self.fetch_and_cache_report_by_id(app_state, report_id).await?;
-        
-        let report = match report_option {
-            Some(report) => report,
-            None => {
-                return Err(format!("Report #{} not found", report_id).into());
-            }
-        };
-        
-        // Format creation date for display (using simple formatting without timezone)
-        let created_at_display = report.created_at.format("%d/%m/%Y lúc %H:%M:%S").to_string();
-        
-        // Fetch chart modules content 
-        let chart_modules_content = self.get_chart_modules_content().await;
-
-        // Setup template context for PDF rendering
-        let mut context = Context::new();
-        context.insert("report", &report);
-        context.insert("created_at_display", &created_at_display);
-        context.insert("chart_modules_content", &chart_modules_content);
-        
-        // Add additional PDF-specific context
-        context.insert("template_type", "pdf");
-        context.insert("print_optimized", &true);
-        
-        // Use PDF-specific template path
-        let template_name = "crypto/routes/reports/pdf.html";
-        
-        let render_result = tokio::task::spawn({
-            let context = context.clone();
-            let tera = app_state.tera.clone();
-            let template_name = template_name.to_string();
-            
-            async move {
-                tera.render(&template_name, &context)
-            }
-        }).await;
-
-        match render_result {
-            Ok(Ok(html)) => {
-                println!("✅ PDF template rendered from DB for report ID: {} - crypto_report_pdf complete", report_id);
-                
-                // TODO: Cache the rendered PDF HTML in L1/L2 with longer TTL (PDFs change less frequently)
-                // self.cache_manager.set_l1(&cache_key, &html, Duration::from_secs(1800)).await; // 30min cache
-                
-                Ok(html)
-            }
-            Ok(Err(e)) => {
-                eprintln!("❌ PDF template render error for report ID {}: {:#?}", report_id, e);
-                let mut src = e.source();
-                while let Some(s) = src {
-                    eprintln!("❌ PDF template render error source: {:#?}", s);
-                    src = s.source();
-                }
-                Err(format!("PDF template render error: {}", e).into())
-            }
-            Err(e) => {
-                eprintln!("❌ PDF template task join error: {:#?}", e);
-                Err(format!("PDF template task join error: {}", e).into())
-            }
-        }
+        self.pdf_generator.crypto_report_pdf_with_tera(app_state, report_id).await
     }
 
     // NOTE: Crypto handlers implementation following archive_old_code/handlers/crypto.rs
