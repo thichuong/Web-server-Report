@@ -14,15 +14,19 @@ use serde_json;
 use super::l1_cache::L1Cache;
 use super::l2_cache::L2Cache;
 
-/// Cache strategies for different data types
+/// Cache strategies for different data types (Generic - no business logic)
 #[derive(Debug, Clone)]
 pub enum CacheStrategy {
-    /// BTC price data - 5 minutes TTL
-    PriceData,
-    /// RSI and technical indicators - 3 hours TTL
-    TechnicalIndicators,
-    /// Real-time streaming updates - 30 seconds TTL
-    RealTimeData,
+    /// Short-term data - 5 minutes TTL
+    ShortTerm,
+    /// Medium-term data - 1 hour TTL
+    MediumTerm,
+    /// Long-term data - 3 hours TTL
+    LongTerm,
+    /// Real-time streaming - 30 seconds TTL
+    RealTime,
+    /// Custom TTL specified by caller
+    Custom(Duration),
     /// Default caching behavior
     Default,
 }
@@ -130,28 +134,36 @@ impl CacheManager {
         Ok(())
     }
     
-    /// Set value with specific cache strategy
-    pub async fn set_with_strategy(&self, key: &str, value: serde_json::Value, ttl: Duration, strategy: CacheStrategy) -> Result<()> {
-        match strategy {
-            CacheStrategy::PriceData => {
-                // BTC price data: 5 minutes TTL
-                let price_ttl = Duration::from_secs(300); // 5 minutes
-                self.set(key, value, Some(price_ttl)).await
+    /// Set value with specific cache strategy (Generic - no business knowledge)
+    pub async fn set_with_strategy(&self, key: &str, value: serde_json::Value, strategy: CacheStrategy) -> Result<()> {
+        let ttl = match strategy {
+            CacheStrategy::ShortTerm => {
+                Duration::from_secs(300) // 5 minutes
             }
-            CacheStrategy::TechnicalIndicators => {
-                // RSI and other technical data: 3 hours TTL
-                let rsi_ttl = Duration::from_secs(10800); // 3 hours
-                self.set(key, value, Some(rsi_ttl)).await
+            CacheStrategy::MediumTerm => {
+                Duration::from_secs(3600) // 1 hour
             }
-            CacheStrategy::RealTimeData => {
-                // Real-time streaming data: 30 seconds TTL
-                let realtime_ttl = Duration::from_secs(30);
-                self.set(key, value, Some(realtime_ttl)).await
+            CacheStrategy::LongTerm => {
+                Duration::from_secs(10800) // 3 hours
+            }
+            CacheStrategy::RealTime => {
+                Duration::from_secs(30) // 30 seconds
+            }
+            CacheStrategy::Custom(duration) => {
+                duration
             }
             CacheStrategy::Default => {
-                self.set(key, value, Some(ttl)).await
+                Duration::from_secs(3600) // Default 1 hour
             }
-        }
+        };
+        
+        self.set(key, value, Some(ttl)).await
+    }
+
+    /// Generic cache operation with custom key and TTL
+    pub async fn cache_data(&self, key: &str, value: serde_json::Value, ttl_seconds: u64) -> Result<()> {
+        let ttl = Duration::from_secs(ttl_seconds);
+        self.set(key, value, Some(ttl)).await
     }
     
     /// Force sync of all L1 data to L2 (Redis)

@@ -231,7 +231,7 @@ impl ApiAggregator {
         }))
     }
     
-    /// Fetch BTC data with CoinGecko-specific caching (30 seconds)
+    /// Fetch BTC data with generic caching strategy
     async fn fetch_btc_with_cache(&self) -> Result<serde_json::Value> {
         let cache_key = "btc_coingecko_30s";
         
@@ -245,9 +245,11 @@ impl ApiAggregator {
         // Fetch from API
         match self.market_api.fetch_btc_price().await {
             Ok(data) => {
-                // Cache with 30-second TTL for CoinGecko
+                // Cache using generic ShortTerm strategy (5 minutes)
                 if let Some(ref cache) = self.cache_system {
-                    let _ = cache.cache_manager.set(cache_key, data.clone(), Some(Duration::from_secs(30))).await;
+                    let _ = cache.cache_manager.set_with_strategy(cache_key, data.clone(), 
+                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm).await;
+                    println!("💾 BTC price cached for 5 minutes (short-term strategy)");
                 }
                 Ok(data)
             }
@@ -255,7 +257,7 @@ impl ApiAggregator {
         }
     }
     
-    /// Fetch global data with CoinGecko-specific caching (30 seconds)
+    /// Fetch global data with generic caching strategy  
     async fn fetch_global_with_cache(&self) -> Result<serde_json::Value> {
         let cache_key = "global_coingecko_30s";
         
@@ -269,9 +271,11 @@ impl ApiAggregator {
         // Fetch from API
         match self.market_api.fetch_global_data().await {
             Ok(data) => {
-                // Cache with 30-second TTL for CoinGecko
+                // Cache using generic RealTime strategy (30 seconds)
                 if let Some(ref cache) = self.cache_system {
-                    let _ = cache.cache_manager.set(cache_key, data.clone(), Some(Duration::from_secs(30))).await;
+                    let _ = cache.cache_manager.set_with_strategy(cache_key, data.clone(),
+                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::RealTime).await;
+                    println!("💾 Global data cached for 30 seconds (real-time strategy)");
                 }
                 Ok(data)
             }
@@ -279,7 +283,7 @@ impl ApiAggregator {
         }
     }
     
-    /// Fetch Fear & Greed with Alternative.me-specific caching (5 minutes)
+    /// Fetch Fear & Greed with generic caching strategy
     async fn fetch_fng_with_cache(&self) -> Result<serde_json::Value> {
         let cache_key = "fng_alternative_5m";
         
@@ -293,9 +297,11 @@ impl ApiAggregator {
         // Fetch from API
         match self.market_api.fetch_fear_greed_index().await {
             Ok(data) => {
-                // Cache with 5-minute TTL for Alternative.me
+                // Cache using generic ShortTerm strategy (5 minutes)
                 if let Some(ref cache) = self.cache_system {
-                    let _ = cache.cache_manager.set(cache_key, data.clone(), Some(Duration::from_secs(300))).await;
+                    let _ = cache.cache_manager.set_with_strategy(cache_key, data.clone(),
+                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm).await;
+                    println!("💾 Fear & Greed cached for 5 minutes (short-term strategy)");
                 }
                 Ok(data)
             }
@@ -303,7 +309,7 @@ impl ApiAggregator {
         }
     }
     
-    /// Fetch RSI with TAAPI-specific caching (3 hours for technical indicators)
+    /// Fetch RSI with generic caching strategy
     async fn fetch_rsi_with_cache(&self) -> Result<serde_json::Value> {
         let cache_key = "rsi_taapi_3h";
         
@@ -317,13 +323,12 @@ impl ApiAggregator {
         // Fetch from API
         match self.market_api.fetch_rsi().await {
             Ok(data) => {
-                // Cache with 3-hour TTL for technical indicators as requested
+                // Cache using generic LongTerm strategy (3 hours)
                 if let Some(ref cache) = self.cache_system {
                     let cache_manager = cache.get_cache_manager();
-                    let _ = cache_manager.set_with_strategy(cache_key, data.clone(), 
-                        Duration::from_secs(10800), // 3 hours as requested
-                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::TechnicalIndicators).await;
-                    println!("💾 Cache Manager: Stored 'rsi_taapi_3h' with TechnicalIndicators strategy (3 hours TTL)");
+                    let _ = cache_manager.set_with_strategy(cache_key, data.clone(),
+                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::LongTerm).await;
+                    println!("💾 RSI cached for 3 hours (long-term strategy)");
                 }
                 Ok(data)
             }
@@ -352,6 +357,57 @@ impl ApiAggregator {
         })
     }
     
+    // ===== GENERIC CACHE HELPER METHODS =====
+    
+    /// Generic cache helper for any API data with custom key and strategy
+    async fn cache_api_data<F, T>(&self, 
+        cache_key: &str,
+        strategy: crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy,
+        fetch_fn: F) -> Result<serde_json::Value>
+    where
+        F: std::future::Future<Output = Result<T>> + Send,
+        T: serde::Serialize,
+    {
+        // Try cache first
+        if let Some(ref cache) = self.cache_system {
+            if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
+                return Ok(cached_data);
+            }
+        }
+        
+        // Fetch from API
+        match fetch_fn.await {
+            Ok(data) => {
+                let json_data = serde_json::to_value(data)?;
+                // Cache using provided strategy
+                if let Some(ref cache) = self.cache_system {
+                    let _ = cache.cache_manager.set_with_strategy(cache_key, json_data.clone(), strategy.clone()).await;
+                    println!("💾 Cached '{}' with strategy: {:?}", cache_key, strategy);
+                }
+                Ok(json_data)
+            }
+            Err(e) => Err(e)
+        }
+    }
+    
+    /// Wrapper for BTC data using generic cache helper
+    async fn fetch_btc_generic(&self) -> Result<serde_json::Value> {
+        self.cache_api_data(
+            "btc_coingecko_30s",
+            crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm,
+            self.market_api.fetch_btc_price()
+        ).await
+    }
+    
+    /// Wrapper for RSI data using generic cache helper
+    async fn fetch_rsi_generic(&self) -> Result<serde_json::Value> {
+        self.cache_api_data(
+            "rsi_taapi_3h", 
+            crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::LongTerm,
+            self.market_api.fetch_rsi()
+        ).await
+    }
+
     // ===== NEW CACHE-FREE METHODS (Phase 2 Refactoring) =====
     
     /// Fetch dashboard data without cache logic (NEW - Cache-free)

@@ -207,17 +207,16 @@ impl ExternalApisIsland {
         
         match self.market_data_api.fetch_btc_price().await {
             Ok(price_data) => {
-                // Cache successful response if cache is available - Use price data strategy (5 min TTL)
+                // Cache successful response if cache is available - Use short-term strategy (5 min TTL)
                 if let Some(ref cache) = self.cache_system {
-                    // Use CacheStrategy::PriceData for 5-minute TTL
+                    // Use CacheStrategy::ShortTerm for 5-minute TTL
                     let cache_manager = cache.get_cache_manager();
                     let _ = cache_manager.set_with_strategy(cache_key, price_data.clone(), 
-                        Duration::from_secs(300), // 5 minutes as requested
-                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::PriceData).await;
+                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm).await;
                     
                     // Keep stale backup for circuit breaker fallback (15 min)
                     let _ = cache.set(&format!("{}_stale", cache_key), price_data.clone(), Some(Duration::from_secs(900))).await;
-                    println!("💾 BTC price cached for 5 minutes (price data strategy)");
+                    println!("💾 BTC price cached for 5 minutes (short-term strategy)");
                 }
                 
                 self.circuit_breaker.record_success("btc").await;
