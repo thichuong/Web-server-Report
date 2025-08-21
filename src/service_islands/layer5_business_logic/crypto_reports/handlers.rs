@@ -19,6 +19,7 @@ use crate::state::AppState;
 // Import from our specialized components
 use super::report_creator::{Report, ReportSummary, ReportListItem, ReportCreator};
 use super::pdf_generator::PdfGenerator;
+use super::template_orchestrator::TemplateOrchestrator;
 
 /// Crypto Handlers
 /// 
@@ -28,86 +29,74 @@ use super::pdf_generator::PdfGenerator;
 pub struct CryptoHandlers {
     pub report_creator: ReportCreator,
     pub pdf_generator: PdfGenerator,
+    pub template_orchestrator: TemplateOrchestrator,
 }
 
 impl CryptoHandlers {
     /// Create a new CryptoHandlers instance
     pub fn new() -> Self {
+        let report_creator = ReportCreator::new();
+        let template_orchestrator = TemplateOrchestrator::new(report_creator.clone());
+        
         Self {
-            report_creator: ReportCreator::new(),
+            report_creator,
             pdf_generator: PdfGenerator::new(),
+            template_orchestrator,
         }
     }
     
     /// Health check for crypto handlers
     pub async fn health_check(&self) -> bool {
         // Verify handlers are functioning properly
-        true // Will implement actual health checks
+        let report_creator_ok = self.report_creator.health_check().await;
+        let pdf_generator_ok = self.pdf_generator.health_check().await;
+        let template_orchestrator_ok = self.template_orchestrator.health_check().await;
+        
+        report_creator_ok && pdf_generator_ok && template_orchestrator_ok
     }
 
     /// Helper function for template rendering
     /// 
-    /// Directly from archive_old_code/handlers/crypto.rs::render_crypto_template
-    /// ONLY Template Engine - NO manual HTML
+    /// DEPRECATED: Use template_orchestrator methods instead
+    /// Kept for backward compatibility during transition
     pub async fn render_crypto_template(
         &self,
         tera: &tera::Tera, 
         template: &str,
         report: &Report,
-        chart_modules_content: &str,
+        _chart_modules_content: &str, // Not used anymore, handled by orchestrator
         additional_context: Option<HashMap<String, serde_json::Value>>
     ) -> Result<String, Box<dyn StdError + Send + Sync>> {
-        let tera_clone = tera.clone();
-        let template_str = template.to_string();
-        let report_clone = report.clone();
-        let chart_content_clone = chart_modules_content.to_string();
-        let additional_clone = additional_context.clone();
+        println!("🔄 CryptoHandlers::render_crypto_template - Delegating to TemplateOrchestrator");
         
-        let render_result = tokio::task::spawn_blocking(move || {
-            let mut context = Context::new();
-            context.insert("report", &report_clone);
-            context.insert("chart_modules_content", &chart_content_clone);
-            
-            // Add additional context for different templates
-            if let Some(extra) = additional_clone {
-                for (key, value) in extra {
-                    context.insert(&key, &value);
-                }
+        // Delegate to TemplateOrchestrator for proper separation of concerns
+        match template {
+            path if path.contains("view.html") => {
+                self.template_orchestrator.render_crypto_report_view(
+                    tera,
+                    report,
+                    additional_context
+                ).await
             }
-            
-            // Common context for view templates
-            if template_str.contains("view.html") {
-                context.insert("current_route", "dashboard");
-                context.insert("current_lang", "vi");
-                context.insert("current_time", &chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string());
-                let pdf_url = format!("/crypto_report/{}/pdf", report_clone.id);
-                context.insert("pdf_url", &pdf_url);
+            path if path.contains("pdf.html") => {
+                self.template_orchestrator.render_crypto_report_pdf(
+                    tera,
+                    report
+                ).await
             }
-            
-            // PDF template specific context
-            if template_str.contains("pdf.html") {
-                let created_display = (report_clone.created_at + chrono::Duration::hours(7)).format("%d-%m-%Y %H:%M").to_string();
-                context.insert("created_at_display", &created_display);
-            }
-
-            // ONLY use Tera template engine - NO manual HTML
-            tera_clone.render(&template_str, &context)
-        }).await;
-        
-        match render_result {
-            Ok(Ok(html)) => Ok(html),
-            Ok(Err(e)) => {
-                eprintln!("Template render error: {:#?}", e);
-                let mut src = e.source();
-                while let Some(s) = src {
-                    eprintln!("Template render error source: {:#?}", s);
-                    src = s.source();
-                }
-                Err(format!("Template render error: {}", e).into())
-            }
-            Err(e) => {
-                eprintln!("Task join error: {:#?}", e);
-                Err(format!("Task join error: {}", e).into())
+            _ => {
+                // Generic template rendering
+                let context = self.template_orchestrator.prepare_crypto_report_context(
+                    report,
+                    template,
+                    additional_context
+                ).await?;
+                
+                self.template_orchestrator.render_template(
+                    tera,
+                    template,
+                    context
+                ).await
             }
         }
     }
@@ -128,158 +117,36 @@ impl CryptoHandlers {
 
     /// Fetch and cache latest report 
     /// 
-    /// From archive_old_code/handlers/crypto.rs::fetch_and_cache_latest_report
-    /// Real database query - Data from database ONLY - NO HTML creation here
+    /// DEPRECATED: Use self.report_creator.fetch_and_cache_latest_report() instead
+    /// Kept for backward compatibility during transition
     pub async fn fetch_and_cache_latest_report(
         &self,
         state: &Arc<AppState>
     ) -> Result<Option<Report>, sqlx::Error> {
-        // Real database query exactly like archive_old_code
-        let report = sqlx::query_as::<_, Report>(
-            "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report ORDER BY created_at DESC LIMIT 1",
-        ).fetch_optional(&state.db).await?;
-        
-        if let Some(ref report) = report {
-            // Update latest id cache (atomic operation like archive)
-            state.cached_latest_id.store(report.id, Ordering::Relaxed);
-            println!("💾 Fetched latest crypto report {} from database", report.id);
-            
-            // TODO: Implement L1/L2 caching logic when cache layers are ready
-            // Cache in L1
-            // state.report_cache.insert(report.id, report.clone()).await;
-            // 
-            // Cache in L2 Redis with TTL for latest report
-            // if let Err(e) = state.cache_manager.set_with_ttl("crypto_latest_report", report, 300).await {
-            //     eprintln!("⚠️ Failed to cache latest report in Redis: {}", e);
-            // } else {
-            //     println!("💾 Cached latest crypto report {} in Redis (key: crypto_latest_report, TTL: 5min)", report.id);
-            // }
-        }
-        
-        Ok(report)
+        // Delegate to ReportCreator component for proper separation of concerns
+        self.report_creator.fetch_and_cache_latest_report(state).await
     }
 
     /// Fetch and cache specific report by ID
     /// 
-    /// Similar to fetch_and_cache_latest_report but for specific ID
-    /// Real database query - Data from database ONLY - NO HTML creation here
+    /// DEPRECATED: Use self.report_creator.fetch_and_cache_report_by_id() instead
+    /// Kept for backward compatibility during transition
     pub async fn fetch_and_cache_report_by_id(
         &self,
         state: &Arc<AppState>,
         report_id: i32
     ) -> Result<Option<Report>, sqlx::Error> {
-        println!("🔍 Fetching crypto report {} from database", report_id);
-        
-        // Real database query for specific ID
-        let report = sqlx::query_as::<_, Report>(
-            "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report WHERE id = $1",
-        )
-        .bind(report_id)
-        .fetch_optional(&state.db).await?;
-        
-        if let Some(ref report) = report {
-            println!("💾 Fetched crypto report {} from database successfully", report.id);
-            
-            // TODO: Implement L1/L2 caching logic when cache layers are ready
-            // Cache in L1
-            // state.report_cache.insert(report.id, report.clone()).await;
-            // 
-            // Cache in L2 Redis with TTL for specific report
-            // let cache_key = format!("crypto_report_{}", report.id);
-            // if let Err(e) = state.cache_manager.set_with_ttl(&cache_key, report, 1800).await {
-            //     eprintln!("⚠️ Failed to cache report {} in Redis: {}", report.id, e);
-            // } else {
-            //     println!("💾 Cached crypto report {} in Redis (key: {}, TTL: 30min)", report.id, cache_key);
-            // }
-        } else {
-            println!("⚠️ Crypto report {} not found in database", report_id);
-        }
-        
-        Ok(report)
+        // Delegate to ReportCreator component for proper separation of concerns
+        self.report_creator.fetch_and_cache_report_by_id(state, report_id).await
     }
 
     /// Get chart modules content
     /// 
-    /// Exactly from archive_old_code/utils.rs::get_chart_modules_content
-    /// Reads actual chart modules from shared_assets/js/chart_modules/
+    /// DEPRECATED: Use self.report_creator.get_chart_modules_content() instead
+    /// Kept for backward compatibility during transition
     pub async fn get_chart_modules_content(&self) -> String {
-        // TODO: Add chart modules cache when cache layer is ready
-        // For now always read from files (like debug mode in archive)
-        let debug = env::var("DEBUG").unwrap_or_default() == "1";
-        
-        let source_dir = Path::new("shared_assets").join("js").join("chart_modules");
-        let priority_order = vec!["gauge.js", "bar.js", "line.js", "doughnut.js"];
-
-        let mut entries = match read_dir(&source_dir).await {
-            Ok(rd) => rd,
-            Err(_) => return "// No chart modules found".to_string(),
-        };
-
-        let mut all_files = Vec::new();
-        while let Ok(Some(entry)) = entries.next_entry().await {
-            if let Ok(ft) = entry.file_type().await {
-                if ft.is_file() {
-                    if let Some(name) = entry.file_name().to_str() {
-                        if name.ends_with(".js") {
-                            all_files.push(name.to_string());
-                        }
-                    }
-                }
-            }
-        }
-
-        // Order files: priority first, then alphabetically
-        let mut ordered = Vec::new();
-        for p in &priority_order {
-            if let Some(idx) = all_files.iter().position(|f| f == p) {
-                ordered.push(all_files.remove(idx));
-            }
-        }
-        all_files.sort();
-        ordered.extend(all_files);
-
-        // Parallel file reading with concurrent futures
-        let file_futures: Vec<_> = ordered
-            .iter()
-            .map(|filename| {
-                let path = source_dir.join(filename);
-                let filename_clone = filename.clone();
-                async move {
-                    match tokio::fs::read_to_string(&path).await {
-                        Ok(content) => {
-                            let wrapped = format!(
-                                "// ==================== {name} ====================\ntry {{\n{code}\n}} catch (error) {{\n    console.error('Error loading chart module {name}:', error);\n}}\n// ==================== End {name} ====================",
-                                name = filename_clone,
-                                code = content
-                            );
-                            wrapped
-                        }
-                        Err(_) => {
-                            format!("// Warning: {name} not found", name = filename_clone)
-                        }
-                    }
-                }
-            })
-            .collect();
-
-        // Await all file reads concurrently like archive code
-        let parts = futures::future::join_all(file_futures).await;
-
-        // Final concatenation in CPU thread pool to avoid blocking async runtime
-        let final_content = tokio::task::spawn_blocking(move || {
-            parts.join("\n\n")
-        }).await.unwrap_or_else(|e| {
-            eprintln!("Chart modules concatenation error: {:#?}", e);
-            "// Error loading chart modules".to_string()
-        });
-
-        // TODO: Cache if not debug when cache layer is ready
-        // if !debug {
-        //     let mut w = state.chart_modules_cache.write().await;
-        //     *w = Some(final_content.clone());
-        // }
-
-        final_content
+        // Delegate to ReportCreator component for proper separation of concerns
+        self.report_creator.get_chart_modules_content().await
     }
     
     /// Crypto Index handler - Main crypto dashboard
@@ -357,70 +224,42 @@ impl CryptoHandlers {
         // Both L1 and L2 cache miss: fetch from DB and cache in both L1 and L2
         println!("🔍 L1+L2 Cache miss for crypto_index - fetching from DB");
 
-        // Parallel fetch DB and chart modules to avoid blocking
-        let db_fut = self.fetch_and_cache_latest_report(state);
-        let chart_fut = self.get_chart_modules_content();
+        // Parallel fetch DB and chart modules to avoid blocking - use ReportCreator for data logic
+        let db_fut = self.report_creator.fetch_and_cache_latest_report(state);
+        let chart_fut = self.report_creator.get_chart_modules_content();
 
         let (db_res, chart_modules_content) = tokio::join!(db_fut, chart_fut);
 
         match db_res {
             Ok(Some(report)) => {
-                // Template rendering with helper function
-                match self.render_crypto_template(
+                // Template rendering with TemplateOrchestrator
+                match self.template_orchestrator.render_crypto_report_view(
                     &state.tera,
-                    "crypto/routes/reports/view.html",
                     &report,
-                    &chart_modules_content,
                     None
                 ).await {
                     Ok(html) => {
-                        println!("✅ Template rendered from DB - crypto_index complete");
+                        println!("✅ Template rendered from DB via TemplateOrchestrator - crypto_index complete");
                         Ok(html)
                     }
                     Err(e) => {
-                        eprintln!("❌ Template render error: {}", e);
+                        eprintln!("❌ TemplateOrchestrator render error: {}", e);
                         Err("Template render error".into())
                     }
                 }
             }
             Ok(None) => {
-                println!("⚠️ No reports found in database - rendering empty template");
+                println!("⚠️ No reports found in database - rendering empty template via TemplateOrchestrator");
                 
-                // Handle empty report case like archive code
-                let empty_report = serde_json::json!({
-                    "html_content": "",
-                    "html_content_en": "",
-                    "css_content": "",
-                    "js_content": ""
-                });
-                
-                let tera_clone = state.tera.clone();
-                let chart_content_clone = chart_modules_content.clone();
-                
-                let render_result = tokio::task::spawn_blocking(move || {
-                    let mut context = Context::new();
-                    context.insert("current_route", "dashboard");
-                    context.insert("current_lang", "vi");
-                    context.insert("current_time", &chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string());
-                    context.insert("report", &empty_report);
-                    context.insert("chart_modules_content", &chart_content_clone);
-                    context.insert("pdf_url", &"#");
-
-                    tera_clone.render("crypto/routes/reports/view.html", &context)
-                }).await;
-
-                match render_result {
-                    Ok(Ok(html)) => {
-                        println!("✅ Empty template rendered successfully");
+                // Use TemplateOrchestrator for empty template
+                match self.template_orchestrator.render_empty_template(&state.tera).await {
+                    Ok(html) => {
+                        println!("✅ Empty template rendered successfully via TemplateOrchestrator");
                         Ok(html)
                     }
-                    Ok(Err(e)) => {
-                        eprintln!("❌ Empty template render error: {:#?}", e);
-                        Err(format!("Empty template render error: {}", e).into())
-                    }
                     Err(e) => {
-                        eprintln!("❌ Task join error: {:#?}", e);
-                        Err(format!("Task join error: {}", e).into())
+                        eprintln!("❌ TemplateOrchestrator empty template render error: {}", e);
+                        Err(format!("Empty template render error: {}", e).into())
                     }
                 }
             }
@@ -499,71 +338,42 @@ impl CryptoHandlers {
         // Both L1 and L2 cache miss: fetch from DB and cache in both L1 and L2
         println!("🔍 L1+L2 Cache miss for report ID: {} - fetching from DB", report_id);
 
-        // Parallel fetch DB and chart modules to avoid blocking
-        let db_fut = self.fetch_and_cache_report_by_id(state, report_id);
-        let chart_fut = self.get_chart_modules_content();
+        // Parallel fetch DB and chart modules to avoid blocking - use ReportCreator for data logic
+        let db_fut = self.report_creator.fetch_and_cache_report_by_id(state, report_id);
+        let chart_fut = self.report_creator.get_chart_modules_content();
 
         let (db_res, chart_modules_content) = tokio::join!(db_fut, chart_fut);
 
         match db_res {
             Ok(Some(report)) => {
-                // Template rendering with helper function
-                match self.render_crypto_template(
+                // Template rendering with TemplateOrchestrator
+                match self.template_orchestrator.render_crypto_report_view(
                     &state.tera,
-                    "crypto/routes/reports/view.html",
                     &report,
-                    &chart_modules_content,
                     None
                 ).await {
                     Ok(html) => {
-                        println!("✅ Template rendered from DB for report ID: {} - crypto_report_by_id complete", report_id);
+                        println!("✅ Template rendered from DB via TemplateOrchestrator for report ID: {} - crypto_report_by_id complete", report_id);
                         Ok(html)
                     }
                     Err(e) => {
-                        eprintln!("❌ Template render error for report ID: {}: {}", report_id, e);
+                        eprintln!("❌ TemplateOrchestrator render error for report ID: {}: {}", report_id, e);
                         Err("Template render error".into())
                     }
                 }
             }
             Ok(None) => {
-                println!("⚠️ Report ID: {} not found in database - rendering 404 template", report_id);
+                println!("⚠️ Report ID: {} not found in database - rendering 404 template via TemplateOrchestrator", report_id);
                 
-                // Handle not found case
-                let not_found_report = serde_json::json!({
-                    "id": report_id,
-                    "html_content": format!("<div class='text-center py-16'><h2 class='text-2xl font-bold text-red-600'>Báo cáo #{} không tồn tại</h2><p class='text-gray-500 mt-4'>Báo cáo này có thể đã bị xóa hoặc không có quyền truy cập.</p><a href='/crypto_reports_list' class='mt-6 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700'>Quay lại danh sách báo cáo</a></div>", report_id),
-                    "html_content_en": format!("<div class='text-center py-16'><h2 class='text-2xl font-bold text-red-600'>Report #{} not found</h2><p class='text-gray-500 mt-4'>This report may have been deleted or you don't have access.</p><a href='/crypto_reports_list' class='mt-6 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700'>Back to reports list</a></div>", report_id),
-                    "css_content": "",
-                    "js_content": ""
-                });
-                
-                let tera_clone = state.tera.clone();
-                let chart_content_clone = chart_modules_content.clone();
-                
-                let render_result = tokio::task::spawn_blocking(move || {
-                    let mut context = tera::Context::new();
-                    context.insert("current_route", "dashboard");
-                    context.insert("current_lang", "vi");
-                    context.insert("current_time", &chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string());
-                    context.insert("report", &not_found_report);
-                    context.insert("chart_modules_content", &chart_content_clone);
-                    context.insert("pdf_url", &"#");
-
-                    tera_clone.render("crypto/routes/reports/view.html", &context)
-                }).await;
-
-                match render_result {
-                    Ok(Ok(html)) => {
-                        println!("✅ 404 template rendered successfully for report ID: {}", report_id);
+                // Use TemplateOrchestrator for 404 template
+                match self.template_orchestrator.render_not_found_template(&state.tera, report_id).await {
+                    Ok(html) => {
+                        println!("✅ 404 template rendered successfully via TemplateOrchestrator for report ID: {}", report_id);
                         Ok(html)
                     }
-                    Ok(Err(e)) => {
-                        eprintln!("❌ 404 template render error for report ID: {}: {:#?}", report_id, e);
-                        Err(format!("404 template render error: {}", e).into())
-                    }
                     Err(e) => {
-                        eprintln!("❌ Task join error for report ID: {}: {:#?}", report_id, e);
-                        Err(format!("Task join error: {}", e).into())
+                        eprintln!("❌ TemplateOrchestrator 404 template render error for report ID: {}: {}", report_id, e);
+                        Err(format!("404 template render error: {}", e).into())
                     }
                 }
             }

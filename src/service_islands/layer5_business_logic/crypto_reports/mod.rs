@@ -10,6 +10,7 @@ pub mod handlers;
 pub mod pdf_generator;
 pub mod report_creator;
 pub mod data_manager;
+pub mod template_orchestrator;
 
 
 use std::sync::Arc;
@@ -25,6 +26,7 @@ pub struct CryptoReportsIsland {
     pub pdf_generator: pdf_generator::PdfGenerator,
     pub report_creator: report_creator::ReportCreator,
     pub data_manager: data_manager::DataManager,
+    pub template_orchestrator: template_orchestrator::TemplateOrchestrator,
     /// Layer 2 dependency: External APIs for real-time market data
     pub external_apis: Option<Arc<ExternalApisIsland>>,
 }
@@ -37,10 +39,11 @@ impl CryptoReportsIsland {
     pub async fn new() -> Result<Self, anyhow::Error> {
         println!("📊 Initializing Crypto Reports Island (basic mode)...");
         
+        let report_creator = report_creator::ReportCreator::new();
         let handlers = handlers::CryptoHandlers::new();
         let pdf_generator = pdf_generator::PdfGenerator::new();
-        let report_creator = report_creator::ReportCreator::new();
         let data_manager = data_manager::DataManager::new();
+        let template_orchestrator = template_orchestrator::TemplateOrchestrator::new(report_creator.clone());
         
         println!("✅ Crypto Reports Island initialized (basic mode)!");
         
@@ -49,6 +52,7 @@ impl CryptoReportsIsland {
             pdf_generator,
             report_creator,
             data_manager,
+            template_orchestrator,
             external_apis: None,
         })
     }
@@ -60,10 +64,11 @@ impl CryptoReportsIsland {
     pub async fn with_dependencies(external_apis: Arc<ExternalApisIsland>) -> Result<Self, anyhow::Error> {
         println!("📊 Initializing Crypto Reports Island with Layer 2 dependencies...");
         
+        let report_creator = report_creator::ReportCreator::new();
         let handlers = handlers::CryptoHandlers::new();
         let pdf_generator = pdf_generator::PdfGenerator::new();
-        let report_creator = report_creator::ReportCreator::new();
         let data_manager = data_manager::DataManager::new();
+        let template_orchestrator = template_orchestrator::TemplateOrchestrator::new(report_creator.clone());
         
         println!("✅ Crypto Reports Island initialized with External APIs integration!");
         
@@ -72,6 +77,7 @@ impl CryptoReportsIsland {
             pdf_generator,
             report_creator,
             data_manager,
+            template_orchestrator,
             external_apis: Some(external_apis),
         })
     }
@@ -145,7 +151,8 @@ impl CryptoReportsIsland {
         let pdf_ok = self.pdf_generator.health_check().await;
         let creator_ok = self.report_creator.health_check().await;
         let manager_ok = self.data_manager.health_check().await;
+        let orchestrator_ok = self.template_orchestrator.health_check().await;
         
-        handlers_ok && pdf_ok && creator_ok && manager_ok
+        handlers_ok && pdf_ok && creator_ok && manager_ok && orchestrator_ok
     }
 }

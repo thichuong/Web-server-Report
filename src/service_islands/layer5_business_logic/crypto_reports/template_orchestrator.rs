@@ -1,0 +1,287 @@
+//! Template Orchestrator Component
+//! 
+//! This component handles all template rendering operations for crypto reports,
+//! including context preparation, chart modules injection, and Tera integration.
+//! Follows Service Islands Architecture Layer 5 patterns.
+
+use serde::{Serialize, Deserialize};
+use std::{collections::HashMap, error::Error as StdError, sync::Arc};
+use tera::Context;
+
+// Import from current state - will be refactored when lower layers are implemented
+use crate::state::AppState;
+
+// Import from our specialized components
+use super::report_creator::{Report, ReportCreator};
+
+/// Template Context Data
+/// 
+/// Structured container for all template rendering context data
+#[derive(Debug, Clone)]
+pub struct TemplateContext {
+    pub report: Report,
+    pub chart_modules_content: String,
+    pub current_route: String,
+    pub current_lang: String,
+    pub current_time: String,
+    pub pdf_url: String,
+    pub additional_context: Option<HashMap<String, serde_json::Value>>,
+}
+
+/// Template Orchestrator
+/// 
+/// Manages all template rendering operations for crypto reports.
+/// Separates template logic from HTTP handlers following Layer 5 architecture.
+pub struct TemplateOrchestrator {
+    /// Reference to ReportCreator for data operations
+    pub report_creator: ReportCreator,
+}
+
+impl TemplateOrchestrator {
+    /// Create a new TemplateOrchestrator
+    pub fn new(report_creator: ReportCreator) -> Self {
+        Self {
+            report_creator,
+        }
+    }
+    
+    /// Health check for template orchestrator
+    pub async fn health_check(&self) -> bool {
+        // Verify template orchestrator is functioning properly
+        self.report_creator.health_check().await
+    }
+
+    /// Prepare template context for crypto reports
+    /// 
+    /// Builds complete template context with all necessary data for rendering
+    pub async fn prepare_crypto_report_context(
+        &self,
+        report: &Report,
+        template_type: &str,
+        additional_context: Option<HashMap<String, serde_json::Value>>
+    ) -> Result<TemplateContext, Box<dyn StdError + Send + Sync>> {
+        println!("🎨 TemplateOrchestrator: Preparing context for template type: {}", template_type);
+        
+        // Fetch chart modules content from ReportCreator
+        let chart_modules_content = self.report_creator.get_chart_modules_content().await;
+        
+        // Prepare basic context
+        let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string();
+        let pdf_url = format!("/crypto_report/{}/pdf", report.id);
+        
+        let context = TemplateContext {
+            report: report.clone(),
+            chart_modules_content,
+            current_route: "dashboard".to_string(),
+            current_lang: "vi".to_string(),
+            current_time,
+            pdf_url,
+            additional_context,
+        };
+        
+        println!("✅ TemplateOrchestrator: Context prepared successfully");
+        Ok(context)
+    }
+
+    /// Render crypto template with prepared context
+    /// 
+    /// Core template rendering method using Tera engine with proper error handling
+    pub async fn render_template(
+        &self,
+        tera: &tera::Tera,
+        template_path: &str,
+        context: TemplateContext
+    ) -> Result<String, Box<dyn StdError + Send + Sync>> {
+        println!("🎨 TemplateOrchestrator: Rendering template: {}", template_path);
+        
+        // Clone data for spawn_blocking
+        let tera_clone = tera.clone();
+        let template_str = template_path.to_string();
+        let context_clone = context.clone();
+        
+        let render_result = tokio::task::spawn_blocking(move || {
+            let mut tera_context = Context::new();
+            
+            // Insert core template data
+            tera_context.insert("report", &context_clone.report);
+            tera_context.insert("chart_modules_content", &context_clone.chart_modules_content);
+            tera_context.insert("current_route", &context_clone.current_route);
+            tera_context.insert("current_lang", &context_clone.current_lang);
+            tera_context.insert("current_time", &context_clone.current_time);
+            tera_context.insert("pdf_url", &context_clone.pdf_url);
+            
+            // Add additional context if provided
+            if let Some(extra) = context_clone.additional_context {
+                for (key, value) in extra {
+                    tera_context.insert(&key, &value);
+                }
+            }
+            
+            // Template-specific context adjustments
+            if template_str.contains("pdf.html") {
+                let created_display = (context_clone.report.created_at + chrono::Duration::hours(7))
+                    .format("%d-%m-%Y %H:%M").to_string();
+                tera_context.insert("created_at_display", &created_display);
+            }
+
+            // ONLY use Tera template engine - NO manual HTML
+            tera_clone.render(&template_str, &tera_context)
+        }).await;
+        
+        match render_result {
+            Ok(Ok(html)) => {
+                println!("✅ TemplateOrchestrator: Template rendered successfully");
+                Ok(html)
+            }
+            Ok(Err(e)) => {
+                eprintln!("❌ TemplateOrchestrator: Template render error: {:#?}", e);
+                let mut src = e.source();
+                while let Some(s) = src {
+                    eprintln!("❌ Template render error source: {:#?}", s);
+                    src = s.source();
+                }
+                Err(format!("Template render error: {}", e).into())
+            }
+            Err(e) => {
+                eprintln!("❌ TemplateOrchestrator: Task join error: {:#?}", e);
+                Err(format!("Task join error: {}", e).into())
+            }
+        }
+    }
+
+    /// Render crypto report view template - High level method
+    /// 
+    /// Combines context preparation and template rendering for crypto report views
+    pub async fn render_crypto_report_view(
+        &self,
+        tera: &tera::Tera,
+        report: &Report,
+        additional_context: Option<HashMap<String, serde_json::Value>>
+    ) -> Result<String, Box<dyn StdError + Send + Sync>> {
+        println!("🚀 TemplateOrchestrator: Rendering crypto report view");
+        
+        // Step 1: Prepare template context
+        let context = self.prepare_crypto_report_context(
+            report,
+            "view",
+            additional_context
+        ).await?;
+        
+        // Step 2: Render template
+        self.render_template(
+            tera,
+            "crypto/routes/reports/view.html",
+            context
+        ).await
+    }
+
+    /// Render crypto report PDF template - High level method
+    /// 
+    /// Combines context preparation and template rendering for PDF generation
+    pub async fn render_crypto_report_pdf(
+        &self,
+        tera: &tera::Tera,
+        report: &Report
+    ) -> Result<String, Box<dyn StdError + Send + Sync>> {
+        println!("📄 TemplateOrchestrator: Rendering crypto report PDF");
+        
+        // Step 1: Prepare template context
+        let context = self.prepare_crypto_report_context(
+            report,
+            "pdf",
+            None
+        ).await?;
+        
+        // Step 2: Render template
+        self.render_template(
+            tera,
+            "crypto/routes/reports/pdf.html",
+            context
+        ).await
+    }
+
+    /// Render empty template for no reports case
+    /// 
+    /// Handles the case when no reports are found in database
+    pub async fn render_empty_template(
+        &self,
+        tera: &tera::Tera
+    ) -> Result<String, Box<dyn StdError + Send + Sync>> {
+        println!("⚠️ TemplateOrchestrator: Rendering empty template");
+        
+        // Create empty report for template
+        let empty_report = Report {
+            id: 0,
+            html_content: String::new(),
+            css_content: Some(String::new()),
+            js_content: Some(String::new()),
+            html_content_en: Some(String::new()),
+            js_content_en: Some(String::new()),
+            created_at: chrono::Utc::now(),
+        };
+        
+        // Prepare context
+        let context = self.prepare_crypto_report_context(
+            &empty_report,
+            "empty",
+            None
+        ).await?;
+        
+        // Override PDF URL for empty case
+        let mut modified_context = context;
+        modified_context.pdf_url = "#".to_string();
+        
+        // Render template
+        self.render_template(
+            tera,
+            "crypto/routes/reports/view.html",
+            modified_context
+        ).await
+    }
+
+    /// Render 404 not found template
+    /// 
+    /// Handles the case when a specific report ID is not found
+    pub async fn render_not_found_template(
+        &self,
+        tera: &tera::Tera,
+        report_id: i32
+    ) -> Result<String, Box<dyn StdError + Send + Sync>> {
+        println!("🔍 TemplateOrchestrator: Rendering 404 template for report ID: {}", report_id);
+        
+        // Create not found report with error messages
+        let not_found_report = Report {
+            id: report_id,
+            html_content: format!(
+                "<div class='text-center py-16'><h2 class='text-2xl font-bold text-red-600'>Báo cáo #{} không tồn tại</h2><p class='text-gray-500 mt-4'>Báo cáo này có thể đã bị xóa hoặc không có quyền truy cập.</p><a href='/crypto_reports_list' class='mt-6 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700'>Quay lại danh sách báo cáo</a></div>", 
+                report_id
+            ),
+            css_content: Some(String::new()),
+            js_content: Some(String::new()),
+            html_content_en: Some(format!(
+                "<div class='text-center py-16'><h2 class='text-2xl font-bold text-red-600'>Report #{} not found</h2><p class='text-gray-500 mt-4'>This report may have been deleted or you don't have access.</p><a href='/crypto_reports_list' class='mt-6 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700'>Back to reports list</a></div>", 
+                report_id
+            )),
+            js_content_en: Some(String::new()),
+            created_at: chrono::Utc::now(),
+        };
+        
+        // Prepare context
+        let context = self.prepare_crypto_report_context(
+            &not_found_report,
+            "404",
+            None
+        ).await?;
+        
+        // Override PDF URL for 404 case
+        let mut modified_context = context;
+        modified_context.pdf_url = "#".to_string();
+        
+        // Render template
+        self.render_template(
+            tera,
+            "crypto/routes/reports/view.html",
+            modified_context
+        ).await
+    }
+}

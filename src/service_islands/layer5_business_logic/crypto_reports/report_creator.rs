@@ -5,7 +5,7 @@
 
 use serde::{Serialize, Deserialize};
 use sqlx::{FromRow};
-use std::{error::Error as StdError, sync::Arc, path::Path, env};
+use std::{error::Error as StdError, sync::Arc, path::Path, env, sync::atomic::Ordering};
 use tokio::fs::read_dir;
 
 // Import from current state - will be refactored when lower layers are implemented
@@ -41,6 +41,7 @@ pub struct ReportListItem {
 /// Report Creator
 /// 
 /// Manages report creation business logic with market analysis capabilities.
+#[derive(Clone)]
 pub struct ReportCreator {
     // Component state will be added here
 }
@@ -61,74 +62,55 @@ impl ReportCreator {
 
     /// Fetch and cache latest report from database
     /// 
-    /// Retrieves the most recent crypto report with full content
+    /// Retrieves the most recent crypto report with full content - exactly like handlers.rs version
     pub async fn fetch_and_cache_latest_report(
         &self,
         state: &Arc<AppState>,
-    ) -> Result<Option<Report>, Box<dyn StdError + Send + Sync>> {
-        println!("🔍 Fetching latest crypto report from database");
+    ) -> Result<Option<Report>, sqlx::Error> {
+        println!("🔍 ReportCreator: Fetching latest crypto report from database");
         
-        // TODO: Implement L1/L2 cache check here
-        // For now, fetch directly from database like archive_old_code/handlers/crypto.rs
+        // Real database query exactly like archive_old_code
+        let report = sqlx::query_as::<_, Report>(
+            "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report ORDER BY created_at DESC LIMIT 1",
+        ).fetch_optional(&state.db).await?;
         
-        let query = r#"
-            SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at
-            FROM crypto_report 
-            ORDER BY created_at DESC 
-            LIMIT 1
-        "#;
-        
-        let result = sqlx::query_as::<_, Report>(query)
-            .fetch_optional(&state.db)
-            .await?;
+        if let Some(ref report) = report {
+            // Update latest id cache (atomic operation like archive)
+            state.cached_latest_id.store(report.id, std::sync::atomic::Ordering::Relaxed);
+            println!("💾 ReportCreator: Fetched latest crypto report {} from database", report.id);
             
-        if let Some(ref report) = result {
-            println!("💾 Fetched latest crypto report {} from database", report.id);
-        } else {
-            println!("⚠️ No crypto reports found in database");
+            // TODO: Implement L1/L2 caching logic when cache layers are ready
         }
         
-        // TODO: Cache the result in L1/L2 cache
-        // self.cache_manager.set_l1("latest_crypto_report", &result, Duration::from_secs(300)).await;
-        
-        Ok(result)
+        Ok(report)
     }
 
     /// Fetch and cache specific report by ID
     /// 
-    /// Retrieves a crypto report by its ID with full content
+    /// Retrieves a crypto report by its ID with full content - exactly like handlers.rs version
     pub async fn fetch_and_cache_report_by_id(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
-    ) -> Result<Option<Report>, Box<dyn StdError + Send + Sync>> {
-        println!("🔍 Fetching crypto report {} from database", report_id);
+    ) -> Result<Option<Report>, sqlx::Error> {
+        println!("🔍 ReportCreator: Fetching crypto report {} from database", report_id);
         
-        // TODO: Implement L1/L2 cache check here
-        // For now, fetch directly from database like archive_old_code/handlers/crypto.rs
+        // Real database query for specific ID
+        let report = sqlx::query_as::<_, Report>(
+            "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report WHERE id = $1",
+        )
+        .bind(report_id)
+        .fetch_optional(&state.db).await?;
         
-        let query = r#"
-            SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at
-            FROM crypto_report 
-            WHERE id = $1
-        "#;
-        
-        let result = sqlx::query_as::<_, Report>(query)
-            .bind(report_id)
-            .fetch_optional(&state.db)
-            .await?;
+        if let Some(ref report) = report {
+            println!("💾 ReportCreator: Fetched crypto report {} from database successfully", report.id);
             
-        if let Some(ref report) = result {
-            println!("💾 Fetched crypto report {} from database successfully", report.id);
+            // TODO: Implement L1/L2 caching logic when cache layers are ready
         } else {
-            println!("⚠️ Crypto report {} not found in database", report_id);
+            println!("⚠️ ReportCreator: Crypto report {} not found in database", report_id);
         }
         
-        // TODO: Cache the result in L1/L2 cache
-        // let cache_key = format!("crypto_report_{}", report_id);
-        // self.cache_manager.set_l1(&cache_key, &result, Duration::from_secs(600)).await;
-        
-        Ok(result)
+        Ok(report)
     }
 
     /// Get chart modules content
@@ -161,30 +143,52 @@ impl ReportCreator {
             }
         }
 
-        // Sort files according to priority order
-        all_files.sort_by(|a, b| {
-            let pos_a = priority_order.iter().position(|x| x == a).unwrap_or(usize::MAX);
-            let pos_b = priority_order.iter().position(|x| x == b).unwrap_or(usize::MAX);
-            pos_a.cmp(&pos_b)
-        });
-
-        let mut combined_content = String::new();
-        for filename in all_files {
-            let file_path = source_dir.join(&filename);
-            if let Ok(content) = tokio::fs::read_to_string(&file_path).await {
-                if debug {
-                    combined_content.push_str(&format!("\n// Chart module: {}\n", filename));
-                }
-                combined_content.push_str(&content);
-                combined_content.push('\n');
+        // Order files: priority first, then alphabetically
+        let mut ordered = Vec::new();
+        for p in &priority_order {
+            if let Some(idx) = all_files.iter().position(|f| f == p) {
+                ordered.push(all_files.remove(idx));
             }
         }
+        all_files.sort();
+        ordered.extend(all_files);
 
-        if combined_content.is_empty() {
-            "// No chart modules content available".to_string()
-        } else {
-            combined_content
-        }
+        // Parallel file reading with concurrent futures
+        let file_futures: Vec<_> = ordered
+            .iter()
+            .map(|filename| {
+                let path = source_dir.join(filename);
+                let filename_clone = filename.clone();
+                async move {
+                    match tokio::fs::read_to_string(&path).await {
+                        Ok(content) => {
+                            let wrapped = format!(
+                                "// ==================== {name} ====================\ntry {{\n{code}\n}} catch (error) {{\n    console.error('Error loading chart module {name}:', error);\n}}\n// ==================== End {name} ====================",
+                                name = filename_clone,
+                                code = content
+                            );
+                            wrapped
+                        }
+                        Err(_) => {
+                            format!("// Warning: {name} not found", name = filename_clone)
+                        }
+                    }
+                }
+            })
+            .collect();
+
+        // Await all file reads concurrently like archive code
+        let parts = futures::future::join_all(file_futures).await;
+
+        // Final concatenation in CPU thread pool to avoid blocking async runtime
+        let final_content = tokio::task::spawn_blocking(move || {
+            parts.join("\n\n")
+        }).await.unwrap_or_else(|e| {
+            eprintln!("Chart modules concatenation error: {:#?}", e);
+            "// Error loading chart modules".to_string()
+        });
+
+        final_content
     }
 
     /// Fetch reports list with pagination
