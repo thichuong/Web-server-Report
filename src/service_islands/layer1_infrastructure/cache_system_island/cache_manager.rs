@@ -1,317 +1,208 @@
 //! Cache Manager - Unified Cache Operations
 //! 
-//! Manages intelligent caching operations across L1 and L2 tiers with:
-//! - Automatic promotion from L2 to L1 for frequently accessed data
-//! - Unified get/set operations with fallback logic
-//! - Cache warming and optimization strategies
+//! Manages operations across L1 (Moka) and L2 (Redis) caches with intelligent fallback.
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::time::Duration;
 use anyhow::Result;
 use serde_json;
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
 use super::l1_cache::L1Cache;
 use super::l2_cache::L2Cache;
 
-/// Cache strategies for different data types (Generic - no business logic)
+/// Cache strategies for different data types
 #[derive(Debug, Clone)]
 pub enum CacheStrategy {
-    /// Short-term data - 5 minutes TTL
+    /// Real-time data - 30 seconds TTL
+    RealTime,
+    /// Short-term data - 5 minutes TTL  
     ShortTerm,
     /// Medium-term data - 1 hour TTL
     MediumTerm,
     /// Long-term data - 3 hours TTL
     LongTerm,
-    /// Real-time streaming - 30 seconds TTL
-    RealTime,
-    /// Custom TTL specified by caller
+    /// Custom TTL
     Custom(Duration),
-    /// Default caching behavior
+    /// Default strategy (5 minutes)
     Default,
 }
 
-/// Cache access pattern tracking
-#[derive(Debug, Clone)]
-struct AccessPattern {
-    access_count: usize,
-    last_accessed: std::time::Instant,
-    promotion_eligible: bool,
+impl CacheStrategy {
+    /// Convert strategy to duration
+    pub fn to_duration(&self) -> Duration {
+        match self {
+            Self::RealTime => Duration::from_secs(30),
+            Self::ShortTerm => Duration::from_secs(300), // 5 minutes
+            Self::MediumTerm => Duration::from_secs(3600), // 1 hour
+            Self::LongTerm => Duration::from_secs(10800), // 3 hours
+            Self::Custom(duration) => *duration,
+            Self::Default => Duration::from_secs(300),
+        }
+    }
 }
 
-/// Cache Manager - Unified cache operations with intelligent promotion
+/// Cache Manager - Unified operations across L1 and L2
 pub struct CacheManager {
-    /// L1 Cache reference
+    /// L1 Cache (Moka)
     l1_cache: Arc<L1Cache>,
-    /// L2 Cache reference
+    /// L2 Cache (Redis)
     l2_cache: Arc<L2Cache>,
-    /// Access pattern tracking for promotion decisions
-    access_patterns: Arc<std::sync::RwLock<std::collections::HashMap<String, AccessPattern>>>,
-    /// Statistics tracking
+    /// Statistics
     total_requests: Arc<AtomicU64>,
     l1_hits: Arc<AtomicU64>,
     l2_hits: Arc<AtomicU64>,
     misses: Arc<AtomicU64>,
     promotions: Arc<AtomicUsize>,
-    fallback_usage: Arc<AtomicUsize>,
 }
 
 impl CacheManager {
-    /// Initialize Cache Manager
+    /// Create new cache manager
     pub async fn new(l1_cache: Arc<L1Cache>, l2_cache: Arc<L2Cache>) -> Result<Self> {
-        println!("🎯 Initializing Cache Manager...");
+        println!("  🎯 Initializing Cache Manager...");
         
         Ok(Self {
             l1_cache,
             l2_cache,
-            access_patterns: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
             total_requests: Arc::new(AtomicU64::new(0)),
             l1_hits: Arc::new(AtomicU64::new(0)),
             l2_hits: Arc::new(AtomicU64::new(0)),
             misses: Arc::new(AtomicU64::new(0)),
             promotions: Arc::new(AtomicUsize::new(0)),
-            fallback_usage: Arc::new(AtomicUsize::new(0)),
         })
     }
     
-    /// Get value with intelligent tier selection and promotion
+    /// Get value from cache (L1 -> L2 -> miss)
     pub async fn get(&self, key: &str) -> Result<Option<serde_json::Value>> {
         self.total_requests.fetch_add(1, Ordering::Relaxed);
         
-        // Try L1 first (hot data)
+        // Try L1 first
         if let Some(value) = self.l1_cache.get(key).await {
             self.l1_hits.fetch_add(1, Ordering::Relaxed);
-            self.update_access_pattern(key, true).await;
             return Ok(Some(value));
         }
         
-        // Try L2 (warm data)
-        match self.l2_cache.get(key).await {
-            Some(value) => {
-                self.l2_hits.fetch_add(1, Ordering::Relaxed);
-                
-                // Check if this key should be promoted to L1
-                if self.should_promote_to_l1(key).await {
-                    let _ = self.l1_cache.set(key, value.clone()).await;
-                    self.promotions.fetch_add(1, Ordering::Relaxed);
-                    println!("⬆️  Promoted key '{}' from L2 to L1", key);
-                }
-                
-                self.update_access_pattern(key, false).await;
-                Ok(Some(value))
-            }
-            None => {
-                self.misses.fetch_add(1, Ordering::Relaxed);
-                Ok(None)
-            }
-        }
-    }
-    
-    /// Set value with intelligent tier placement and automatic Redis sync
-    pub async fn set(&self, key: &str, value: serde_json::Value, ttl: Option<Duration>) -> Result<()> {
-        // Always ensure data is persisted to Redis (L2) for durability
-        let l2_success = if let Some(custom_ttl) = ttl {
-            self.l2_cache.set_with_ttl(key.to_string(), value.clone(), custom_ttl).await
-        } else {
-            self.l2_cache.set(key.to_string(), value.clone()).await
-        };
-        
-        if !l2_success {
-            println!("⚠️  Cache Manager: L2 storage failed for key '{}'", key);
-        }
-        
-        // Determine where to store based on access patterns and value characteristics
-        let should_store_in_l1 = self.should_store_in_l1(key, &value).await;
-        
-        if should_store_in_l1 {
-            // Also store in L1 for hot data
-            self.l1_cache.set(key, value.clone()).await?;
-            println!("💾 Cache Manager: Stored '{}' in both L1 (hot) and L2 (Redis) with TTL: {:?}", key, ttl);
-        } else {
-            println!("💾 Cache Manager: Stored '{}' in L2 (Redis) only with TTL: {:?}", key, ttl);
-        }
-        
-        Ok(())
-    }
-    
-    /// Set value with specific cache strategy (Generic - no business knowledge)
-    pub async fn set_with_strategy(&self, key: &str, value: serde_json::Value, strategy: CacheStrategy) -> Result<()> {
-        let ttl = match strategy {
-            CacheStrategy::ShortTerm => {
-                Duration::from_secs(300) // 5 minutes
-            }
-            CacheStrategy::MediumTerm => {
-                Duration::from_secs(3600) // 1 hour
-            }
-            CacheStrategy::LongTerm => {
-                Duration::from_secs(10800) // 3 hours
-            }
-            CacheStrategy::RealTime => {
-                Duration::from_secs(30) // 30 seconds
-            }
-            CacheStrategy::Custom(duration) => {
-                duration
-            }
-            CacheStrategy::Default => {
-                Duration::from_secs(3600) // Default 1 hour
-            }
-        };
-        
-        self.set(key, value, Some(ttl)).await
-    }
-
-    /// Generic cache operation with custom key and TTL
-    pub async fn cache_data(&self, key: &str, value: serde_json::Value, ttl_seconds: u64) -> Result<()> {
-        let ttl = Duration::from_secs(ttl_seconds);
-        self.set(key, value, Some(ttl)).await
-    }
-    
-    /// Force sync of all L1 data to L2 (Redis)
-    pub async fn sync_l1_to_redis(&self) -> Result<usize> {
-        println!("🔄 Cache Manager: Syncing all L1 data to Redis...");
-        
-        let l1_keys = self.l1_cache.get_all_keys().await;
-        let mut synced_count = 0;
-        
-        for key in l1_keys {
-            if let Some(value) = self.l1_cache.get(&key).await {
-                if self.l2_cache.set(key.clone(), value).await {
-                    synced_count += 1;
-                }
-            }
-        }
-        
-        println!("✅ Cache Manager: Synced {} keys from L1 to Redis", synced_count);
-        Ok(synced_count)
-    }
-    
-    /// Ensure critical data is in Redis
-    pub async fn ensure_redis_sync(&self, key: &str) -> Result<bool> {
-        // Check if data exists in L2 (Redis)
-        if self.l2_cache.exists(key).await {
-            return Ok(true);
-        }
-        
-        // If not in L2 but exists in L1, sync it
-        if let Some(value) = self.l1_cache.get(key).await {
-            let success = self.l2_cache.set(key.to_string(), value).await;
-            if success {
-                println!("🔄 Cache Manager: Synced '{}' from L1 to Redis", key);
-            }
-            return Ok(success);
-        }
-        
-        Ok(false)
-    }
-    
-    /// Delete value from all cache tiers
-    pub async fn delete(&self, key: &str) -> Result<()> {
-        // Remove from both tiers
-        let _ = self.l1_cache.remove(key).await;
-        let _ = self.l2_cache.remove(key).await;
-        
-        // Clean up access pattern tracking
-        {
-            let mut patterns = self.access_patterns.write().unwrap();
-            patterns.remove(key);
-        }
-        
-        Ok(())
-    }
-    
-    /// Clear all caches
-    pub async fn clear_all(&self) -> Result<()> {
-        self.l1_cache.clear().await?;
-        self.l2_cache.clear().await;
-        
-        // Clear access patterns
-        {
-            let mut patterns = self.access_patterns.write().unwrap();
-            patterns.clear();
-        }
-        
-        Ok(())
-    }
-    
-    /// Force promotion of key from L2 to L1
-    pub async fn promote_to_l1(&self, key: &str) -> Result<bool> {
-        // Get value from L2
-        match self.l2_cache.get(key).await {
-            Some(value) => {
-                // Store in L1
-                self.l1_cache.set(key, value).await?;
+        // Try L2
+        if let Some(value) = self.l2_cache.get(key).await {
+            self.l2_hits.fetch_add(1, Ordering::Relaxed);
+            
+            // Promote to L1 for faster access next time
+            if let Err(_) = self.l1_cache.set(key, value.clone()).await {
+                // L1 promotion failed, but we still have the data
+                eprintln!("⚠️ Failed to promote key '{}' to L1 cache", key);
+            } else {
                 self.promotions.fetch_add(1, Ordering::Relaxed);
-                println!("⬆️  Force promoted key '{}' from L2 to L1", key);
-                Ok(true)
             }
-            None => Ok(false),
+            
+            return Ok(Some(value));
         }
+        
+        // Cache miss
+        self.misses.fetch_add(1, Ordering::Relaxed);
+        Ok(None)
     }
     
-    /// Update access pattern for promotion decisions
-    async fn update_access_pattern(&self, key: &str, was_l1_hit: bool) {
-        let mut patterns = self.access_patterns.write().unwrap();
-        
-        let pattern = patterns.entry(key.to_string()).or_insert(AccessPattern {
-            access_count: 0,
-            last_accessed: std::time::Instant::now(),
-            promotion_eligible: false,
-        });
-        
-        pattern.access_count += 1;
-        pattern.last_accessed = std::time::Instant::now();
-        
-        // Mark as promotion eligible if accessed multiple times from L2
-        if !was_l1_hit && pattern.access_count >= 3 {
-            pattern.promotion_eligible = true;
-        }
+    /// Set value with default strategy (both L1 and L2)
+    pub async fn set(&self, key: &str, value: serde_json::Value) -> Result<()> {
+        self.set_with_strategy(key, value, CacheStrategy::Default).await
     }
     
-    /// Determine if key should be promoted to L1
-    async fn should_promote_to_l1(&self, key: &str) -> bool {
-        let patterns = self.access_patterns.read().unwrap();
+    /// Set value with specific cache strategy
+    pub async fn set_with_strategy(&self, key: &str, value: serde_json::Value, strategy: CacheStrategy) -> Result<()> {
+        let ttl = strategy.to_duration();
         
-        match patterns.get(key) {
-            Some(pattern) => {
-                // Promote if accessed multiple times recently
-                pattern.promotion_eligible && 
-                pattern.access_count >= 3 &&
-                pattern.last_accessed.elapsed() < Duration::from_secs(300) // 5 minutes
+        // Store in both L1 and L2
+        let l1_result = self.l1_cache.set_with_ttl(key, value.clone(), ttl).await;
+        let l2_result = self.l2_cache.set_with_ttl(key, value, ttl).await;
+        
+        // Return success if at least one cache succeeded
+        match (l1_result, l2_result) {
+            (Ok(_), Ok(_)) => {
+                // Both succeeded
+                Ok(())
             }
-            None => false,
+            (Ok(_), Err(_)) => {
+                // L1 succeeded, L2 failed
+                eprintln!("⚠️ L2 cache set failed for key '{}', continuing with L1", key);
+                Ok(())
+            }
+            (Err(_), Ok(_)) => {
+                // L1 failed, L2 succeeded
+                eprintln!("⚠️ L1 cache set failed for key '{}', continuing with L2", key);
+                Ok(())
+            }
+            (Err(e1), Err(_e2)) => {
+                // Both failed
+                Err(anyhow::anyhow!("Both L1 and L2 cache set failed for key '{}': {}", key, e1))
+            }
         }
     }
     
-    /// Determine if value should be stored in L1 initially
-    async fn should_store_in_l1(&self, key: &str, value: &serde_json::Value) -> bool {
-        // Store in L1 if:
-        // 1. Key has been accessed recently
-        // 2. Value is small (< 10KB)
-        // 3. Key indicates it's frequently accessed data
+    /// Remove value from both caches
+    pub async fn remove(&self, key: &str) -> Result<()> {
+        let l1_result = self.l1_cache.remove(key).await;
+        let l2_result = self.l2_cache.remove(key).await;
         
-        let value_size = serde_json::to_string(value).unwrap_or_default().len();
-        let is_small_value = value_size < 10240; // 10KB
+        // Log errors but don't fail if one cache removal fails
+        if let Err(e) = l1_result {
+            eprintln!("⚠️ L1 cache remove failed for key '{}': {}", key, e);
+        }
+        if let Err(e) = l2_result {
+            eprintln!("⚠️ L2 cache remove failed for key '{}': {}", key, e);
+        }
         
-        let has_recent_access = {
-            let patterns = self.access_patterns.read().unwrap();
-            patterns.get(key).map_or(false, |p| p.last_accessed.elapsed() < Duration::from_secs(600)) // 10 minutes
-        };
-        
-        let is_hot_key = key.contains("dashboard") || 
-                        key.contains("summary") || 
-                        key.contains("frequent");
-        
-        is_small_value && (has_recent_access || is_hot_key)
+        Ok(())
     }
     
-    /// Get comprehensive hit rates
-    pub async fn get_hit_rates(&self) -> Result<serde_json::Value> {
+    /// Clear both caches
+    pub async fn clear(&self) -> Result<()> {
+        let l1_result = self.l1_cache.clear().await;
+        let l2_result = self.l2_cache.clear().await;
+        
+        match (l1_result, l2_result) {
+            (Ok(_), Ok(_)) => Ok(()),
+            (Ok(_), Err(e)) => {
+                eprintln!("⚠️ L2 cache clear failed: {}", e);
+                Ok(()) // L1 cleared successfully
+            }
+            (Err(e), Ok(_)) => {
+                eprintln!("⚠️ L1 cache clear failed: {}", e);
+                Ok(()) // L2 cleared successfully
+            }
+            (Err(e1), Err(e2)) => {
+                Err(anyhow::anyhow!("Both cache clear failed - L1: {}, L2: {}", e1, e2))
+            }
+        }
+    }
+    
+    /// Health check for cache manager
+    pub async fn health_check(&self) -> bool {
+        let l1_ok = self.l1_cache.health_check().await;
+        let l2_ok = self.l2_cache.health_check().await;
+        
+        // Cache manager is healthy if at least L1 is working
+        if l1_ok {
+            if !l2_ok {
+                println!("  ⚠️ Cache Manager: L1 OK, L2 degraded");
+            } else {
+                println!("  ✅ Cache Manager: Both L1 and L2 OK");
+            }
+            true
+        } else {
+            println!("  ❌ Cache Manager: L1 failed, system degraded");
+            false
+        }
+    }
+    
+    /// Get cache statistics
+    pub async fn get_statistics(&self) -> serde_json::Value {
         let total = self.total_requests.load(Ordering::Relaxed);
         let l1_hits = self.l1_hits.load(Ordering::Relaxed);
         let l2_hits = self.l2_hits.load(Ordering::Relaxed);
         let misses = self.misses.load(Ordering::Relaxed);
+        let promotions = self.promotions.load(Ordering::Relaxed);
         
-        let overall_hit_rate = if total > 0 {
+        let hit_rate = if total > 0 {
             ((l1_hits + l2_hits) as f64 / total as f64) * 100.0
         } else {
             0.0
@@ -323,174 +214,15 @@ impl CacheManager {
             0.0
         };
         
-        let l2_hit_rate = if total > 0 {
-            (l2_hits as f64 / total as f64) * 100.0
-        } else {
-            0.0
-        };
-        
-        Ok(serde_json::json!({
-            "overall_hit_rate_percent": overall_hit_rate,
-            "l1_hit_rate_percent": l1_hit_rate,
-            "l2_hit_rate_percent": l2_hit_rate,
-            "miss_rate_percent": if total > 0 { (misses as f64 / total as f64) * 100.0 } else { 0.0 },
+        serde_json::json!({
             "total_requests": total,
             "l1_hits": l1_hits,
             "l2_hits": l2_hits,
-            "misses": misses
-        }))
-    }
-    
-    /// Optimize cache by promoting frequently accessed keys
-    pub async fn optimize_cache(&self) -> Result<usize> {
-        println!("⚡ Running cache optimization...");
-        let mut promoted_count = 0;
-        
-        // Get frequently accessed keys from L2
-        let keys_to_promote: Vec<String> = {
-            let patterns = self.access_patterns.read().unwrap();
-            patterns.iter()
-                .filter(|(_, pattern)| {
-                    pattern.promotion_eligible && 
-                    pattern.access_count >= 3 &&
-                    pattern.last_accessed.elapsed() < Duration::from_secs(3600) // 1 hour
-                })
-                .map(|(key, _)| key.clone())
-                .collect()
-        };
-        
-        for key in keys_to_promote {
-            if self.promote_to_l1(&key).await? {
-                promoted_count += 1;
-            }
-        }
-        
-        println!("⚡ Cache optimization complete: {} keys promoted", promoted_count);
-        Ok(promoted_count)
-    }
-    
-    /// Health check for cache manager
-    pub async fn health_check(&self) -> bool {
-        let l1_healthy = self.l1_cache.health_check().await;
-        let l2_healthy = self.l2_cache.health_check().await;
-        
-        // Test unified operations
-        let test_key = "health_check_manager";
-        let test_value = serde_json::json!({
-            "test": "cache_manager_health",
-            "timestamp": chrono::Utc::now().to_rfc3339()
-        });
-        
-        match self.set(test_key, test_value.clone(), Some(Duration::from_secs(10))).await {
-            Ok(_) => {
-                match self.get(test_key).await {
-                    Ok(Some(retrieved)) => {
-                        let _ = self.delete(test_key).await;
-                        if retrieved["test"] == test_value["test"] {
-                            println!("✅ Cache Manager health check passed");
-                            l1_healthy || l2_healthy // At least one tier should be healthy
-                        } else {
-                            eprintln!("❌ Cache Manager value mismatch");
-                            false
-                        }
-                    }
-                    Ok(None) => {
-                        eprintln!("❌ Cache Manager get operation failed");
-                        false
-                    }
-                    Err(e) => {
-                        eprintln!("❌ Cache Manager get error: {}", e);
-                        false
-                    }
-                }
-            }
-            Err(e) => {
-                eprintln!("❌ Cache Manager set error: {}", e);
-                false
-            }
-        }
-    }
-    
-    /// Get cache manager statistics
-    pub async fn get_statistics(&self) -> Result<serde_json::Value> {
-        let total_requests = self.total_requests.load(Ordering::Relaxed);
-        let l1_hits = self.l1_hits.load(Ordering::Relaxed);
-        let l2_hits = self.l2_hits.load(Ordering::Relaxed);
-        let misses = self.misses.load(Ordering::Relaxed);
-        let promotions = self.promotions.load(Ordering::Relaxed);
-        let fallback_usage = self.fallback_usage.load(Ordering::Relaxed);
-        
-        let overall_hit_rate = if total_requests > 0 {
-            ((l1_hits + l2_hits) as f64 / total_requests as f64) * 100.0
-        } else {
-            0.0
-        };
-        
-        let promotion_rate = if l2_hits > 0 {
-            (promotions as f64 / l2_hits as f64) * 100.0
-        } else {
-            0.0
-        };
-        
-        let access_patterns_count = {
-            let patterns = self.access_patterns.read().unwrap();
-            patterns.len()
-        };
-        
-        Ok(serde_json::json!({
-            "component": "cache_manager",
-            "status": "operational",
-            "statistics": {
-                "total_requests": total_requests,
-                "l1_hits": l1_hits,
-                "l2_hits": l2_hits,
-                "misses": misses,
-                "promotions": promotions,
-                "fallback_usage": fallback_usage,
-                "tracked_keys": access_patterns_count
-            },
-            "performance": {
-                "overall_hit_rate_percent": overall_hit_rate,
-                "promotion_rate_percent": promotion_rate,
-                "tier_distribution": {
-                    "l1_percent": if total_requests > 0 { (l1_hits as f64 / total_requests as f64) * 100.0 } else { 0.0 },
-                    "l2_percent": if total_requests > 0 { (l2_hits as f64 / total_requests as f64) * 100.0 } else { 0.0 },
-                    "miss_percent": if total_requests > 0 { (misses as f64 / total_requests as f64) * 100.0 } else { 0.0 }
-                }
-            },
-            "optimization": {
-                "intelligent_promotion": true,
-                "access_pattern_tracking": true,
-                "fallback_support": true
-            }
-        }))
-    }
-    
-    /// Get cache utilization report
-    pub async fn get_utilization_report(&self) -> Result<serde_json::Value> {
-        let l1_stats = self.l1_cache.get_statistics().await?;
-        let l2_stats = self.l2_cache.get_stats();
-        let manager_stats = self.get_statistics().await?;
-        
-        Ok(serde_json::json!({
-            "report_type": "cache_utilization",
-            "timestamp": chrono::Utc::now().to_rfc3339(),
-            "summary": {
-                "overall_health": "healthy",
-                "total_tiers": 2,
-                "active_tiers": if l1_stats["statistics"]["current_size"].as_u64().unwrap_or(0) > 0 { 1 } else { 0 } +
-                               if l2_stats.hits > 0 { 1 } else { 0 }
-            },
-            "tier_details": {
-                "l1": l1_stats,
-                "l2": l2_stats
-            },
-            "unified_operations": manager_stats,
-            "recommendations": [
-                "Continue monitoring promotion patterns",
-                "Consider increasing L1 capacity if hit rate is high",
-                "Monitor Redis connectivity for L2 stability"
-            ]
-        }))
+            "misses": misses,
+            "overall_hit_rate_percent": hit_rate,
+            "l1_hit_rate_percent": l1_hit_rate,
+            "promotions": promotions,
+            "last_updated": chrono::Utc::now().to_rfc3339()
+        })
     }
 }

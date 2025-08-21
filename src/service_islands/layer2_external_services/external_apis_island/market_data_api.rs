@@ -105,15 +105,20 @@ impl MarketDataApi {
     
     /// Health check for Market Data API
     pub async fn health_check(&self) -> bool {
-        // Test connectivity with a simple API call
         match self.test_api_connectivity().await {
             Ok(_) => {
                 println!("  ✅ Market Data API connectivity test passed");
                 true
             }
             Err(e) => {
-                eprintln!("  ❌ Market Data API connectivity test failed: {}", e);
-                false
+                let error_str = e.to_string();
+                if error_str.contains("429") || error_str.contains("Too Many Requests") {
+                    println!("  ⚠️ Market Data API health check: Rate limited, but service is available");
+                    true // Rate limiting means API is working, just busy
+                } else {
+                    eprintln!("  ❌ Market Data API connectivity test failed: {}", e);
+                    false
+                }
             }
         }
     }
@@ -149,24 +154,56 @@ impl MarketDataApi {
         }
     }
     
-    /// Internal Bitcoin price fetching
+    /// Internal Bitcoin price fetching with rate limiting
     async fn fetch_btc_price_internal(&self) -> Result<serde_json::Value> {
-        let response = self.client
-            .get(BASE_BTC_PRICE_URL)
-            .send()
-            .await?;
+        self.fetch_with_retry(BASE_BTC_PRICE_URL, |response_data: CoinGeckoBtcPrice| {
+            serde_json::json!({
+                "price_usd": response_data.bitcoin.usd,
+                "change_24h": response_data.bitcoin.usd_24h_change,
+                "last_updated": chrono::Utc::now().to_rfc3339()
+            })
+        }).await
+    }
+    
+    /// Generic fetch with retry logic for rate limiting
+    async fn fetch_with_retry<T, F>(&self, url: &str, transformer: F) -> Result<serde_json::Value> 
+    where
+        T: for<'de> serde::Deserialize<'de>,
+        F: Fn(T) -> serde_json::Value,
+    {
+        let mut attempts = 0;
+        let max_attempts = 3;
         
-        if !response.status().is_success() {
-            return Err(anyhow::anyhow!("BTC price API returned status: {}", response.status()));
+        while attempts < max_attempts {
+            let response = self.client
+                .get(url)
+                .send()
+                .await?;
+            
+            match response.status() {
+                status if status.is_success() => {
+                    let data: T = response.json().await?;
+                    return Ok(transformer(data));
+                }
+                status if status == 429 => {
+                    // Rate limiting - implement exponential backoff
+                    attempts += 1;
+                    if attempts >= max_attempts {
+                        return Err(anyhow::anyhow!("Rate limit exceeded after {} attempts for URL: {}", max_attempts, url));
+                    }
+                    
+                    let delay = std::time::Duration::from_millis(1000 * (2_u64.pow(attempts)));
+                    println!("⚠️ Rate limit (429) hit for {}, retrying in {:?} (attempt {}/{})", url, delay, attempts, max_attempts);
+                    tokio::time::sleep(delay).await;
+                    continue;
+                }
+                status => {
+                    return Err(anyhow::anyhow!("API returned status: {} for URL: {}", status, url));
+                }
+            }
         }
         
-        let btc_data: CoinGeckoBtcPrice = response.json().await?;
-        
-        Ok(serde_json::json!({
-            "price_usd": btc_data.bitcoin.usd,
-            "change_24h": btc_data.bitcoin.usd_24h_change,
-            "last_updated": chrono::Utc::now().to_rfc3339()
-        }))
+        Err(anyhow::anyhow!("Max retry attempts reached for URL: {}", url))
     }
     
     /// Fetch global market data
@@ -187,25 +224,16 @@ impl MarketDataApi {
     
     /// Internal global data fetching
     async fn fetch_global_data_internal(&self) -> Result<serde_json::Value> {
-        let response = self.client
-            .get(BASE_GLOBAL_URL)
-            .send()
-            .await?;
-        
-        if !response.status().is_success() {
-            return Err(anyhow::anyhow!("Global data API returned status: {}", response.status()));
-        }
-        
-        let global_data: CoinGeckoGlobal = response.json().await?;
-        
-        let market_cap = global_data.data.total_market_cap.get("usd").copied().unwrap_or(0.0);
-        let volume_24h = global_data.data.total_volume.get("usd").copied().unwrap_or(0.0);
-        
-        Ok(serde_json::json!({
-            "market_cap": market_cap,
-            "volume_24h": volume_24h,
-            "last_updated": chrono::Utc::now().to_rfc3339()
-        }))
+        self.fetch_with_retry(BASE_GLOBAL_URL, |global_data: CoinGeckoGlobal| {
+            let market_cap = global_data.data.total_market_cap.get("usd").copied().unwrap_or(0.0);
+            let volume_24h = global_data.data.total_volume.get("usd").copied().unwrap_or(0.0);
+            
+            serde_json::json!({
+                "market_cap": market_cap,
+                "volume_24h": volume_24h,
+                "last_updated": chrono::Utc::now().to_rfc3339()
+            })
+        }).await
     }
     
     /// Fetch Fear & Greed Index
@@ -226,27 +254,18 @@ impl MarketDataApi {
     
     /// Internal Fear & Greed fetching
     async fn fetch_fear_greed_internal(&self) -> Result<serde_json::Value> {
-        let response = self.client
-            .get(BASE_FNG_URL)
-            .send()
-            .await?;
-        
-        if !response.status().is_success() {
-            return Err(anyhow::anyhow!("Fear & Greed API returned status: {}", response.status()));
-        }
-        
-        let fng_data: FearGreedResponse = response.json().await?;
-        
-        let fng_value: u32 = fng_data
-            .data
-            .first()
-            .and_then(|d| d.value.parse().ok())
-            .unwrap_or(50); // Default neutral value
-        
-        Ok(serde_json::json!({
-            "value": fng_value,
-            "last_updated": chrono::Utc::now().to_rfc3339()
-        }))
+        self.fetch_with_retry(BASE_FNG_URL, |fng_data: FearGreedResponse| {
+            let fng_value: u32 = fng_data
+                .data
+                .first()
+                .and_then(|d| d.value.parse().ok())
+                .unwrap_or(50); // Default neutral value
+            
+            serde_json::json!({
+                "value": fng_value,
+                "last_updated": chrono::Utc::now().to_rfc3339()
+            })
+        }).await
     }
     
     /// Fetch RSI data
@@ -269,22 +288,43 @@ impl MarketDataApi {
     async fn fetch_rsi_internal(&self) -> Result<serde_json::Value> {
         let url = BASE_RSI_URL_TEMPLATE.replace("{secret}", &self.taapi_secret);
         
-        let response = self.client
-            .get(&url)
-            .send()
-            .await?;
+        // RSI uses a different approach because URL is dynamic
+        let mut attempts = 0;
+        let max_attempts = 3;
         
-        if !response.status().is_success() {
-            return Err(anyhow::anyhow!("RSI API returned status: {}", response.status()));
+        while attempts < max_attempts {
+            let response = self.client
+                .get(&url)
+                .send()
+                .await?;
+            
+            match response.status() {
+                status if status.is_success() => {
+                    let rsi_data: TaapiRsiResponse = response.json().await?;
+                    return Ok(serde_json::json!({
+                        "value": rsi_data.value,
+                        "period": "14",
+                        "last_updated": chrono::Utc::now().to_rfc3339()
+                    }));
+                }
+                status if status == 429 => {
+                    attempts += 1;
+                    if attempts >= max_attempts {
+                        return Err(anyhow::anyhow!("RSI API rate limit exceeded after {} attempts", max_attempts));
+                    }
+                    
+                    let delay = std::time::Duration::from_millis(1000 * (2_u64.pow(attempts)));
+                    println!("⚠️ RSI API rate limit (429), retrying in {:?} (attempt {}/{})", delay, attempts, max_attempts);
+                    tokio::time::sleep(delay).await;
+                    continue;
+                }
+                status => {
+                    return Err(anyhow::anyhow!("RSI API returned status: {}", status));
+                }
+            }
         }
         
-        let rsi_data: TaapiRsiResponse = response.json().await?;
-        
-        Ok(serde_json::json!({
-            "value": rsi_data.value,
-            "period": "14",
-            "last_updated": chrono::Utc::now().to_rfc3339()
-        }))
+        Err(anyhow::anyhow!("RSI API max retry attempts reached"))
     }
     
     /// Record API call

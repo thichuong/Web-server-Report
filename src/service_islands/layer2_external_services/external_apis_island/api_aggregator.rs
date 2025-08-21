@@ -87,12 +87,33 @@ impl ApiAggregator {
     
     /// Test aggregation functionality
     async fn test_aggregation(&self) -> Result<()> {
-        // Simple test to verify API coordination is working
-        timeout(Duration::from_secs(5), async {
-            self.market_api.fetch_btc_price().await
+        // Simple test to verify API coordination is working with rate limit handling
+        timeout(Duration::from_secs(10), async {
+            // Try with exponential backoff for rate limiting
+            let mut attempts = 0;
+            let max_attempts = 3;
+            
+            while attempts < max_attempts {
+                match self.market_api.fetch_btc_price().await {
+                    Ok(_) => return Ok(()),
+                    Err(e) => {
+                        let error_str = e.to_string();
+                        if error_str.contains("429") || error_str.contains("Too Many Requests") {
+                            attempts += 1;
+                            let delay = Duration::from_millis(1000 * (2_u64.pow(attempts)));
+                            println!("⚠️ Rate limit hit, retrying in {:?} (attempt {}/{})", delay, attempts, max_attempts);
+                            tokio::time::sleep(delay).await;
+                            continue;
+                        } else {
+                            return Err(e);
+                        }
+                    }
+                }
+            }
+            
+            Err(anyhow::anyhow!("Max retry attempts reached due to rate limiting"))
         }).await
         .map_err(|_| anyhow::anyhow!("Aggregation test timeout"))?
-        .map(|_| ())
     }
     
     /// Fetch comprehensive dashboard data by aggregating multiple APIs

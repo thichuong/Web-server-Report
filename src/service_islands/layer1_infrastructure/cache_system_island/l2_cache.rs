@@ -1,347 +1,164 @@
-//! L2 Cache - Redis Distributed Cache
+//! L2 Cache - Redis Cache
 //! 
-//! Distributed cache using Redis for warm data with fallback capabilities.
-//! Provides persistence and sharing across multiple application instances.
+//! Redis-based distributed cache for warm data storage with persistence.
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
-use std::collections::HashMap;
-use std::sync::RwLock;
 use anyhow::Result;
+use redis::{Client, AsyncCommands, Connection};
 use serde_json;
+use std::sync::atomic::{AtomicU64, Ordering};
 
-/// L2 Cache configuration
-pub struct L2CacheConfig {
-    pub redis_url: String,
-    pub max_connections: u32,
-    pub default_ttl: Duration,
-}
-
-impl Default for L2CacheConfig {
-    fn default() -> Self {
-        Self {
-            redis_url: "redis://127.0.0.1:6379".to_string(),
-            max_connections: 10,
-            default_ttl: Duration::from_secs(10800), // Increased from 3600s (1hr) to 10800s (3hrs)
-        }
-    }
-}
-
-/// L2 Cache implementation with Redis backend and fallback storage
+/// L2 Cache using Redis
 pub struct L2Cache {
-    config: L2CacheConfig,
-    // Fallback storage when Redis is unavailable
-    fallback_storage: Arc<RwLock<HashMap<String, (serde_json::Value, std::time::Instant)>>>,
-    // Statistics
-    hits: AtomicU64,
-    misses: AtomicU64,
-    sets: AtomicU64,
-    errors: AtomicU64,
-    redis_available: std::sync::atomic::AtomicBool,
+    /// Redis client
+    client: Client,
+    /// Connection pool (using a simple approach)
+    /// Hit counter
+    hits: Arc<AtomicU64>,
+    /// Miss counter
+    misses: Arc<AtomicU64>,
+    /// Set counter
+    sets: Arc<AtomicU64>,
 }
 
 impl L2Cache {
-    /// Initialize L2 Cache with default configuration
+    /// Create new L2 cache
     pub async fn new() -> Result<Self> {
-        Self::new_with_config(L2CacheConfig::default()).await
-    }
-
-    /// Initialize L2 Cache with custom configuration
-    pub async fn new_with_config(config: L2CacheConfig) -> Result<Self> {
-        println!("🌐 Initializing L2 Cache (Redis + Fallback)...");
+        println!("  🔴 Initializing L2 Cache (Redis)...");
         
-        let cache = L2Cache {
-            config,
-            fallback_storage: Arc::new(RwLock::new(HashMap::new())),
-            hits: AtomicU64::new(0),
-            misses: AtomicU64::new(0),
-            sets: AtomicU64::new(0),
-            errors: AtomicU64::new(0),
-            redis_available: std::sync::atomic::AtomicBool::new(false),
-        };
-
-        // Test Redis connection
-        if cache.test_connection().await {
-            println!("  ✅ L2 Cache initialized with Redis backend");
-        } else {
-            println!("  ⚠️ L2 Cache initialized with fallback storage only");
-        }
-
-        Ok(cache)
+        // Try to connect to Redis
+        let redis_url = std::env::var("REDIS_URL")
+            .unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+            
+        let client = Client::open(redis_url.as_str())?;
+        
+        // Test connection
+        let mut conn = client.get_multiplexed_async_connection().await?;
+        let _: String = redis::cmd("PING").query_async(&mut conn).await?;
+        
+        println!("  ✅ L2 Cache connected to Redis at {}", redis_url);
+        
+        Ok(Self {
+            client,
+            hits: Arc::new(AtomicU64::new(0)),
+            misses: Arc::new(AtomicU64::new(0)),
+            sets: Arc::new(AtomicU64::new(0)),
+        })
     }
-
-    /// Test Redis connection
-    async fn test_connection(&self) -> bool {
-        let client = match redis::Client::open(self.config.redis_url.as_str()) {
-            Ok(client) => client,
-            Err(e) => {
-                println!("  ❌ Failed to create Redis client for L2 cache: {}", e);
-                self.redis_available.store(false, Ordering::Relaxed);
-                return false;
-            }
-        };
-
-        match client.get_multiplexed_async_connection().await {
-            Ok(mut conn) => {
-                // Test with a simple PING command
-                match redis::cmd("PING").query_async::<String>(&mut conn).await {
-                    Ok(_) => {
-                        println!("  ✅ L2 Cache Redis connection successful ({})", self.config.redis_url);
-                        self.redis_available.store(true, Ordering::Relaxed);
-                        true
-                    }
-                    Err(e) => {
-                        println!("  ❌ L2 Cache Redis PING failed: {}", e);
-                        self.redis_available.store(false, Ordering::Relaxed);
-                        false
-                    }
-                }
-            }
-            Err(e) => {
-                println!("  ❌ L2 Cache failed to connect to Redis: {}", e);
-                self.redis_available.store(false, Ordering::Relaxed);
-                false
-            }
-        }
-    }
-
+    
     /// Get value from L2 cache
     pub async fn get(&self, key: &str) -> Option<serde_json::Value> {
-        if self.redis_available.load(Ordering::Relaxed) {
-            match self.get_from_redis(key).await {
-                Ok(value) => {
-                    if value.is_some() {
-                        self.hits.fetch_add(1, Ordering::Relaxed);
-                    } else {
-                        self.misses.fetch_add(1, Ordering::Relaxed);
+        match self.client.get_multiplexed_async_connection().await {
+            Ok(mut conn) => {
+                match conn.get::<_, String>(key).await {
+                    Ok(json_str) => {
+                        match serde_json::from_str(&json_str) {
+                            Ok(value) => {
+                                self.hits.fetch_add(1, Ordering::Relaxed);
+                                Some(value)
+                            }
+                            Err(_) => {
+                                self.misses.fetch_add(1, Ordering::Relaxed);
+                                None
+                            }
+                        }
                     }
-                    value
-                }
-                Err(_) => {
-                    self.errors.fetch_add(1, Ordering::Relaxed);
-                    self.misses.fetch_add(1, Ordering::Relaxed);
-                    None
+                    Err(_) => {
+                        self.misses.fetch_add(1, Ordering::Relaxed);
+                        None
+                    }
                 }
             }
-        } else {
-            // Use fallback storage
-            let storage = self.fallback_storage.read().unwrap();
-            if let Some((value, timestamp)) = storage.get(key) {
-                // Check if value hasn't expired
-                if timestamp.elapsed() < self.config.default_ttl {
-                    self.hits.fetch_add(1, Ordering::Relaxed);
-                    Some(value.clone())
-                } else {
-                    self.misses.fetch_add(1, Ordering::Relaxed);
-                    None
-                }
-            } else {
+            Err(_) => {
                 self.misses.fetch_add(1, Ordering::Relaxed);
                 None
             }
         }
     }
-
-    /// Set value in L2 cache
-    pub async fn set(&self, key: String, value: serde_json::Value) -> bool {
+    
+    /// Set value in L2 cache with default TTL (1 hour)
+    pub async fn set(&self, key: &str, value: serde_json::Value) -> Result<()> {
+        self.set_with_ttl(key, value, Duration::from_secs(3600)).await
+    }
+    
+    /// Set value with custom TTL
+    pub async fn set_with_ttl(&self, key: &str, value: serde_json::Value, ttl: Duration) -> Result<()> {
+        let json_str = serde_json::to_string(&value)?;
+        let mut conn = self.client.get_multiplexed_async_connection().await?;
+        
+        let _: () = conn.set_ex(key, json_str, ttl.as_secs()).await?;
         self.sets.fetch_add(1, Ordering::Relaxed);
-        
-        if self.redis_available.load(Ordering::Relaxed) {
-            match self.set_in_redis(&key, &value, None).await {
-                Ok(_) => true,
-                Err(_) => {
-                    self.errors.fetch_add(1, Ordering::Relaxed);
-                    false
-                }
-            }
-        } else {
-            // Use fallback storage
-            let mut storage = self.fallback_storage.write().unwrap();
-            storage.insert(key, (value, std::time::Instant::now()));
-            true
-        }
-    }
-
-    /// Set value in L2 cache with custom TTL
-    pub async fn set_with_ttl(&self, key: String, value: serde_json::Value, ttl: Duration) -> bool {
-        self.sets.fetch_add(1, Ordering::Relaxed);
-        
-        if self.redis_available.load(Ordering::Relaxed) {
-            match self.set_in_redis(&key, &value, Some(ttl)).await {
-                Ok(_) => true,
-                Err(_) => {
-                    self.errors.fetch_add(1, Ordering::Relaxed);
-                    false
-                }
-            }
-        } else {
-            // Use fallback storage
-            let mut storage = self.fallback_storage.write().unwrap();
-            storage.insert(key, (value, std::time::Instant::now()));
-            true
-        }
-    }
-
-    /// Remove value from L2 cache
-    pub async fn remove(&self, key: &str) -> bool {
-        if self.redis_available.load(Ordering::Relaxed) {
-            // TODO: Implement Redis delete when connection is available
-            false
-        } else {
-            // Use fallback storage
-            let mut storage = self.fallback_storage.write().unwrap();
-            storage.remove(key).is_some()
-        }
-    }
-
-    /// Get value from Redis
-    async fn get_from_redis(&self, key: &str) -> Result<Option<serde_json::Value>> {
-        let client = redis::Client::open(self.config.redis_url.as_str())?;
-        let mut conn = client.get_multiplexed_async_connection().await?;
-        
-        let result: Option<String> = redis::cmd("GET")
-            .arg(key)
-            .query_async(&mut conn)
-            .await?;
-        
-        match result {
-            Some(json_str) => {
-                match serde_json::from_str(&json_str) {
-                    Ok(value) => Ok(Some(value)),
-                    Err(_) => Ok(Some(serde_json::Value::String(json_str))),
-                }
-            }
-            None => Ok(None),
-        }
-    }
-
-    /// Set value in Redis
-    async fn set_in_redis(&self, key: &str, value: &serde_json::Value, ttl: Option<Duration>) -> Result<()> {
-        let client = redis::Client::open(self.config.redis_url.as_str())?;
-        let mut conn = client.get_multiplexed_async_connection().await?;
-        
-        let json_str = value.to_string();
-        let ttl_seconds = ttl.unwrap_or(self.config.default_ttl).as_secs();
-        
-        redis::cmd("SETEX")
-            .arg(key)
-            .arg(ttl_seconds)
-            .arg(json_str)
-            .query_async::<()>(&mut conn)
-            .await?;
-        
         Ok(())
     }
-
-    /// Check if key exists in L2 cache
-    pub async fn exists(&self, key: &str) -> bool {
-        if self.redis_available.load(Ordering::Relaxed) {
-            // TODO: Implement Redis exists when connection is available
-            false
-        } else {
-            // Use fallback storage
-            let storage = self.fallback_storage.read().unwrap();
-            if let Some((_, timestamp)) = storage.get(key) {
-                timestamp.elapsed() < self.config.default_ttl
-            } else {
-                false
-            }
-        }
+    
+    /// Remove value from cache
+    pub async fn remove(&self, key: &str) -> Result<()> {
+        let mut conn = self.client.get_multiplexed_async_connection().await?;
+        let _: () = conn.del(key).await?;
+        Ok(())
     }
-
-    /// Clear all entries from L2 cache
-    pub async fn clear(&self) -> bool {
-        if self.redis_available.load(Ordering::Relaxed) {
-            // TODO: Implement Redis flush when connection is available
-            false
-        } else {
-            // Use fallback storage
-            let mut storage = self.fallback_storage.write().unwrap();
-            storage.clear();
-            true
-        }
+    
+    /// Clear entire cache (use with caution)
+    pub async fn clear(&self) -> Result<()> {
+        let mut conn = self.client.get_multiplexed_async_connection().await?;
+        let _: () = redis::cmd("FLUSHDB").query_async(&mut conn).await?;
+        println!("🧹 L2 Cache (Redis) cleared");
+        Ok(())
     }
-
-    /// Get cache size
-    pub async fn len(&self) -> usize {
-        if self.redis_available.load(Ordering::Relaxed) {
-            // TODO: Implement Redis size when connection is available
-            0
-        } else {
-            // Use fallback storage
-            let storage = self.fallback_storage.read().unwrap();
-            // Count only non-expired entries
-            storage.iter()
-                .filter(|(_, (_, timestamp))| timestamp.elapsed() < self.config.default_ttl)
-                .count()
-        }
-    }
-
-    /// Get cache statistics
-    pub fn get_stats(&self) -> L2CacheStats {
-        L2CacheStats {
-            hits: self.hits.load(Ordering::Relaxed),
-            misses: self.misses.load(Ordering::Relaxed),
-            sets: self.sets.load(Ordering::Relaxed),
-            errors: self.errors.load(Ordering::Relaxed),
-            redis_available: self.redis_available.load(Ordering::Relaxed),
-            size: {
-                if self.redis_available.load(Ordering::Relaxed) {
-                    0 // TODO: Get Redis size
-                } else {
-                    let storage = self.fallback_storage.read().unwrap();
-                    storage.len() as u64
-                }
-            },
-        }
-    }
-
-    /// Cleanup expired entries from fallback storage
-    pub async fn cleanup_expired(&self) {
-        if !self.redis_available.load(Ordering::Relaxed) {
-            let mut storage = self.fallback_storage.write().unwrap();
-            let now = std::time::Instant::now();
-            storage.retain(|_, (_, timestamp)| now.duration_since(*timestamp) < self.config.default_ttl);
-        }
-    }
-
-    /// Health check method
+    
+    /// Health check
     pub async fn health_check(&self) -> bool {
-        if self.redis_available.load(Ordering::Relaxed) {
-            // TODO: Implement Redis health check
-            false
+        let test_key = "health_check_l2";
+        let test_value = serde_json::json!({"test": true, "timestamp": chrono::Utc::now().to_rfc3339()});
+        
+        match self.set_with_ttl(test_key, test_value.clone(), Duration::from_secs(10)).await {
+            Ok(_) => {
+                match self.get(test_key).await {
+                    Some(retrieved) => {
+                        let _ = self.remove(test_key).await;
+                        retrieved["test"].as_bool().unwrap_or(false)
+                    }
+                    None => false
+                }
+            }
+            Err(_) => false
+        }
+    }
+    
+    /// Get cache statistics
+    pub async fn get_statistics(&self) -> serde_json::Value {
+        let hits = self.hits.load(Ordering::Relaxed);
+        let misses = self.misses.load(Ordering::Relaxed);
+        let sets = self.sets.load(Ordering::Relaxed);
+        let total_requests = hits + misses;
+        let hit_rate = if total_requests > 0 {
+            (hits as f64 / total_requests as f64) * 100.0
         } else {
-            // Test fallback storage
-            let test_key = "_health_check_test";
-            let test_value = serde_json::json!({"test": true, "timestamp": std::time::SystemTime::now()});
-            
-            // Test set
-            if self.set(test_key.to_string(), test_value.clone()).await {
-                // Test get
-                if let Some(retrieved) = self.get(test_key).await {
-                    if retrieved == test_value {
-                        // Test remove
-                        self.remove(test_key).await;
-                        println!("✅ L2 Cache health check passed (fallback mode)");
-                        return true;
+            0.0
+        };
+        
+        // Try to get Redis info
+        let mut redis_info = serde_json::json!({});
+        if let Ok(mut conn) = self.client.get_multiplexed_async_connection().await {
+            if let Ok(info_str) = redis::cmd("INFO").arg("memory").query_async::<String>(&mut conn).await {
+                // Parse basic memory info from Redis INFO response
+                if let Some(used_memory_line) = info_str.lines().find(|line| line.starts_with("used_memory:")) {
+                    if let Some(memory_bytes) = used_memory_line.split(':').nth(1) {
+                        redis_info["used_memory_bytes"] = serde_json::Value::String(memory_bytes.to_string());
                     }
                 }
             }
-            
-            eprintln!("❌ L2 Cache health check failed");
-            false
         }
+        
+        serde_json::json!({
+            "type": "L2_Redis",
+            "hits": hits,
+            "misses": misses,
+            "sets": sets,
+            "total_requests": total_requests,
+            "hit_rate_percent": hit_rate,
+            "redis_info": redis_info
+        })
     }
-}
-
-/// L2 Cache statistics
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct L2CacheStats {
-    pub hits: u64,
-    pub misses: u64,
-    pub sets: u64,
-    pub errors: u64,
-    pub redis_available: bool,
-    pub size: u64,
 }
