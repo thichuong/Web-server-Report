@@ -940,14 +940,17 @@ function initDashboard() {
         
         console.log('🚀 Initializing dashboard...');
         
-        // Set initial status
-        updateWebSocketStatus('connecting', getTranslatedText('connecting') || 'Đang kết nối...');
+        // Nạp trước dữ liệu dashboard trước khi khởi tạo WebSocket
+        fetchDashboardSummary();
         
         // Set up refresh button
         const refreshBtn = document.getElementById('refresh-dashboard');
         if (refreshBtn) {
             refreshBtn.addEventListener('click', manualRefreshDashboard);
         }
+        
+        // Set initial status sau khi đã nạp dữ liệu
+        updateWebSocketStatus('connecting', getTranslatedText('connecting') || 'Đang kết nối...');
         
         // Initialize WebSocket connection for real-time updates
         console.log('🔍 [DEBUG] Checking WebSocket initialization...');
@@ -965,9 +968,6 @@ function initDashboard() {
                 DashboardWebSocketClassExists: typeof DashboardWebSocket !== 'undefined'
             });
         }
-        
-        // Gọi hàm tổng hợp một lần khi tải trang (fallback nếu WebSocket chưa sẵn sàng)
-        fetchDashboardSummary();
         
         // Đặt lịch gọi lại hàm tổng hợp sau mỗi 10 phút (backup cho WebSocket)
         // WebSocket sẽ update real-time, nhưng giữ interval làm fallback
