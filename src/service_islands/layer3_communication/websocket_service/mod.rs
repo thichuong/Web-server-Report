@@ -221,4 +221,71 @@ impl WebSocketServiceIsland {
         
         Ok(())
     }
+
+    /// Start Redis Streams consumer for real-time WebSocket broadcasting
+    /// 
+    /// Phase 3: This method creates a background consumer that listens to Redis Streams
+    /// and broadcasts updates to all WebSocket clients in real-time.
+    pub async fn start_stream_consumer(&self, cache_system: Arc<crate::service_islands::layer1_infrastructure::cache_system_island::CacheSystemIsland>) -> Result<()> {
+        println!("🔄 Starting Redis Streams consumer for WebSocket broadcasting...");
+        
+        let broadcast_tx = self.broadcast_tx.clone();
+        let stream_manager = cache_system.stream_manager.clone();
+        
+        // Spawn background task for stream consumption
+        tokio::spawn(async move {
+            println!("📡 Redis Streams → WebSocket consumer started");
+            
+            // Create consumer group for WebSocket broadcasting
+            if let Err(e) = stream_manager.create_consumer_group("market_data", "websocket_broadcast").await {
+                println!("⚠️ Consumer group creation failed (may already exist): {}", e);
+            }
+            
+            loop {
+                match stream_manager.consume("market_data", "websocket_broadcast", "ws_consumer", 5).await {
+                    Ok(stream_events) => {
+                        if stream_events.is_empty() {
+                            // No new data - wait longer before next poll to avoid spam
+                            tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+                            continue;
+                        }
+                        
+                        println!("📡 Processing {} stream events for WebSocket broadcast", stream_events.len());
+                        
+                        for event in stream_events {
+                            // Convert stream event to WebSocket format
+                            let websocket_message = serde_json::json!({
+                                "type": "dashboard_data",
+                                "data": event.data,
+                                "stream_id": event.stream_id,
+                                "event_id": event.event_id,
+                                "source": "redis_streams",
+                                "timestamp": chrono::Utc::now().to_rfc3339()
+                            });
+                            
+                            // Broadcast to all WebSocket clients
+                            if let Err(e) = broadcast_tx.send(websocket_message.to_string()) {
+                                println!("⚠️ WebSocket broadcast failed: {}", e);
+                            } else {
+                                println!("📡 Stream data broadcasted to WebSocket clients: {}", event.event_id);
+                            }
+                        }
+                        
+                        // Short delay after processing events
+                        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                    }
+                    Err(e) => {
+                        println!("⚠️ Stream consumption error: {}, retrying in 5s...", e);
+                        tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+                    }
+                }
+                
+                // Small delay to prevent overwhelming the system
+                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+            }
+        });
+        
+        println!("✅ Redis Streams → WebSocket consumer task spawned");
+        Ok(())
+    }
 }

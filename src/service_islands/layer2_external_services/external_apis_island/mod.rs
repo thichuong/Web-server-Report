@@ -1,11 +1,13 @@
-//! External APIs Island - Layer 2: External Services
+//! External APIs Island - Layer 2: External Services (Refactored)
 //! 
 //! This island manages all external API interactions including:
 //! - Market data fetching from cryptocurrency APIs
-//! - Rate limiting and circuit breaker protection
+//! - Rate limiting and circuit breaker protection  
 //! - Data aggregation and normalization
 //! - Error handling for external service calls
-//! - Cache integration to reduce API calls
+//! 
+//! REFACTORING: Cache logic moved to Layer 1, this layer focuses on pure API business logic.
+//! Maintains backward compatibility during transition.
 
 pub mod market_data_api;
 pub mod rate_limiter;
@@ -205,11 +207,17 @@ impl ExternalApisIsland {
         
         match self.market_data_api.fetch_btc_price().await {
             Ok(price_data) => {
-                // Cache successful response if cache is available - Short TTL for CoinGecko
+                // Cache successful response if cache is available - Use price data strategy (5 min TTL)
                 if let Some(ref cache) = self.cache_system {
-                    let _ = cache.set(cache_key, price_data.clone(), Some(Duration::from_secs(30))).await; // 30 sec cache for CoinGecko
-                    let _ = cache.set(&format!("{}_stale", cache_key), price_data.clone(), Some(Duration::from_secs(900))).await; // 15 min stale backup
-                    println!("💾 BTC price cached for 30 seconds (CoinGecko rate limit optimization)");
+                    // Use CacheStrategy::PriceData for 5-minute TTL
+                    let cache_manager = cache.get_cache_manager();
+                    let _ = cache_manager.set_with_strategy(cache_key, price_data.clone(), 
+                        Duration::from_secs(300), // 5 minutes as requested
+                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::PriceData).await;
+                    
+                    // Keep stale backup for circuit breaker fallback (15 min)
+                    let _ = cache.set(&format!("{}_stale", cache_key), price_data.clone(), Some(Duration::from_secs(900))).await;
+                    println!("💾 BTC price cached for 5 minutes (price data strategy)");
                 }
                 
                 self.circuit_breaker.record_success("btc").await;
@@ -257,6 +265,120 @@ impl ExternalApisIsland {
             "rate_limiter": rate_stats,
             "circuit_breaker": circuit_stats,
             "timestamp": chrono::Utc::now().to_rfc3339()
+        }))
+    }
+    
+    // ===== NEW CACHE-FREE METHODS (Phase 2 Refactoring) =====
+    
+    /// Fetch dashboard data without cache logic (NEW - Cache-free)
+    /// 
+    /// Pure API business logic - no cache management.
+    /// Layer 1 handles all caching and streaming.
+    pub async fn fetch_dashboard_summary_v2(&self) -> Result<serde_json::Value> {
+        println!("📊 [V2] Fetching dashboard data (cache-free)...");
+        
+        // Check circuit breaker only - no cache fallback
+        if !self.circuit_breaker.can_proceed("global").await {
+            return Err(anyhow::anyhow!("Circuit breaker is open for global APIs"));
+        }
+        
+        // Use rate limiter
+        self.rate_limiter.wait_for_limit("dashboard").await?;
+        
+        // Pure API fetch - no cache logic
+        match self.api_aggregator.fetch_dashboard_data().await {
+            Ok(data) => {
+                println!("✅ [V2] Dashboard data fetched - ready for Layer 1 processing");
+                self.circuit_breaker.record_success("global").await;
+                Ok(data)
+            }
+            Err(e) => {
+                println!("❌ [V2] Dashboard data fetch failed: {}", e);
+                self.circuit_breaker.record_failure("global").await;
+                Err(e)
+            }
+        }
+    }
+    
+    /// Fetch BTC price without cache logic (NEW - Cache-free)
+    /// 
+    /// Pure API business logic focused on data fetching and validation.
+    pub async fn fetch_btc_price_v2(&self) -> Result<serde_json::Value> {
+        println!("₿ [V2] Fetching BTC price (cache-free)...");
+        
+        // Business logic checks only
+        if !self.circuit_breaker.can_proceed("btc").await {
+            return Err(anyhow::anyhow!("Circuit breaker is open for BTC API"));
+        }
+        
+        self.rate_limiter.wait_for_limit("btc").await?;
+        
+        // Pure API fetch
+        match self.market_data_api.fetch_btc_price().await {
+            Ok(data) => {
+                println!("✅ [V2] BTC price fetched - ready for Layer 1 processing");
+                self.circuit_breaker.record_success("btc").await;
+                Ok(data)
+            }
+            Err(e) => {
+                println!("❌ [V2] BTC price fetch failed: {}", e);
+                self.circuit_breaker.record_failure("btc").await;
+                Err(e)
+            }
+        }
+    }
+    
+    /// Fetch fear and greed index without cache logic (NEW - Cache-free)
+    pub async fn fetch_fear_greed_index_v2(&self) -> Result<serde_json::Value> {
+        println!("😨😤 [V2] Fetching Fear & Greed Index (cache-free)...");
+        
+        if !self.circuit_breaker.can_proceed("fear_greed").await {
+            return Err(anyhow::anyhow!("Circuit breaker is open for Fear & Greed API"));
+        }
+        
+        self.rate_limiter.wait_for_limit("fear_greed").await?;
+        
+        match self.market_data_api.fetch_fear_greed_index().await {
+            Ok(data) => {
+                println!("✅ [V2] Fear & Greed Index fetched - ready for Layer 1 processing");
+                self.circuit_breaker.record_success("fear_greed").await;
+                Ok(data)
+            }
+            Err(e) => {
+                println!("❌ [V2] Fear & Greed Index fetch failed: {}", e);
+                self.circuit_breaker.record_failure("fear_greed").await;
+                Err(e)
+            }
+        }
+    }
+    
+    /// Check if this instance uses cache-free mode
+    pub fn is_cache_free_mode(&self) -> bool {
+        self.cache_system.is_none()
+    }
+    
+    /// Get API-only statistics (no cache stats)
+    pub async fn get_api_only_statistics(&self) -> Result<serde_json::Value> {
+        Ok(serde_json::json!({
+            "island": "external_apis_v2",
+            "mode": "cache_free",
+            "responsibilities": [
+                "External API calls",
+                "Rate limiting",
+                "Circuit breaker protection", 
+                "Data validation and normalization"
+            ],
+            "removed_responsibilities": [
+                "Data caching (moved to Layer 1)",
+                "Cache invalidation (moved to Layer 1)",
+                "Stale data serving (moved to Layer 1)"
+            ],
+            "components": {
+                "market_data_api": "operational",
+                "rate_limiter": "operational",
+                "api_aggregator": "operational", 
+                "circuit_breaker": "operational"
+            }
         }))
     }
 }

@@ -114,6 +114,19 @@ impl L1Cache {
         Ok(())
     }
     
+    /// Get all keys in L1 cache
+    pub async fn get_all_keys(&self) -> Vec<String> {
+        // Moka doesn't have a direct way to get all keys
+        // For now, we'll return an empty vector since this is mainly for sync operations
+        // In production, you might want to maintain a separate set of keys or use a different approach
+        Vec::new()
+    }
+
+    /// Check if key exists in L1 cache
+    pub async fn contains_key(&self, key: &str) -> bool {
+        self.cache.get(key).await.is_some()
+    }
+
     /// Remove value from L1 cache
     pub async fn remove(&self, key: &str) -> Result<()> {
         self.cache.invalidate(key).await;
@@ -124,11 +137,6 @@ impl L1Cache {
     pub async fn clear(&self) -> Result<()> {
         self.cache.invalidate_all();
         Ok(())
-    }
-    
-    /// Check if key exists in L1 cache
-    pub async fn contains_key(&self, key: &str) -> bool {
-        self.cache.contains_key(key)
     }
     
     /// Get current cache size

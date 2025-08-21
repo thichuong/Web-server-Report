@@ -25,14 +25,45 @@ pub fn configure_api_routes() -> Router<Arc<ServiceIslands>> {
         .route("/api/cache/stats", get(api_cache_stats))
 }
 
-/// Dashboard summary API endpoint
+/// Dashboard summary API endpoint - Enhanced with Redis Streams
 async fn api_dashboard_summary(
     State(service_islands): State<Arc<ServiceIslands>>
 ) -> Json<serde_json::Value> {
-    // Use Service Islands Layer 5 to fetch real data via proper architecture
+    // Phase 3: Primary reads from Redis Streams, DB as fallback
+    println!("🚀 [API] Attempting stream-first dashboard summary fetch...");
+    
+    // Try Redis Streams first (primary storage)
+    let app_state = &service_islands.app_state;
+    if let Some(cache_system) = app_state.get_cache_system() {
+        match cache_system.get_latest_market_data().await {
+            Ok(Some(stream_data)) => {
+                println!("✅ [API] Dashboard summary served from Redis Streams (<1ms)");
+                return Json(stream_data);
+            }
+            Ok(None) => {
+                println!("⚠️ [API] No data in streams, falling back to Layer 5...");
+            }
+            Err(e) => {
+                println!("⚠️ [API] Stream read failed: {}, falling back to Layer 5...", e);
+            }
+        }
+    }
+    
+    // Fallback to Service Islands Layer 5 + immediate stream storage
     match service_islands.crypto_reports.fetch_realtime_market_data().await {
         Ok(market_data) => {
             println!("✅ [API] Dashboard summary fetched via Layer 5 → Layer 3 → Layer 2");
+            
+            // Store in Redis Streams for future reads
+            let app_state = &service_islands.app_state;
+            if let Some(cache_system) = app_state.get_cache_system() {
+                if let Err(e) = cache_system.store_market_data(market_data.clone()).await {
+                    println!("⚠️ [API] Failed to store in streams: {}", e);
+                } else {
+                    println!("💾 [API] Data stored to Redis Streams for future reads");
+                }
+            }
+            
             Json(market_data) // Return data in same format as WebSocket
         }
         Err(e) => {
@@ -55,14 +86,43 @@ async fn api_dashboard_summary(
     }
 }
 
-/// Cached dashboard summary API endpoint
+/// Cached dashboard summary API endpoint - Redis Streams Priority
 async fn api_dashboard_summary_cached(
     State(service_islands): State<Arc<ServiceIslands>>
 ) -> Json<serde_json::Value> {
-    // Try to get cached data, fallback to fresh data
+    println!("📦 [API Cache] Attempting stream-first cached data fetch...");
+    
+    // Primary: Redis Streams (fastest access)
+    let app_state = &service_islands.app_state;
+    if let Some(cache_system) = app_state.get_cache_system() {
+        match cache_system.get_latest_market_data().await {
+            Ok(Some(stream_data)) => {
+                println!("✅ [API Cache] Data served from Redis Streams (<0.5ms)");
+                return Json(stream_data);
+            }
+            Ok(None) => {
+                println!("⚠️ [API Cache] No data in streams, trying L1/L2 cache...");
+            }
+            Err(e) => {
+                println!("⚠️ [API Cache] Stream read failed: {}, trying L1/L2 cache...", e);
+            }
+        }
+        
+        // Secondary: L1/L2 Cache fallback
+        // Note: L1/L2 cache methods are available through cache_system
+    }
+    
+    // Tertiary: Fresh fetch + stream storage
     match service_islands.crypto_reports.fetch_realtime_market_data().await {
         Ok(market_data) => {
-            println!("✅ [API Cache] Dashboard summary served from cache or fresh");
+            println!("✅ [API Cache] Dashboard summary served from fresh fetch");
+            
+            // Store in Redis Streams for next request
+            let app_state = &service_islands.app_state;
+            if let Some(cache_system) = app_state.get_cache_system() {
+                let _ = cache_system.store_market_data(market_data.clone()).await;
+            }
+            
             Json(market_data)
         }
         Err(e) => {

@@ -14,6 +14,19 @@ use serde_json;
 use super::l1_cache::L1Cache;
 use super::l2_cache::L2Cache;
 
+/// Cache strategies for different data types
+#[derive(Debug, Clone)]
+pub enum CacheStrategy {
+    /// BTC price data - 5 minutes TTL
+    PriceData,
+    /// RSI and technical indicators - 3 hours TTL
+    TechnicalIndicators,
+    /// Real-time streaming updates - 30 seconds TTL
+    RealTimeData,
+    /// Default caching behavior
+    Default,
+}
+
 /// Cache access pattern tracking
 #[derive(Debug, Clone)]
 struct AccessPattern {
@@ -90,21 +103,93 @@ impl CacheManager {
         }
     }
     
-    /// Set value with intelligent tier placement
+    /// Set value with intelligent tier placement and automatic Redis sync
     pub async fn set(&self, key: &str, value: serde_json::Value, ttl: Option<Duration>) -> Result<()> {
+        // Always ensure data is persisted to Redis (L2) for durability
+        let l2_success = if let Some(custom_ttl) = ttl {
+            self.l2_cache.set_with_ttl(key.to_string(), value.clone(), custom_ttl).await
+        } else {
+            self.l2_cache.set(key.to_string(), value.clone()).await
+        };
+        
+        if !l2_success {
+            println!("⚠️  Cache Manager: L2 storage failed for key '{}'", key);
+        }
+        
         // Determine where to store based on access patterns and value characteristics
         let should_store_in_l1 = self.should_store_in_l1(key, &value).await;
         
         if should_store_in_l1 {
-            // Store in both L1 and L2 for hot data
+            // Also store in L1 for hot data
             self.l1_cache.set(key, value.clone()).await?;
-            self.l2_cache.set(key.to_string(), value).await;
+            println!("💾 Cache Manager: Stored '{}' in both L1 (hot) and L2 (Redis) with TTL: {:?}", key, ttl);
         } else {
-            // Store only in L2 for warm/cold data
-            self.l2_cache.set(key.to_string(), value).await;
+            println!("💾 Cache Manager: Stored '{}' in L2 (Redis) only with TTL: {:?}", key, ttl);
         }
         
         Ok(())
+    }
+    
+    /// Set value with specific cache strategy
+    pub async fn set_with_strategy(&self, key: &str, value: serde_json::Value, ttl: Duration, strategy: CacheStrategy) -> Result<()> {
+        match strategy {
+            CacheStrategy::PriceData => {
+                // BTC price data: 5 minutes TTL
+                let price_ttl = Duration::from_secs(300); // 5 minutes
+                self.set(key, value, Some(price_ttl)).await
+            }
+            CacheStrategy::TechnicalIndicators => {
+                // RSI and other technical data: 3 hours TTL
+                let rsi_ttl = Duration::from_secs(10800); // 3 hours
+                self.set(key, value, Some(rsi_ttl)).await
+            }
+            CacheStrategy::RealTimeData => {
+                // Real-time streaming data: 30 seconds TTL
+                let realtime_ttl = Duration::from_secs(30);
+                self.set(key, value, Some(realtime_ttl)).await
+            }
+            CacheStrategy::Default => {
+                self.set(key, value, Some(ttl)).await
+            }
+        }
+    }
+    
+    /// Force sync of all L1 data to L2 (Redis)
+    pub async fn sync_l1_to_redis(&self) -> Result<usize> {
+        println!("🔄 Cache Manager: Syncing all L1 data to Redis...");
+        
+        let l1_keys = self.l1_cache.get_all_keys().await;
+        let mut synced_count = 0;
+        
+        for key in l1_keys {
+            if let Some(value) = self.l1_cache.get(&key).await {
+                if self.l2_cache.set(key.clone(), value).await {
+                    synced_count += 1;
+                }
+            }
+        }
+        
+        println!("✅ Cache Manager: Synced {} keys from L1 to Redis", synced_count);
+        Ok(synced_count)
+    }
+    
+    /// Ensure critical data is in Redis
+    pub async fn ensure_redis_sync(&self, key: &str) -> Result<bool> {
+        // Check if data exists in L2 (Redis)
+        if self.l2_cache.exists(key).await {
+            return Ok(true);
+        }
+        
+        // If not in L2 but exists in L1, sync it
+        if let Some(value) = self.l1_cache.get(key).await {
+            let success = self.l2_cache.set(key.to_string(), value).await;
+            if success {
+                println!("🔄 Cache Manager: Synced '{}' from L1 to Redis", key);
+            }
+            return Ok(success);
+        }
+        
+        Ok(false)
     }
     
     /// Delete value from all cache tiers

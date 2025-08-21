@@ -34,7 +34,7 @@ impl MarketDataStreamer {
         Self {
             external_apis: None,
             service_islands: None,
-            update_interval: Duration::from_secs(60), // Increased from 30 to 60 seconds to reduce API calls
+            update_interval: Duration::from_secs(30), // 30 seconds for BTC price updates as requested
             is_streaming: std::sync::atomic::AtomicBool::new(false),
         }
     }
@@ -47,7 +47,7 @@ impl MarketDataStreamer {
         Self {
             external_apis: Some(external_apis),
             service_islands: None,
-            update_interval: Duration::from_secs(60), // Increased from 30 to 60 seconds for dashboard data
+            update_interval: Duration::from_secs(30), // 30 seconds for BTC price updates as requested
             is_streaming: std::sync::atomic::AtomicBool::new(false),
         }
     }

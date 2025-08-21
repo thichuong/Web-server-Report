@@ -57,6 +57,12 @@ impl ApiAggregator {
         })
     }
     
+    /// Create a new ApiAggregator in cache-free mode (NEW - Phase 2)
+    pub async fn new_cache_free(taapi_secret: String) -> Result<Self> {
+        println!("📊 [V2] Initializing API Aggregator (cache-free mode)...");
+        Self::new(taapi_secret).await
+    }
+    
     /// Create ApiAggregator with cache system
     pub async fn with_cache(taapi_secret: String, cache_system: Arc<CacheSystemIsland>) -> Result<Self> {
         let mut aggregator = Self::new(taapi_secret).await?;
@@ -297,9 +303,9 @@ impl ApiAggregator {
         }
     }
     
-    /// Fetch RSI with TAAPI-specific caching (5 minutes)
+    /// Fetch RSI with TAAPI-specific caching (3 hours for technical indicators)
     async fn fetch_rsi_with_cache(&self) -> Result<serde_json::Value> {
-        let cache_key = "rsi_taapi_5m";
+        let cache_key = "rsi_taapi_3h";
         
         // Try cache first
         if let Some(ref cache) = self.cache_system {
@@ -311,9 +317,13 @@ impl ApiAggregator {
         // Fetch from API
         match self.market_api.fetch_rsi().await {
             Ok(data) => {
-                // Cache with 5-minute TTL for TAAPI
+                // Cache with 3-hour TTL for technical indicators as requested
                 if let Some(ref cache) = self.cache_system {
-                    let _ = cache.cache_manager.set(cache_key, data.clone(), Some(Duration::from_secs(300))).await;
+                    let cache_manager = cache.get_cache_manager();
+                    let _ = cache_manager.set_with_strategy(cache_key, data.clone(), 
+                        Duration::from_secs(10800), // 3 hours as requested
+                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::TechnicalIndicators).await;
+                    println!("💾 Cache Manager: Stored 'rsi_taapi_3h' with TechnicalIndicators strategy (3 hours TTL)");
                 }
                 Ok(data)
             }
@@ -340,5 +350,120 @@ impl ApiAggregator {
             "success_rate_percent": success_rate,
             "last_updated": chrono::Utc::now().to_rfc3339()
         })
+    }
+    
+    // ===== NEW CACHE-FREE METHODS (Phase 2 Refactoring) =====
+    
+    /// Fetch dashboard data without cache logic (NEW - Cache-free)
+    /// 
+    /// Pure API aggregation without cache management.
+    /// Layer 1 handles all caching after this method returns.
+    pub async fn fetch_dashboard_data_v2(&self) -> Result<serde_json::Value> {
+        let start_time = std::time::Instant::now();
+        self.total_aggregations.fetch_add(1, Ordering::Relaxed);
+        
+        println!("🔄 [V2] Starting dashboard data aggregation (cache-free)...");
+        
+        // Fetch data from multiple sources concurrently WITHOUT caching
+        let btc_future = timeout(Duration::from_secs(10), self.fetch_btc_direct());
+        let global_future = timeout(Duration::from_secs(10), self.fetch_global_direct());
+        let fng_future = timeout(Duration::from_secs(10), self.fetch_fng_direct());
+        let rsi_future = timeout(Duration::from_secs(10), self.fetch_rsi_direct());
+        
+        let (btc_result, global_result, fng_result, rsi_result) = tokio::join!(
+            btc_future,
+            global_future,
+            fng_future,
+            rsi_future
+        );
+        
+        let mut data_sources = HashMap::new();
+        let mut partial_failure = false;
+        
+        // Process results without cache logic
+        let (btc_price, btc_change) = match btc_result {
+            Ok(Ok(btc_data)) => {
+                data_sources.insert("btc_price".to_string(), "coingecko_direct".to_string());
+                (
+                    btc_data["price_usd"].as_f64().unwrap_or(0.0),
+                    btc_data["price_change_24h"].as_f64().unwrap_or(0.0)
+                )
+            }
+            _ => {
+                partial_failure = true;
+                (0.0, 0.0)
+            }
+        };
+        
+        // Build aggregated response
+        let (market_cap, volume_24h) = match global_result {
+            Ok(Ok(ref data)) => (
+                data["total_market_cap"]["usd"].as_f64().unwrap_or(0.0),
+                data["total_volume"]["usd"].as_f64().unwrap_or(0.0)
+            ),
+            _ => {
+                partial_failure = true;
+                (0.0, 0.0)
+            }
+        };
+        
+        let aggregated_data = serde_json::json!({
+            "btc_price_usd": btc_price,
+            "btc_change_24h": btc_change,
+            "market_cap_usd": market_cap,
+            "volume_24h_usd": volume_24h,
+            "fng_value": match fng_result {
+                Ok(Ok(data)) => data["data"][0]["value"].as_str().unwrap_or("50").parse::<i32>().unwrap_or(50),
+                _ => { partial_failure = true; 50 }
+            },
+            "rsi_14": match rsi_result {
+                Ok(Ok(data)) => data["value"].as_f64().unwrap_or(50.0),
+                _ => { partial_failure = true; 50.0 }
+            },
+            "data_sources": data_sources,
+            "aggregation_time_ms": start_time.elapsed().as_millis(),
+            "partial_failure": partial_failure,
+            "mode": "cache_free_v2",
+            "timestamp": chrono::Utc::now().to_rfc3339()
+        });
+        
+        if partial_failure {
+            self.partial_failures.fetch_add(1, Ordering::Relaxed);
+            println!("⚠️ [V2] Dashboard aggregation completed with partial failures");
+        } else {
+            self.successful_aggregations.fetch_add(1, Ordering::Relaxed);
+            println!("✅ [V2] Dashboard aggregation completed successfully - ready for Layer 1");
+        }
+        
+        Ok(aggregated_data)
+    }
+    
+    /// Direct BTC fetch without cache
+    async fn fetch_btc_direct(&self) -> Result<serde_json::Value> {
+        println!("  📈 [V2] Fetching BTC data directly...");
+        self.market_api.fetch_btc_price().await
+    }
+    
+    /// Direct global market fetch without cache  
+    async fn fetch_global_direct(&self) -> Result<serde_json::Value> {
+        println!("  🌍 [V2] Fetching global market data directly...");
+        self.market_api.fetch_global_data().await
+    }
+    
+    /// Direct fear & greed fetch without cache
+    async fn fetch_fng_direct(&self) -> Result<serde_json::Value> {
+        println!("  😨😤 [V2] Fetching Fear & Greed Index directly...");
+        self.market_api.fetch_fear_greed_index().await
+    }
+    
+    /// Direct RSI fetch without cache
+    async fn fetch_rsi_direct(&self) -> Result<serde_json::Value> {
+        println!("  📊 [V2] Fetching RSI data directly...");
+        self.market_api.fetch_rsi().await
+    }
+    
+    /// Check if running in cache-free mode
+    pub fn is_cache_free(&self) -> bool {
+        self.cache_system.is_none()
     }
 }

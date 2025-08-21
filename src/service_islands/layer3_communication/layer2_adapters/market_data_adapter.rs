@@ -151,4 +151,70 @@ impl MarketDataAdapter {
     pub fn is_layer2_configured(&self) -> bool {
         self.external_apis.is_some()
     }
+    
+    // ===== NEW CACHE-FREE METHODS (Phase 2 Refactoring) =====
+    
+    /// Fetch dashboard summary using cache-free Layer 2 method (NEW)
+    /// 
+    /// Uses the new cache-free APIs in Layer 2 for pure business logic.
+    /// Layer 1 handles all caching and streaming after this call.
+    pub async fn fetch_dashboard_summary_v2(&self) -> Result<serde_json::Value> {
+        if let Some(external_apis) = &self.external_apis {
+            println!("🔄 [Layer 3 → Layer 2 V2] Fetching dashboard summary (cache-free)...");
+            external_apis.fetch_dashboard_summary_v2().await
+        } else {
+            Err(anyhow::anyhow!("Layer 2 External APIs not configured in MarketDataAdapter"))
+        }
+    }
+    
+    /// Fetch BTC data using cache-free Layer 2 method (NEW)
+    pub async fn fetch_btc_data_v2(&self) -> Result<serde_json::Value> {
+        if let Some(external_apis) = &self.external_apis {
+            println!("🔄 [Layer 3 → Layer 2 V2] Fetching BTC data (cache-free)...");
+            external_apis.fetch_btc_price_v2().await
+        } else {
+            Err(anyhow::anyhow!("Layer 2 External APIs not configured in MarketDataAdapter"))
+        }
+    }
+    
+    /// Fetch fear & greed index using cache-free Layer 2 method (NEW)
+    pub async fn fetch_fear_greed_index_v2(&self) -> Result<serde_json::Value> {
+        if let Some(external_apis) = &self.external_apis {
+            println!("🔄 [Layer 3 → Layer 2 V2] Fetching Fear & Greed Index (cache-free)...");
+            external_apis.fetch_fear_greed_index_v2().await
+        } else {
+            Err(anyhow::anyhow!("Layer 2 External APIs not configured in MarketDataAdapter"))
+        }
+    }
+    
+    /// Fetch and stream dashboard data to Layer 1 (NEW - Integrated approach)
+    /// 
+    /// This method fetches from Layer 2 (cache-free) and returns raw data.
+    /// Note: Streaming to Layer 1 will be implemented when AppState includes cache_system.
+    pub async fn fetch_and_stream_dashboard(&self, _state: &std::sync::Arc<crate::state::AppState>) -> Result<serde_json::Value> {
+        println!("🌊 [Layer 3] Fetch dashboard data (streaming to Layer 1 pending)...");
+        
+        // Step 1: Fetch from Layer 2 (cache-free)
+        let raw_data = self.fetch_dashboard_summary_v2().await?;
+        
+        // TODO: Step 2 - Stream to Layer 1 when AppState includes cache_system
+        // let cache_system = &state.cache_system;
+        // if let Some(cache) = cache_system {
+        //     if let Ok(event_id) = cache.store_dashboard_summary(raw_data.clone()).await {
+        //         println!("  ✅ Dashboard data streamed to Layer 1 (event: {})", event_id);
+        //     }
+        // }
+        
+        println!("✅ [Layer 3] Dashboard data fetched (cache-free) - ready for Layer 1 integration");
+        Ok(raw_data)
+    }
+    
+    /// Check if adapter supports cache-free mode
+    pub fn supports_cache_free_mode(&self) -> bool {
+        if let Some(external_apis) = &self.external_apis {
+            external_apis.is_cache_free_mode()
+        } else {
+            false
+        }
+    }
 }

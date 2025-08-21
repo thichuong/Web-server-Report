@@ -73,18 +73,57 @@ impl L2Cache {
 
     /// Test Redis connection
     async fn test_connection(&self) -> bool {
-        // For now, we'll use fallback mode until Redis connection is properly integrated
-        // This allows the system to function while we work on Redis integration
-        println!("  📝 L2 Cache: Using fallback storage mode");
-        self.redis_available.store(false, Ordering::Relaxed);
-        true
+        let client = match redis::Client::open(self.config.redis_url.as_str()) {
+            Ok(client) => client,
+            Err(e) => {
+                println!("  ❌ Failed to create Redis client for L2 cache: {}", e);
+                self.redis_available.store(false, Ordering::Relaxed);
+                return false;
+            }
+        };
+
+        match client.get_multiplexed_async_connection().await {
+            Ok(mut conn) => {
+                // Test with a simple PING command
+                match redis::cmd("PING").query_async::<String>(&mut conn).await {
+                    Ok(_) => {
+                        println!("  ✅ L2 Cache Redis connection successful ({})", self.config.redis_url);
+                        self.redis_available.store(true, Ordering::Relaxed);
+                        true
+                    }
+                    Err(e) => {
+                        println!("  ❌ L2 Cache Redis PING failed: {}", e);
+                        self.redis_available.store(false, Ordering::Relaxed);
+                        false
+                    }
+                }
+            }
+            Err(e) => {
+                println!("  ❌ L2 Cache failed to connect to Redis: {}", e);
+                self.redis_available.store(false, Ordering::Relaxed);
+                false
+            }
+        }
     }
 
     /// Get value from L2 cache
     pub async fn get(&self, key: &str) -> Option<serde_json::Value> {
         if self.redis_available.load(Ordering::Relaxed) {
-            // TODO: Implement Redis get when connection is available
-            None
+            match self.get_from_redis(key).await {
+                Ok(value) => {
+                    if value.is_some() {
+                        self.hits.fetch_add(1, Ordering::Relaxed);
+                    } else {
+                        self.misses.fetch_add(1, Ordering::Relaxed);
+                    }
+                    value
+                }
+                Err(_) => {
+                    self.errors.fetch_add(1, Ordering::Relaxed);
+                    self.misses.fetch_add(1, Ordering::Relaxed);
+                    None
+                }
+            }
         } else {
             // Use fallback storage
             let storage = self.fallback_storage.read().unwrap();
@@ -109,8 +148,13 @@ impl L2Cache {
         self.sets.fetch_add(1, Ordering::Relaxed);
         
         if self.redis_available.load(Ordering::Relaxed) {
-            // TODO: Implement Redis set when connection is available
-            false
+            match self.set_in_redis(&key, &value, None).await {
+                Ok(_) => true,
+                Err(_) => {
+                    self.errors.fetch_add(1, Ordering::Relaxed);
+                    false
+                }
+            }
         } else {
             // Use fallback storage
             let mut storage = self.fallback_storage.write().unwrap();
@@ -120,9 +164,23 @@ impl L2Cache {
     }
 
     /// Set value in L2 cache with custom TTL
-    pub async fn set_with_ttl(&self, key: String, value: serde_json::Value, _ttl: Duration) -> bool {
-        // For fallback mode, we use the default TTL
-        self.set(key, value).await
+    pub async fn set_with_ttl(&self, key: String, value: serde_json::Value, ttl: Duration) -> bool {
+        self.sets.fetch_add(1, Ordering::Relaxed);
+        
+        if self.redis_available.load(Ordering::Relaxed) {
+            match self.set_in_redis(&key, &value, Some(ttl)).await {
+                Ok(_) => true,
+                Err(_) => {
+                    self.errors.fetch_add(1, Ordering::Relaxed);
+                    false
+                }
+            }
+        } else {
+            // Use fallback storage
+            let mut storage = self.fallback_storage.write().unwrap();
+            storage.insert(key, (value, std::time::Instant::now()));
+            true
+        }
     }
 
     /// Remove value from L2 cache
@@ -135,6 +193,45 @@ impl L2Cache {
             let mut storage = self.fallback_storage.write().unwrap();
             storage.remove(key).is_some()
         }
+    }
+
+    /// Get value from Redis
+    async fn get_from_redis(&self, key: &str) -> Result<Option<serde_json::Value>> {
+        let client = redis::Client::open(self.config.redis_url.as_str())?;
+        let mut conn = client.get_multiplexed_async_connection().await?;
+        
+        let result: Option<String> = redis::cmd("GET")
+            .arg(key)
+            .query_async(&mut conn)
+            .await?;
+        
+        match result {
+            Some(json_str) => {
+                match serde_json::from_str(&json_str) {
+                    Ok(value) => Ok(Some(value)),
+                    Err(_) => Ok(Some(serde_json::Value::String(json_str))),
+                }
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// Set value in Redis
+    async fn set_in_redis(&self, key: &str, value: &serde_json::Value, ttl: Option<Duration>) -> Result<()> {
+        let client = redis::Client::open(self.config.redis_url.as_str())?;
+        let mut conn = client.get_multiplexed_async_connection().await?;
+        
+        let json_str = value.to_string();
+        let ttl_seconds = ttl.unwrap_or(self.config.default_ttl).as_secs();
+        
+        redis::cmd("SETEX")
+            .arg(key)
+            .arg(ttl_seconds)
+            .arg(json_str)
+            .query_async::<()>(&mut conn)
+            .await?;
+        
+        Ok(())
     }
 
     /// Check if key exists in L2 cache
