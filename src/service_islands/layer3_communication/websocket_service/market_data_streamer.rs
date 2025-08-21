@@ -11,6 +11,7 @@ use tokio::sync::broadcast;
 use tokio::time::interval;
 
 use crate::service_islands::layer2_external_services::external_apis_island::ExternalApisIsland;
+use crate::service_islands::ServiceIslands;
 
 /// Market Data Streamer
 /// 
@@ -19,6 +20,8 @@ use crate::service_islands::layer2_external_services::external_apis_island::Exte
 pub struct MarketDataStreamer {
     /// Reference to Layer 2 External APIs
     external_apis: Option<Arc<ExternalApisIsland>>,
+    /// Reference to Service Islands for Layer 5 access
+    service_islands: Option<Arc<ServiceIslands>>,
     /// Stream interval for updates
     update_interval: Duration,
     /// Active streaming flag
@@ -30,6 +33,7 @@ impl MarketDataStreamer {
     pub fn new() -> Self {
         Self {
             external_apis: None,
+            service_islands: None,
             update_interval: Duration::from_secs(60), // Increased from 30 to 60 seconds to reduce API calls
             is_streaming: std::sync::atomic::AtomicBool::new(false),
         }
@@ -42,9 +46,19 @@ impl MarketDataStreamer {
     pub fn with_external_apis(external_apis: Arc<ExternalApisIsland>) -> Self {
         Self {
             external_apis: Some(external_apis),
+            service_islands: None,
             update_interval: Duration::from_secs(60), // Increased from 30 to 60 seconds for dashboard data
             is_streaming: std::sync::atomic::AtomicBool::new(false),
         }
+    }
+    
+    /// Set Service Islands reference for Layer 5 access
+    /// 
+    /// This allows market data streamer to use Layer 5 → Layer 3 → Layer 2 flow
+    /// matching the same pattern as HTTP API and WebSocket initial messages.
+    pub fn with_service_islands(mut self, service_islands: Arc<ServiceIslands>) -> Self {
+        self.service_islands = Some(service_islands);
+        self
     }
     
     /// Set update interval
@@ -54,15 +68,15 @@ impl MarketDataStreamer {
     
     /// Start streaming market data
     /// 
-    /// Begins periodic streaming of market data from Layer 2 to WebSocket clients.
-    /// Improved with better error handling and reliability.
+    /// Begins periodic streaming of market data using Layer 5 → Layer 3 → Layer 2 flow
+    /// to match the same data source as HTTP API and WebSocket initial messages.
     pub async fn start_streaming(&self, broadcast_tx: broadcast::Sender<String>) -> Result<()> {
-        if let Some(external_apis) = &self.external_apis {
-            println!("🌊 Starting market data streaming from Layer 2 External APIs...");
+        if let Some(service_islands) = &self.service_islands {
+            println!("🌊 Starting market data streaming using Layer 5 → Layer 3 → Layer 2 flow...");
             
             self.is_streaming.store(true, std::sync::atomic::Ordering::Relaxed);
             
-            let external_apis_clone = external_apis.clone();
+            let service_islands_clone = service_islands.clone();
             let broadcast_tx_clone = broadcast_tx.clone();
             let update_interval = self.update_interval;
             
@@ -80,8 +94,9 @@ impl MarketDataStreamer {
                         println!("📡 No WebSocket receivers - continuing to stream for future connections");
                     }
                     
-                    // Fetch dashboard data from Layer 2
-                    match external_apis_clone.fetch_dashboard_summary().await {
+                    // 🔧 FIX: Use same Layer 5 function as HTTP API and WebSocket initial message
+                    // This ensures all three messages use identical Layer 2 access pattern
+                    match service_islands_clone.crypto_reports.fetch_realtime_market_data().await {
                         Ok(dashboard_data) => {
                             // Reset consecutive failures on success
                             consecutive_failures = 0;
@@ -159,7 +174,7 @@ impl MarketDataStreamer {
             println!("✅ Market data streaming started successfully");
             Ok(())
         } else {
-            println!("⚠️ External APIs not configured - market data streaming disabled");
+            println!("⚠️ Service Islands not configured - market data streaming disabled");
             Ok(())
         }
     }
@@ -261,6 +276,19 @@ impl MarketDataStreamer {
     /// Check if streaming is active
     pub fn is_streaming(&self) -> bool {
         self.is_streaming.load(std::sync::atomic::Ordering::Relaxed)
+    }
+    
+    /// Fetch market data via Layer 3 (for Layer 5 requests)
+    /// 
+    /// This method allows Layer 5 to request market data through Layer 3,
+    /// maintaining proper Service Islands Architecture: Layer 5 → Layer 3 → Layer 2
+    pub async fn fetch_market_data(&self) -> Result<serde_json::Value> {
+        if let Some(external_apis) = &self.external_apis {
+            println!("🔄 Layer 3 MarketDataStreamer fetching from Layer 2...");
+            external_apis.fetch_dashboard_summary().await
+        } else {
+            Err(anyhow::anyhow!("Layer 3 has no Layer 2 External APIs dependency"))
+        }
     }
     
     /// Health check for market data streamer

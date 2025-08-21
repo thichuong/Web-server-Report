@@ -14,6 +14,7 @@ pub mod template_orchestrator;
 #[cfg(test)]
 pub mod tests;
 
+
 use std::sync::Arc;
 use crate::service_islands::layer3_communication::websocket_service::WebSocketServiceIsland;
 
@@ -86,6 +87,8 @@ impl CryptoReportsIsland {
         })
     }
     
+    }
+    
     /// Fetch real-time market data via proper Service Islands Architecture
     /// 
     /// ✅ STRICT ARCHITECTURE: Layer 5 → Layer 3 → Layer 2 flow ONLY
@@ -136,6 +139,51 @@ impl CryptoReportsIsland {
         } else {
             println!("❌ Layer 5 has no Layer 3 dependency - cannot fetch market data");
             Err(anyhow::anyhow!("No Layer 3 WebSocket Service dependency available - architecture violation"))
+        }
+    }
+    
+    /// Health check for Crypto Reports Island
+                        "partial_failure": market_data.get("partial_failure").unwrap_or(&serde_json::Value::Bool(false)),
+                        "last_updated": market_data.get("last_updated").unwrap_or(&serde_json::Value::String(chrono::Utc::now().to_rfc3339())),
+                        "timestamp": market_data.get("timestamp").unwrap_or(&serde_json::Value::String(chrono::Utc::now().to_rfc3339()))
+                    });
+                    
+                    println!("🔧 [Layer 5 via Layer 3] Data normalized for client compatibility");
+                    Ok(normalized_data)
+                }
+                Err(e) => {
+                    println!("❌ Layer 5 → Layer 3 → Layer 2 flow failed: {}", e);
+                    Err(anyhow::anyhow!("Service Islands Architecture flow failed: {}", e))
+                }
+            }
+        } else {
+            println!("❌ Layer 5 has no Layer 3 dependency - cannot fetch market data");
+            Err(anyhow::anyhow!("No Layer 3 WebSocket Service dependency available - architecture violation"))
+        }
+    }
+    
+    /// Fetch BTC price specifically for Layer 5 business logic
+    pub async fn fetch_btc_price_for_reports(&self) -> Result<serde_json::Value, anyhow::Error> {
+        if let Some(external_apis) = &self.external_apis {
+            println!("₿ Layer 5 fetching BTC price from Layer 2 for report generation...");
+            match external_apis.fetch_btc_price().await {
+                Ok(btc_data) => {
+                    println!("✅ Layer 5 received BTC data from Layer 2");
+                    
+                    // Debug log for Layer 5
+                    if let Some(price) = btc_data.get("btc_price_usd") {
+                        println!("  🔍 [Layer 5 Reports] BTC Price: ${:?}", price);
+                    }
+                    
+                    Ok(btc_data)
+                }
+                Err(e) => {
+                    println!("❌ Layer 5 BTC fetch failed: {}", e);
+                    Err(anyhow::anyhow!("Failed to fetch BTC price: {}", e))
+                }
+            }
+        } else {
+            Err(anyhow::anyhow!("No External APIs dependency available"))
         }
     }
     

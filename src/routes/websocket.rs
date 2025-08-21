@@ -31,16 +31,21 @@ async fn websocket_handler(
 }
 
 /// Handle individual WebSocket connections with Service Islands integration
+/// 
+/// ✅ CORRECTED: Uses proper Layer 3 (Communication) → Layer 2 (External APIs) workflow
 async fn websocket_connection_handler(
     mut socket: axum::extract::ws::WebSocket,
     service_islands: Arc<ServiceIslands>
 ) {
-    println!("✅ WebSocket connection established successfully");
+    println!("✅ WebSocket connection established - connecting to Layer 3 broadcast system");
     
-    // Send initial welcome message with current data
+    // ✅ Get Layer 3 broadcast receiver for real-time updates
+    let mut broadcast_rx = service_islands.websocket_service.get_broadcast_tx().subscribe();
+    
+    // Send initial welcome message
     let welcome_msg = json!({
         "type": "connected",
-        "message": "WebSocket connected to Service Islands",
+        "message": "WebSocket connected to Service Islands Layer 3",
         "timestamp": chrono::Utc::now().to_rfc3339()
     });
     
@@ -49,46 +54,53 @@ async fn websocket_connection_handler(
         return;
     }
     
-    // Send initial dashboard data
+    // ✅ Send initial dashboard data via proper architecture: Layer 5 → Layer 3 → Layer 2
     if let Ok(dashboard_data) = service_islands.crypto_reports.fetch_realtime_market_data().await {
-        // Extract actual values from the JSON
-        let btc_price = dashboard_data.get("btc_price_usd").and_then(|v| v.as_f64()).unwrap_or(0.0);
-        let btc_change = dashboard_data.get("btc_change_24h").and_then(|v| v.as_f64()).unwrap_or(0.0);
-        let market_cap = dashboard_data.get("market_cap_usd").and_then(|v| v.as_f64()).unwrap_or(0.0);
-        let volume = dashboard_data.get("volume_24h_usd").and_then(|v| v.as_f64()).unwrap_or(0.0);
-        let fng = dashboard_data.get("fng_value").and_then(|v| v.as_u64()).unwrap_or(50) as u32;
-        let rsi = dashboard_data.get("rsi_14").and_then(|v| v.as_f64()).unwrap_or(50.0);
-        
-        let dashboard_msg = json!({
-            "type": "dashboard_data",
-            "data": {
-                "btc_price_usd": btc_price,
-                "btc_change_24h": btc_change,
-                "market_cap_usd": market_cap,
-                "volume_24h_usd": volume,
-                "fng_value": fng,
-                "rsi_14": rsi
-            },
-            "timestamp": chrono::Utc::now().to_rfc3339()
+        // ✅ Use compatible message format that JavaScript client expects
+        let initial_msg = json!({
+            "type": "dashboard_data",  // Compatible with JavaScript client
+            "data": dashboard_data,
+            "timestamp": chrono::Utc::now().to_rfc3339(),
+            "source": "layer5_via_layer3"  // Updated to reflect proper architecture
         });
         
-        // 🔍 DEBUG: Log extracted values
-        println!("🔍 [WebSocket] Extracted values:");
-        println!("  💰 Market Cap: ${}", market_cap);
-        println!("  📊 Volume: ${}", volume);
-        println!("  ₿ BTC Price: ${}", btc_price);
-        println!("  📈 BTC Change: {}%", btc_change);
-        println!("  😨 F&G: {}", fng);
-        println!("  📈 RSI: {}", rsi);
-        
-        if let Ok(_) = socket.send(axum::extract::ws::Message::Text(dashboard_msg.to_string())).await {
-            println!("📊 Initial dashboard data sent to WebSocket client");
+        if let Ok(_) = socket.send(axum::extract::ws::Message::Text(initial_msg.to_string())).await {
+            println!("📊 Initial dashboard data sent via Layer 5 → Layer 3 → Layer 2 (proper architecture)");
         }
     }
     
-    // Handle incoming messages from client 
+    // ✅ Start Layer 3 real-time broadcast listener in background
+    let socket_clone = Arc::new(tokio::sync::Mutex::new(socket));
+    let socket_for_broadcast = socket_clone.clone();
+    
+    // Background task: Listen to Layer 3 broadcast updates
+    let broadcast_task = tokio::spawn(async move {
+        println!("🔄 Starting Layer 3 broadcast listener for WebSocket client");
+        
+        while let Ok(broadcast_message) = broadcast_rx.recv().await {
+            let mut socket_guard = socket_for_broadcast.lock().await;
+            
+            match socket_guard.send(axum::extract::ws::Message::Text(broadcast_message)).await {
+                Ok(_) => {
+                    // Success - continue listening
+                }
+                Err(_) => {
+                    println!("❌ WebSocket client disconnected - stopping broadcast listener");
+                    break;
+                }
+            }
+        }
+    });
+    
+    // Handle client messages (ping/pong, etc.)
+    let socket_for_client = socket_clone.clone();
     loop {
-        match socket.recv().await {
+        let message_result = {
+            let mut socket_guard = socket_for_client.lock().await;
+            socket_guard.recv().await
+        };
+        
+        match message_result {
             Some(Ok(axum::extract::ws::Message::Text(text))) => {
                 println!("📨 Received from client: {}", text);
                 
@@ -99,7 +111,8 @@ async fn websocket_connection_handler(
                     });
                     
                     println!("🏓 Sending pong: {}", pong_response);
-                    if let Err(_) = socket.send(axum::extract::ws::Message::Text(pong_response.to_string())).await {
+                    let mut socket_guard = socket_for_client.lock().await;
+                    if let Err(_) = socket_guard.send(axum::extract::ws::Message::Text(pong_response.to_string())).await {
                         break;
                     }
                 }
@@ -122,5 +135,7 @@ async fn websocket_connection_handler(
         }
     }
     
-    println!("🔌 WebSocket connection handler finished");
+    // Cleanup: Cancel broadcast task when client disconnects
+    broadcast_task.abort();
+    println!("🔌 WebSocket connection handler finished - Layer 3 broadcast listener stopped");
 }

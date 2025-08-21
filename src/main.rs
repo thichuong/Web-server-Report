@@ -21,6 +21,10 @@ async fn main() -> Result<(), anyhow::Error> {
     println!("🏝️ Initializing Service Islands Architecture...");
     let service_islands = Arc::new(ServiceIslands::initialize().await?);
     
+    // Initialize unified streaming for consistent data access
+    println!("🔄 Initializing unified streaming...");
+    service_islands.initialize_unified_streaming().await?;
+    
     // Perform initial health check
     println!("🔍 Performing initial health check...");
     if service_islands.health_check().await {

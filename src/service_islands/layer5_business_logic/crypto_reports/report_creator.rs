@@ -10,6 +10,8 @@ use tokio::fs::read_dir;
 
 // Import from current state - will be refactored when lower layers are implemented
 use crate::state::AppState;
+// Import Layer 3 data communication service - proper architecture
+use crate::service_islands::layer3_communication::data_communication::CryptoDataService;
 
 /// Report model - exactly from archive_old_code/models.rs
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -41,16 +43,17 @@ pub struct ReportListItem {
 /// Report Creator
 /// 
 /// Manages report creation business logic with market analysis capabilities.
+/// Uses Layer 3 data services for proper architectural separation.
 #[derive(Clone)]
 pub struct ReportCreator {
-    // Component state will be added here
+    data_service: CryptoDataService,
 }
 
 impl ReportCreator {
     /// Create a new ReportCreator
     pub fn new() -> Self {
         Self {
-            // Initialize component
+            data_service: CryptoDataService::new(),
         }
     }
     
@@ -62,55 +65,75 @@ impl ReportCreator {
 
     /// Fetch and cache latest report from database
     /// 
-    /// Retrieves the most recent crypto report with full content - exactly like handlers.rs version
+    /// Retrieves the most recent crypto report with full content using Layer 3 data service
     pub async fn fetch_and_cache_latest_report(
         &self,
         state: &Arc<AppState>,
     ) -> Result<Option<Report>, sqlx::Error> {
-        println!("🔍 ReportCreator: Fetching latest crypto report from database");
+        println!("🔍 ReportCreator: Fetching latest crypto report from database via data service");
         
-        // Real database query exactly like archive_old_code
-        let report = sqlx::query_as::<_, Report>(
-            "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report ORDER BY created_at DESC LIMIT 1",
-        ).fetch_optional(&state.db).await?;
+        // Use Layer 3 data service instead of direct database access
+        let report_data = self.data_service.fetch_latest_report(state).await?;
         
-        if let Some(ref report) = report {
-            // Update latest id cache (atomic operation like archive)
+        if let Some(data) = report_data {
+            // Convert data layer model to business layer model
+            let report = Report {
+                id: data.id,
+                html_content: data.html_content,
+                css_content: data.css_content,
+                js_content: data.js_content,
+                html_content_en: data.html_content_en,
+                js_content_en: data.js_content_en,
+                created_at: data.created_at,
+            };
+            
+            // Update latest id cache (business logic concern)
             state.cached_latest_id.store(report.id, std::sync::atomic::Ordering::Relaxed);
-            println!("💾 ReportCreator: Fetched latest crypto report {} from database", report.id);
+            println!("💾 ReportCreator: Cached latest crypto report {} from data service", report.id);
             
             // TODO: Implement L1/L2 caching logic when cache layers are ready
+            
+            Ok(Some(report))
+        } else {
+            println!("📭 ReportCreator: No latest crypto report available");
+            Ok(None)
         }
-        
-        Ok(report)
     }
 
     /// Fetch and cache specific report by ID
     /// 
-    /// Retrieves a crypto report by its ID with full content - exactly like handlers.rs version
+    /// Retrieves a crypto report by its ID with full content using Layer 3 data service
     pub async fn fetch_and_cache_report_by_id(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
     ) -> Result<Option<Report>, sqlx::Error> {
-        println!("🔍 ReportCreator: Fetching crypto report {} from database", report_id);
+        println!("🔍 ReportCreator: Fetching crypto report {} via data service", report_id);
         
-        // Real database query for specific ID
-        let report = sqlx::query_as::<_, Report>(
-            "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report WHERE id = $1",
-        )
-        .bind(report_id)
-        .fetch_optional(&state.db).await?;
+        // Use Layer 3 data service instead of direct database access
+        let report_data = self.data_service.fetch_report_by_id(state, report_id).await?;
         
-        if let Some(ref report) = report {
-            println!("💾 ReportCreator: Fetched crypto report {} from database successfully", report.id);
+        if let Some(data) = report_data {
+            // Convert data layer model to business layer model
+            let report = Report {
+                id: data.id,
+                html_content: data.html_content,
+                css_content: data.css_content,
+                js_content: data.js_content,
+                html_content_en: data.html_content_en,
+                js_content_en: data.js_content_en,
+                created_at: data.created_at,
+            };
+            
+            println!("💾 ReportCreator: Successfully processed crypto report {} from data service", report.id);
             
             // TODO: Implement L1/L2 caching logic when cache layers are ready
+            
+            Ok(Some(report))
         } else {
-            println!("⚠️ ReportCreator: Crypto report {} not found in database", report_id);
+            println!("📭 ReportCreator: Crypto report {} not found via data service", report_id);
+            Ok(None)
         }
-        
-        Ok(report)
     }
 
     /// Get chart modules content
@@ -193,7 +216,7 @@ impl ReportCreator {
 
     /// Fetch reports list with pagination
     /// 
-    /// Retrieves paginated list of crypto reports with summary information
+    /// Retrieves paginated list of crypto reports with summary information using Layer 3 data service
     pub async fn fetch_reports_list_with_pagination(
         &self,
         state: &Arc<AppState>,
@@ -202,38 +225,28 @@ impl ReportCreator {
     ) -> Result<(Vec<ReportListItem>, i64, i64), Box<dyn StdError + Send + Sync>> {
         let offset = (page - 1) * per_page;
         
-        // Get total count and reports in parallel
-        let count_query = "SELECT COUNT(*) as total FROM crypto_report";
-        let reports_query = r#"
-            SELECT id, created_at
-            FROM crypto_report 
-            ORDER BY created_at DESC 
-            LIMIT $1 OFFSET $2
-        "#;
-
+        // Get total count and reports via data service (Layer 3) in parallel
         let (count_result, reports_result) = tokio::try_join!(
-            sqlx::query_scalar::<_, i64>(count_query).fetch_one(&state.db),
-            sqlx::query_as::<_, ReportSummary>(reports_query)
-                .bind(per_page)
-                .bind(offset)
-                .fetch_all(&state.db)
+            self.data_service.get_reports_count(state),
+            self.data_service.fetch_reports_summary_paginated(state, per_page, offset)
         )?;
 
         let total_reports = count_result;
         let total_pages = (total_reports + per_page - 1) / per_page;
 
         // Format reports using rayon for parallel processing (CPU-intensive date formatting)
+        // This is business logic - converting data models to presentation models
         let items = tokio::task::spawn_blocking(move || {
             use rayon::prelude::*;
             
             reports_result
                 .into_par_iter()
-                .map(|report| {
-                    let local_time = report.created_at.format("%d/%m/%Y").to_string();
-                    let local_time_detail = report.created_at.format("%H:%M:%S").to_string();
+                .map(|report_data| {
+                    let local_time = report_data.created_at.format("%d/%m/%Y").to_string();
+                    let local_time_detail = report_data.created_at.format("%H:%M:%S").to_string();
                     
                     ReportListItem {
-                        id: report.id,
+                        id: report_data.id,
                         created_date: local_time,
                         created_time: local_time_detail,
                     }

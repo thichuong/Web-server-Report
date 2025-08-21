@@ -88,10 +88,11 @@ impl ServiceIslands {
         println!("📡 Initializing Layer 3: Communication Islands with Layer 2 dependencies...");
         let websocket_service = Arc::new(WebSocketServiceIsland::with_external_apis(external_apis.clone()).await?);
         
-        // Initialize Layer 5: Business Logic (depends on Layer 2, 3, 4)
+        // Initialize Layer 5: Business Logic (depends on Layer 3 ONLY)
         println!("📊 Initializing Layer 5: Business Logic Islands...");
         let dashboard = Arc::new(DashboardIsland::new().await?);
-        let crypto_reports = Arc::new(CryptoReportsIsland::with_dependencies(external_apis.clone()).await?);
+        // ✅ STRICT: Layer 5 only depends on Layer 3 (no direct Layer 2 access)
+        let crypto_reports = Arc::new(CryptoReportsIsland::with_dependencies(websocket_service.clone()).await?);
         
         println!("✅ Layer 1 Infrastructure Islands initialized!");
         println!("✅ Layer 2 External Services Islands initialized with Cache!");
@@ -119,6 +120,31 @@ impl ServiceIslands {
             dashboard,
             crypto_reports,
         })
+    }
+    
+    /// Initialize unified streaming with Layer 5 access
+    /// 
+    /// This ensures WebSocket streaming uses the same Layer 5 → Layer 3 → Layer 2 flow
+    /// as HTTP API and WebSocket initial messages for data consistency.
+    pub async fn initialize_unified_streaming(&self) -> Result<(), anyhow::Error> {
+        println!("🔄 Initializing unified streaming with Layer 5 access...");
+        
+        // Configure WebSocket streaming to use ServiceIslands for unified data access
+        self.websocket_service.start_streaming_with_service_islands(
+            Arc::new(ServiceIslands {
+                app_state: self.app_state.clone(),
+                shared_components: self.shared_components.clone(),
+                cache_system: self.cache_system.clone(),
+                external_apis: self.external_apis.clone(),
+                websocket_service: self.websocket_service.clone(),
+                health_system: self.health_system.clone(),
+                dashboard: self.dashboard.clone(),
+                crypto_reports: self.crypto_reports.clone(),
+            })
+        ).await?;
+        
+        println!("✅ Unified streaming initialized - all messages now use same Layer 2 access!");
+        Ok(())
     }
     
     /// Perform health check on all Service Islands

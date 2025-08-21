@@ -22,6 +22,7 @@ use broadcast_service::BroadcastService;
 use handlers::WebSocketHandlers;
 use market_data_streamer::MarketDataStreamer;
 use crate::service_islands::layer2_external_services::external_apis_island::ExternalApisIsland;
+use crate::service_islands::layer3_communication::layer2_adapters::Layer2AdaptersHub;
 
 /// WebSocket Service Island
 /// 
@@ -39,6 +40,8 @@ pub struct WebSocketServiceIsland {
     pub handlers: Arc<WebSocketHandlers>,
     /// Market data streaming component
     pub market_data_streamer: Arc<MarketDataStreamer>,
+    /// Layer 2 adapters hub for clean API access
+    pub layer2_adapters: Arc<Layer2AdaptersHub>,
     /// Broadcast transmitter for real-time updates
     pub broadcast_tx: broadcast::Sender<String>,
 }
@@ -48,22 +51,24 @@ impl WebSocketServiceIsland {
     /// 
     /// Creates all components and establishes communication channels.
     pub async fn new() -> Result<Self> {
-        println!("🏝️ Initializing WebSocket Service Island (Layer 3 Communication)...");
+        println!("🔧 Initializing WebSocket Service Island (standalone mode)...");
         
-        // Create broadcast channel for real-time updates
-        let (broadcast_tx, _) = broadcast::channel(1000);
+        // Initialize Layer 2 adapters without External APIs dependency
+        let layer2_adapters = Arc::new(Layer2AdaptersHub::new());
         
         // Initialize components
         let connection_manager = Arc::new(ConnectionManager::new());
         let message_handler = Arc::new(MessageHandler::new());
         let broadcast_service = Arc::new(BroadcastService::new());
         let handlers = Arc::new(WebSocketHandlers::new());
+        
+        // Initialize market data streamer without External APIs (standalone mode)
         let market_data_streamer = Arc::new(MarketDataStreamer::new());
         
-        // Start background services
-        broadcast_service.start_background_updates().await;
+        // Create broadcast channel (increased buffer for high-frequency updates) 
+        let (broadcast_tx, _) = broadcast::channel(1000);
         
-        println!("✅ WebSocket Service Island initialized successfully");
+        println!("✅ WebSocket Service Island initialized successfully (standalone mode)");
         
         Ok(Self {
             connection_manager,
@@ -71,35 +76,40 @@ impl WebSocketServiceIsland {
             broadcast_service,
             handlers,
             market_data_streamer,
+            layer2_adapters,
             broadcast_tx,
         })
     }
     
-    /// Initialize WebSocket Service Island with Layer 2 External APIs dependency
+    /// Initialize the WebSocket Service Island with External APIs dependency
     /// 
-    /// This follows Service Islands Architecture dependency injection pattern:
-    /// Layer 3 (Communication) depends on Layer 2 (External Services)
+    /// Creates all components and establishes communication channels with Layer 2.
     pub async fn with_external_apis(external_apis: Arc<ExternalApisIsland>) -> Result<Self> {
-        println!("🏝️ Initializing WebSocket Service Island with Layer 2 External APIs integration...");
+        println!("🔧 Initializing WebSocket Service Island with Layer 2 External APIs...");
         
-        // Create broadcast channel for real-time updates
-        let (broadcast_tx, _) = broadcast::channel(1000);
+        // Initialize Layer 2 adapters with External APIs dependency
+        let layer2_adapters = Arc::new(
+            Layer2AdaptersHub::new()
+                .with_external_apis(external_apis.clone())
+        );
         
-        // Initialize components with External APIs dependency
+        // Initialize components
         let connection_manager = Arc::new(ConnectionManager::new());
         let message_handler = Arc::new(MessageHandler::new());
         let broadcast_service = Arc::new(BroadcastService::new());
         let handlers = Arc::new(WebSocketHandlers::new());
-        let market_data_streamer = Arc::new(MarketDataStreamer::with_external_apis(external_apis));
         
-        // Start background services
-        broadcast_service.start_background_updates().await;
+        // Initialize market data streamer with External APIs
+        let market_data_streamer = Arc::new(MarketDataStreamer::with_external_apis(external_apis.clone()));
         
-        // Start real-time market data streaming
+        // Create broadcast channel (increased buffer for high-frequency updates)
+        let (broadcast_tx, _) = broadcast::channel(1000);
+        
+        // Start market data streaming
         market_data_streamer.start_streaming(broadcast_tx.clone()).await?;
         market_data_streamer.start_btc_streaming(broadcast_tx.clone()).await?;
         
-        println!("✅ WebSocket Service Island with External APIs integration initialized successfully");
+        println!("✅ WebSocket Service Island with External APIs and Layer 2 Adapters initialized successfully");
         
         Ok(Self {
             connection_manager,
@@ -107,6 +117,7 @@ impl WebSocketServiceIsland {
             broadcast_service,
             handlers,
             market_data_streamer,
+            layer2_adapters,
             broadcast_tx,
         })
     }
@@ -124,6 +135,7 @@ impl WebSocketServiceIsland {
             ("Broadcast Service", self.broadcast_service.health_check().await),
             ("WebSocket Handlers", self.handlers.health_check().await),
             ("Market Data Streamer", self.market_data_streamer.health_check().await),
+            ("Layer 2 Adapters Hub", self.layer2_adapters.health_check().await.is_ok()),
         ];
         
         let mut all_healthy = true;
@@ -176,5 +188,37 @@ impl WebSocketServiceIsland {
     /// Broadcasts a dashboard data update to all connected clients.
     pub async fn broadcast_dashboard_update(&self, dashboard_data: serde_json::Value) -> Result<()> {
         self.broadcast_service.broadcast_dashboard_update(dashboard_data, &self.broadcast_tx).await
+    }
+    
+    /// Fetch market data via Layer 3 → Layer 2 (proper architecture flow)
+    /// 
+    /// This method allows Layer 5 to request market data through Layer 3,
+    /// maintaining proper Service Islands Architecture dependency flow:
+    /// Layer 5 → Layer 3 → Layer 2
+    pub async fn fetch_market_data_for_layer5(&self) -> Result<serde_json::Value> {
+        println!("🔄 Layer 3 WebSocketService handling Layer 5 market data request...");
+        
+        // Use Layer 2 adapters for clean API access
+        self.layer2_adapters.market_data.fetch_normalized_market_data().await
+    }
+
+    /// Start streaming with Service Islands access
+    /// 
+    /// This enables the market data streamer to use the same Layer 5 → Layer 3 → Layer 2 flow
+    /// as HTTP API and WebSocket initial messages, ensuring unified data sources.
+    pub async fn start_streaming_with_service_islands(&self, service_islands: Arc<crate::service_islands::ServiceIslands>) -> Result<()> {
+        println!("🌊 Starting WebSocket streaming with unified Layer 5 access...");
+        
+        // Configure market data streamer with ServiceIslands access
+        let updated_streamer = Arc::new(
+            MarketDataStreamer::new()
+                .with_service_islands(service_islands)
+        );
+        
+        // Replace the existing streamer (this is a design pattern for runtime updates)
+        // In a production system, you might want to handle this more gracefully
+        updated_streamer.start_streaming(self.broadcast_tx.clone()).await?;
+        
+        Ok(())
     }
 }
