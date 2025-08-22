@@ -5,7 +5,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 use anyhow::Result;
-use redis::{Client, AsyncCommands, Connection};
+use redis::{Client, AsyncCommands};
 use serde_json;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -77,11 +77,6 @@ impl L2Cache {
         }
     }
     
-    /// Set value in L2 cache with default TTL (1 hour)
-    pub async fn set(&self, key: &str, value: serde_json::Value) -> Result<()> {
-        self.set_with_ttl(key, value, Duration::from_secs(3600)).await
-    }
-    
     /// Set value with custom TTL
     pub async fn set_with_ttl(&self, key: &str, value: serde_json::Value, ttl: Duration) -> Result<()> {
         let json_str = serde_json::to_string(&value)?;
@@ -96,14 +91,6 @@ impl L2Cache {
     pub async fn remove(&self, key: &str) -> Result<()> {
         let mut conn = self.client.get_multiplexed_async_connection().await?;
         let _: () = conn.del(key).await?;
-        Ok(())
-    }
-    
-    /// Clear entire cache (use with caution)
-    pub async fn clear(&self) -> Result<()> {
-        let mut conn = self.client.get_multiplexed_async_connection().await?;
-        let _: () = redis::cmd("FLUSHDB").query_async(&mut conn).await?;
-        println!("🧹 L2 Cache (Redis) cleared");
         Ok(())
     }
     
@@ -124,41 +111,5 @@ impl L2Cache {
             }
             Err(_) => false
         }
-    }
-    
-    /// Get cache statistics
-    pub async fn get_statistics(&self) -> serde_json::Value {
-        let hits = self.hits.load(Ordering::Relaxed);
-        let misses = self.misses.load(Ordering::Relaxed);
-        let sets = self.sets.load(Ordering::Relaxed);
-        let total_requests = hits + misses;
-        let hit_rate = if total_requests > 0 {
-            (hits as f64 / total_requests as f64) * 100.0
-        } else {
-            0.0
-        };
-        
-        // Try to get Redis info
-        let mut redis_info = serde_json::json!({});
-        if let Ok(mut conn) = self.client.get_multiplexed_async_connection().await {
-            if let Ok(info_str) = redis::cmd("INFO").arg("memory").query_async::<String>(&mut conn).await {
-                // Parse basic memory info from Redis INFO response
-                if let Some(used_memory_line) = info_str.lines().find(|line| line.starts_with("used_memory:")) {
-                    if let Some(memory_bytes) = used_memory_line.split(':').nth(1) {
-                        redis_info["used_memory_bytes"] = serde_json::Value::String(memory_bytes.to_string());
-                    }
-                }
-            }
-        }
-        
-        serde_json::json!({
-            "type": "L2_Redis",
-            "hits": hits,
-            "misses": misses,
-            "sets": sets,
-            "total_requests": total_requests,
-            "hit_rate_percent": hit_rate,
-            "redis_info": redis_info
-        })
     }
 }

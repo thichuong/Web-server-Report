@@ -3,8 +3,6 @@
 //! This component handles PDF generation operations for crypto reports,
 //! including A4 optimization and print-ready formatting.
 
-use serde::{Serialize, Deserialize};
-use sqlx::{FromRow};
 use std::{error::Error as StdError, sync::Arc};
 use tera::Context;
 
@@ -12,7 +10,7 @@ use tera::Context;
 use crate::state::AppState;
 
 // Import models from report_creator
-use super::report_creator::{Report, ReportCreator};
+use super::report_creator::ReportCreator;
 
 /// PDF Generator
 /// 
@@ -114,38 +112,5 @@ impl PdfGenerator {
                 Err(format!("PDF template task join error: {}", e).into())
             }
         }
-    }
-
-    /// Generate PDF for latest report
-    /// 
-    /// Convenience method to generate PDF for the most recent report
-    pub async fn latest_report_pdf_with_tera(
-        &self,
-        app_state: &Arc<AppState>
-    ) -> Result<String, Box<dyn StdError + Send + Sync>> {
-        println!("📄 PdfGenerator::latest_report_pdf_with_tera - Fetching latest report");
-        
-        // Get latest report
-        let report_option = self.report_creator.fetch_and_cache_latest_report(app_state).await?;
-        
-        let report = match report_option {
-            Some(report) => report,
-            None => {
-                return Err("No reports found".into());
-            }
-        };
-        
-        // Generate PDF for the latest report
-        self.crypto_report_pdf_with_tera(app_state, report.id).await
-    }
-    
-    /// Generate PDF for crypto report
-    /// 
-    /// This method will handle PDF generation for crypto reports with A4 optimization.
-    /// Currently placeholder - will implement with actual PDF generation logic.
-    pub async fn generate_report_pdf(&self, report_id: i32) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
-        // Placeholder implementation
-        // Will integrate with PDF libraries and template system
-        Ok(vec![]) // Return empty PDF data for now
     }
 }

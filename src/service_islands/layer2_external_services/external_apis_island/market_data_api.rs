@@ -345,27 +345,4 @@ impl MarketDataApi {
     fn record_failure(&self) {
         self.failed_calls.fetch_add(1, Ordering::Relaxed);
     }
-    
-    /// Get API statistics
-    pub async fn get_statistics(&self) -> serde_json::Value {
-        let total_calls = self.api_calls_count.load(Ordering::Relaxed);
-        let successful = self.successful_calls.load(Ordering::Relaxed);
-        let failed = self.failed_calls.load(Ordering::Relaxed);
-        let last_call = self.last_call_timestamp.load(Ordering::Relaxed);
-        
-        let success_rate = if total_calls > 0 {
-            (successful as f64 / total_calls as f64) * 100.0
-        } else {
-            0.0
-        };
-        
-        serde_json::json!({
-            "total_calls": total_calls,
-            "successful_calls": successful,
-            "failed_calls": failed,
-            "success_rate_percent": success_rate,
-            "last_call_timestamp": last_call,
-            "uptime": "active"
-        })
-    }
 }

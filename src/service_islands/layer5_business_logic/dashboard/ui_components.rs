@@ -23,12 +23,4 @@ impl UIComponents {
         true // Will implement actual health check
     }
     
-    /// Generate UI component
-    /// 
-    /// Generates reusable UI components for dashboard.
-    /// Currently placeholder - will implement with actual UI logic.
-    pub async fn generate_component(&self, component_type: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-        // Placeholder implementation
-        Ok(format!("Generated UI component: {}", component_type))
-    }
 }

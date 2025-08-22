@@ -20,6 +20,7 @@ pub struct ApiAggregatorAdapter {
     external_apis: Option<Arc<ExternalApisIsland>>,
 }
 
+#[allow(dead_code)]
 impl ApiAggregatorAdapter {
     /// Create new API Aggregator Adapter without Layer 2 dependency
     pub fn new() -> Self {
@@ -41,7 +42,7 @@ impl ApiAggregatorAdapter {
         if let Some(external_apis) = &self.external_apis {
             println!("🔄 [Layer 3 → Layer 2] Fetching aggregated market statistics...");
             // This would call a market statistics aggregation method
-            external_apis.fetch_dashboard_summary().await
+            external_apis.fetch_dashboard_summary_v2().await
         } else {
             Err(anyhow::anyhow!("Layer 2 External APIs not configured in ApiAggregatorAdapter"))
         }

@@ -36,31 +36,6 @@ pub struct CryptoReportsIsland {
 }
 
 impl CryptoReportsIsland {
-    /// Initialize the Crypto Reports Island (basic, no dependencies)
-    /// 
-    /// Creates a new Crypto Reports Island with basic components.
-    /// Use `with_dependencies()` for full functionality with lower layers.
-    pub async fn new() -> Result<Self, anyhow::Error> {
-        println!("📊 Initializing Crypto Reports Island (basic mode)...");
-        
-        let report_creator = report_creator::ReportCreator::new();
-        let handlers = handlers::CryptoHandlers::new();
-        let pdf_generator = pdf_generator::PdfGenerator::new();
-        let data_manager = data_manager::DataManager::new();
-        let template_orchestrator = template_orchestrator::TemplateOrchestrator::new(report_creator.clone());
-        
-        println!("✅ Crypto Reports Island initialized (basic mode)!");
-        
-        Ok(Self {
-            handlers,
-            pdf_generator,
-            report_creator,
-            data_manager,
-            template_orchestrator,
-            websocket_service: None,
-        })
-    }
-    
     /// Initialize Crypto Reports Island with proper Service Islands dependencies
     /// 
     /// ✅ STRICT: Only takes Layer 3 dependency (WebSocket Service) which has Layer 2 dependency.

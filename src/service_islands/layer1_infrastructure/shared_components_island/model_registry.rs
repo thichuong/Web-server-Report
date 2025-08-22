@@ -4,8 +4,6 @@
 //! Central registry for data structures used across the application.
 
 use std::collections::HashMap;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -72,10 +70,6 @@ pub struct DashboardData {
 pub struct ModelRegistry {
     /// Model definitions registry
     models: HashMap<String, serde_json::Value>,
-    /// Model access statistics
-    access_count: Arc<AtomicUsize>,
-    /// Model validation count
-    validation_count: Arc<AtomicUsize>,
 }
 
 impl ModelRegistry {
@@ -89,8 +83,6 @@ impl ModelRegistry {
         
         Ok(Self {
             models,
-            access_count: Arc::new(AtomicUsize::new(0)),
-            validation_count: Arc::new(AtomicUsize::new(0)),
         })
     }
     
@@ -158,66 +150,6 @@ impl ModelRegistry {
         Ok(models)
     }
     
-    /// Get a model definition by name
-    pub async fn get_model_definition(&self, model_name: &str) -> Result<serde_json::Value> {
-        self.access_count.fetch_add(1, Ordering::Relaxed);
-        
-        self.models.get(model_name)
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!("Model '{}' not found", model_name))
-    }
-    
-    /// Validate data against a model
-    pub async fn validate_data(&self, model_name: &str, data: &serde_json::Value) -> Result<bool> {
-        self.validation_count.fetch_add(1, Ordering::Relaxed);
-        
-        let model = self.get_model_definition(model_name).await?;
-        
-        // Basic validation logic - in a real implementation, use jsonschema crate
-        match model.get("required") {
-            Some(required_fields) => {
-                if let Some(required_array) = required_fields.as_array() {
-                    for field in required_array {
-                        if let Some(field_name) = field.as_str() {
-                            if !data.get(field_name).is_some() {
-                                return Ok(false);
-                            }
-                        }
-                    }
-                }
-            },
-            None => {}
-        }
-        
-        Ok(true)
-    }
-    
-    /// Create a new instance of a model with default values
-    pub async fn create_model_instance(&self, model_name: &str) -> Result<serde_json::Value> {
-        match model_name {
-            "Report" => Ok(serde_json::json!({
-                "id": 0,
-                "title": "",
-                "content": "",
-                "created_at": chrono::Utc::now().to_rfc3339(),
-                "updated_at": chrono::Utc::now().to_rfc3339(),
-                "report_type": "crypto",
-                "status": "draft",
-                "metadata": {}
-            })),
-            "MarketData" => Ok(serde_json::json!({
-                "symbol": "",
-                "price": 0.0,
-                "change_24h": 0.0,
-                "change_percent_24h": 0.0,
-                "volume_24h": 0.0,
-                "market_cap": 0.0,
-                "last_updated": chrono::Utc::now().to_rfc3339()
-            })),
-            _ => Err(anyhow::anyhow!("Unknown model type: {}", model_name))
-        }
-    }
-    
     /// Health check for model registry
     pub async fn health_check(&self) -> bool {
         // Verify that core models are available
@@ -232,24 +164,5 @@ impl ModelRegistry {
         
         println!("✅ Model Registry health check passed");
         true
-    }
-    
-    /// Get model registry statistics
-    pub async fn get_statistics(&self) -> Result<serde_json::Value> {
-        let total_accesses = self.access_count.load(Ordering::Relaxed);
-        let total_validations = self.validation_count.load(Ordering::Relaxed);
-        
-        Ok(serde_json::json!({
-            "component": "model_registry",
-            "registered_models": self.models.len(),
-            "total_accesses": total_accesses,
-            "total_validations": total_validations,
-            "available_models": self.models.keys().collect::<Vec<_>>()
-        }))
-    }
-    
-    /// List all available models
-    pub async fn list_models(&self) -> Vec<String> {
-        self.models.keys().cloned().collect()
     }
 }

@@ -69,20 +69,6 @@ impl CacheSystemIsland {
     pub fn get_cache_manager(&self) -> Arc<CacheManager> {
         self.cache_manager.clone()
     }
-    
-    /// Get statistics from cache system
-    pub async fn get_statistics(&self) -> serde_json::Value {
-        let l1_stats = self.l1_cache.get_statistics().await;
-        let l2_stats = self.l2_cache.get_statistics().await;
-        let manager_stats = self.cache_manager.get_statistics().await;
-        
-        serde_json::json!({
-            "l1_cache": l1_stats,
-            "l2_cache": l2_stats,
-            "cache_manager": manager_stats,
-            "system_status": "healthy"
-        })
-    }
 
     // ===== COMPATIBILITY METHODS FOR OLD API =====
     

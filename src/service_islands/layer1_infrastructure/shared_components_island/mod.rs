@@ -8,7 +8,6 @@
 
 use std::sync::Arc;
 use anyhow::Result;
-use serde_json;
 
 pub mod template_registry;
 pub mod model_registry;
@@ -31,6 +30,7 @@ pub struct SharedComponentsIsland {
     pub utility_functions: Arc<UtilityFunctions>,
 }
 
+
 impl SharedComponentsIsland {
     /// Initialize the Shared Components Island
     /// 
@@ -42,7 +42,7 @@ impl SharedComponentsIsland {
         println!("🧩 Initializing Shared Components Island...");
         
         // Initialize template registry
-        let template_registry = Arc::new(TemplateRegistry::new().await?);
+        let template_registry = Arc::new(TemplateRegistry::new()?);
         println!("  ✅ Template Registry initialized");
         
         // Initialize model registry
@@ -84,42 +84,5 @@ impl SharedComponentsIsland {
         }
         
         all_healthy
-    }
-    
-    /// Get comprehensive statistics about the shared components
-    pub async fn get_statistics(&self) -> Result<serde_json::Value> {
-        let template_stats = self.template_registry.get_statistics().await?;
-        let model_stats = self.model_registry.get_statistics().await?;
-        let utility_stats = self.utility_functions.get_statistics().await?;
-        
-        Ok(serde_json::json!({
-            "island": "shared_components",
-            "status": "operational",
-            "components": {
-                "template_registry": template_stats,
-                "model_registry": model_stats,
-                "utility_functions": utility_stats
-            },
-            "uptime_info": {
-                "initialization_time": "startup",
-                "components_count": 3,
-                "health_status": "green"
-            }
-        }))
-    }
-    
-    /// Render a template with provided context
-    pub async fn render_template(&self, template_name: &str, context: &tera::Context) -> Result<String> {
-        self.template_registry.render_template(template_name, context).await
-    }
-    
-    /// Get a model definition by name
-    pub async fn get_model_definition(&self, model_name: &str) -> Result<serde_json::Value> {
-        self.model_registry.get_model_definition(model_name).await
-    }
-    
-    /// Execute a utility function
-    pub async fn execute_utility(&self, function_name: &str, args: serde_json::Value) -> Result<serde_json::Value> {
-        self.utility_functions.execute_function(function_name, args).await
     }
 }

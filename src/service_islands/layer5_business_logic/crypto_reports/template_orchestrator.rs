@@ -4,12 +4,8 @@
 //! including context preparation, chart modules injection, and Tera integration.
 //! Follows Service Islands Architecture Layer 5 patterns.
 
-use serde::{Serialize, Deserialize};
-use std::{collections::HashMap, error::Error as StdError, sync::Arc};
+use std::{collections::HashMap, error::Error as StdError};
 use tera::Context;
-
-// Import from current state - will be refactored when lower layers are implemented
-use crate::state::AppState;
 
 // Import from our specialized components
 use super::report_creator::{Report, ReportCreator};
@@ -171,31 +167,6 @@ impl TemplateOrchestrator {
         self.render_template(
             tera,
             "crypto/routes/reports/view.html",
-            context
-        ).await
-    }
-
-    /// Render crypto report PDF template - High level method
-    /// 
-    /// Combines context preparation and template rendering for PDF generation
-    pub async fn render_crypto_report_pdf(
-        &self,
-        tera: &tera::Tera,
-        report: &Report
-    ) -> Result<String, Box<dyn StdError + Send + Sync>> {
-        println!("📄 TemplateOrchestrator: Rendering crypto report PDF");
-        
-        // Step 1: Prepare template context
-        let context = self.prepare_crypto_report_context(
-            report,
-            "pdf",
-            None
-        ).await?;
-        
-        // Step 2: Render template
-        self.render_template(
-            tera,
-            "crypto/routes/reports/pdf.html",
             context
         ).await
     }

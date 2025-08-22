@@ -24,57 +24,7 @@ pub struct AppState {
     pub tera: Tera,
 }
 
-// Placeholder structs for components that handlers expect
-pub struct ReportCache;
-pub struct CacheManager; 
-pub struct Metrics;
-pub struct DbConnection;
-
-impl ReportCache {
-    pub async fn stats(&self) -> CacheStats {
-        CacheStats { 
-            entries: 0,
-            l1_entry_count: 0,
-            l1_hit_count: 0,
-            l1_miss_count: 0,
-            l1_hit_rate: 0.0,
-        }
-    }
-    
-    pub fn hit_rate(&self) -> f64 {
-        0.0
-    }
-}
-
-impl CacheManager {
-    pub async fn stats(&self) -> CacheStats {
-        CacheStats { 
-            entries: 0,
-            l1_entry_count: 0,
-            l1_hit_count: 0,
-            l1_miss_count: 0,
-            l1_hit_rate: 0.0,
-        }
-    }
-    
-    pub async fn health_check(&self) -> CacheHealth {
-        CacheHealth {
-            l2_healthy: true,
-            overall_healthy: true,
-        }
-    }
-}
-
-impl Metrics {
-    pub fn record_request(&self, _response_time: u64) {
-        // Placeholder
-    }
-    
-    pub fn avg_response_time(&self) -> f64 {
-        0.0
-    }
-}
-
+#[allow(dead_code)]
 pub struct CacheStats {
     pub entries: u64,
     pub l1_entry_count: u64,
@@ -83,6 +33,7 @@ pub struct CacheStats {
     pub l1_hit_rate: f64,
 }
 
+#[allow(dead_code)]
 pub struct CacheHealth {
     pub l2_healthy: bool,
     pub overall_healthy: bool,
@@ -148,35 +99,8 @@ impl AppState {
         })
     }
     
-    /// Prime cache - now uses Redis Streams if available
-    pub async fn prime_cache(&self) -> Result<(), Box<dyn std::error::Error>> {
-        if let Some(cache_system) = &self.cache_system {
-            // Prime cache by warming up Redis Streams and L1/L2 caches
-            println!("🔥 Priming cache system with Redis Streams...");
-            // Cache system is already warmed up during initialization
-        }
-        Ok(())
-    }
-    
     /// Get cache system for Layer 3 → Layer 1 communication
     pub fn get_cache_system(&self) -> Option<Arc<CacheSystemIsland>> {
         self.cache_system.clone()
-    }
-    
-    // Add placeholder fields that health checker expects
-    pub fn report_cache(&self) -> ReportCache {
-        ReportCache
-    }
-    
-    pub fn cache_manager(&self) -> CacheManager {
-        CacheManager
-    }
-    
-    pub fn metrics(&self) -> Metrics {
-        Metrics
-    }
-    
-    pub fn db(&self) -> DbConnection {
-        DbConnection
     }
 }

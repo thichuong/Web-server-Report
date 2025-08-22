@@ -38,35 +38,14 @@ impl MarketDataStreamer {
             is_streaming: std::sync::atomic::AtomicBool::new(false),
         }
     }
-    
-    /// Create Market Data Streamer with External APIs dependency
-    /// 
-    /// This connects Layer 3 Communication to Layer 2 External Services
-    /// following Service Islands Architecture dependency rules.
-    pub fn with_external_apis(external_apis: Arc<ExternalApisIsland>) -> Self {
-        Self {
-            external_apis: Some(external_apis),
-            service_islands: None,
-            update_interval: Duration::from_secs(30), // 30 seconds for BTC price updates as requested
-            is_streaming: std::sync::atomic::AtomicBool::new(false),
-        }
-    }
-    
-    /// Set Service Islands reference for Layer 5 access
-    /// 
-    /// This allows market data streamer to use Layer 5 → Layer 3 → Layer 2 flow
-    /// matching the same pattern as HTTP API and WebSocket initial messages.
+
+    /// Set Service Islands reference for Layer 5 access (compatibility method)
     pub fn with_service_islands(mut self, service_islands: Arc<ServiceIslands>) -> Self {
         self.service_islands = Some(service_islands);
         self
     }
     
-    /// Set update interval
-    pub fn set_update_interval(&mut self, interval: Duration) {
-        self.update_interval = interval;
-    }
-    
-    /// Start streaming market data
+    /// Health check for market data streamer
     /// 
     /// Begins periodic streaming of market data using Layer 5 → Layer 3 → Layer 2 flow
     /// to match the same data source as HTTP API and WebSocket initial messages.
@@ -183,6 +162,7 @@ impl MarketDataStreamer {
     /// 
     /// Streams BTC price updates using unified data flow when possible,
     /// with fallback to direct Layer 2 access for backward compatibility.
+    #[allow(dead_code)]
     pub async fn start_btc_streaming(&self, broadcast_tx: broadcast::Sender<String>) -> Result<()> {
         if let Some(external_apis) = &self.external_apis {
             println!("₿ Starting BTC price streaming from Layer 2 External APIs...");
@@ -197,7 +177,7 @@ impl MarketDataStreamer {
             tokio::spawn(async move {
                 let mut interval_timer = interval(btc_interval);
                 let mut consecutive_failures = 0;
-                let max_consecutive_failures = 3;
+                let _max_consecutive_failures = 3;
                 
                 loop {
                     interval_timer.tick().await;
@@ -304,26 +284,6 @@ impl MarketDataStreamer {
             println!("⚠️ External APIs not configured - BTC price streaming disabled");
             Ok(())
         }
-    }
-    
-    /// Stop streaming
-    pub fn stop_streaming(&self) {
-        self.is_streaming.store(false, std::sync::atomic::Ordering::Relaxed);
-        println!("🛑 Market data streaming stopped");
-    }
-    
-    /// Check if streaming is active
-    pub fn is_streaming(&self) -> bool {
-        self.is_streaming.load(std::sync::atomic::Ordering::Relaxed)
-    }
-    
-    /// DEPRECATED: Use WebSocketService.fetch_market_data_for_layer5() instead
-    /// This method bypasses the unified data flow and creates redundant API calls.
-    /// 
-    /// Fetch market data via unified Layer 5 → Layer 3 → Layer 2 flow
-    pub async fn fetch_market_data(&self) -> Result<serde_json::Value> {
-        // Deprecated: Direct Layer 2 access
-        Err(anyhow::anyhow!("DEPRECATED: Use WebSocketService.fetch_market_data_for_layer5() for unified data flow"))
     }
     
     /// Health check for market data streamer

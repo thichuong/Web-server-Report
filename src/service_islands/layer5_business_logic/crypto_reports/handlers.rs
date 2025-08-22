@@ -8,16 +8,13 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use serde::{Serialize, Deserialize};
-use std::{collections::HashMap, error::Error as StdError, sync::Arc, sync::atomic::Ordering, path::Path, env};
-use tera::Context;
-use tokio::fs::read_dir;
+use std::{sync::Arc, error::Error as StdError, sync::atomic::Ordering};
 
 // Import from current state - will be refactored when lower layers are implemented
 use crate::state::AppState;
 
 // Import from our specialized components
-use super::report_creator::{Report, ReportSummary, ReportListItem, ReportCreator};
+use super::report_creator::{ReportSummary, ReportListItem, ReportCreator};
 use super::pdf_generator::PdfGenerator;
 use super::template_orchestrator::TemplateOrchestrator;
 
@@ -53,52 +50,6 @@ impl CryptoHandlers {
         let template_orchestrator_ok = self.template_orchestrator.health_check().await;
         
         report_creator_ok && pdf_generator_ok && template_orchestrator_ok
-    }
-
-    /// Helper function for template rendering
-    /// 
-    /// DEPRECATED: Use template_orchestrator methods instead
-    /// Kept for backward compatibility during transition
-    pub async fn render_crypto_template(
-        &self,
-        tera: &tera::Tera, 
-        template: &str,
-        report: &Report,
-        _chart_modules_content: &str, // Not used anymore, handled by orchestrator
-        additional_context: Option<HashMap<String, serde_json::Value>>
-    ) -> Result<String, Box<dyn StdError + Send + Sync>> {
-        println!("🔄 CryptoHandlers::render_crypto_template - Delegating to TemplateOrchestrator");
-        
-        // Delegate to TemplateOrchestrator for proper separation of concerns
-        match template {
-            path if path.contains("view.html") => {
-                self.template_orchestrator.render_crypto_report_view(
-                    tera,
-                    report,
-                    additional_context
-                ).await
-            }
-            path if path.contains("pdf.html") => {
-                self.template_orchestrator.render_crypto_report_pdf(
-                    tera,
-                    report
-                ).await
-            }
-            _ => {
-                // Generic template rendering
-                let context = self.template_orchestrator.prepare_crypto_report_context(
-                    report,
-                    template,
-                    additional_context
-                ).await?;
-                
-                self.template_orchestrator.render_template(
-                    tera,
-                    template,
-                    context
-                ).await
-            }
-        }
     }
 
     /// Create cached response with proper headers
@@ -185,7 +136,7 @@ impl CryptoHandlers {
         let db_fut = self.report_creator.fetch_and_cache_latest_report(state);
         let chart_fut = self.report_creator.get_chart_modules_content();
 
-        let (db_res, chart_modules_content) = tokio::join!(db_fut, chart_fut);
+        let (db_res, _chart_modules_content) = tokio::join!(db_fut, chart_fut);
 
         match db_res {
             Ok(Some(report)) => {
@@ -299,7 +250,7 @@ impl CryptoHandlers {
         let db_fut = self.report_creator.fetch_and_cache_report_by_id(state, report_id);
         let chart_fut = self.report_creator.get_chart_modules_content();
 
-        let (db_res, chart_modules_content) = tokio::join!(db_fut, chart_fut);
+        let (db_res, _chart_modules_content) = tokio::join!(db_fut, chart_fut);
 
         match db_res {
             Ok(Some(report)) => {

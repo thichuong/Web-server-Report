@@ -6,7 +6,7 @@
 
 use serde::{Serialize, Deserialize};
 use sqlx::{FromRow};
-use std::{error::Error as StdError, sync::Arc};
+use std::sync::Arc;
 
 // Import from current state - will be refactored when lower layers are implemented
 use crate::state::AppState;
@@ -45,12 +45,6 @@ impl CryptoDataService {
         Self {
             // Initialize service
         }
-    }
-    
-    /// Health check for data service
-    pub async fn health_check(&self) -> bool {
-        // Verify database connectivity
-        true // Will implement actual health check
     }
 
     /// Fetch latest crypto report from database with intelligent caching (L1+L2)
@@ -176,151 +170,5 @@ impl CryptoDataService {
         }
         
         Ok(report)
-    }
-
-    /// Get total count of crypto reports with intelligent caching (L1+L2)
-    /// 
-    /// Returns total number of reports for pagination calculations
-    pub async fn get_reports_count(
-        &self,
-        state: &Arc<AppState>,
-    ) -> Result<i64, sqlx::Error> {
-        let cache_key = "crypto_reports_count";
-        
-        // Try cache first if available (L1 then L2 fallback with promotion) - OPTIMIZED
-        if let Some(ref cache_system) = state.cache_system {
-            match cache_system.cache_manager.get(cache_key).await {
-                Ok(Some(cached_data)) => {
-                    if let Some(cached_count) = cached_data.as_i64() {
-                        println!("🔥 CryptoDataService: L1 Cache HIT for reports count: {}", cached_count);
-                        return Ok(cached_count);
-                    }
-                }
-                Ok(None) => {
-                    println!("🔍 CryptoDataService: L1 Cache MISS for reports count");
-                }
-                Err(e) => {
-                    println!("⚠️ CryptoDataService: L1 Cache access error for count: {}", e);
-                }
-            }
-        }
-        
-        let count = sqlx::query_scalar::<_, i64>(
-            "SELECT COUNT(*) as total FROM crypto_report"
-        ).fetch_one(&state.db).await?;
-        
-        // Cache the count for 10 minutes in both L1 and L2
-        if let Some(ref cache_system) = state.cache_system {
-            match cache_system.cache_manager.set_with_strategy(
-                cache_key, 
-                serde_json::json!(count),
-                crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::Custom(std::time::Duration::from_secs(600)) // 10 minutes
-            ).await {
-                Ok(_) => println!("💾 CryptoDataService: Cached reports count {} for 10 minutes", count),
-                Err(e) => println!("⚠️ CryptoDataService: L1 Cache set error for count: {}", e),
-            }
-        }
-        
-        Ok(count)
-    }
-
-    /// Fetch paginated crypto reports summary with intelligent caching (L1+L2)
-    /// 
-    /// Pure data layer operation with dual cache integration - retrieves reports with pagination
-    pub async fn fetch_reports_summary_paginated(
-        &self,
-        state: &Arc<AppState>,
-        limit: i64,
-        offset: i64,
-    ) -> Result<Vec<ReportSummaryData>, sqlx::Error> {
-        let cache_key = format!("crypto_reports_summary_{}_{}", limit, offset);
-        
-        // Try cache first if available (L1 then L2 fallback with promotion) - OPTIMIZED
-        if let Some(ref cache_system) = state.cache_system {
-            match cache_system.cache_manager.get(&cache_key).await {
-                Ok(Some(cached_data)) => {
-                    match serde_json::from_value::<Vec<ReportSummaryData>>(cached_data) {
-                        Ok(cached_reports) => {
-                            println!("🔥 CryptoDataService: L1 Cache HIT for reports summary (limit:{}, offset:{})", limit, offset);
-                            return Ok(cached_reports);
-                        }
-                        Err(e) => {
-                            println!("⚠️ CryptoDataService: L1 Cache deserialization error for summary: {}", e);
-                        }
-                    }
-                }
-                Ok(None) => {
-                    println!("🔍 CryptoDataService: L1 Cache MISS for reports summary (limit:{}, offset:{})", limit, offset);
-                }
-                Err(e) => {
-                    println!("⚠️ CryptoDataService: L1 Cache access error for summary: {}", e);
-                }
-            }
-        }
-        
-        let reports = sqlx::query_as::<_, ReportSummaryData>(
-            "SELECT id, created_at FROM crypto_report ORDER BY created_at DESC LIMIT $1 OFFSET $2"
-        )
-        .bind(limit)
-        .bind(offset)
-        .fetch_all(&state.db).await?;
-        
-        println!("📊 CryptoDataService: Retrieved {} report summaries from database", reports.len());
-        
-        // Cache the result for 10 minutes in both L1 and L2 (pagination data)
-        if let Some(ref cache_system) = state.cache_system {
-            if let Ok(reports_json) = serde_json::to_value(&reports) {
-                match cache_system.cache_manager.set_with_strategy(
-                    &cache_key, 
-                    reports_json,
-                    crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::Custom(std::time::Duration::from_secs(600)) // 10 minutes
-                ).await {
-                    Ok(_) => println!("💾 CryptoDataService: Cached {} report summaries for 10 minutes", reports.len()),
-                    Err(e) => println!("⚠️ CryptoDataService: Cache set error for summaries: {}", e),
-                }
-            }
-        }
-        
-        Ok(reports)
-    }
-    
-    /// Insert new crypto report with cache invalidation
-    /// 
-    /// Pure data layer operation with cache management - inserts report and invalidates related cache
-    pub async fn insert_crypto_report(
-        &self,
-        state: &Arc<AppState>,
-        html_content: &str,
-        css_content: Option<&str>,
-        js_content: Option<&str>,
-        html_content_en: Option<&str>,
-        js_content_en: Option<&str>,
-    ) -> Result<i32, sqlx::Error> {
-        let report_id = sqlx::query_scalar::<_, i32>(
-            r#"
-            INSERT INTO crypto_report (html_content, css_content, js_content, html_content_en, js_content_en, created_at)
-            VALUES ($1, $2, $3, $4, $5, NOW())
-            RETURNING id
-            "#
-        )
-        .bind(html_content)
-        .bind(css_content)
-        .bind(js_content)
-        .bind(html_content_en)
-        .bind(js_content_en)
-        .fetch_one(&state.db).await?;
-        
-        println!("💾 CryptoDataService: Inserted new crypto report with ID {}", report_id);
-        
-        // Invalidate related caches since we have a new report
-        if let Some(ref cache_system) = state.cache_system {
-            // Invalidate latest report cache
-            let _ = cache_system.cache_manager.remove("crypto_latest_report_data").await;
-            // Invalidate count cache
-            let _ = cache_system.cache_manager.remove("crypto_reports_count").await;
-            println!("🧹 CryptoDataService: Invalidated related caches after insert");
-        }
-        
-        Ok(report_id)
     }
 }

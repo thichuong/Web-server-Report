@@ -5,7 +5,7 @@
 
 use serde::{Serialize, Deserialize};
 use sqlx::{FromRow};
-use std::{error::Error as StdError, sync::Arc, path::Path, env, sync::atomic::Ordering};
+use std::{sync::Arc, path::Path, env};
 use tokio::fs::read_dir;
 
 // Import from current state - will be refactored when lower layers are implemented
@@ -143,7 +143,7 @@ impl ReportCreator {
     pub async fn get_chart_modules_content(&self) -> String {
         // TODO: Add chart modules cache when cache layer is ready
         // For now always read from files (like debug mode in archive)
-        let debug = env::var("DEBUG").unwrap_or_default() == "1";
+        let _debug = env::var("DEBUG").unwrap_or_default() == "1";
         
         let source_dir = Path::new("shared_assets").join("js").join("chart_modules");
         let priority_order = vec!["gauge.js", "bar.js", "line.js", "doughnut.js"];
@@ -212,58 +212,5 @@ impl ReportCreator {
         });
 
         final_content
-    }
-
-    /// Fetch reports list with pagination
-    /// 
-    /// Retrieves paginated list of crypto reports with summary information using Layer 3 data service
-    pub async fn fetch_reports_list_with_pagination(
-        &self,
-        state: &Arc<AppState>,
-        page: i64,
-        per_page: i64,
-    ) -> Result<(Vec<ReportListItem>, i64, i64), Box<dyn StdError + Send + Sync>> {
-        let offset = (page - 1) * per_page;
-        
-        // Get total count and reports via data service (Layer 3) in parallel
-        let (count_result, reports_result) = tokio::try_join!(
-            self.data_service.get_reports_count(state),
-            self.data_service.fetch_reports_summary_paginated(state, per_page, offset)
-        )?;
-
-        let total_reports = count_result;
-        let total_pages = (total_reports + per_page - 1) / per_page;
-
-        // Format reports using rayon for parallel processing (CPU-intensive date formatting)
-        // This is business logic - converting data models to presentation models
-        let items = tokio::task::spawn_blocking(move || {
-            use rayon::prelude::*;
-            
-            reports_result
-                .into_par_iter()
-                .map(|report_data| {
-                    let local_time = report_data.created_at.format("%d/%m/%Y").to_string();
-                    let local_time_detail = report_data.created_at.format("%H:%M:%S").to_string();
-                    
-                    ReportListItem {
-                        id: report_data.id,
-                        created_date: local_time,
-                        created_time: local_time_detail,
-                    }
-                })
-                .collect::<Vec<_>>()
-        }).await?;
-
-        Ok((items, total_pages, total_reports))
-    }
-    
-    /// Create new crypto report
-    /// 
-    /// This method will handle the creation of new crypto reports with market analysis.
-    /// Currently placeholder - will implement with actual report creation logic.
-    pub async fn create_crypto_report(&self, market_data: &str) -> Result<i32, Box<dyn std::error::Error + Send + Sync>> {
-        // Placeholder implementation
-        // Will integrate with market data and report generation logic
-        Ok(1) // Return dummy report ID for now
     }
 }

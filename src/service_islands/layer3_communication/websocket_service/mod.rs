@@ -47,40 +47,6 @@ pub struct WebSocketServiceIsland {
 }
 
 impl WebSocketServiceIsland {
-    /// Initialize the WebSocket Service Island without External APIs dependency
-    /// 
-    /// Creates all components and establishes communication channels.
-    pub async fn new() -> Result<Self> {
-        println!("🔧 Initializing WebSocket Service Island (standalone mode)...");
-        
-        // Initialize Layer 2 adapters without External APIs dependency
-        let layer2_adapters = Arc::new(Layer2AdaptersHub::new());
-        
-        // Initialize components
-        let connection_manager = Arc::new(ConnectionManager::new());
-        let message_handler = Arc::new(MessageHandler::new());
-        let broadcast_service = Arc::new(BroadcastService::new());
-        let handlers = Arc::new(WebSocketHandlers::new());
-        
-        // Initialize market data streamer without External APIs (standalone mode)
-        let market_data_streamer = Arc::new(MarketDataStreamer::new());
-        
-        // Create broadcast channel (increased buffer for high-frequency updates) 
-        let (broadcast_tx, _) = broadcast::channel(1000);
-        
-        println!("✅ WebSocket Service Island initialized successfully (standalone mode)");
-        
-        Ok(Self {
-            connection_manager,
-            message_handler,
-            broadcast_service,
-            handlers,
-            market_data_streamer,
-            layer2_adapters,
-            broadcast_tx,
-        })
-    }
-    
     /// Initialize the WebSocket Service Island with External APIs and Cache Optimization
     /// 
     /// Creates all components and establishes communication channels with Layer 2 and cache optimization.
@@ -115,47 +81,6 @@ impl WebSocketServiceIsland {
         println!("⚠️ TODO: Update MarketDataStreamer to use Layer2AdaptersHub instead of direct external_apis");
         
         println!("✅ WebSocket Service Island initialized with Layer 2 External APIs and Cache Optimization");
-        
-        Ok(Self {
-            connection_manager,
-            message_handler,
-            broadcast_service,
-            handlers,
-            market_data_streamer,
-            layer2_adapters,
-            broadcast_tx,
-        })
-    }
-    
-    /// Initialize the WebSocket Service Island with External APIs dependency (Legacy)
-    /// 
-    /// Creates all components and establishes communication channels with Layer 2.
-    pub async fn with_external_apis(external_apis: Arc<ExternalApisIsland>) -> Result<Self> {
-        println!("🔧 Initializing WebSocket Service Island with Layer 2 External APIs...");
-        
-        // Initialize Layer 2 adapters with External APIs dependency
-        let layer2_adapters = Arc::new(
-            Layer2AdaptersHub::new()
-                .with_external_apis(external_apis.clone())
-        );
-        
-        // Initialize components
-        let connection_manager = Arc::new(ConnectionManager::new());
-        let message_handler = Arc::new(MessageHandler::new());
-        let broadcast_service = Arc::new(BroadcastService::new());
-        let handlers = Arc::new(WebSocketHandlers::new());
-        
-        // Initialize market data streamer WITHOUT direct external APIs dependency
-        // It should use layer2_adapters instead for proper Service Islands Architecture
-        let market_data_streamer = Arc::new(MarketDataStreamer::new());
-        
-        // Create broadcast channel (increased buffer for high-frequency updates)
-        let (broadcast_tx, _) = broadcast::channel(1000);
-        
-        // TODO: Update MarketDataStreamer to use layer2_adapters
-        println!("⚠️ ARCHITECTURE: MarketDataStreamer should use Layer2AdaptersHub, not direct external_apis");
-        
-        println!("✅ WebSocket Service Island with External APIs and Layer 2 Adapters initialized successfully");
         
         Ok(Self {
             connection_manager,
@@ -207,33 +132,6 @@ impl WebSocketServiceIsland {
     /// Returns the broadcast transmitter for sending real-time updates.
     pub fn get_broadcast_tx(&self) -> broadcast::Sender<String> {
         self.broadcast_tx.clone()
-    }
-    
-    /// Get connection statistics
-    /// 
-    /// Returns current WebSocket connection statistics.
-    pub async fn get_connection_stats(&self) -> Result<serde_json::Value> {
-        // This will be implemented when we have actual connection tracking
-        Ok(serde_json::json!({
-            "active_connections": 0,
-            "total_messages_sent": 0,
-            "total_messages_received": 0,
-            "uptime": "0s"
-        }))
-    }
-    
-    /// Broadcast message to all connected clients
-    /// 
-    /// Sends a message to all active WebSocket connections.
-    pub async fn broadcast(&self, message: String) -> Result<()> {
-        self.broadcast_service.broadcast_message(message, &self.broadcast_tx).await
-    }
-    
-    /// Broadcast dashboard update
-    /// 
-    /// Broadcasts a dashboard data update to all connected clients.
-    pub async fn broadcast_dashboard_update(&self, dashboard_data: serde_json::Value) -> Result<()> {
-        self.broadcast_service.broadcast_dashboard_update(dashboard_data, &self.broadcast_tx).await
     }
     
     /// Fetch market data via Layer 3 → Layer 2 (proper architecture flow)

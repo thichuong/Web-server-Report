@@ -6,10 +6,9 @@
 use axum::{
     routing::get,
     Router,
-    response::{Html, IntoResponse, Response},
-    extract::{Extension, Path, State, Query},
+    response::{IntoResponse, Response},
+    extract::{Path, State, Query},
     http::StatusCode,
-    Json
 };
 use std::sync::Arc;
 use std::collections::HashMap;
