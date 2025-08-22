@@ -72,7 +72,7 @@ impl CacheManager {
         })
     }
     
-    /// Get value from cache (L1 -> L2 -> miss)
+    /// Get value from cache (L1 first, then L2 fallback with promotion)
     pub async fn get(&self, key: &str) -> Result<Option<serde_json::Value>> {
         self.total_requests.fetch_add(1, Ordering::Relaxed);
         
@@ -107,7 +107,7 @@ impl CacheManager {
         self.set_with_strategy(key, value, CacheStrategy::Default).await
     }
     
-    /// Set value with specific cache strategy
+    /// Set value with specific cache strategy (both L1 and L2)
     pub async fn set_with_strategy(&self, key: &str, value: serde_json::Value, strategy: CacheStrategy) -> Result<()> {
         let ttl = strategy.to_duration();
         
@@ -119,16 +119,19 @@ impl CacheManager {
         match (l1_result, l2_result) {
             (Ok(_), Ok(_)) => {
                 // Both succeeded
+                println!("💾 [L1+L2] Cached '{}' with TTL {:?}", key, ttl);
                 Ok(())
             }
             (Ok(_), Err(_)) => {
                 // L1 succeeded, L2 failed
                 eprintln!("⚠️ L2 cache set failed for key '{}', continuing with L1", key);
+                println!("💾 [L1] Cached '{}' with TTL {:?}", key, ttl);
                 Ok(())
             }
             (Err(_), Ok(_)) => {
                 // L1 failed, L2 succeeded
                 eprintln!("⚠️ L1 cache set failed for key '{}', continuing with L2", key);
+                println!("💾 [L2] Cached '{}' with TTL {:?}", key, ttl);
                 Ok(())
             }
             (Err(e1), Err(_e2)) => {
@@ -138,35 +141,51 @@ impl CacheManager {
         }
     }
     
-    /// Remove value from both caches
+    /// Remove value from cache (both L1 and L2)
     pub async fn remove(&self, key: &str) -> Result<()> {
         let l1_result = self.l1_cache.remove(key).await;
         let l2_result = self.l2_cache.remove(key).await;
         
-        // Log errors but don't fail if one cache removal fails
-        if let Err(e) = l1_result {
-            eprintln!("⚠️ L1 cache remove failed for key '{}': {}", key, e);
+        // Handle results - succeed if at least one succeeds
+        match (l1_result, l2_result) {
+            (Ok(_), Ok(_)) => {
+                println!("🗑️ [L1+L2] Removed key: {}", key);
+                Ok(())
+            }
+            (Ok(_), Err(e)) => {
+                eprintln!("⚠️ L2 cache remove failed for key '{}': {}", key, e);
+                println!("🗑️ [L1] Removed key: {}", key);
+                Ok(())
+            }
+            (Err(e), Ok(_)) => {
+                eprintln!("⚠️ L1 cache remove failed for key '{}': {}", key, e);
+                println!("🗑️ [L2] Removed key: {}", key);
+                Ok(())
+            }
+            (Err(e1), Err(_e2)) => {
+                Err(anyhow::anyhow!("Both L1 and L2 cache remove failed for key '{}': {}", key, e1))
+            }
         }
-        if let Err(e) = l2_result {
-            eprintln!("⚠️ L2 cache remove failed for key '{}': {}", key, e);
-        }
-        
-        Ok(())
     }
     
-    /// Clear both caches
+    /// Clear cache (both L1 and L2)
     pub async fn clear(&self) -> Result<()> {
         let l1_result = self.l1_cache.clear().await;
         let l2_result = self.l2_cache.clear().await;
         
         match (l1_result, l2_result) {
-            (Ok(_), Ok(_)) => Ok(()),
+            (Ok(_), Ok(_)) => {
+                println!("🧹 [L1+L2] Cache cleared successfully");
+                Ok(())
+            }
             (Ok(_), Err(e)) => {
                 eprintln!("⚠️ L2 cache clear failed: {}", e);
+                println!("🧹 [L1] Cache cleared successfully");
                 Ok(()) // L1 cleared successfully
             }
             (Err(e), Ok(_)) => {
                 eprintln!("⚠️ L1 cache clear failed: {}", e);
+                println!("🧹 [L2] Cache cleared successfully");
                 Ok(()) // L2 cleared successfully
             }
             (Err(e1), Err(e2)) => {
@@ -175,26 +194,28 @@ impl CacheManager {
         }
     }
     
-    /// Health check for cache manager
+    /// Health check for cache manager (both L1 and L2)
     pub async fn health_check(&self) -> bool {
         let l1_ok = self.l1_cache.health_check().await;
         let l2_ok = self.l2_cache.health_check().await;
         
-        // Cache manager is healthy if at least L1 is working
-        if l1_ok {
-            if !l2_ok {
-                println!("  ⚠️ Cache Manager: L1 OK, L2 degraded");
-            } else {
-                println!("  ✅ Cache Manager: Both L1 and L2 OK");
-            }
+        // Cache manager is healthy if at least one cache is working
+        if l1_ok && l2_ok {
+            println!("  ✅ Cache Manager: L1 OK, L2 OK");
             true
+        } else if l1_ok {
+            println!("  ⚠️ Cache Manager: L1 OK, L2 failed (degraded mode)");
+            true // Still functional with L1
+        } else if l2_ok {
+            println!("  ⚠️ Cache Manager: L1 failed, L2 OK (degraded mode)");
+            true // Still functional with L2
         } else {
-            println!("  ❌ Cache Manager: L1 failed, system degraded");
+            println!("  ❌ Cache Manager: Both L1 and L2 failed");
             false
         }
     }
     
-    /// Get cache statistics
+    /// Get cache statistics (dual-cache system with L1/L2 metrics)
     pub async fn get_statistics(&self) -> serde_json::Value {
         let total = self.total_requests.load(Ordering::Relaxed);
         let l1_hits = self.l1_hits.load(Ordering::Relaxed);
@@ -202,7 +223,8 @@ impl CacheManager {
         let misses = self.misses.load(Ordering::Relaxed);
         let promotions = self.promotions.load(Ordering::Relaxed);
         
-        let hit_rate = if total > 0 {
+        // Calculate hit rates
+        let overall_hit_rate = if total > 0 {
             ((l1_hits + l2_hits) as f64 / total as f64) * 100.0
         } else {
             0.0
@@ -214,14 +236,22 @@ impl CacheManager {
             0.0
         };
         
+        let l2_hit_rate = if total > 0 {
+            (l2_hits as f64 / total as f64) * 100.0
+        } else {
+            0.0
+        };
+        
         serde_json::json!({
             "total_requests": total,
             "l1_hits": l1_hits,
             "l2_hits": l2_hits,
             "misses": misses,
-            "overall_hit_rate_percent": hit_rate,
+            "overall_hit_rate_percent": overall_hit_rate,
             "l1_hit_rate_percent": l1_hit_rate,
+            "l2_hit_rate_percent": l2_hit_rate,
             "promotions": promotions,
+            "cache_mode": "DUAL_CACHE_L1_L2",
             "last_updated": chrono::Utc::now().to_rfc3339()
         })
     }

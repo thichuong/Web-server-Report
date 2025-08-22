@@ -39,9 +39,7 @@ src/service_islands/layer3_communication/layer2_adapters/
 - **Purpose**: Clean interface for market data operations
 - **Location**: `market_data_adapter.rs`
 - **Key Methods**:
-  - `fetch_dashboard_summary()` - Get comprehensive market data
-  - `fetch_btc_data()` - Get Bitcoin price information
-  - `fetch_fear_greed_index()` - Get market sentiment data
+    - `fetch_normalized_market_data()` - **PRIMARY METHOD** - Get all market data (normalized)
   - `fetch_normalized_market_data()` - Get data formatted for Layer 5
 
 ### 3. ApiAggregatorAdapter

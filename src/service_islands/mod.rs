@@ -84,9 +84,14 @@ impl ServiceIslands {
         println!("🔍 Initializing Layer 4: Observability Islands...");
         let health_system = Arc::new(HealthSystemIsland::new().await?);
         
-        // Initialize Layer 3: Communication (depends on Layer 2)
-        println!("📡 Initializing Layer 3: Communication Islands with Layer 2 dependencies...");
-        let websocket_service = Arc::new(WebSocketServiceIsland::with_external_apis(external_apis.clone()).await?);
+        // Initialize Layer 3: Communication (depends on Layer 2 + Cache Optimization)
+        println!("📡 Initializing Layer 3: Communication Islands with Layer 2 dependencies and Cache Optimization...");
+        let websocket_service = Arc::new(
+            WebSocketServiceIsland::with_external_apis_and_cache(
+                external_apis.clone(),
+                cache_system.clone()
+            ).await?
+        );
         
         // Initialize Layer 5: Business Logic (depends on Layer 3 ONLY)
         println!("📊 Initializing Layer 5: Business Logic Islands...");

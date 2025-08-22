@@ -1,8 +1,10 @@
-//! Market Data Adapter - Layer 3 to Layer 2 Market Data Bridge
+//! Market Data Adapter - Layer 3 to Layer 2 Market Data Bridge (Cache-Optimized)
 //! 
 //! This adapter handles all market data fetching operations from Layer 2.
 //! It provides a clean abstraction for Layer 3 components to access
 //! Layer 2 External APIs Island market data services.
+//! 
+//! OPTIMIZATION: Layer 3 cache check for latest_market_data to minimize Layer 2 calls.
 
 use anyhow::Result;
 use serde_json;
@@ -10,28 +12,41 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::service_islands::layer2_external_services::external_apis_island::ExternalApisIsland;
+use crate::service_islands::layer1_infrastructure::cache_system_island::CacheSystemIsland;
 
-/// Market Data Adapter
+/// Market Data Adapter (Cache-Optimized)
 /// 
 /// Handles all Layer 3 → Layer 2 market data communication.
 /// Provides methods for fetching various types of market data
 /// while maintaining proper Service Islands Architecture.
+/// 
+/// OPTIMIZATION: Performs Layer 3 cache checks for latest_market_data
+/// to minimize unnecessary Layer 2 API calls.
 pub struct MarketDataAdapter {
     /// Reference to Layer 2 External APIs Island
     external_apis: Option<Arc<ExternalApisIsland>>,
+    /// Reference to Layer 1 Cache System for direct cache access
+    cache_system: Option<Arc<CacheSystemIsland>>,
 }
 
 impl MarketDataAdapter {
-    /// Create new Market Data Adapter without Layer 2 dependency
+    /// Create new Market Data Adapter without dependencies
     pub fn new() -> Self {
         Self {
             external_apis: None,
+            cache_system: None,
         }
     }
     
     /// Set Layer 2 External APIs dependency
     pub fn with_external_apis(mut self, external_apis: Arc<ExternalApisIsland>) -> Self {
         self.external_apis = Some(external_apis);
+        self
+    }
+    
+    /// Set Layer 1 Cache System dependency for direct cache access
+    pub fn with_cache_system(mut self, cache_system: Arc<CacheSystemIsland>) -> Self {
+        self.cache_system = Some(cache_system);
         self
     }
     
@@ -48,49 +63,20 @@ impl MarketDataAdapter {
         }
     }
     
-    /// Fetch BTC price data from Layer 2
-    /// 
-    /// Specialized method for getting Bitcoin price information.
-    pub async fn fetch_btc_data(&self) -> Result<serde_json::Value> {
-        if let Some(external_apis) = &self.external_apis {
-            println!("🔄 [Layer 3 → Layer 2] Fetching BTC data...");
-            external_apis.fetch_btc_price().await
-        } else {
-            Err(anyhow::anyhow!("Layer 2 External APIs not configured in MarketDataAdapter"))
-        }
-    }
+    // DEPRECATED: Use fetch_normalized_market_data() instead for all market data
+    // Individual methods removed to prevent redundant API calls
     
-    /// Fetch crypto fear and greed index from Layer 2
-    /// 
-    /// Specialized method for getting market sentiment data.
-    pub async fn fetch_fear_greed_index(&self) -> Result<serde_json::Value> {
-        if let Some(external_apis) = &self.external_apis {
-            println!("🔄 [Layer 3 → Layer 2] Fetching Fear & Greed Index...");
-            external_apis.market_data_api.fetch_fear_greed_index().await
-        } else {
-            Err(anyhow::anyhow!("Layer 2 External APIs not configured in MarketDataAdapter"))
-        }
-    }
+    // DEPRECATED: Use cache-free v2 methods instead for better separation of concerns
+    // Layer 1 handles all caching, Layer 2 focuses on pure API business logic
     
-    /// Fetch market data with timeout
+    /// Normalize market data for Layer 5 consumption (OPTIMIZED)
     /// 
-    /// Fetch dashboard data with configurable timeout for reliability.
-    pub async fn fetch_dashboard_summary_with_timeout(&self, timeout: Duration) -> Result<serde_json::Value> {
-        if let Some(external_apis) = &self.external_apis {
-            println!("🔄 [Layer 3 → Layer 2] Fetching dashboard summary ({}s timeout)...", timeout.as_secs());
-            
-            tokio::time::timeout(timeout, external_apis.fetch_dashboard_summary()).await
-                .map_err(|_| anyhow::anyhow!("Market data fetch timed out after {}s", timeout.as_secs()))?
-        } else {
-            Err(anyhow::anyhow!("Layer 2 External APIs not configured in MarketDataAdapter"))
-        }
-    }
-    
-    /// Normalize market data for Layer 5 consumption
-    /// 
+    /// This is the PRIMARY method for getting market data.
+    /// Uses cache-free Layer 2 v2 methods to avoid redundant API calls.
     /// Converts raw Layer 2 data into a format suitable for Layer 5 business logic.
     pub async fn fetch_normalized_market_data(&self) -> Result<serde_json::Value> {
-        let raw_data = self.fetch_dashboard_summary().await?;
+        // Use cache-free v2 method to avoid redundant cache logic
+        let raw_data = self.fetch_dashboard_summary_v2().await?;
         
         // Extract and normalize key metrics
         let btc_price = raw_data.get("btc_price_usd").cloned().unwrap_or(serde_json::Value::Null);
@@ -154,38 +140,56 @@ impl MarketDataAdapter {
     
     // ===== NEW CACHE-FREE METHODS (Phase 2 Refactoring) =====
     
-    /// Fetch dashboard summary using cache-free Layer 2 method (NEW)
+    /// Fetch dashboard summary using cache-free Layer 2 method (CACHE-OPTIMIZED)
     /// 
-    /// Uses the new cache-free APIs in Layer 2 for pure business logic.
+    /// OPTIMIZATION: Checks latest_market_data cache in Layer 3 first before calling Layer 2.
+    /// This prevents unnecessary round-trips to Layer 2 when fresh data is available.
     /// Layer 1 handles all caching and streaming after this call.
     pub async fn fetch_dashboard_summary_v2(&self) -> Result<serde_json::Value> {
+        println!("🔄 [Layer 3 → Cache Check] Checking latest_market_data cache first...");
+        
+        // STEP 1: Layer 3 Cache Check for latest_market_data
+        if let Some(cache_system) = &self.cache_system {
+            match cache_system.get("latest_market_data").await {
+                Ok(Some(cached_data)) => {
+                    println!("💨 [Layer 3] Cache HIT for latest_market_data - skipping Layer 2 call");
+                    println!("  🚀 Performance: Avoided Layer 2 round-trip");
+                    return Ok(cached_data);
+                }
+                Ok(None) => {
+                    println!("🔍 [Layer 3] Cache MISS for latest_market_data - proceeding to Layer 2");
+                }
+                Err(e) => {
+                    println!("⚠️ [Layer 3] Cache system error, falling back to Layer 2: {}", e);
+                }
+            }
+        } else {
+            println!("⚠️ [Layer 3] No cache system configured, calling Layer 2 directly");
+        }
+        
+        // STEP 2: Call Layer 2 if no cache or cache miss
         if let Some(external_apis) = &self.external_apis {
             println!("🔄 [Layer 3 → Layer 2 V2] Fetching dashboard summary (cache-free)...");
-            external_apis.fetch_dashboard_summary_v2().await
+            let layer2_data = external_apis.fetch_dashboard_summary_v2().await?;
+            
+            // STEP 3: Store in Layer 3 cache for future requests
+            if let Some(cache_system) = &self.cache_system {
+                match cache_system.set("latest_market_data", layer2_data.clone(), Some(Duration::from_secs(30))).await {
+                    Ok(_) => println!("💾 [Layer 3] Stored latest_market_data in cache (30s TTL)"),
+                    Err(e) => println!("⚠️ [Layer 3] Failed to cache latest_market_data: {}", e),
+                }
+            }
+            
+            println!("✅ [Layer 3] Fresh data fetched from Layer 2 and cached");
+            Ok(layer2_data)
         } else {
             Err(anyhow::anyhow!("Layer 2 External APIs not configured in MarketDataAdapter"))
         }
     }
     
-    /// Fetch BTC data using cache-free Layer 2 method (NEW)
-    pub async fn fetch_btc_data_v2(&self) -> Result<serde_json::Value> {
-        if let Some(external_apis) = &self.external_apis {
-            println!("🔄 [Layer 3 → Layer 2 V2] Fetching BTC data (cache-free)...");
-            external_apis.fetch_btc_price_v2().await
-        } else {
-            Err(anyhow::anyhow!("Layer 2 External APIs not configured in MarketDataAdapter"))
-        }
-    }
-    
-    /// Fetch fear & greed index using cache-free Layer 2 method (NEW)
-    pub async fn fetch_fear_greed_index_v2(&self) -> Result<serde_json::Value> {
-        if let Some(external_apis) = &self.external_apis {
-            println!("🔄 [Layer 3 → Layer 2 V2] Fetching Fear & Greed Index (cache-free)...");
-            external_apis.fetch_fear_greed_index_v2().await
-        } else {
-            Err(anyhow::anyhow!("Layer 2 External APIs not configured in MarketDataAdapter"))
-        }
-    }
+    // DEPRECATED v2 Methods - Replaced by unified fetch_normalized_market_data()
+    // Individual v2 methods removed to prevent API call fragmentation
+    // Use fetch_normalized_market_data() for all market data needs
     
     /// Fetch and stream dashboard data to Layer 1 (NEW - Integrated approach)
     /// 
@@ -209,12 +213,42 @@ impl MarketDataAdapter {
         Ok(raw_data)
     }
     
-    /// Check if adapter supports cache-free mode
+    /// Check if adapter supports cache-free mode and Layer 3 cache optimization
     pub fn supports_cache_free_mode(&self) -> bool {
-        if let Some(external_apis) = &self.external_apis {
+        let layer2_support = if let Some(external_apis) = &self.external_apis {
             external_apis.is_cache_free_mode()
         } else {
             false
+        };
+        
+        let layer3_cache = self.cache_system.is_some();
+        
+        println!("🔧 [Layer 3] Cache optimization status:");
+        println!("  - Layer 2 cache-free mode: {}", layer2_support);
+        println!("  - Layer 3 cache system: {}", layer3_cache);
+        
+        layer2_support || layer3_cache
+    }
+    
+    /// Check if Layer 3 cache system is configured
+    pub fn is_cache_system_configured(&self) -> bool {
+        self.cache_system.is_some()
+    }
+    
+    /// Get cache optimization statistics
+    pub async fn get_cache_statistics(&self) -> Result<serde_json::Value> {
+        let mut stats = serde_json::json!({
+            "layer3_cache_configured": self.is_cache_system_configured(),
+            "layer2_configured": self.is_layer2_configured(),
+            "optimization_mode": "layer3_cache_check"
+        });
+        
+        if let Some(cache_system) = &self.cache_system {
+            // Get cache statistics - it returns JsonValue directly, not Result
+            let cache_stats = cache_system.get_statistics().await;
+            stats["layer3_cache_stats"] = cache_stats;
         }
+        
+        Ok(stats)
     }
 }

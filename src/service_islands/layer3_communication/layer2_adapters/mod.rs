@@ -57,6 +57,21 @@ impl Layer2AdaptersHub {
         self
     }
     
+    /// Initialize Layer 2 adapters with Layer 1 Cache System (OPTIMIZATION)
+    /// 
+    /// Enables Layer 3 cache optimization by providing direct access to cache system.
+    /// This allows adapters to check cache before calling Layer 2.
+    pub fn with_cache_system(mut self, cache_system: Arc<crate::service_islands::layer1_infrastructure::cache_system_island::CacheSystemIsland>) -> Self {
+        println!("🔗 Connecting Layer 2 Adapters Hub to Cache System (Layer 3 optimization)...");
+        
+        self.market_data = self.market_data.with_cache_system(cache_system.clone());
+        // Additional adapters can be connected to cache system here in the future
+        
+        println!("✅ Layer 2 Adapters Hub connected to Cache System - Layer 3 cache optimization enabled");
+        
+        self
+    }
+    
     /// Health check for all adapters
     pub async fn health_check(&self) -> Result<()> {
         println!("🏥 Checking Layer 2 Adapters Hub health...");

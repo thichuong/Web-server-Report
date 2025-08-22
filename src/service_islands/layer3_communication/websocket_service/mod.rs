@@ -81,7 +81,53 @@ impl WebSocketServiceIsland {
         })
     }
     
-    /// Initialize the WebSocket Service Island with External APIs dependency
+    /// Initialize the WebSocket Service Island with External APIs and Cache Optimization
+    /// 
+    /// Creates all components and establishes communication channels with Layer 2 and cache optimization.
+    pub async fn with_external_apis_and_cache(
+        external_apis: Arc<ExternalApisIsland>,
+        cache_system: Arc<crate::service_islands::layer1_infrastructure::cache_system_island::CacheSystemIsland>
+    ) -> Result<Self> {
+        println!("🔧 Initializing WebSocket Service Island with Layer 2 and Cache Optimization...");
+        
+        // Initialize Layer 2 adapters with BOTH External APIs and Cache System
+        let layer2_adapters = Arc::new(
+            Layer2AdaptersHub::new()
+                .with_external_apis(external_apis.clone())
+                .with_cache_system(cache_system.clone()) // 🚀 Enable Layer 3 cache optimization
+        );
+        
+        // Initialize components
+        let connection_manager = Arc::new(ConnectionManager::new());
+        let message_handler = Arc::new(MessageHandler::new());
+        let broadcast_service = Arc::new(BroadcastService::new());
+        let handlers = Arc::new(WebSocketHandlers::new());
+        
+        // Initialize market data streamer WITHOUT external APIs dependency
+        // It should use layer2_adapters instead for proper architecture
+        let market_data_streamer = Arc::new(MarketDataStreamer::new());
+        
+        // Create broadcast channel (increased buffer for high-frequency updates)
+        let (broadcast_tx, _) = broadcast::channel(1000);
+        
+        // Start unified market data streaming via Layer 2 Adapters
+        // TODO: Update MarketDataStreamer to use layer2_adapters instead of external_apis
+        println!("⚠️ TODO: Update MarketDataStreamer to use Layer2AdaptersHub instead of direct external_apis");
+        
+        println!("✅ WebSocket Service Island initialized with Layer 2 External APIs and Cache Optimization");
+        
+        Ok(Self {
+            connection_manager,
+            message_handler,
+            broadcast_service,
+            handlers,
+            market_data_streamer,
+            layer2_adapters,
+            broadcast_tx,
+        })
+    }
+    
+    /// Initialize the WebSocket Service Island with External APIs dependency (Legacy)
     /// 
     /// Creates all components and establishes communication channels with Layer 2.
     pub async fn with_external_apis(external_apis: Arc<ExternalApisIsland>) -> Result<Self> {
@@ -99,15 +145,15 @@ impl WebSocketServiceIsland {
         let broadcast_service = Arc::new(BroadcastService::new());
         let handlers = Arc::new(WebSocketHandlers::new());
         
-        // Initialize market data streamer with External APIs
-        let market_data_streamer = Arc::new(MarketDataStreamer::with_external_apis(external_apis.clone()));
+        // Initialize market data streamer WITHOUT direct external APIs dependency
+        // It should use layer2_adapters instead for proper Service Islands Architecture
+        let market_data_streamer = Arc::new(MarketDataStreamer::new());
         
         // Create broadcast channel (increased buffer for high-frequency updates)
         let (broadcast_tx, _) = broadcast::channel(1000);
         
-        // Start market data streaming
-        market_data_streamer.start_streaming(broadcast_tx.clone()).await?;
-        market_data_streamer.start_btc_streaming(broadcast_tx.clone()).await?;
+        // TODO: Update MarketDataStreamer to use layer2_adapters
+        println!("⚠️ ARCHITECTURE: MarketDataStreamer should use Layer2AdaptersHub, not direct external_apis");
         
         println!("✅ WebSocket Service Island with External APIs and Layer 2 Adapters initialized successfully");
         

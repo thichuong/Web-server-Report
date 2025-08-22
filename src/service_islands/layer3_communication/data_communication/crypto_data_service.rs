@@ -53,21 +53,34 @@ impl CryptoDataService {
         true // Will implement actual health check
     }
 
-    /// Fetch latest crypto report from database with L2 caching
+    /// Fetch latest crypto report from database with intelligent caching (L1+L2)
     /// 
-    /// Pure data layer operation with cache integration - checks cache first, then database
+    /// Pure data layer operation with dual cache integration - checks L1 cache first, then L2, then database
     pub async fn fetch_latest_report(
         &self,
         state: &Arc<AppState>,
     ) -> Result<Option<ReportData>, sqlx::Error> {
         let cache_key = "crypto_latest_report_data";
         
-        // Try L2 cache first if available
+        // Try cache first if available (L1 then L2 fallback with promotion) - OPTIMIZED
         if let Some(ref cache_system) = state.cache_system {
-            if let Ok(Some(cached_data)) = cache_system.cache_manager.get(cache_key).await {
-                if let Ok(cached_report) = serde_json::from_value::<ReportData>(cached_data) {
-                    println!("🔥 CryptoDataService: L2 Cache HIT for latest report {}", cached_report.id);
-                    return Ok(Some(cached_report));
+            match cache_system.cache_manager.get(cache_key).await {
+                Ok(Some(cached_data)) => {
+                    match serde_json::from_value::<ReportData>(cached_data) {
+                        Ok(cached_report) => {
+                            println!("🔥 CryptoDataService: L1 Cache HIT for latest report {}", cached_report.id);
+                            return Ok(Some(cached_report));
+                        }
+                        Err(e) => {
+                            println!("⚠️ CryptoDataService: L1 Cache deserialization error: {}", e);
+                        }
+                    }
+                }
+                Ok(None) => {
+                    println!("🔍 CryptoDataService: L1 Cache MISS for latest report");
+                }
+                Err(e) => {
+                    println!("⚠️ CryptoDataService: L1 Cache access error: {}", e);
                 }
             }
         }
@@ -81,15 +94,17 @@ impl CryptoDataService {
         if let Some(ref report) = report {
             println!("📊 CryptoDataService: Retrieved latest crypto report {} from database", report.id);
             
-            // Cache the result in L2 for 10 minutes (medium-term strategy)
+            // Cache the result for 10 minutes in both L1 and L2
             if let Some(ref cache_system) = state.cache_system {
                 if let Ok(report_json) = serde_json::to_value(report) {
-                    let _ = cache_system.cache_manager.set_with_strategy(
+                    match cache_system.cache_manager.set_with_strategy(
                         cache_key, 
                         report_json,
-                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::MediumTerm
-                    ).await;
-                    println!("💾 CryptoDataService: Cached latest report {} in L2 cache", report.id);
+                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::Custom(std::time::Duration::from_secs(600)) // 10 minutes
+                    ).await {
+                        Ok(_) => println!("💾 CryptoDataService: Cached latest report {} for 10 minutes", report.id),
+                        Err(e) => println!("⚠️ CryptoDataService: L1 Cache set error: {}", e),
+                    }
                 }
             }
         } else {
@@ -99,9 +114,9 @@ impl CryptoDataService {
         Ok(report)
     }
 
-    /// Fetch crypto report by ID from database with L2 caching
+    /// Fetch crypto report by ID from database with intelligent caching (L1+L2)
     /// 
-    /// Pure data layer operation with cache integration - retrieves specific report by ID
+    /// Pure data layer operation with dual cache integration - retrieves specific report by ID
     pub async fn fetch_report_by_id(
         &self,
         state: &Arc<AppState>,
@@ -109,17 +124,30 @@ impl CryptoDataService {
     ) -> Result<Option<ReportData>, sqlx::Error> {
         let cache_key = format!("crypto_report_data_{}", report_id);
         
-        // Try L2 cache first if available
+        // Try cache first if available (L1 then L2 fallback with promotion) - OPTIMIZED
         if let Some(ref cache_system) = state.cache_system {
-            if let Ok(Some(cached_data)) = cache_system.cache_manager.get(&cache_key).await {
-                if let Ok(cached_report) = serde_json::from_value::<ReportData>(cached_data) {
-                    println!("� CryptoDataService: L2 Cache HIT for report {}", report_id);
-                    return Ok(Some(cached_report));
+            match cache_system.cache_manager.get(&cache_key).await {
+                Ok(Some(cached_data)) => {
+                    match serde_json::from_value::<ReportData>(cached_data) {
+                        Ok(cached_report) => {
+                            println!("🔥 CryptoDataService: Cache HIT for report {}", report_id);
+                            return Ok(Some(cached_report));
+                        }
+                        Err(e) => {
+                            println!("⚠️ CryptoDataService: L1 Cache deserialization error for report {}: {}", report_id, e);
+                        }
+                    }
+                }
+                Ok(None) => {
+                    println!("🔍 CryptoDataService: L1 Cache MISS for report {}", report_id);
+                }
+                Err(e) => {
+                    println!("⚠️ CryptoDataService: L1 Cache access error for report {}: {}", report_id, e);
                 }
             }
         }
         
-        println!("�🗄️ CryptoDataService: Fetching crypto report {} from database", report_id);
+        println!("🗄️ CryptoDataService: Fetching crypto report {} from database", report_id);
         
         let report = sqlx::query_as::<_, ReportData>(
             "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report WHERE id = $1",
@@ -130,15 +158,17 @@ impl CryptoDataService {
         if let Some(ref report) = report {
             println!("📊 CryptoDataService: Retrieved crypto report {} from database", report.id);
             
-            // Cache the result in L2 for 3 hours (long-term strategy for individual reports)
+            // Cache the result for 10 minutes in both L1 and L2
             if let Some(ref cache_system) = state.cache_system {
                 if let Ok(report_json) = serde_json::to_value(report) {
-                    let _ = cache_system.cache_manager.set_with_strategy(
+                    match cache_system.cache_manager.set_with_strategy(
                         &cache_key, 
                         report_json,
-                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::LongTerm
-                    ).await;
-                    println!("💾 CryptoDataService: Cached report {} in L2 cache", report.id);
+                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::Custom(std::time::Duration::from_secs(600)) // 10 minutes
+                    ).await {
+                        Ok(_) => println!("💾 CryptoDataService: Cached report {} for 10 minutes", report.id),
+                        Err(e) => println!("⚠️ CryptoDataService: L1 Cache set error for report {}: {}", report.id, e),
+                    }
                 }
             }
         } else {
@@ -148,7 +178,7 @@ impl CryptoDataService {
         Ok(report)
     }
 
-    /// Get total count of crypto reports with L2 caching
+    /// Get total count of crypto reports with intelligent caching (L1+L2)
     /// 
     /// Returns total number of reports for pagination calculations
     pub async fn get_reports_count(
@@ -157,12 +187,20 @@ impl CryptoDataService {
     ) -> Result<i64, sqlx::Error> {
         let cache_key = "crypto_reports_count";
         
-        // Try L2 cache first if available
+        // Try cache first if available (L1 then L2 fallback with promotion) - OPTIMIZED
         if let Some(ref cache_system) = state.cache_system {
-            if let Ok(Some(cached_data)) = cache_system.cache_manager.get(cache_key).await {
-                if let Some(cached_count) = cached_data.as_i64() {
-                    println!("🔥 CryptoDataService: L2 Cache HIT for reports count: {}", cached_count);
-                    return Ok(cached_count);
+            match cache_system.cache_manager.get(cache_key).await {
+                Ok(Some(cached_data)) => {
+                    if let Some(cached_count) = cached_data.as_i64() {
+                        println!("🔥 CryptoDataService: L1 Cache HIT for reports count: {}", cached_count);
+                        return Ok(cached_count);
+                    }
+                }
+                Ok(None) => {
+                    println!("🔍 CryptoDataService: L1 Cache MISS for reports count");
+                }
+                Err(e) => {
+                    println!("⚠️ CryptoDataService: L1 Cache access error for count: {}", e);
                 }
             }
         }
@@ -171,22 +209,24 @@ impl CryptoDataService {
             "SELECT COUNT(*) as total FROM crypto_report"
         ).fetch_one(&state.db).await?;
         
-        // Cache the count for 5 minutes (short-term strategy as count changes less frequently)
+        // Cache the count for 10 minutes in both L1 and L2
         if let Some(ref cache_system) = state.cache_system {
-            let _ = cache_system.cache_manager.set_with_strategy(
+            match cache_system.cache_manager.set_with_strategy(
                 cache_key, 
                 serde_json::json!(count),
-                crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm
-            ).await;
-            println!("💾 CryptoDataService: Cached reports count {} in L2 cache", count);
+                crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::Custom(std::time::Duration::from_secs(600)) // 10 minutes
+            ).await {
+                Ok(_) => println!("💾 CryptoDataService: Cached reports count {} for 10 minutes", count),
+                Err(e) => println!("⚠️ CryptoDataService: L1 Cache set error for count: {}", e),
+            }
         }
         
         Ok(count)
     }
 
-    /// Fetch paginated crypto reports summary with L2 caching
+    /// Fetch paginated crypto reports summary with intelligent caching (L1+L2)
     /// 
-    /// Pure data layer operation with cache integration - retrieves reports with pagination
+    /// Pure data layer operation with dual cache integration - retrieves reports with pagination
     pub async fn fetch_reports_summary_paginated(
         &self,
         state: &Arc<AppState>,
@@ -195,12 +235,25 @@ impl CryptoDataService {
     ) -> Result<Vec<ReportSummaryData>, sqlx::Error> {
         let cache_key = format!("crypto_reports_summary_{}_{}", limit, offset);
         
-        // Try L2 cache first if available
+        // Try cache first if available (L1 then L2 fallback with promotion) - OPTIMIZED
         if let Some(ref cache_system) = state.cache_system {
-            if let Ok(Some(cached_data)) = cache_system.cache_manager.get(&cache_key).await {
-                if let Ok(cached_reports) = serde_json::from_value::<Vec<ReportSummaryData>>(cached_data) {
-                    println!("🔥 CryptoDataService: L2 Cache HIT for reports summary (limit:{}, offset:{})", limit, offset);
-                    return Ok(cached_reports);
+            match cache_system.cache_manager.get(&cache_key).await {
+                Ok(Some(cached_data)) => {
+                    match serde_json::from_value::<Vec<ReportSummaryData>>(cached_data) {
+                        Ok(cached_reports) => {
+                            println!("🔥 CryptoDataService: L1 Cache HIT for reports summary (limit:{}, offset:{})", limit, offset);
+                            return Ok(cached_reports);
+                        }
+                        Err(e) => {
+                            println!("⚠️ CryptoDataService: L1 Cache deserialization error for summary: {}", e);
+                        }
+                    }
+                }
+                Ok(None) => {
+                    println!("🔍 CryptoDataService: L1 Cache MISS for reports summary (limit:{}, offset:{})", limit, offset);
+                }
+                Err(e) => {
+                    println!("⚠️ CryptoDataService: L1 Cache access error for summary: {}", e);
                 }
             }
         }
@@ -214,15 +267,17 @@ impl CryptoDataService {
         
         println!("📊 CryptoDataService: Retrieved {} report summaries from database", reports.len());
         
-        // Cache the result for 5 minutes (short-term strategy for pagination data)
+        // Cache the result for 10 minutes in both L1 and L2 (pagination data)
         if let Some(ref cache_system) = state.cache_system {
             if let Ok(reports_json) = serde_json::to_value(&reports) {
-                let _ = cache_system.cache_manager.set_with_strategy(
+                match cache_system.cache_manager.set_with_strategy(
                     &cache_key, 
                     reports_json,
-                    crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm
-                ).await;
-                println!("💾 CryptoDataService: Cached {} report summaries in L2 cache", reports.len());
+                    crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::Custom(std::time::Duration::from_secs(600)) // 10 minutes
+                ).await {
+                    Ok(_) => println!("💾 CryptoDataService: Cached {} report summaries for 10 minutes", reports.len()),
+                    Err(e) => println!("⚠️ CryptoDataService: Cache set error for summaries: {}", e),
+                }
             }
         }
         

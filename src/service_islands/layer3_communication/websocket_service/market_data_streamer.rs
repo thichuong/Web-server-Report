@@ -179,16 +179,17 @@ impl MarketDataStreamer {
         }
     }
     
-    /// Start BTC price streaming (higher frequency)
+    /// Start BTC price streaming (higher frequency) - OPTIMIZED
     /// 
-    /// Streams BTC price updates more frequently than general dashboard data.
-    /// Improved with better error handling and circuit breaker awareness.
+    /// Streams BTC price updates using unified data flow when possible,
+    /// with fallback to direct Layer 2 access for backward compatibility.
     pub async fn start_btc_streaming(&self, broadcast_tx: broadcast::Sender<String>) -> Result<()> {
         if let Some(external_apis) = &self.external_apis {
             println!("₿ Starting BTC price streaming from Layer 2 External APIs...");
             
             let external_apis_clone = external_apis.clone();
-            let broadcast_tx_clone = broadcast_tx.clone();
+            let service_islands_clone = self.service_islands.clone();
+            let tx = broadcast_tx;
             
             // BTC updates every 10 seconds for more real-time feeling
             let btc_interval = Duration::from_secs(10);
@@ -201,58 +202,96 @@ impl MarketDataStreamer {
                 loop {
                     interval_timer.tick().await;
                     
-                    // Fetch BTC price from Layer 2
-                    match external_apis_clone.fetch_btc_price().await {
-                        Ok(btc_data) => {
-                            // Reset failures on success
-                            consecutive_failures = 0;
-                            
-                            // 🔍 DEBUG: Log BTC price data
-                            println!("🔍 [DEBUG] BTC price data fetched:");
-                            if let Some(price) = btc_data.get("btc_price_usd") {
-                                println!("  ₿ Current BTC Price: ${:?}", price);
-                            }
-                            if let Some(change) = btc_data.get("btc_change_24h") {
-                                println!("  📈 24h Change: {:?}%", change);
-                            }
-                            if let Some(market_cap) = btc_data.get("market_cap") {
-                                println!("  💰 Market Cap: ${:?}", market_cap);
-                            }
-                            
-                            let ws_message = serde_json::json!({
-                                "type": "btc_price_update",
-                                "data": btc_data,
-                                "timestamp": chrono::Utc::now().to_rfc3339(),
-                                "source": "external_apis"
-                            });
-                            
-                            let message_str = ws_message.to_string();
-                            match broadcast_tx_clone.send(message_str) {
-                                Ok(receiver_count) => {
-                                    println!("₿ BTC price broadcasted to {} WebSocket clients", receiver_count);
+                    // Use Layer 5 → Layer 3 → Layer 2 unified flow for consistency
+                    if let Some(service_islands_clone) = &service_islands_clone {
+                        match service_islands_clone.websocket_service.fetch_market_data_for_layer5().await {
+                            Ok(market_data) => {
+                                // Reset failures on success
+                                consecutive_failures = 0;
+                                
+                                // 🔍 DEBUG: Log market data
+                                println!("🔍 [DEBUG] Market data fetched via unified flow:");
+                                if let Some(price) = market_data.get("btc_price_usd") {
+                                    println!("  ₿ Current BTC Price: ${:?}", price);
                                 }
-                                Err(e) => {
-                                    println!("📡 BTC price broadcast ready - waiting for connections ({})", e);
+                                if let Some(change) = market_data.get("btc_change_24h") {
+                                    println!("  📈 24h Change: {:?}%", change);
+                                }
+                                if let Some(market_cap) = market_data.get("market_cap_usd") {
+                                    println!("  💰 Market Cap: ${:?}", market_cap);
+                                }
+                                
+                                // Broadcast to WebSocket clients
+                                let message = serde_json::json!({
+                                    "type": "price_update",
+                                    "data": market_data
+                                });
+                                
+                                if let Err(e) = tx.send(message.to_string()) {
+                                    println!("⚠️ Failed to broadcast price update: {}", e);
+                                    break;
+                                }
+                                
+                                println!("✅ Market data broadcasted to WebSocket clients");
+                            }
+                            Err(e) => {
+                                consecutive_failures += 1;
+                                println!("❌ Market data fetch failed (attempt {}): {}", consecutive_failures, e);
+                                
+                                // Exponential backoff on failures
+                                if consecutive_failures >= 3 {
+                                    println!("⚠️ Too many consecutive failures, stopping streaming");
+                                    break;
                                 }
                             }
                         }
-                        Err(e) => {
-                            consecutive_failures += 1;
-                            
-                            // Don't spam logs for circuit breaker errors
-                            if e.to_string().contains("Circuit breaker is open") {
-                                if consecutive_failures <= 3 { // Only log first few
-                                    println!("⚠️ BTC API circuit breaker active - will retry when reset");
+                    } else {
+                        // Fallback: Use dashboard summary instead of deprecated fetch_btc_price()
+                        match external_apis_clone.fetch_dashboard_summary_v2().await {
+                            Ok(dashboard_data) => {
+                                // Reset failures on success
+                                consecutive_failures = 0;
+                                
+                                // Extract BTC data from dashboard summary
+                                let btc_price = dashboard_data.get("btc_price_usd").cloned().unwrap_or(serde_json::Value::Null);
+                                let btc_change = dashboard_data.get("btc_change_24h").cloned().unwrap_or(serde_json::Value::Null);
+                                
+                                // 🔍 DEBUG: Log BTC price data
+                                println!("🔍 [DEBUG] BTC price data from dashboard summary (fallback):");
+                                if let Some(price) = dashboard_data.get("btc_price_usd") {
+                                    println!("  ₿ Current BTC Price: ${:?}", price);
                                 }
-                            } else {
-                                println!("⚠️ Failed to fetch BTC price for streaming (attempt {}): {}", 
-                                    consecutive_failures, e);
+                                if let Some(change) = dashboard_data.get("btc_change_24h") {
+                                    println!("  📈 24h Change: {:?}%", change);
+                                }
+                                
+                                // Create focused BTC message from dashboard data
+                                let ws_message = serde_json::json!({
+                                    "type": "price_update",
+                                    "timestamp": chrono::Utc::now().to_rfc3339(),
+                                    "data": {
+                                        "btc_price_usd": btc_price,
+                                        "btc_change_24h": btc_change,
+                                        "source": "dashboard_aggregated"
+                                    },
+                                    "source": "dashboard_summary_fallback"
+                                });
+                                
+                                if let Err(e) = tx.send(ws_message.to_string()) {
+                                    println!("⚠️ Failed to broadcast price update: {}", e);
+                                    break;
+                                }
+                                
+                                println!("✅ BTC price broadcasted to WebSocket clients (fallback)");
                             }
-                            
-                            // Back off more aggressively for repeated failures
-                            if consecutive_failures >= max_consecutive_failures {
-                                println!("⚠️ BTC streaming backing off due to repeated failures");
-                                tokio::time::sleep(Duration::from_secs(30)).await; // 30 second break
+                            Err(e) => {
+                                consecutive_failures += 1;
+                                println!("❌ BTC price fetch failed (attempt {}): {}", consecutive_failures, e);
+                                
+                                if consecutive_failures >= 3 {
+                                    println!("⚠️ Too many consecutive failures, stopping streaming");
+                                    break;
+                                }
                             }
                         }
                     }
@@ -278,17 +317,13 @@ impl MarketDataStreamer {
         self.is_streaming.load(std::sync::atomic::Ordering::Relaxed)
     }
     
-    /// Fetch market data via Layer 3 (for Layer 5 requests)
+    /// DEPRECATED: Use WebSocketService.fetch_market_data_for_layer5() instead
+    /// This method bypasses the unified data flow and creates redundant API calls.
     /// 
-    /// This method allows Layer 5 to request market data through Layer 3,
-    /// maintaining proper Service Islands Architecture: Layer 5 → Layer 3 → Layer 2
+    /// Fetch market data via unified Layer 5 → Layer 3 → Layer 2 flow
     pub async fn fetch_market_data(&self) -> Result<serde_json::Value> {
-        if let Some(external_apis) = &self.external_apis {
-            println!("🔄 Layer 3 MarketDataStreamer fetching from Layer 2...");
-            external_apis.fetch_dashboard_summary().await
-        } else {
-            Err(anyhow::anyhow!("Layer 3 has no Layer 2 External APIs dependency"))
-        }
+        // Deprecated: Direct Layer 2 access
+        Err(anyhow::anyhow!("DEPRECATED: Use WebSocketService.fetch_market_data_for_layer5() for unified data flow"))
     }
     
     /// Health check for market data streamer
