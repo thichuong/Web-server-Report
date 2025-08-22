@@ -4,10 +4,8 @@
 //! Routes are split into logical modules for better maintainability and organization.
 
 pub mod static_files;
-pub mod legacy;
 pub mod homepage;
 pub mod system;
-pub mod dashboard;
 pub mod crypto_reports;
 pub mod api;
 pub mod websocket;
@@ -21,19 +19,13 @@ use crate::service_islands::ServiceIslands;
 pub fn create_service_islands_router(service_islands: Arc<ServiceIslands>) -> Router {
     Router::new()
         // Static file serving
-        .merge(static_files::configure_static_routes(service_islands.clone()))
-        
-        // Legacy compatibility routes
-        .merge(legacy::configure_legacy_routes())
+        .merge(static_files::configure_static_routes())
         
         // Homepage
         .merge(homepage::configure_homepage_route())
         
         // Health and system endpoints
         .merge(system::configure_system_routes())
-        
-        // Dashboard routes
-        .merge(dashboard::configure_dashboard_routes())
         
         // Crypto Reports routes
         .merge(crypto_reports::configure_crypto_reports_routes())

@@ -115,49 +115,6 @@ impl CryptoHandlers {
             .into_response()
     }
 
-    /// Fetch and cache latest report 
-    /// 
-    /// DEPRECATED: Use self.report_creator.fetch_and_cache_latest_report() instead
-    /// Kept for backward compatibility during transition
-    pub async fn fetch_and_cache_latest_report(
-        &self,
-        state: &Arc<AppState>
-    ) -> Result<Option<Report>, sqlx::Error> {
-        // Delegate to ReportCreator component for proper separation of concerns
-        self.report_creator.fetch_and_cache_latest_report(state).await
-    }
-
-    /// Fetch and cache specific report by ID
-    /// 
-    /// DEPRECATED: Use self.report_creator.fetch_and_cache_report_by_id() instead
-    /// Kept for backward compatibility during transition
-    pub async fn fetch_and_cache_report_by_id(
-        &self,
-        state: &Arc<AppState>,
-        report_id: i32
-    ) -> Result<Option<Report>, sqlx::Error> {
-        // Delegate to ReportCreator component for proper separation of concerns
-        self.report_creator.fetch_and_cache_report_by_id(state, report_id).await
-    }
-
-    /// Get chart modules content
-    /// 
-    /// DEPRECATED: Use self.report_creator.get_chart_modules_content() instead
-    /// Kept for backward compatibility during transition
-    pub async fn get_chart_modules_content(&self) -> String {
-        // Delegate to ReportCreator component for proper separation of concerns
-        self.report_creator.get_chart_modules_content().await
-    }
-    
-    /// Crypto Index handler - Main crypto dashboard
-    /// 
-    /// Originally from archive_old_code/handlers/crypto.rs::crypto_index
-    /// ONLY uses Tera template engine - NO manual HTML creation
-    pub async fn crypto_index(&self) -> Result<String, Box<dyn StdError + Send + Sync>> {
-        println!("🚀 CryptoHandlers::crypto_index - Template Engine ONLY");
-        Err("Need Tera engine access from Service Islands AppState".into())
-    }
-    
     /// Crypto Index with Tera template engine - FULL IMPLEMENTATION
     /// 
     /// Exactly like archive_old_code/handlers/crypto.rs::crypto_index - Complete L1/L2 caching
