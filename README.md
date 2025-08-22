@@ -83,95 +83,166 @@ Server will start at `http://localhost:8000` 🎉
 
 ## 🏗️ Architecture & Performance
 
-### Multi-tier Cache Architecture
+### Service Islands Architecture
+Hệ thống sử dụng **Service Islands Architecture** - kiến trúc phân tầng 5 lớp với separation of concerns rõ ràng:
+
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Application   │───▶│  CacheManager    │───▶│  MultiTierCache │
-└─────────────────┘    │  (Unified API)   │    │   (L1 + L2)     │
-                       └──────────────────┘    └─────────────────┘
-                                │                        │
-                                ▼                        ▼
-                    ┌──────────────────┐    ┌──────────────────┐
-                    │   L1: moka       │    │   L2: Redis      │
-                    │   (In-Memory)    │    │   (Distributed)  │
-                    │   - 2000 entries │    │   - 1h TTL       │
-                    │   - 5m TTL       │    │   - Persistence  │
-                    └──────────────────┘    └──────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                    Layer 5: Business Logic                 │
+│  ┌─────────────────┐    ┌─────────────────────────────────┐│
+│  │  Dashboard      │    │     Crypto Reports              ││
+│  │  Island         │    │     Island                      ││
+│  │ • Market Data   │    │ • Report Management             ││
+│  │   Processing    │    │ • Template Orchestration        ││
+│  │ • WebSocket     │    │ • Cache Integration             ││
+│  │   Integration   │    │                                 ││
+│  └─────────────────┘    └─────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                   Layer 4: Observability                   │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │              Health System Island                      ││
+│  │ • Component Health Monitoring                          ││
+│  │ • System Status Reporting                              ││
+│  │ • Inter-layer Health Validation                        ││
+│  └─────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                   Layer 3: Communication                   │
+│  ┌─────────────────┐    ┌─────────────────────────────────┐│
+│  │  WebSocket      │    │    Data Communication          ││
+│  │  Service        │    │    Service                      ││
+│  │ • Real-time     │    │ • Database Operations           ││
+│  │   Communication │    │ • Cache Integration             ││
+│  │ • Broadcasting  │    │ • Data Models                   ││
+│  └─────────────────┘    └─────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                  Layer 2: External Services                │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │              External APIs Island                      ││
+│  │ • Market Data API (CoinGecko, TaApi.io)               ││
+│  │ • Rate Limiter with Exponential Backoff               ││
+│  │ • API Aggregator (Multi-source data)                  ││
+│  │ • Circuit Breaker (Fault tolerance)                   ││
+│  └─────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                  Layer 1: Infrastructure                   │
+│  ┌─────────────────┐    ┌─────────────────────────────────┐│
+│  │  Shared         │    │    Cache System                 ││
+│  │  Components     │    │    Island                       ││
+│  │  Island         │    │ • L1 Cache (Moka)              ││
+│  │ • Template      │    │   - 2000 entries, 5min TTL     ││
+│  │   Registry      │    │ • L2 Cache (Redis)             ││
+│  │ • Model         │    │   - 1hr default TTL            ││
+│  │   Registry      │    │ • Cache Manager                ││
+│  │ • Utilities     │    │   - Unified interface          ││
+│  └─────────────────┘    │ • Cache Strategies              ││
+│                         │   - ShortTerm, MediumTerm       ││
+│                         │   - LongTerm, RealTime          ││
+│                         └─────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Cache Flow Strategy
+### Generic Cache Architecture (Layer Separation)
 ```
-Request → L1 Check → L1 HIT? → Return Data (🎯 <1ms)
-             │
-             ▼ L1 MISS
-        L2 Check → L2 HIT? → Promote to L1 → Return Data (🔥 2-5ms)
-             │
-             ▼ L2 MISS  
-        Compute Data → Cache in L1+L2 → Return Data (💻 200-2000ms)
-```
-
-### Multi-threading Architecture
-```
-┌─────────────────┐    ┌──────────────────────────────────────┐
-│ Concurrent      │    │           Axum Server               │
-│ Clients         │◄──►│                                     │
-│                 │    │ ┌─────────────┐ ┌─────────────────┐ │
-│ 500+ RPS        │    │ │ L1+L2 Cache │ │ Rayon ThreadPool│ │
-│ 2ms latency     │    │ │ System      │ │                 │ │
-└─────────────────┘    │ │             │ │ CPU Tasks       │ │
-                       │ │ Unified     │ │ • Template      │ │
-                       │ │ • CacheMan  │ │   Rendering     │ │
-                       │ │ • MultiTier │ │ • Data          │ │
-                       │ │ • Atomic    │ │   Processing    │ │
-                       │ │   Counters  │ │ • Parallel      │ │
-                       │ └─────────────┘ │   Operations    │ │
-                       │                 └─────────────────┘ │
-                       │ ┌─────────────┐ ┌─────────────────┐ │
-                       │ │ Connection  │ │ tokio Runtime   │ │
-                       │ │ Pool        │ │                 │ │
-                       │ │             │ │ Async I/O       │ │
-                       │ │ 32 Max      │ │ • HTTP          │ │
-                       │ │ 8 Min       │ │ • Database      │ │
-                       │ │ PostgreSQL  │ │ • WebSocket     │ │
-                       │ └─────────────┘ └─────────────────┘ │
-                       └──────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ Layer 2: Business Logic (API-specific implementations)     │
+│                                                             │
+│ fetch_btc_price() ────► CacheStrategy::ShortTerm (5min)     │
+│ fetch_rsi_data() ─────► CacheStrategy::LongTerm (3hr)       │
+│ fetch_fear_greed() ───► CacheStrategy::RealTime (30s)       │
+│                                                             │
+└─────────────────────┬───────────────────────────────────────┘
+                      │ Business-aware wrappers
+                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│ Layer 1: Infrastructure (Generic cache functions)          │
+│                                                             │
+│ cache_get(key) ──────────────┐                            │
+│ set_with_strategy(key, value, strategy) ─┐                 │
+│ cache_data(key, value, ttl) ──────────────┼──► L1+L2 Cache │
+│                                           │                 │
+│ Generic Strategies:                       │                 │
+│ • ShortTerm, MediumTerm, LongTerm        │                 │
+│ • RealTime, Custom(Duration), Default    │                 │
+└───────────────────────────────────────────┼─────────────────┘
+                                           │
+                    ┌──────────────────────┴──────────────────────┐
+                    │                                             │
+                    ▼                                             ▼
+        ┌──────────────────┐                          ┌──────────────────┐
+        │   L1: moka       │                          │   L2: Redis      │
+        │   (In-Memory)    │ ◄──── Promotion ────────► │   (Distributed)  │
+        │ • 2000 entries   │                          │ • Persistence    │
+        │ • 5min TTL       │                          │ • 1hr default    │
+        │ • <1ms response  │                          │ • 2-5ms response │
+        └──────────────────┘                          └──────────────────┘
 ```
 
-### Multi-tier Caching Strategy
+### Request Flow Through Service Islands
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌──────────────┐
-│   Client        │◄──►│  Axum Server     │◄──►│ PostgreSQL   │
-│                 │    │                  │    │              │
-│ Cache: 15s      │    │ ┌──────────────┐ │    │ Reports      │
-│ HTTP Headers    │    │ │ L1: moka     │ │    │ Data         │
-└─────────────────┘    │ │ 2000 entries │ │    └──────────────┘
-                       │ │ 5m TTL       │ │
-                       │ │              │ │    ┌──────────────┐
-                       │ │ L2: Redis    │ │◄──►│ External     │
-                       │ │ 1h TTL       │ │    │ APIs         │
-                       │ │ Distributed  │ │    │              │
-                       │ │ + WebSocket  │ │    │ Market Data  │
-                       │ └──────────────┘ │    └──────────────┘
-                       │                  │
-                       │ CacheManager     │
-                       │ (Unified API)    │
-                       └──────────────────┘
+Client Request ───► Axum Router
+                           │
+                           ▼
+              ┌─────────────────────────┐
+              │   Layer 5: Business     │ ──► Template Rendering
+              │   • Dashboard Island    │     Report Processing
+              │   • Crypto Reports      │
+              └─────────┬───────────────┘
+                        │ Business Logic Processing
+                        ▼
+              ┌─────────────────────────┐
+              │   Layer 3: Comm        │ ──► PostgreSQL
+              │   • Data Communication │     WebSocket Broadcasting
+              └─────────┬───────────────┘
+                        │ Data Fetching
+                        ▼
+              ┌─────────────────────────┐
+              │   Layer 2: External    │ ──► CoinGecko API
+              │   • APIs Island        │     TaApi.io API
+              │   • Rate Limiter       │     Circuit Breaker
+              └─────────┬───────────────┘
+                        │ Cache Integration
+                        ▼
+              ┌─────────────────────────┐
+              │   Layer 1: Cache       │ ──► L1 (moka) ⚡<1ms
+              │   • Generic Strategies │     L2 (Redis) 🔥2-5ms
+              │   • Unified Manager    │     Cache Miss 💻200ms+
+              └─────────────────────────┘
 ```
 
-### Cache Performance
+### Service Islands Performance Metrics
+
+#### Cache Performance (Layer 1 Infrastructure)
 - **L1 Hit Rate**: ~90% (sub-millisecond response)
-- **L2 Hit Rate**: ~75% (2-5ms with promotion to L1)  
-- **Overall Coverage**: ~95% (reduces external API calls by 95%)
-- **Cache Miss**: Fresh data fetch + dual caching (L1+L2)
+- **L2 Hit Rate**: ~75% (2-5ms with automatic L1 promotion)
+- **Overall Coverage**: ~95% (giảm 95% external API calls)
+- **Generic Strategies**: ShortTerm(5min), MediumTerm(1hr), LongTerm(3hr), RealTime(30s)
 
-### Performance Features
+#### Business Logic Performance (Layer 5)
+- **Dashboard Island**: Real-time market data processing với WebSocket integration
+- **Crypto Reports Island**: Template orchestration với multi-tier caching
+- **Report Generation**: Background processing với spawn_blocking
+
+#### Communication Layer Performance (Layer 3) 
+- **WebSocket Service**: Real-time broadcasting tới multiple clients
+- **Data Communication**: PostgreSQL connection pool (32 max connections)
+- **Cache Integration**: L2 cache cho database queries
+
+#### External Services Performance (Layer 2)
+- **Rate Limiter**: Exponential backoff cho API protection
+- **Circuit Breaker**: Fault tolerance cho external APIs
+- **API Aggregator**: Multi-source data với intelligent failover
+
+#### Infrastructure Performance (Layer 1)
 - **🚄 500+ RPS**: Handle 500+ concurrent requests per second
-- **⚡ Sub-1ms L1 Cache**: In-memory cache hits under 1 millisecond
-- **🔥 2-5ms L2 Cache**: Redis cache hits with L1 promotion
-- **🔄 Multi-threaded**: 16-core CPU utilization with Rayon ThreadPool
-- **📊 95% Cache Coverage**: Reduces external API calls by 95%
-- **💾 Automatic Promotion**: L2 hits promoted to L1 for future speed
-- **🔄 Unified Cache API**: Single interface for all caching operations
+- **⚡ Sub-1ms L1 Cache**: Moka in-memory cache hits
+- **🔥 2-5ms L2 Cache**: Redis distributed cache với automatic promotion
+- **🔄 Multi-threaded**: Rayon ThreadPool + tokio async runtime
+- **📊 95% Cache Coverage**: Generic cache strategies reduce API calls
+- **🏗️ Service Islands**: Clean separation of concerns across 5 layers
 
 ### Benchmark Results
 ```
@@ -189,11 +260,19 @@ Multi-tier Cache Performance:
 • Overall Coverage: 95% (drastically reduced API calls)
 ```
 
-### Request Flow
-1. **L1 Cache Hit** → Instant response (<1ms, in-memory moka cache)
-2. **L2 Cache Hit** → Fast response (2-5ms, Redis + promote to L1)
-3. **Cache Miss** → Fresh fetch → Store in L1+L2 → Response (200ms+)
-4. **WebSocket** → Real-time dashboard updates via Redis pub/sub
+### Service Islands Request Flow
+1. **Client Request** → Axum Router → Layer 5 Business Logic
+2. **Dashboard Island** → Market data processing → Layer 3 Communication
+3. **Data Communication** → PostgreSQL/Cache lookup → Layer 2 External Services
+4. **External APIs Island** → Rate-limited API calls → Layer 1 Infrastructure  
+5. **Cache System Island** → Generic cache strategies (L1: <1ms, L2: 2-5ms)
+6. **Response** → Multi-tier cache storage → Client delivery
+
+#### Cache Strategy Mapping
+- **BTC Price**: `ShortTerm` strategy (5min TTL) - Fast-changing data
+- **Technical Indicators**: `LongTerm` strategy (3hr TTL) - RSI, MACD
+- **Fear & Greed**: `RealTime` strategy (30s TTL) - Market sentiment
+- **Global Data**: `MediumTerm` strategy (1hr TTL) - Market stats
 
 ## 📡 API Reference
 
@@ -229,36 +308,48 @@ Multi-tier Cache Performance:
 | `/shared_assets/css/` | Stylesheets |
 | `/crypto_dashboard/assets/` | Dashboard-specific assets |
 
-## 🗂️ Multi-Tier Cache System
+## 🗂️ Service Islands Cache System
 
-The application implements a sophisticated **L1 (In-Memory) + L2 (Redis)** cache architecture for optimal performance:
+Hệ thống implement **Generic Cache Architecture** với Layer Separation để tách biệt business logic khỏi cache infrastructure:
 
-### Cache Architecture
-- **L1 Cache**: `moka::future::Cache` - Ultra-fast in-memory cache (2000 entries, 5m TTL)  
-- **L2 Cache**: Redis - Distributed cache with persistence (1h TTL)
-- **Unified API**: `CacheManager` provides single interface for all cache operations
-- **Automatic Promotion**: L2 hits are promoted to L1 for faster future access
+### Layer 1: Infrastructure (Generic Cache)
+- **L1 Cache**: `moka::future::Cache` - Ultra-fast in-memory (2000 entries, 5min TTL)
+- **L2 Cache**: Redis - Distributed cache with persistence (1hr default TTL)
+- **Generic Strategies**: ShortTerm, MediumTerm, LongTerm, RealTime, Custom
+- **Unified API**: Pure caching infrastructure, không business knowledge
+
+### Layer 2: Business Logic (API-Specific)
+- **Business Wrappers**: API-specific implementations using generic Layer 1
+- **Strategy Mapping**: Business needs mapped to generic cache strategies
+- **Cache Keys**: Business-aware cache key generation
+
+### Cache Architecture Benefits
+- **Separation of Concerns**: Layer 1 pure caching, Layer 2 business logic
+- **Extensibility**: Add new APIs chỉ cần thay đổi Layer 2
+- **Maintainability**: Không hardcoded business keys trong Layer 1
+- **Testability**: Layer 1 unit test độc lập, Layer 2 business logic isolated
 
 ### Cache Usage Patterns
 
-#### 1. **Unified Cache (L1+L2)** - External API Data
+#### 1. **Generic Cache Helper (Layer 2)**
 ```rust
-// Dashboard summary, market data, technical indicators
-DataService::fetch_dashboard_summary() → CacheManager::cache_dashboard_data()
-DataService::fetch_market_data() → CacheManager::cache_market_data()
+async fn cache_api_data<F, T>(
+    cache_key: &str,
+    strategy: CacheStrategy,  // Generic strategy
+    fetch_fn: F
+) -> Result<Value>
 ```
 
-#### 2. **L1-Only Cache** - Template Rendering
+#### 2. **Business-Specific Wrappers (Layer 2)**
 ```rust
-// Report templates and database content  
-crypto_index() → report_cache.get() + report_cache.insert()
-crypto_view_report() → L1 cache for fast template rendering
+fetch_btc_price() → cache_api_data("btc_coingecko", ShortTerm, api_call)
+fetch_rsi_data() → cache_api_data("rsi_taapi", LongTerm, api_call)
+fetch_fear_greed() → cache_api_data("fear_greed", RealTime, api_call)
 ```
 
-#### 3. **L2-Only Cache** - WebSocket Broadcasting
+#### 3. **WebSocket Broadcasting (Layer 3)**
 ```rust
-// Real-time updates and background data sync
-WebSocketService → Direct Redis operations for pub/sub
+WebSocketService → Redis pub/sub → Real-time updates
 ```
 
 ### Cache Monitoring
@@ -325,36 +416,62 @@ docker run -p 8000:8000 \
 - Configure reverse proxy (nginx) for SSL/domain routing
 - Monitor memory usage of report cache (grows with unique report IDs accessed)
 
-## 🏗️ Project Structure
+## 🏗️ Project Structure (Service Islands Architecture)
 
 ```
 Web-server-Report/
 ├── 📁 src/
-│   ├── 🦀 main.rs              # Multi-threaded server + cache initialization
-│   ├── 📊 data_service.rs      # External API data with L1+L2 caching  
-│   ├── 🗂️ cache.rs             # Multi-tier cache system (L1+L2)
-│   ├── ⚡ performance.rs       # L1-only cache for reports + benchmarking
-│   ├── 🏗️ state.rs             # Application state + cache managers
-│   ├── 🌐 handlers.rs          # HTTP handlers with cache integration
-│   └── 🔌 websocket_service.rs # Real-time WebSocket + Redis L2
-├── 📁 scripts/                 # Performance testing & benchmarks
-│   ├── ⚡ simple_rps_test.sh   # RPS benchmark (500+ RPS)
-│   ├── 📊 advanced_benchmark.sh # Comprehensive performance test
-│   └── 🔥 stress_test.sh       # Load testing script
-├── 📁 dashboards/              # Dashboard templates & assets
+│   ├── 🦀 main.rs              # Server initialization + Service Islands setup
+│   ├── 📊 performance.rs       # Performance monitoring across layers
+│   ├── 🏗️ state.rs             # Application state + Service Islands integration
+│   └── 🏝️ service_islands/     # Service Islands Architecture (5 layers)
+│       ├── 📋 mod.rs           # Service Islands module coordination
+│       ├── 🏗️ layer1_infrastructure/     # Generic cache + shared components
+│       │   ├── cache_system_island.rs    # L1/L2 cache với generic strategies
+│       │   └── shared_components_island.rs # Template registry + utilities
+│       ├── 🌐 layer2_external_services/   # External APIs + rate limiting
+│       │   └── external_apis_island.rs    # CoinGecko, TaApi.io + circuit breaker
+│       ├── 📡 layer3_communication/       # WebSocket + data communication
+│       │   ├── websocket_service.rs       # Real-time communication
+│       │   └── data_communication.rs      # Database operations + cache
+│       ├── 🔍 layer4_observability/       # Health monitoring + metrics
+│       │   └── health_system_island.rs    # Component health + system status
+│       └── 💼 layer5_business_logic/      # Business-specific logic
+│           ├── dashboard_island.rs         # Market data processing
+│           └── crypto_reports_island.rs    # Report management + templates
+├── 📁 routes/                  # Axum routes + Service Islands integration
+│   ├── � homepage.rs          # Homepage với Crypto Reports Island
+│   ├── 💰 crypto_reports.rs    # Business logic routing
+│   ├── 📊 dashboard.rs         # Dashboard Island endpoints
+│   ├── 🔌 websocket.rs         # WebSocket Layer 3 Communication
+│   └── 🏥 system.rs           # Layer 4 Observability endpoints
+├── 📁 scripts/                 # Performance testing across Service Islands
+│   ├── ⚡ simple_rps_test.sh   # End-to-end RPS benchmark (500+ RPS)
+│   ├── 📊 advanced_benchmark.sh # Service Islands performance test
+│   └── 🔥 stress_test.sh       # Multi-layer load testing
+├── 📁 docs/                    # Service Islands Architecture documentation
+│   ├── �️ SERVICE_ISLANDS_ARCHITECTURE.md   # 5-layer architecture guide
+│   ├── 🔄 SERVICE_ISLANDS_WORKFLOW.md        # Development workflow
+│   ├── 🗂️ GENERIC_CACHE_ARCHITECTURE.md     # Layer separation cache
+│   └── � WEBSOCKET_REALTIME_IMPLEMENTATION.md # Layer 3 communication
+├── 📁 dashboards/              # Templates với Layer 1 shared components
 │   ├── 🏠 home.html            # Homepage template
-│   ├── 💰 crypto_dashboard/    # Crypto-specific templates
-│   └── 📈 stock_dashboard/     # Stock-specific templates (future)
-├── 📁 shared_assets/           # Global CSS, JS, chart modules
-│   ├── 🎨 css/                # Stylesheets
+│   └── � crypto_dashboard/    # Business logic templates
+├── 📁 shared_assets/           # Layer 1 shared components
+│   ├── 🎨 css/                # Global stylesheets
 │   └── ⚙️ js/chart_modules/   # Modular chart components
-├── 📁 shared_components/       # Reusable HTML components
-├── ⚙️ Cargo.toml              # Rust dependencies (rayon, dashmap, etc)
-├── 🐳 Dockerfile              # Container configuration
+├── ⚙️ Cargo.toml              # Dependencies (moka, redis, dashmap, rayon)
+├── 🐳 Dockerfile              # Container với Service Islands
 ├── 🚂 railway.json           # Railway deployment config
-├── 📋 nixpacks.toml          # Build configuration
-└── 🌱 .env.example           # Environment template
+└── 📋 .env.example           # Environment template với layer configs
 ```
+
+### Service Islands Code Organization
+- **Layer 5 → Layer 1**: Top-down dependency flow
+- **Generic Layer 1**: Pure infrastructure, không business knowledge
+- **Business Layer 2**: API-specific implementations using generic Layer 1
+- **Clear Boundaries**: Mỗi island độc lập, interface rõ ràng
+- **Testable Architecture**: Unit test từng layer independently
 
 ## 🔧 Development & Troubleshooting
 
