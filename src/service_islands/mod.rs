@@ -200,4 +200,10 @@ impl ServiceIslands {
         
         all_healthy
     }
+    
+    /// Get pre-loaded chart modules content for optimal performance
+    /// Direct access to Layer 1 SharedComponentsIsland
+    pub fn get_chart_modules_content(&self) -> Arc<String> {
+        self.shared_components.chart_modules_content.clone()
+    }
 }

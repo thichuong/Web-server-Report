@@ -17,6 +17,8 @@ pub struct AppState {
     pub db: PgPool,
     // Cache System Island with Redis Streams (primary storage)
     pub cache_system: Option<Arc<CacheSystemIsland>>,
+    // Pre-loaded chart modules content for optimal performance
+    pub chart_modules_content: Option<Arc<String>>,
     // Minimal fields to prevent compilation errors
     pub request_counter: AtomicU64,
     pub cached_latest_id: AtomicI32,
@@ -93,6 +95,7 @@ impl AppState {
         Ok(Self {
             db,
             cache_system,
+            chart_modules_content: None, // Sẽ được thiết lập bởi ServiceIslands
             request_counter: AtomicU64::new(0),
             cached_latest_id: AtomicI32::new(0),
             tera,
@@ -102,5 +105,15 @@ impl AppState {
     /// Get cache system for Layer 3 → Layer 1 communication
     pub fn get_cache_system(&self) -> Option<Arc<CacheSystemIsland>> {
         self.cache_system.clone()
+    }
+    
+    /// Set pre-loaded chart modules content for optimal performance
+    pub fn set_chart_modules_content(&mut self, content: Arc<String>) {
+        self.chart_modules_content = Some(content);
+    }
+    
+    /// Get pre-loaded chart modules content
+    pub fn get_chart_modules_content(&self) -> Option<Arc<String>> {
+        self.chart_modules_content.clone()
     }
 }

@@ -69,8 +69,13 @@ impl CryptoHandlers {
     /// Crypto Index with Tera template engine - FULL IMPLEMENTATION
     /// 
     /// Exactly like archive_old_code/handlers/crypto.rs::crypto_index - Complete L1/L2 caching
-    pub async fn crypto_index_with_tera(&self, state: &Arc<AppState>) -> Result<String, Box<dyn StdError + Send + Sync>> {
-        println!("🚀 CryptoHandlers::crypto_index_with_tera - Full L1/L2 Caching Implementation");
+    /// Enhanced with pre-loaded chart modules and HTML caching for optimal performance
+    pub async fn crypto_index_with_tera(
+        &self, 
+        state: &Arc<AppState>,
+        chart_modules_content: Option<Arc<String>>, // THÊM THAM SỐ NÀY
+    ) -> Result<String, Box<dyn StdError + Send + Sync>> {
+        println!("🚀 Layer 5: Nhận yêu cầu cho crypto_index (latest report)");
         
         // Increment request counter to monitor performance
         let request_count = state.request_counter.fetch_add(1, Ordering::Relaxed);
@@ -80,73 +85,41 @@ impl CryptoHandlers {
             println!("Processed {} requests to crypto_index", request_count);
         }
 
-        // Fast path: check L1 cache using atomic latest id
-        let latest_id = state.cached_latest_id.load(Ordering::Relaxed);
-        if latest_id > 0 {
-            // TODO: Implement L1 cache when cache layers are ready
-            // if let Some(cached) = state.report_cache.get(&latest_id).await {
-            //     let chart_modules_content = self.get_chart_modules_content().await;
-            //     match self.render_crypto_template(
-            //         &state.tera,
-            //         "crypto/routes/reports/view.html",
-            //         &cached,
-            //         &chart_modules_content,
-            //         None
-            //     ).await {
-            //         Ok(html) => {
-            //             println!("🔥 L1 Cache HIT for crypto_index");
-            //             return Ok(html);
-            //         }
-            //         Err(_) => {
-            //             println!("⚠️ L1 cache render failed");
-            //         }
-            //     }
-            // }
+        // BƯỚC 1: HỎI LAYER 3 ĐỂ LẤY HTML TỪ CACHE CHO LATEST REPORT
+        // (Không gọi trực tiếp Layer 1)
+        let data_service = &self.report_creator.data_service; // Truy cập data_service
+        
+        // Sử dụng cache key đặc biệt cho latest report
+        if let Ok(Some(cached_html)) = data_service.get_rendered_report_html(state, -1).await {
+            println!("✅ Layer 5: Nhận HTML từ cache cho latest report. Trả về ngay lập tức.");
+            return Ok(cached_html);
         }
 
-        // L1 Cache miss: try L2 cache (Redis) before hitting DB
-        println!("🔍 L1 Cache miss for crypto_index - checking L2 cache (Redis)");
-        
-        // TODO: Implement L2 Redis cache when cache manager is ready
-        // if let Ok(Some(cached_report)) = state.cache_manager.get::<Report>("crypto_latest_report").await {
-        //     println!("🔥 L2 Cache HIT for crypto_index from Redis");
-        //     // Put it back into L1 cache for faster access
-        //     state.report_cache.insert(cached_report.id, cached_report.clone()).await;
-        //     state.cached_latest_id.store(cached_report.id as usize, Ordering::Relaxed);
-        //     
-        //     let chart_modules_content = self.get_chart_modules_content().await;
-        //     match self.render_crypto_template(
-        //         &state.tera,
-        //         "crypto/routes/reports/view.html",
-        //         &cached_report,
-        //         &chart_modules_content,
-        //         None
-        //     ).await {
-        //         Ok(html) => return Ok(html),
-        //         Err(_) => {
-        //             println!("⚠️ Failed to render from L2 cache, falling back to DB");
-        //         }
-        //     }
-        // }
+        println!("🔍 Layer 5: Cache miss cho latest report. Bắt đầu quy trình render.");
 
-        // Both L1 and L2 cache miss: fetch from DB and cache in both L1 and L2
-        println!("🔍 L1+L2 Cache miss for crypto_index - fetching from DB");
-
-        // Parallel fetch DB and chart modules to avoid blocking - use ReportCreator for data logic
-        let db_fut = self.report_creator.fetch_and_cache_latest_report(state);
-        let chart_fut = self.report_creator.get_chart_modules_content();
-
-        let (db_res, _chart_modules_content) = tokio::join!(db_fut, chart_fut);
+        // BƯỚC 2: NẾU CACHE MISS, TIẾP TỤC LOGIC HIỆN TẠI
+        // Fetch from DB (không cần chart modules vì đã có pre-loaded)
+        let db_res = self.report_creator.fetch_and_cache_latest_report(state).await;
 
         match db_res {
             Ok(Some(report)) => {
+                // Chuẩn bị chart_modules_content cho template rendering
+                let chart_content = chart_modules_content.map(|arc| (*arc).clone());
+                
                 // Template rendering with TemplateOrchestrator
                 match self.template_orchestrator.render_crypto_report_view(
                     &state.tera,
                     &report,
+                    chart_content, // Truyền pre-loaded chart modules
                     None
                 ).await {
                     Ok(html) => {
+                        println!("✅ Layer 5: Render thành công cho latest report. Yêu cầu Layer 3 cache lại HTML.");
+                        // BƯỚC 3: SAU KHI RENDER THÀNH CÔNG, YÊU CẦU LAYER 3 LƯU LẠI
+                        // Yêu cầu Layer 3 cache lại kết quả với cache key -1 cho latest report
+                        if let Err(e) = data_service.cache_rendered_report_html(state, -1, html.clone()).await {
+                            eprintln!("⚠️ Layer 5: Không thể cache HTML cho latest report: {}", e);
+                        }
                         println!("✅ Template rendered from DB via TemplateOrchestrator - crypto_index complete");
                         Ok(html)
                     }
@@ -182,12 +155,14 @@ impl CryptoHandlers {
     /// 
     /// Similar to crypto_index_with_tera but for specific report ID
     /// Exactly like archive_old_code/handlers/crypto.rs pattern - Complete L1/L2 caching
+    /// Enhanced with rendered HTML caching for optimal performance
     pub async fn crypto_report_by_id_with_tera(
         &self, 
         state: &Arc<AppState>,
-        report_id: i32
+        report_id: i32,
+        chart_modules_content: Option<Arc<String>>, // THÊM THAM SỐ NÀY
     ) -> Result<String, Box<dyn StdError + Send + Sync>> {
-        println!("🚀 CryptoHandlers::crypto_report_by_id_with_tera - Report ID: {}", report_id);
+        println!("🚀 Layer 5: Nhận yêu cầu cho report #{}", report_id);
         
         // Increment request counter to monitor performance
         let request_count = state.request_counter.fetch_add(1, Ordering::Relaxed);
@@ -197,70 +172,43 @@ impl CryptoHandlers {
             println!("Processed {} requests to crypto_report_by_id", request_count);
         }
 
-        // TODO: Fast path: check L1 cache using report ID when cache layers are ready
-        // let cache_key = format!("report_{}", report_id);
-        // if let Some(cached) = state.report_cache.get(&report_id).await {
-        //     let chart_modules_content = self.get_chart_modules_content().await;
-        //     match self.render_crypto_template(
-        //         &state.tera,
-        //         "crypto/routes/reports/view.html",
-        //         &cached,
-        //         &chart_modules_content,
-        //         None
-        //     ).await {
-        //         Ok(html) => {
-        //             println!("🔥 L1 Cache HIT for report ID: {}", report_id);
-        //             return Ok(html);
-        //         }
-        //         Err(_) => {
-        //             println!("⚠️ L1 cache render failed for report ID: {}", report_id);
-        //         }
-        //     }
-        // }
+        // BƯỚC 1: HỎI LAYER 3 ĐỂ LẤY HTML TỪ CACHE
+        // (Không gọi trực tiếp Layer 1)
+        let data_service = &self.report_creator.data_service; // Truy cập data_service
+        if let Ok(Some(cached_html)) = data_service.get_rendered_report_html(state, report_id).await {
+            println!("✅ Layer 5: Nhận HTML từ cache. Trả về ngay lập tức.");
+            return Ok(cached_html);
+        }
 
-        // L1 Cache miss: try L2 cache (Redis) before hitting DB
-        println!("🔍 L1 Cache miss for report ID: {} - checking L2 cache (Redis)", report_id);
-        
-        // TODO: Implement L2 Redis cache when cache manager is ready
-        // let cache_key = format!("crypto_report_{}", report_id);
-        // if let Ok(Some(cached_report)) = state.cache_manager.get::<Report>(&cache_key).await {
-        //     println!("🔥 L2 Cache HIT for report ID: {} from Redis", report_id);
-        //     // Put it back into L1 cache for faster access
-        //     state.report_cache.insert(cached_report.id, cached_report.clone()).await;
-        //     
-        //     let chart_modules_content = self.get_chart_modules_content().await;
-        //     match self.render_crypto_template(
-        //         &state.tera,
-        //         "crypto/routes/reports/view.html",
-        //         &cached_report,
-        //         &chart_modules_content,
-        //         None
-        //     ).await {
-        //         Ok(html) => return Ok(html),
-        //         Err(_) => {
-        //             println!("⚠️ Failed to render from L2 cache for report ID: {}, falling back to DB", report_id);
-        //         }
-        //     }
-        // }
+        println!("� Layer 5: Cache miss. Bắt đầu quy trình render.");
 
+        // BƯỚC 2: NẾU CACHE MISS, TIẾP TỤC LOGIC HIỆN TẠI
+        // (Lấy dữ liệu thô, render template, v.v...)
         // Both L1 and L2 cache miss: fetch from DB and cache in both L1 and L2
         println!("🔍 L1+L2 Cache miss for report ID: {} - fetching from DB", report_id);
 
-        // Parallel fetch DB and chart modules to avoid blocking - use ReportCreator for data logic
-        let db_fut = self.report_creator.fetch_and_cache_report_by_id(state, report_id);
-        let chart_fut = self.report_creator.get_chart_modules_content();
-
-        let (db_res, _chart_modules_content) = tokio::join!(db_fut, chart_fut);
+        // Parallel fetch DB (không cần chart modules vì đã có pre-loaded)
+        let db_res = self.report_creator.fetch_and_cache_report_by_id(state, report_id).await;
 
         match db_res {
             Ok(Some(report)) => {
+                // Chuẩn bị chart_modules_content cho template rendering
+                let chart_content = chart_modules_content.map(|arc| (*arc).clone());
+                
                 // Template rendering with TemplateOrchestrator
                 match self.template_orchestrator.render_crypto_report_view(
                     &state.tera,
                     &report,
+                    chart_content, // Truyền pre-loaded chart modules
                     None
                 ).await {
                     Ok(html) => {
+                        println!("✅ Layer 5: Render thành công. Yêu cầu Layer 3 cache lại HTML.");
+                        // BƯỚC 3: SAU KHI RENDER THÀNH CÔNG, YÊU CẦU LAYER 3 LƯU LẠI
+                        // Yêu cầu Layer 3 cache lại kết quả
+                        if let Err(e) = data_service.cache_rendered_report_html(state, report_id, html.clone()).await {
+                            eprintln!("⚠️ Layer 5: Không thể cache HTML: {}", e);
+                        }
                         println!("✅ Template rendered from DB via TemplateOrchestrator for report ID: {} - crypto_report_by_id complete", report_id);
                         Ok(html)
                     }

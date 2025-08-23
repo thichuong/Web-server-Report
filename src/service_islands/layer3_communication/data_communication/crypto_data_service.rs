@@ -171,4 +171,33 @@ impl CryptoDataService {
         
         Ok(report)
     }
+
+    /// Lấy nội dung HTML đã render của một report từ cache.
+    pub async fn get_rendered_report_html(&self, state: &Arc<AppState>, report_id: i32) -> Result<Option<String>, anyhow::Error> {
+        if let Some(ref cache_system) = state.cache_system {
+            let cache_key = format!("rendered_html_report_{}", report_id);
+            // Chỉ cần lấy dưới dạng String, không cần deserialize
+            if let Ok(Some(cached_value)) = cache_system.cache_manager.get(&cache_key).await {
+                if let Some(html_string) = cached_value.as_str() {
+                    let report_type = if report_id == -1 { "latest report" } else { &format!("report #{}", report_id) };
+                    println!("🔥 Layer 3: Cache HIT cho HTML đã render của {}", report_type);
+                    return Ok(Some(html_string.to_string()));
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    /// Lưu nội dung HTML đã render của một report vào cache.
+    pub async fn cache_rendered_report_html(&self, state: &Arc<AppState>, report_id: i32, html_content: String) -> Result<(), anyhow::Error> {
+        if let Some(ref cache_system) = state.cache_system {
+            let cache_key = format!("rendered_html_report_{}", report_id);
+            // Sử dụng chiến lược cache MediumTerm (1 giờ) cho HTML đã render
+            let strategy = crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::MediumTerm;
+            cache_system.cache_manager.set_with_strategy(&cache_key, serde_json::json!(html_content), strategy).await?;
+            let report_type = if report_id == -1 { "latest report" } else { &format!("report #{}", report_id) };
+            println!("💾 Layer 3: Đã cache HTML đã render cho {}", report_type);
+        }
+        Ok(())
+    }
 }

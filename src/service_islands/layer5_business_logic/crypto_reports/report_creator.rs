@@ -46,7 +46,7 @@ pub struct ReportListItem {
 /// Uses Layer 3 data services for proper architectural separation.
 #[derive(Clone)]
 pub struct ReportCreator {
-    data_service: CryptoDataService,
+    pub data_service: CryptoDataService,
 }
 
 impl ReportCreator {

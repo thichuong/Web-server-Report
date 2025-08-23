@@ -50,16 +50,27 @@ impl TemplateOrchestrator {
     /// Prepare template context for crypto reports
     /// 
     /// Builds complete template context with all necessary data for rendering
+    /// Enhanced to accept pre-loaded chart_modules_content for optimal performance
     pub async fn prepare_crypto_report_context(
         &self,
         report: &Report,
         template_type: &str,
+        chart_modules_content: Option<String>, // THÊM THAM SỐ NÀY
         additional_context: Option<HashMap<String, serde_json::Value>>
     ) -> Result<TemplateContext, Box<dyn StdError + Send + Sync>> {
         println!("🎨 TemplateOrchestrator: Preparing context for template type: {}", template_type);
         
-        // Fetch chart modules content from ReportCreator
-        let chart_modules_content = self.report_creator.get_chart_modules_content().await;
+        // Sử dụng chart_modules_content được truyền vào, hoặc fetch từ ReportCreator nếu không có
+        let chart_modules_content = match chart_modules_content {
+            Some(content) => {
+                println!("✅ TemplateOrchestrator: Sử dụng chart modules đã được pre-load");
+                content
+            }
+            None => {
+                println!("🔄 TemplateOrchestrator: Fallback - đọc chart modules từ file");
+                self.report_creator.get_chart_modules_content().await
+            }
+        };
         
         // Prepare basic context
         let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string();
@@ -148,10 +159,12 @@ impl TemplateOrchestrator {
     /// Render crypto report view template - High level method
     /// 
     /// Combines context preparation and template rendering for crypto report views
+    /// Enhanced to accept pre-loaded chart_modules_content for optimal performance
     pub async fn render_crypto_report_view(
         &self,
         tera: &tera::Tera,
         report: &Report,
+        chart_modules_content: Option<String>, // THÊM THAM SỐ NÀY
         additional_context: Option<HashMap<String, serde_json::Value>>
     ) -> Result<String, Box<dyn StdError + Send + Sync>> {
         println!("🚀 TemplateOrchestrator: Rendering crypto report view");
@@ -160,6 +173,7 @@ impl TemplateOrchestrator {
         let context = self.prepare_crypto_report_context(
             report,
             "view",
+            chart_modules_content, // TRUYỀN THAM SỐ
             additional_context
         ).await?;
         
@@ -195,7 +209,8 @@ impl TemplateOrchestrator {
         let context = self.prepare_crypto_report_context(
             &empty_report,
             "empty",
-            None
+            None, // chart_modules_content
+            None  // additional_context
         ).await?;
         
         // Override PDF URL for empty case
@@ -241,7 +256,8 @@ impl TemplateOrchestrator {
         let context = self.prepare_crypto_report_context(
             &not_found_report,
             "404",
-            None
+            None, // chart_modules_content
+            None  // additional_context
         ).await?;
         
         // Override PDF URL for 404 case

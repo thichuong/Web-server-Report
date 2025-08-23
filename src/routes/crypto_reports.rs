@@ -49,8 +49,14 @@ async fn crypto_index(
         }
     };
 
+    // Get pre-loaded chart modules content for optimal performance
+    let chart_modules_content = service_islands.get_chart_modules_content();
+
     // Use AppState with Tera engine from Service Islands - Full L1/L2 caching
-    match service_islands.crypto_reports.handlers.crypto_index_with_tera(&service_islands.app_state).await {
+    match service_islands.crypto_reports.handlers.crypto_index_with_tera(
+        &service_islands.app_state,
+        Some(chart_modules_content) // Truyền pre-loaded chart modules
+    ).await {
         Ok(html) => {
             println!("✅ [Route] Template rendered successfully from Layer 5");
             
@@ -139,8 +145,15 @@ async fn crypto_view_report(
         }
     };
 
+    // Get pre-loaded chart modules content for optimal performance
+    let chart_modules_content = service_islands.get_chart_modules_content();
+
     // Use Service Islands architecture to get specific report
-    match service_islands.crypto_reports.handlers.crypto_report_by_id_with_tera(&service_islands.app_state, report_id).await {
+    match service_islands.crypto_reports.handlers.crypto_report_by_id_with_tera(
+        &service_islands.app_state, 
+        report_id, 
+        Some(chart_modules_content) // Truyền pre-loaded chart modules
+    ).await {
         Ok(html) => {
             println!("✅ [Route] Report ID: {} template rendered successfully from Layer 5", report_id);
             
