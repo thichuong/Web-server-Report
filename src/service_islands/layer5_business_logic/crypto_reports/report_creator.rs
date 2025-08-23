@@ -5,13 +5,14 @@
 
 use serde::{Serialize, Deserialize};
 use sqlx::{FromRow};
-use std::{sync::Arc, path::Path, env};
-use tokio::fs::read_dir;
+use std::sync::Arc;
 
 // Import from current state - will be refactored when lower layers are implemented
 use crate::state::AppState;
 // Import Layer 3 data communication service - proper architecture
 use crate::service_islands::layer3_communication::data_communication::CryptoDataService;
+// Import Layer 1 infrastructure services
+use crate::service_islands::layer1_infrastructure::ChartModulesIsland;
 
 /// Report model - exactly from archive_old_code/models.rs
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -43,10 +44,11 @@ pub struct ReportListItem {
 /// Report Creator
 /// 
 /// Manages report creation business logic with market analysis capabilities.
-/// Uses Layer 3 data services for proper architectural separation.
+/// Uses Layer 3 data services and Layer 1 infrastructure services for proper architectural separation.
 #[derive(Clone)]
 pub struct ReportCreator {
     pub data_service: CryptoDataService,
+    pub chart_modules_island: ChartModulesIsland,
 }
 
 impl ReportCreator {
@@ -54,13 +56,14 @@ impl ReportCreator {
     pub fn new() -> Self {
         Self {
             data_service: CryptoDataService::new(),
+            chart_modules_island: ChartModulesIsland::new(),
         }
     }
     
     /// Health check for report creator
     pub async fn health_check(&self) -> bool {
-        // Verify report creation is working
-        true // Will implement actual health check
+        // Verify report creation is working and chart modules are accessible
+        self.chart_modules_island.health_check().await
     }
 
     /// Fetch and cache latest report from database
@@ -138,79 +141,19 @@ impl ReportCreator {
 
     /// Get chart modules content
     /// 
-    /// Exactly from archive_old_code/utils.rs::get_chart_modules_content
-    /// Reads actual chart modules from shared_assets/js/chart_modules/
+    /// Delegates to Layer 1 ChartModulesIsland for proper architectural separation.
+    /// This method provides a business logic wrapper around the infrastructure service.
     pub async fn get_chart_modules_content(&self) -> String {
-        // TODO: Add chart modules cache when cache layer is ready
-        // For now always read from files (like debug mode in archive)
-        let _debug = env::var("DEBUG").unwrap_or_default() == "1";
+        println!("📊 ReportCreator: Requesting chart modules from Layer 1 Infrastructure");
         
-        let source_dir = Path::new("shared_assets").join("js").join("chart_modules");
-        let priority_order = vec!["gauge.js", "bar.js", "line.js", "doughnut.js"];
+        // Delegate to Layer 1 infrastructure service
+        self.chart_modules_island.get_cached_chart_modules_content().await
+    }
 
-        let mut entries = match read_dir(&source_dir).await {
-            Ok(rd) => rd,
-            Err(_) => return "// No chart modules found".to_string(),
-        };
-
-        let mut all_files = Vec::new();
-        while let Ok(Some(entry)) = entries.next_entry().await {
-            if let Ok(ft) = entry.file_type().await {
-                if ft.is_file() {
-                    if let Some(name) = entry.file_name().to_str() {
-                        if name.ends_with(".js") {
-                            all_files.push(name.to_string());
-                        }
-                    }
-                }
-            }
-        }
-
-        // Order files: priority first, then alphabetically
-        let mut ordered = Vec::new();
-        for p in &priority_order {
-            if let Some(idx) = all_files.iter().position(|f| f == p) {
-                ordered.push(all_files.remove(idx));
-            }
-        }
-        all_files.sort();
-        ordered.extend(all_files);
-
-        // Parallel file reading with concurrent futures
-        let file_futures: Vec<_> = ordered
-            .iter()
-            .map(|filename| {
-                let path = source_dir.join(filename);
-                let filename_clone = filename.clone();
-                async move {
-                    match tokio::fs::read_to_string(&path).await {
-                        Ok(content) => {
-                            let wrapped = format!(
-                                "// ==================== {name} ====================\ntry {{\n{code}\n}} catch (error) {{\n    console.error('Error loading chart module {name}:', error);\n}}\n// ==================== End {name} ====================",
-                                name = filename_clone,
-                                code = content
-                            );
-                            wrapped
-                        }
-                        Err(_) => {
-                            format!("// Warning: {name} not found", name = filename_clone)
-                        }
-                    }
-                }
-            })
-            .collect();
-
-        // Await all file reads concurrently like archive code
-        let parts = futures::future::join_all(file_futures).await;
-
-        // Final concatenation in CPU thread pool to avoid blocking async runtime
-        let final_content = tokio::task::spawn_blocking(move || {
-            parts.join("\n\n")
-        }).await.unwrap_or_else(|e| {
-            eprintln!("Chart modules concatenation error: {:#?}", e);
-            "// Error loading chart modules".to_string()
-        });
-
-        final_content
+    /// Get available chart modules
+    /// 
+    /// Returns a list of available chart module names via Layer 1 infrastructure.
+    pub async fn get_available_chart_modules(&self) -> Vec<String> {
+        self.chart_modules_island.get_available_modules().await
     }
 }
