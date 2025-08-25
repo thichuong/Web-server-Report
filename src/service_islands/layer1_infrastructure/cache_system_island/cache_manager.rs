@@ -4,9 +4,12 @@
 
 use std::sync::Arc;
 use std::time::Duration;
+use std::future::Future;
 use anyhow::Result;
 use serde_json;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use dashmap::DashMap;
+use tokio::sync::Mutex;
 
 use super::l1_cache::L1Cache;
 use super::l2_cache::L2Cache;
@@ -55,6 +58,8 @@ pub struct CacheManager {
     l2_hits: Arc<AtomicU64>,
     misses: Arc<AtomicU64>,
     promotions: Arc<AtomicUsize>,
+    /// In-flight requests to prevent Cache Stampede on L2/compute operations
+    in_flight_requests: Arc<DashMap<String, Arc<Mutex<()>>>>,
 }
 
 impl CacheManager {
@@ -70,20 +75,50 @@ impl CacheManager {
             l2_hits: Arc::new(AtomicU64::new(0)),
             misses: Arc::new(AtomicU64::new(0)),
             promotions: Arc::new(AtomicUsize::new(0)),
+            in_flight_requests: Arc::new(DashMap::new()),
         })
     }
     
     /// Get value from cache (L1 first, then L2 fallback with promotion)
+    /// 
+    /// This method now includes built-in Cache Stampede protection when cache misses occur.
+    /// Multiple concurrent requests for the same missing key will be coalesced to prevent
+    /// unnecessary duplicate work on external data sources.
+    /// 
+    /// # Arguments
+    /// * `key` - Cache key to retrieve
+    /// 
+    /// # Returns
+    /// * `Ok(Some(value))` - Cache hit, value found in L1 or L2
+    /// * `Ok(None)` - Cache miss, value not found in either cache
+    /// * `Err(error)` - Cache operation failed
     pub async fn get(&self, key: &str) -> Result<Option<serde_json::Value>> {
         self.total_requests.fetch_add(1, Ordering::Relaxed);
         
-        // Try L1 first
+        // Fast path: Try L1 first (no locking needed)
         if let Some(value) = self.l1_cache.get(key).await {
             self.l1_hits.fetch_add(1, Ordering::Relaxed);
             return Ok(Some(value));
         }
         
-        // Try L2
+        // L1 miss - implement Cache Stampede protection for L2 lookup
+        let lock_guard = self.in_flight_requests
+            .entry(key.to_string())
+            .or_insert_with(|| Arc::new(Mutex::new(())))
+            .clone();
+        
+        let _guard = lock_guard.lock().await;
+        
+        // Double-check L1 cache after acquiring lock
+        // (Another concurrent request might have populated it while we were waiting)
+        if let Some(value) = self.l1_cache.get(key).await {
+            self.l1_hits.fetch_add(1, Ordering::Relaxed);
+            // Clean up tracking since we found the data
+            self.in_flight_requests.remove(key);
+            return Ok(Some(value));
+        }
+        
+        // Check L2 cache
         if let Some(value) = self.l2_cache.get(key).await {
             self.l2_hits.fetch_add(1, Ordering::Relaxed);
             
@@ -93,14 +128,78 @@ impl CacheManager {
                 eprintln!("⚠️ Failed to promote key '{}' to L1 cache", key);
             } else {
                 self.promotions.fetch_add(1, Ordering::Relaxed);
+                println!("⬆️ Promoted '{}' from L2 to L1 (via get)", key);
             }
             
+            // Clean up tracking
+            self.in_flight_requests.remove(key);
             return Ok(Some(value));
         }
         
-        // Cache miss
+        // Both L1 and L2 miss
         self.misses.fetch_add(1, Ordering::Relaxed);
+        
+        // Clean up tracking
+        self.in_flight_requests.remove(key);
+        
         Ok(None)
+    }
+    
+    /// Get value from cache with fallback computation (enhanced backward compatibility)
+    /// 
+    /// This is a convenience method that combines `get()` with optional computation.
+    /// If the value is not found in cache, it will execute the compute function
+    /// and cache the result automatically.
+    /// 
+    /// # Arguments
+    /// * `key` - Cache key
+    /// * `compute_fn` - Optional function to compute value if not in cache
+    /// * `strategy` - Cache strategy for storing computed value (default: ShortTerm)
+    /// 
+    /// # Returns
+    /// * `Ok(Some(value))` - Value found in cache or computed successfully
+    /// * `Ok(None)` - Value not in cache and no compute function provided
+    /// * `Err(error)` - Cache operation or computation failed
+    /// 
+    /// # Example
+    /// ```rust
+    /// // Simple cache get (existing behavior)
+    /// let cached_data = cache_manager.get_with_fallback("my_key", None, None).await?;
+    /// 
+    /// // Get with computation fallback (new enhanced behavior)
+    /// let market_data = cache_manager.get_with_fallback(
+    ///     "latest_price", 
+    ///     Some(|| async { fetch_price_from_api().await }),
+    ///     Some(CacheStrategy::RealTime)
+    /// ).await?;
+    /// ```
+    pub async fn get_with_fallback<F, Fut>(
+        &self,
+        key: &str,
+        compute_fn: Option<F>,
+        strategy: Option<CacheStrategy>,
+    ) -> Result<Option<serde_json::Value>>
+    where
+        F: FnOnce() -> Fut + Send,
+        Fut: Future<Output = Result<serde_json::Value>> + Send,
+    {
+        // First try regular get (with built-in Cache Stampede protection)
+        if let Some(value) = self.get(key).await? {
+            return Ok(Some(value));
+        }
+        
+        // If no compute function provided, return None (traditional behavior)
+        let compute_fn = match compute_fn {
+            Some(f) => f,
+            None => return Ok(None),
+        };
+        
+        // Use the full Cache Stampede protected computation
+        let strategy = strategy.unwrap_or(CacheStrategy::ShortTerm);
+        match self.get_or_compute_with(key, strategy, compute_fn).await {
+            Ok(value) => Ok(Some(value)),
+            Err(e) => Err(e),
+        }
     }
     
     /// Set value with specific cache strategy (both L1 and L2)
@@ -137,4 +236,127 @@ impl CacheManager {
         }
     }
     
+    /// Get or compute value with Cache Stampede protection across L1+L2+Compute
+    /// 
+    /// This method provides comprehensive Cache Stampede protection:
+    /// 1. Check L1 cache first (uses Moka's built-in coalescing)
+    /// 2. Check L2 cache with mutex-based coalescing
+    /// 3. Compute fresh data with protection against concurrent computations
+    /// 
+    /// # Arguments
+    /// * `key` - Cache key
+    /// * `strategy` - Cache strategy for TTL and storage behavior
+    /// * `compute_fn` - Async function to compute the value if not in any cache
+    /// 
+    /// # Example
+    /// ```rust
+    /// let market_data = cache_manager.get_or_compute_with(
+    ///     "latest_btc_price",
+    ///     CacheStrategy::RealTime,
+    ///     || async {
+    ///         fetch_btc_price_from_api().await
+    ///     }
+    /// ).await?;
+    /// ```
+    pub async fn get_or_compute_with<F, Fut>(
+        &self,
+        key: &str,
+        strategy: CacheStrategy,
+        compute_fn: F,
+    ) -> Result<serde_json::Value>
+    where
+        F: FnOnce() -> Fut + Send,
+        Fut: Future<Output = Result<serde_json::Value>> + Send,
+    {
+        self.total_requests.fetch_add(1, Ordering::Relaxed);
+        
+        // 1. Try L1 cache first (with built-in Moka coalescing for hot data)
+        if let Some(value) = self.l1_cache.get(key).await {
+            self.l1_hits.fetch_add(1, Ordering::Relaxed);
+            return Ok(value);
+        }
+        
+        // 2. L1 miss - try L2 with Cache Stampede protection
+        let lock_guard = self.in_flight_requests
+            .entry(key.to_string())
+            .or_insert_with(|| Arc::new(Mutex::new(())))
+            .clone();
+        
+        let _guard = lock_guard.lock().await;
+        
+        // 3. Double-check L1 cache after acquiring lock
+        // (Another request might have populated it while we were waiting)
+        if let Some(value) = self.l1_cache.get(key).await {
+            self.l1_hits.fetch_add(1, Ordering::Relaxed);
+            return Ok(value);
+        }
+        
+        // 4. Check L2 cache
+        if let Some(value) = self.l2_cache.get(key).await {
+            self.l2_hits.fetch_add(1, Ordering::Relaxed);
+            
+            // Promote to L1 for future requests
+            let ttl = strategy.to_duration();
+            if let Err(e) = self.l1_cache.set(key, value.clone(), ttl).await {
+                eprintln!("⚠️ Failed to promote key '{}' to L1: {}", key, e);
+            } else {
+                self.promotions.fetch_add(1, Ordering::Relaxed);
+                println!("⬆️ Promoted '{}' from L2 to L1", key);
+            }
+            
+            return Ok(value);
+        }
+        
+        // 5. Both L1 and L2 miss - compute fresh data
+        println!("💻 Computing fresh data for key: '{}' (Cache Stampede protected)", key);
+        let fresh_data = compute_fn().await?;
+        
+        // 6. Store in both caches
+        if let Err(e) = self.set_with_strategy(key, fresh_data.clone(), strategy).await {
+            eprintln!("⚠️ Failed to cache computed data for key '{}': {}", key, e);
+        }
+        
+        // 7. Clean up in-flight request tracking
+        self.in_flight_requests.remove(key);
+        
+        Ok(fresh_data)
+    }
+    
+    /// Get comprehensive cache statistics
+    pub fn get_stats(&self) -> CacheManagerStats {
+        let total_reqs = self.total_requests.load(Ordering::Relaxed);
+        let l1_hits = self.l1_hits.load(Ordering::Relaxed);
+        let l2_hits = self.l2_hits.load(Ordering::Relaxed);
+        let misses = self.misses.load(Ordering::Relaxed);
+        
+        CacheManagerStats {
+            total_requests: total_reqs,
+            l1_hits,
+            l2_hits,
+            total_hits: l1_hits + l2_hits,
+            misses,
+            hit_rate: if total_reqs > 0 { 
+                ((l1_hits + l2_hits) as f64 / total_reqs as f64) * 100.0 
+            } else { 0.0 },
+            l1_hit_rate: if total_reqs > 0 { 
+                (l1_hits as f64 / total_reqs as f64) * 100.0 
+            } else { 0.0 },
+            promotions: self.promotions.load(Ordering::Relaxed),
+            in_flight_requests: self.in_flight_requests.len(),
+        }
+    }
+}
+
+/// Cache Manager statistics
+#[derive(Debug, Clone)]
+pub struct CacheManagerStats {
+    pub total_requests: u64,
+    pub l1_hits: u64,
+    pub l2_hits: u64,
+    pub total_hits: u64,
+    pub misses: u64,
+    pub hit_rate: f64,
+    pub l1_hit_rate: f64,
+    pub promotions: usize,
+    pub in_flight_requests: usize,
 }

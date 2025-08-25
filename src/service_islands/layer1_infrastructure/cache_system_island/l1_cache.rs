@@ -4,6 +4,7 @@
 
 use std::sync::Arc;
 use std::time::Duration;
+use std::future::Future;
 use anyhow::Result;
 use serde_json;
 use moka::future::Cache;
@@ -19,6 +20,8 @@ pub struct L1Cache {
     misses: Arc<AtomicU64>,
     /// Set counter
     sets: Arc<AtomicU64>,
+    /// Coalesced requests counter (requests that waited for an ongoing computation)
+    coalesced_requests: Arc<AtomicU64>,
 }
 
 impl L1Cache {
@@ -39,6 +42,7 @@ impl L1Cache {
             hits: Arc::new(AtomicU64::new(0)),
             misses: Arc::new(AtomicU64::new(0)),
             sets: Arc::new(AtomicU64::new(0)),
+            coalesced_requests: Arc::new(AtomicU64::new(0)),
         })
     }
     
@@ -97,4 +101,82 @@ impl L1Cache {
             Err(_) => false
         }
     }
+
+    /// Get value from cache or compute if not exists (Cache Stampede Protection)
+    /// 
+    /// This method prevents Cache Stampede by using Moka's built-in request coalescing.
+    /// When multiple concurrent requests ask for the same key that's not in cache,
+    /// only the first request will execute the compute function, while others wait
+    /// for the result.
+    /// 
+    /// # Arguments
+    /// * `key` - Cache key
+    /// * `compute_fn` - Async function to compute the value if not in cache
+    /// 
+    /// # Example
+    /// ```rust
+    /// let value = cache.get_or_compute_with("expensive_data", || async {
+    ///     // This expensive computation will only run once even with concurrent requests
+    ///     fetch_data_from_database().await
+    /// }).await?;
+    /// ```
+    pub async fn get_or_compute_with<F, Fut>(
+        &self,
+        key: &str,
+        compute_fn: F,
+    ) -> Result<serde_json::Value>
+    where
+        F: FnOnce() -> Fut + Send,
+        Fut: Future<Output = Result<serde_json::Value>> + Send,
+    {
+        // Check if already in cache first (fast path)
+        if let Some(cached_value) = self.get(key).await {
+            return Ok(cached_value);
+        }
+
+        // Use a simpler approach with get_with that returns the computed value directly
+        let result = self.cache.get_with(key.to_string(), async {
+            println!("🔄 Computing fresh data for key: '{}' (Cache Stampede protected)", key);
+            compute_fn().await.unwrap_or_else(|e| {
+                eprintln!("❌ Computation failed for key '{}': {}", key, e);
+                // Return a default error value that can be detected
+                serde_json::json!({
+                    "error": true,
+                    "message": format!("Computation failed: {}", e)
+                })
+            })
+        }).await;
+        
+        // Check if the result is an error
+        if result.get("error").and_then(|v| v.as_bool()).unwrap_or(false) {
+            let error_msg = result.get("message")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Unknown computation error");
+            return Err(anyhow::anyhow!("{}", error_msg));
+        }
+        
+        self.hits.fetch_add(1, Ordering::Relaxed);
+        Ok(result)
+    }
+
+    /// Get statistics about cache performance and coalescing
+    pub fn get_stats(&self) -> CacheStats {
+        CacheStats {
+            hits: self.hits.load(Ordering::Relaxed),
+            misses: self.misses.load(Ordering::Relaxed),
+            sets: self.sets.load(Ordering::Relaxed),
+            coalesced_requests: self.coalesced_requests.load(Ordering::Relaxed),
+            size: self.cache.entry_count(),
+        }
+    }
+}
+
+/// Cache statistics
+#[derive(Debug, Clone)]
+pub struct CacheStats {
+    pub hits: u64,
+    pub misses: u64,
+    pub sets: u64,
+    pub coalesced_requests: u64,
+    pub size: u64,
 }

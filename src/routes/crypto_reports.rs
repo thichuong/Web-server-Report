@@ -37,17 +37,7 @@ async fn crypto_index(
         println!("🚀 [Route] crypto_index called for latest report - fetching from Service Islands Layer 5");
     }
     
-    // First fetch real-time market data from Layer 5 → Layer 2 for enhanced template context
-    let realtime_data = match service_islands.crypto_reports.fetch_realtime_market_data().await {
-        Ok(data) => {
-            println!("✅ [Route] Got real-time data from Layer 5 for template context");
-            Some(data)
-        }
-        Err(e) => {
-            println!("⚠️ [Route] Failed to get real-time data: {}, using cached template only", e);
-            None
-        }
-    };
+
 
     // Get pre-loaded chart modules content for optimal performance
     let chart_modules_content = service_islands.get_chart_modules_content();
@@ -59,13 +49,7 @@ async fn crypto_index(
     ).await {
         Ok(html) => {
             println!("✅ [Route] Template rendered successfully from Layer 5");
-            
-            // TODO: In future, inject realtime_data into template context
-            // For now, template uses database data + WebSocket will provide real-time updates
-            if realtime_data.is_some() {
-                println!("📊 [Route] Real-time data available for future template enhancement");
-            }
-            
+                        
             // Use create_cached_response helper like archive code
             service_islands.crypto_reports.handlers.create_cached_response(html, "service-islands")
         }
@@ -134,16 +118,16 @@ async fn crypto_view_report(
     println!("📄 [Route] Requesting report ID: {}", report_id);
 
     // First fetch real-time market data from Layer 5 → Layer 2 for enhanced template context
-    let realtime_data = match service_islands.crypto_reports.fetch_realtime_market_data().await {
-        Ok(data) => {
-            println!("✅ [Route] Got real-time data from Layer 5 for template context");
-            Some(data)
-        }
-        Err(e) => {
-            println!("⚠️ [Route] Failed to get real-time data: {}, using cached template only", e);
-            None
-        }
-    };
+    // let realtime_data = match service_islands.crypto_reports.fetch_realtime_market_data().await {
+    //     Ok(data) => {
+    //         println!("✅ [Route] Got real-time data from Layer 5 for template context");
+    //         Some(data)
+    //     }
+    //     Err(e) => {
+    //         println!("⚠️ [Route] Failed to get real-time data: {}, using cached template only", e);
+    //         None
+    //     }
+    // };
 
     // Get pre-loaded chart modules content for optimal performance
     let chart_modules_content = service_islands.get_chart_modules_content();
@@ -155,13 +139,7 @@ async fn crypto_view_report(
         Some(chart_modules_content) // Truyền pre-loaded chart modules
     ).await {
         Ok(html) => {
-            println!("✅ [Route] Report ID: {} template rendered successfully from Layer 5", report_id);
-            
-            // TODO: In future, inject realtime_data into template context
-            // For now, template uses database data + WebSocket will provide real-time updates
-            if realtime_data.is_some() {
-                println!("📊 [Route] Real-time data available for future template enhancement");
-            }
+            println!("✅ [Route] Report ID: {} template rendered successfully from Layer 5", report_id);            
             
             // Create cached response like archive_old_code with proper headers
             Response::builder()
@@ -216,28 +194,22 @@ async fn crypto_report_pdf(
     println!("📄 [Route] Requesting PDF for report ID: {}", report_id);
 
     // First fetch real-time market data from Layer 5 → Layer 2 for enhanced template context
-    let realtime_data = match service_islands.crypto_reports.fetch_realtime_market_data().await {
-        Ok(data) => {
-            println!("✅ [Route] Got real-time data from Layer 5 for PDF template context");
-            Some(data)
-        }
-        Err(e) => {
-            println!("⚠️ [Route] Failed to get real-time data for PDF: {}, using cached template only", e);
-            None
-        }
-    };
+    // let realtime_data = match service_islands.crypto_reports.fetch_realtime_market_data().await {
+    //     Ok(data) => {
+    //         println!("✅ [Route] Got real-time data from Layer 5 for PDF template context");
+    //         Some(data)
+    //     }
+    //     Err(e) => {
+    //         println!("⚠️ [Route] Failed to get real-time data for PDF: {}, using cached template only", e);
+    //         None
+    //     }
+    // };
 
     // Use Service Islands architecture to get PDF template for specific report
     match service_islands.crypto_reports.handlers.crypto_report_pdf_with_tera(&service_islands.app_state, report_id).await {
         Ok(html) => {
             println!("✅ [Route] PDF template for report ID: {} rendered successfully from Layer 5", report_id);
-            
-            // TODO: In future, inject realtime_data into PDF template context
-            // For now, template uses database data + WebSocket will provide real-time updates
-            if realtime_data.is_some() {
-                println!("📊 [Route] Real-time data available for future PDF template enhancement");
-            }
-            
+
             // Create PDF-optimized response with proper headers
             Response::builder()
                 .status(StatusCode::OK)

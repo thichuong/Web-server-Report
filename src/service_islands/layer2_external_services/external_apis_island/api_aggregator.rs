@@ -250,8 +250,8 @@ impl ApiAggregator {
                 // Cache using generic ShortTerm strategy (5 minutes)
                 if let Some(ref cache) = self.cache_system {
                     let _ = cache.cache_manager.set_with_strategy(cache_key, data.clone(), 
-                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm).await;
-                    println!("💾 BTC price cached for 5 minutes (short-term strategy)");
+                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::RealTime).await;
+                    println!("💾 BTC price cached for 30 seconds (real-time strategy)");
                 }
                 Ok(data)
             }
@@ -276,8 +276,8 @@ impl ApiAggregator {
                 // Cache using generic RealTime strategy (30 seconds)
                 if let Some(ref cache) = self.cache_system {
                     let _ = cache.cache_manager.set_with_strategy(cache_key, data.clone(),
-                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::RealTime).await;
-                    println!("💾 Global data cached for 30 seconds (real-time strategy)");
+                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::MediumTerm).await;
+                    println!("💾 Global data cached for 1 hour (MediumTerm strategy)");
                 }
                 Ok(data)
             }

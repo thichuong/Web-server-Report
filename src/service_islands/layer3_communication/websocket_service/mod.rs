@@ -187,9 +187,9 @@ impl WebSocketServiceIsland {
             loop {
                 interval.tick().await;
                 
-                // Check cache for new market data periodically
+                // Check cache for new market data periodically (with Cache Stampede protection)
                 // This is a simplified approach compared to Redis Streams
-                if let Ok(Some(market_data)) = cache_system_clone.get("latest_market_data").await {
+                if let Ok(Some(market_data)) = cache_system_clone.cache_manager().get("latest_market_data").await {
                     let message = serde_json::to_string(&market_data).unwrap_or_else(|_| "{}".to_string());
                     if let Err(e) = broadcast_tx.send(message) {
                         eprintln!("⚠️ Failed to broadcast market data: {}", e);

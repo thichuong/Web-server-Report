@@ -148,11 +148,11 @@ impl MarketDataAdapter {
     pub async fn fetch_dashboard_summary_v2(&self) -> Result<serde_json::Value> {
         println!("🔄 [Layer 3 → Cache Check] Checking latest_market_data cache first...");
         
-        // STEP 1: Layer 3 Cache Check for latest_market_data
+        // STEP 1: Layer 3 Cache Check for latest_market_data (with Cache Stampede protection)
         if let Some(cache_system) = &self.cache_system {
-            match cache_system.get("latest_market_data").await {
+            match cache_system.cache_manager().get("latest_market_data").await {
                 Ok(Some(cached_data)) => {
-                    println!("💨 [Layer 3] Cache HIT for latest_market_data - skipping Layer 2 call");
+                    println!("💨 [Layer 3] Cache HIT for latest_market_data - skipping Layer 2 call (Cache Stampede protected)");
                     println!("  🚀 Performance: Avoided Layer 2 round-trip");
                     return Ok(cached_data);
                 }

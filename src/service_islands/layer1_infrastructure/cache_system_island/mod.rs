@@ -13,10 +13,11 @@ use anyhow::Result;
 pub mod l1_cache;
 pub mod l2_cache;
 pub mod cache_manager;
+pub mod cache_stampede_test;
 
-use l1_cache::L1Cache;
+use l1_cache::{L1Cache, CacheStats as L1CacheStats};
 use l2_cache::L2Cache;
-use cache_manager::CacheManager;
+use cache_manager::{CacheManager, CacheManagerStats};
 pub use cache_manager::CacheStrategy;
 
 /// Cache System Island - Two-tier caching system
@@ -74,6 +75,26 @@ impl CacheSystemIsland {
     /// Direct access to cache manager
     pub fn cache_manager(&self) -> &Arc<CacheManager> {
         &self.cache_manager
+    }
+
+    /// Run Cache Stampede protection test
+    /// 
+    /// This method runs comprehensive tests to demonstrate and verify
+    /// that the Cache Stampede protection is working correctly.
+    pub async fn test_cache_stampede_protection(&self) -> Result<()> {
+        cache_stampede_test::test_cache_stampede_protection().await
+    }
+
+    /// Get comprehensive system statistics
+    pub fn get_system_stats(&self) -> CacheSystemStats {
+        let manager_stats = self.cache_manager.get_stats();
+        let l1_stats = self.l1_cache.get_stats();
+        
+        CacheSystemStats {
+            manager_stats,
+            l1_stats,
+            // You could add L2 stats here if L2Cache had a get_stats method
+        }
     }
 
     // ===== COMPATIBILITY METHODS FOR OLD API (DEPRECATED) =====
@@ -148,4 +169,11 @@ impl CacheSystemIsland {
             None => self.cache_manager.set_with_strategy(key, value, CacheStrategy::Default).await,
         }
     }
+}
+
+/// Combined cache system statistics
+#[derive(Debug, Clone)]
+pub struct CacheSystemStats {
+    pub manager_stats: CacheManagerStats,
+    pub l1_stats: L1CacheStats,
 }

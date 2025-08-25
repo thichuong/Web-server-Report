@@ -6,6 +6,10 @@ default-run = "web-server-report"
 license = "Apache-2.0"
 authors = ["thichuong"]
 
+[lib]
+name = "web_server_report"
+path = "src/lib.rs"
+
 [[bin]]
 name = "web-server-report"
 path = "src/main.rs"
