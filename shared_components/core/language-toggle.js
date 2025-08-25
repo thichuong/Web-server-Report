@@ -191,8 +191,8 @@
     // =====================================
     
     /**
-     * Centralized function to call initializeAllVisuals_report()
-     * This is now the single place where this function is called to avoid duplicates
+     * Centralized function to call initializeAllVisuals_report() or initializeAllVisuals_report_en()
+     * This is now the single place where these functions are called to avoid duplicates
      */
     function callInitializeReportVisuals() {
         // Check if report container exists (only call on pages with reports)
@@ -201,9 +201,24 @@
             return; // Not a report page
         }
 
+        // Get current language
+        const currentLang = (window.languageManager && window.languageManager.currentLanguage) ? 
+            window.languageManager.currentLanguage : 
+            (document.documentElement.lang || DEFAULT_LANG);
+
+        // Determine which function to call based on language
+        let initFunction, functionName;
+        if (currentLang === 'en') {
+            initFunction = window.initializeAllVisuals_report_en;
+            functionName = 'initializeAllVisuals_report_en';
+        } else {
+            initFunction = window.initializeAllVisuals_report;
+            functionName = 'initializeAllVisuals_report';
+        }
+
         // Check if the function exists
-        if (typeof initializeAllVisuals_report !== 'function') {
-            console.warn("⚠️ initializeAllVisuals_report function not found");
+        if (typeof initFunction !== 'function') {
+            console.warn(`⚠️ ${functionName} function not found`);
             return;
         }
 
@@ -217,10 +232,10 @@
         }
 
         try {
-            console.log("🎨 Calling initializeAllVisuals_report() from language-toggle.js");
-            initializeAllVisuals_report();
+            console.log(`🎨 Calling ${functionName}() from language-toggle.js`);
+            initFunction();
         } catch (error) {
-            console.error("❌ Error calling initializeAllVisuals_report:", error);
+            console.error(`❌ Error calling ${functionName}:`, error);
         }
     }
 
@@ -239,7 +254,22 @@
                 return; // Not a report page
             }
 
-            const hasFunction = typeof initializeAllVisuals_report === 'function';
+            // Get current language
+            const currentLang = (window.languageManager && window.languageManager.currentLanguage) ? 
+                window.languageManager.currentLanguage : 
+                (document.documentElement.lang || DEFAULT_LANG);
+
+            // Determine which function to check based on language
+            let initFunction, functionName;
+            if (currentLang === 'en') {
+                initFunction = window.initializeAllVisuals_report_en;
+                functionName = 'initializeAllVisuals_report_en';
+            } else {
+                initFunction = window.initializeAllVisuals_report;
+                functionName = 'initializeAllVisuals_report';
+            }
+
+            const hasFunction = typeof initFunction === 'function';
             const hasChartLibs = typeof createGauge === 'function' && 
                                 typeof createDoughnutChart === 'function' && 
                                 typeof createBarChart === 'function';
@@ -252,7 +282,7 @@
             if (attempts < maxRetries) {
                 setTimeout(attempt, delay);
             } else {
-                console.warn("⚠️ Failed to initialize report visuals after max retries");
+                console.warn(`⚠️ Failed to initialize report visuals after max retries. Missing: ${!hasFunction ? functionName + ' function' : 'chart libraries'}`);
             }
         }
         
