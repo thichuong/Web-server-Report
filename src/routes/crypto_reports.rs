@@ -9,11 +9,13 @@ use axum::{
     response::{IntoResponse, Response},
     extract::{Path, State, Query},
     http::StatusCode,
+    body::Body,
 };
 use std::sync::Arc;
 use std::collections::HashMap;
 
 use crate::service_islands::ServiceIslands;
+use crate::service_islands::layer5_business_logic::crypto_reports::handlers::CryptoHandlers;
 
 /// Configure crypto reports routes
 pub fn configure_crypto_reports_routes() -> Router<Arc<ServiceIslands>> {
@@ -47,11 +49,11 @@ async fn crypto_index(
         &service_islands.app_state,
         Some(chart_modules_content) // Truyền pre-loaded chart modules
     ).await {
-        Ok(html) => {
-            println!("✅ [Route] Template rendered successfully from Layer 5");
+        Ok(compressed_data) => {
+            println!("✅ [Route] Compressed template rendered successfully from Layer 5");
                         
-            // Use create_cached_response helper like archive code
-            service_islands.crypto_reports.handlers.create_cached_response(html, "service-islands")
+            // Use create_compressed_response for compressed data
+            CryptoHandlers::create_compressed_response(compressed_data)
         }
         Err(e) => {
             eprintln!("❌ [Route] Crypto index error: {}", e);
@@ -138,17 +140,18 @@ async fn crypto_view_report(
         report_id, 
         Some(chart_modules_content) // Truyền pre-loaded chart modules
     ).await {
-        Ok(html) => {
-            println!("✅ [Route] Report ID: {} template rendered successfully from Layer 5", report_id);            
+        Ok(compressed_data) => {
+            println!("✅ [Route] Report ID: {} compressed template rendered successfully from Layer 5", report_id);            
             
-            // Create cached response like archive_old_code with proper headers
+            // Create compressed response with proper headers
             Response::builder()
                 .status(StatusCode::OK)
                 .header("cache-control", "public, max-age=300") // 5min cache for individual reports
                 .header("content-type", "text/html; charset=utf-8")
-                .header("x-cache", "Layer5-Generated")
+                .header("content-encoding", "gzip")
+                .header("x-cache", "Layer5-Generated-Compressed")
                 .header("x-report-id", report_id.to_string())
-                .body(html)
+                .body(Body::from(compressed_data))
                 .unwrap()
                 .into_response()
         }

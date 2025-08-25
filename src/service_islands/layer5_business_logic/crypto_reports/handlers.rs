@@ -5,10 +5,12 @@
 //! ONLY uses Template Engine - NO manual HTML creation
 
 use axum::{
-    http::StatusCode,
+    http::{StatusCode, HeaderMap, header::{CONTENT_TYPE, CONTENT_ENCODING}},
     response::{IntoResponse, Response},
+    body::Body,
 };
-use std::{sync::Arc, error::Error as StdError, sync::atomic::Ordering};
+use std::{sync::Arc, error::Error as StdError, sync::atomic::Ordering, io::Write};
+use flate2::{Compression, write::GzEncoder};
 
 // Import from current state - will be refactored when lower layers are implemented
 use crate::state::AppState;
@@ -66,15 +68,51 @@ impl CryptoHandlers {
             .into_response()
     }
 
+    /// Create compressed HTTP response with proper headers
+    /// 
+    /// Helper function to create HTTP response with gzip compression headers
+    pub fn create_compressed_response(compressed_data: Vec<u8>) -> Response {
+        Response::builder()
+            .status(StatusCode::OK)
+            .header("cache-control", "public, max-age=15")
+            .header("x-cache", "compressed")
+            .header("content-type", "text/html; charset=utf-8")
+            .header("content-encoding", "gzip")
+            .body(Body::from(compressed_data))
+            .unwrap()
+            .into_response()
+    }
+
+    /// Compress HTML string to gzip format
+    /// 
+    /// Helper function to compress HTML strings for templates that don't use compression
+    fn compress_html_string(&self, html: &str) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(html.as_bytes())?;
+        let compressed_data = encoder.finish()?;
+        
+        let original_size = html.len();
+        let compressed_size = compressed_data.len();
+        let compression_ratio = (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0;
+        
+        println!("🗜️  CryptoHandlers: HTML compressed - Original: {}KB, Compressed: {}KB, Ratio: {:.1}%", 
+                 original_size / 1024, 
+                 compressed_size / 1024, 
+                 compression_ratio);
+        
+        Ok(compressed_data)
+    }
+
     /// Crypto Index with Tera template engine - FULL IMPLEMENTATION
     /// 
     /// Exactly like archive_old_code/handlers/crypto.rs::crypto_index - Complete L1/L2 caching
     /// Enhanced with pre-loaded chart modules and HTML caching for optimal performance
+    /// Now returns compressed data for optimal transfer speed
     pub async fn crypto_index_with_tera(
         &self, 
         state: &Arc<AppState>,
         chart_modules_content: Option<Arc<String>>, // THÊM THAM SỐ NÀY
-    ) -> Result<String, Box<dyn StdError + Send + Sync>> {
+    ) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
         println!("🚀 Layer 5: Nhận yêu cầu cho crypto_index (latest report)");
         
         // Increment request counter to monitor performance
@@ -85,14 +123,14 @@ impl CryptoHandlers {
             println!("Processed {} requests to crypto_index", request_count);
         }
 
-        // BƯỚC 1: HỎI LAYER 3 ĐỂ LẤY HTML TỪ CACHE CHO LATEST REPORT
+        // BƯỚC 1: HỎI LAYER 3 ĐỂ LẤY COMPRESSED DATA TỪ CACHE CHO LATEST REPORT
         // (Không gọi trực tiếp Layer 1)
         let data_service = &self.report_creator.data_service; // Truy cập data_service
         
-        // Sử dụng cache key đặc biệt cho latest report
-        if let Ok(Some(cached_html)) = data_service.get_rendered_report_html(state, -1).await {
-            println!("✅ Layer 5: Nhận HTML từ cache cho latest report. Trả về ngay lập tức.");
-            return Ok(cached_html);
+        // Check cache for compressed data first (preferred)
+        if let Ok(Some(cached_compressed)) = data_service.get_rendered_report_compressed(state, -1).await {
+            println!("✅ Layer 5: Nhận compressed data từ cache cho latest report. Trả về ngay lập tức.");
+            return Ok(cached_compressed);
         }
 
         println!("🔍 Layer 5: Cache miss cho latest report. Bắt đầu quy trình render.");
@@ -113,15 +151,14 @@ impl CryptoHandlers {
                     chart_content, // Truyền pre-loaded chart modules
                     None
                 ).await {
-                    Ok(html) => {
-                        println!("✅ Layer 5: Render thành công cho latest report. Yêu cầu Layer 3 cache lại HTML.");
-                        // BƯỚC 3: SAU KHI RENDER THÀNH CÔNG, YÊU CẦU LAYER 3 LƯU LẠI
-                        // Yêu cầu Layer 3 cache lại kết quả với cache key -1 cho latest report
-                        if let Err(e) = data_service.cache_rendered_report_html(state, -1, html.clone()).await {
-                            eprintln!("⚠️ Layer 5: Không thể cache HTML cho latest report: {}", e);
+                    Ok(compressed_data) => {
+                        println!("✅ Layer 5: Render thành công cho latest report. Yêu cầu Layer 3 cache lại compressed data.");
+                        // BƯỚC 3: SAU KHI RENDER THÀNH CÔNG, YÊU CẦU LAYER 3 LƯU LẠI COMPRESSED DATA
+                        if let Err(e) = data_service.cache_rendered_report_compressed(state, -1, compressed_data.clone()).await {
+                            eprintln!("⚠️ Layer 5: Không thể cache compressed data cho latest report: {}", e);
                         }
                         println!("✅ Template rendered from DB via TemplateOrchestrator - crypto_index complete");
-                        Ok(html)
+                        Ok(compressed_data)
                     }
                     Err(e) => {
                         eprintln!("❌ TemplateOrchestrator render error: {}", e);
@@ -136,7 +173,14 @@ impl CryptoHandlers {
                 match self.template_orchestrator.render_empty_template(&state.tera).await {
                     Ok(html) => {
                         println!("✅ Empty template rendered successfully via TemplateOrchestrator");
-                        Ok(html)
+                        // Compress the empty template HTML
+                        match self.compress_html_string(&html) {
+                            Ok(compressed_data) => Ok(compressed_data),
+                            Err(e) => {
+                                eprintln!("❌ Failed to compress empty template: {}", e);
+                                Err(format!("Empty template compression error: {}", e).into())
+                            }
+                        }
                     }
                     Err(e) => {
                         eprintln!("❌ TemplateOrchestrator empty template render error: {}", e);
@@ -156,12 +200,13 @@ impl CryptoHandlers {
     /// Similar to crypto_index_with_tera but for specific report ID
     /// Exactly like archive_old_code/handlers/crypto.rs pattern - Complete L1/L2 caching
     /// Enhanced with rendered HTML caching for optimal performance
+    /// Now returns compressed data for optimal transfer speed
     pub async fn crypto_report_by_id_with_tera(
         &self, 
         state: &Arc<AppState>,
         report_id: i32,
         chart_modules_content: Option<Arc<String>>, // THÊM THAM SỐ NÀY
-    ) -> Result<String, Box<dyn StdError + Send + Sync>> {
+    ) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
         println!("🚀 Layer 5: Nhận yêu cầu cho report #{}", report_id);
         
         // Increment request counter to monitor performance
@@ -172,22 +217,20 @@ impl CryptoHandlers {
             println!("Processed {} requests to crypto_report_by_id", request_count);
         }
 
-        // BƯỚC 1: HỎI LAYER 3 ĐỂ LẤY HTML TỪ CACHE
+        // BƯỚC 1: HỎI LAYER 3 ĐỂ LẤY COMPRESSED DATA TỪ CACHE
         // (Không gọi trực tiếp Layer 1)
         let data_service = &self.report_creator.data_service; // Truy cập data_service
-        if let Ok(Some(cached_html)) = data_service.get_rendered_report_html(state, report_id).await {
-            println!("✅ Layer 5: Nhận HTML từ cache. Trả về ngay lập tức.");
-            return Ok(cached_html);
+        
+        // Check cache for compressed data first (preferred)
+        if let Ok(Some(cached_compressed)) = data_service.get_rendered_report_compressed(state, report_id).await {
+            println!("✅ Layer 5: Nhận compressed data từ cache. Trả về ngay lập tức.");
+            return Ok(cached_compressed);
         }
 
-        println!("� Layer 5: Cache miss. Bắt đầu quy trình render.");
+        println!("🔍 Layer 5: Cache miss cho report #{}. Bắt đầu quy trình render.", report_id);
 
         // BƯỚC 2: NẾU CACHE MISS, TIẾP TỤC LOGIC HIỆN TẠI
-        // (Lấy dữ liệu thô, render template, v.v...)
-        // Both L1 and L2 cache miss: fetch from DB and cache in both L1 and L2
-        println!("🔍 L1+L2 Cache miss for report ID: {} - fetching from DB", report_id);
-
-        // Parallel fetch DB (không cần chart modules vì đã có pre-loaded)
+        // Fetch from DB (không cần chart modules vì đã có pre-loaded)
         let db_res = self.report_creator.fetch_and_cache_report_by_id(state, report_id).await;
 
         match db_res {
@@ -202,39 +245,45 @@ impl CryptoHandlers {
                     chart_content, // Truyền pre-loaded chart modules
                     None
                 ).await {
-                    Ok(html) => {
-                        println!("✅ Layer 5: Render thành công. Yêu cầu Layer 3 cache lại HTML.");
-                        // BƯỚC 3: SAU KHI RENDER THÀNH CÔNG, YÊU CẦU LAYER 3 LƯU LẠI
-                        // Yêu cầu Layer 3 cache lại kết quả
-                        if let Err(e) = data_service.cache_rendered_report_html(state, report_id, html.clone()).await {
-                            eprintln!("⚠️ Layer 5: Không thể cache HTML: {}", e);
+                    Ok(compressed_data) => {
+                        println!("✅ Layer 5: Render thành công cho report #{}. Yêu cầu Layer 3 cache lại compressed data.", report_id);
+                        // BƯỚC 3: SAU KHI RENDER THÀNH CÔNG, YÊU CẦU LAYER 3 LƯU LẠI COMPRESSED DATA
+                        if let Err(e) = data_service.cache_rendered_report_compressed(state, report_id, compressed_data.clone()).await {
+                            eprintln!("⚠️ Layer 5: Không thể cache compressed data cho report #{}: {}", report_id, e);
                         }
-                        println!("✅ Template rendered from DB via TemplateOrchestrator for report ID: {} - crypto_report_by_id complete", report_id);
-                        Ok(html)
+                        println!("✅ Template rendered from DB via TemplateOrchestrator - crypto_report_by_id complete");
+                        Ok(compressed_data)
                     }
                     Err(e) => {
-                        eprintln!("❌ TemplateOrchestrator render error for report ID: {}: {}", report_id, e);
+                        eprintln!("❌ TemplateOrchestrator render error: {}", e);
                         Err("Template render error".into())
                     }
                 }
             }
             Ok(None) => {
-                println!("⚠️ Report ID: {} not found in database - rendering 404 template via TemplateOrchestrator", report_id);
+                println!("⚠️ No reports found in database - rendering empty template via TemplateOrchestrator");
                 
-                // Use TemplateOrchestrator for 404 template
-                match self.template_orchestrator.render_not_found_template(&state.tera, report_id).await {
+                // Use TemplateOrchestrator for empty template
+                match self.template_orchestrator.render_empty_template(&state.tera).await {
                     Ok(html) => {
-                        println!("✅ 404 template rendered successfully via TemplateOrchestrator for report ID: {}", report_id);
-                        Ok(html)
+                        println!("✅ Empty template rendered successfully via TemplateOrchestrator");
+                        // Compress the empty template HTML
+                        match self.compress_html_string(&html) {
+                            Ok(compressed_data) => Ok(compressed_data),
+                            Err(e) => {
+                                eprintln!("❌ Failed to compress empty template: {}", e);
+                                Err(format!("Empty template compression error: {}", e).into())
+                            }
+                        }
                     }
                     Err(e) => {
-                        eprintln!("❌ TemplateOrchestrator 404 template render error for report ID: {}: {}", report_id, e);
-                        Err(format!("404 template render error: {}", e).into())
+                        eprintln!("❌ TemplateOrchestrator empty template render error: {}", e);
+                        Err(format!("Empty template render error: {}", e).into())
                     }
                 }
             }
             Err(e) => {
-                eprintln!("❌ Database error for report ID: {}: {}", report_id, e);
+                eprintln!("❌ Database error in crypto_report_by_id: {}", e);
                 Err(format!("Database error: {}", e).into())
             }
         }

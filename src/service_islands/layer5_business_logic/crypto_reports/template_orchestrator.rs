@@ -4,8 +4,9 @@
 //! including context preparation, chart modules injection, and Tera integration.
 //! Follows Service Islands Architecture Layer 5 patterns.
 
-use std::{collections::HashMap, error::Error as StdError};
+use std::{collections::HashMap, error::Error as StdError, io::Write};
 use tera::Context;
+use flate2::{Compression, write::GzEncoder};
 
 // Import from our specialized components
 use super::report_creator::{Report, ReportCreator};
@@ -45,6 +46,26 @@ impl TemplateOrchestrator {
     pub async fn health_check(&self) -> bool {
         // Verify template orchestrator is functioning properly
         self.report_creator.health_check().await
+    }
+
+    /// Compress HTML content using gzip
+    /// 
+    /// Compresses the rendered HTML content to reduce file size and improve transfer speed
+    fn compress_html(&self, html: &str) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(html.as_bytes())?;
+        let compressed_data = encoder.finish()?;
+        
+        let original_size = html.len();
+        let compressed_size = compressed_data.len();
+        let compression_ratio = (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0;
+        
+        println!("🗜️  TemplateOrchestrator: Compression completed - Original: {}KB, Compressed: {}KB, Ratio: {:.1}%", 
+                 original_size / 1024, 
+                 compressed_size / 1024, 
+                 compression_ratio);
+        
+        Ok(compressed_data)
     }
 
     /// Prepare template context for crypto reports
@@ -160,14 +181,15 @@ impl TemplateOrchestrator {
     /// 
     /// Combines context preparation and template rendering for crypto report views
     /// Enhanced to accept pre-loaded chart_modules_content for optimal performance
+    /// Now returns compressed HTML data for optimal file size and transfer speed
     pub async fn render_crypto_report_view(
         &self,
         tera: &tera::Tera,
         report: &Report,
         chart_modules_content: Option<String>, // THÊM THAM SỐ NÀY
         additional_context: Option<HashMap<String, serde_json::Value>>
-    ) -> Result<String, Box<dyn StdError + Send + Sync>> {
-        println!("🚀 TemplateOrchestrator: Rendering crypto report view");
+    ) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
+        println!("🚀 TemplateOrchestrator: Rendering crypto report view with compression");
         
         // Step 1: Prepare template context
         let context = self.prepare_crypto_report_context(
@@ -178,11 +200,30 @@ impl TemplateOrchestrator {
         ).await?;
         
         // Step 2: Render template
-        self.render_template(
+        let html = self.render_template(
             tera,
             "crypto/routes/reports/view.html",
             context
-        ).await
+        ).await?;
+        
+        // Step 3: Compress and gather detailed metrics
+        println!("🗜️  TemplateOrchestrator: Starting HTML compression with metrics...");
+        let original_size = html.len();
+        let compressed_data = self.compress_html(&html)?;
+        let compressed_size = compressed_data.len();
+        let compression_ratio = (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0;
+        
+        // Log detailed compression information
+        println!("📊 TemplateOrchestrator: Compression Metrics:");
+        println!("   📏 Original Size: {} bytes ({} KB)", original_size, original_size / 1024);
+        println!("   🗜️  Compressed Size: {} bytes ({} KB)", compressed_size, compressed_size / 1024);
+        println!("   📈 Compression Ratio: {:.2}%", compression_ratio);
+        println!("   💾 Space Saved: {} bytes ({} KB)", original_size - compressed_size, (original_size - compressed_size) / 1024);
+        
+        println!("✅ TemplateOrchestrator: HTML compression completed successfully");
+        
+        // Return compressed data instead of original HTML
+        Ok(compressed_data)
     }
 
     /// Render empty template for no reports case
