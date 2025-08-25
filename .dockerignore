@@ -1,0 +1,56 @@
+# Build artifacts
+target/
+Cargo.lock
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Logs
+*.log
+logs/
+
+# Environment files (security)
+.env
+.env.local
+.env.production
+
+# Documentation (not needed in production)
+README.md
+docs/
+*.md
+
+# Scripts (not needed in production) 
+scripts/
+examples/
+
+# Test files
+tests/
+benches/
+
+# Development dependencies
+rust-toolchain.toml
+RustConfig
+
+# Deployment files
+Dockerfile*
+docker-compose*.yml
+deploy.sh
+cleanup*.sh
+railway.json
+nixpacks.toml
+Procfile
+
+# Archives
+archive_old_code/
