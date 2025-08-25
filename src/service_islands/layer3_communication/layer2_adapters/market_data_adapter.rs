@@ -9,10 +9,9 @@
 use anyhow::Result;
 use serde_json;
 use std::sync::Arc;
-use std::time::Duration;
 
 use crate::service_islands::layer2_external_services::external_apis_island::ExternalApisIsland;
-use crate::service_islands::layer1_infrastructure::cache_system_island::CacheSystemIsland;
+use crate::service_islands::layer1_infrastructure::cache_system_island::{CacheSystemIsland, CacheStrategy};
 
 /// Market Data Adapter (Cache-Optimized)
 /// 
@@ -175,8 +174,8 @@ impl MarketDataAdapter {
             
             // STEP 3: Store in Layer 3 cache for future requests
             if let Some(cache_system) = &self.cache_system {
-                match cache_system.set("latest_market_data", layer2_data.clone(), Some(Duration::from_secs(30))).await {
-                    Ok(_) => println!("💾 [Layer 3] Stored latest_market_data in cache (30s TTL)"),
+                match cache_system.cache_manager().set_with_strategy("latest_market_data", layer2_data.clone(), CacheStrategy::RealTime).await {
+                    Ok(_) => println!("💾 [Layer 3] Stored latest_market_data in cache (RealTime strategy - 30s TTL)"),
                     Err(e) => println!("⚠️ [Layer 3] Failed to cache latest_market_data: {}", e),
                 }
             }

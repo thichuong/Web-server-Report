@@ -94,9 +94,9 @@ impl CryptoDataService {
                     match cache_system.cache_manager.set_with_strategy(
                         cache_key, 
                         report_json,
-                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::Custom(std::time::Duration::from_secs(600)) // 10 minutes
+                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm // 5 minutes
                     ).await {
-                        Ok(_) => println!("💾 CryptoDataService: Cached latest report {} for 10 minutes", report.id),
+                        Ok(_) => println!("💾 CryptoDataService: Cached latest report {} for 5 minutes", report.id),
                         Err(e) => println!("⚠️ CryptoDataService: L1 Cache set error: {}", e),
                     }
                 }
@@ -158,7 +158,7 @@ impl CryptoDataService {
                     match cache_system.cache_manager.set_with_strategy(
                         &cache_key, 
                         report_json,
-                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::Custom(std::time::Duration::from_secs(600)) // 10 minutes
+                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm // 10 minutes
                     ).await {
                         Ok(_) => println!("💾 CryptoDataService: Cached report {} for 10 minutes", report.id),
                         Err(e) => println!("⚠️ CryptoDataService: L1 Cache set error for report {}: {}", report.id, e),
@@ -192,8 +192,8 @@ impl CryptoDataService {
     pub async fn cache_rendered_report_html(&self, state: &Arc<AppState>, report_id: i32, html_content: String) -> Result<(), anyhow::Error> {
         if let Some(ref cache_system) = state.cache_system {
             let cache_key = format!("rendered_html_report_{}", report_id);
-            // Sử dụng chiến lược cache MediumTerm (1 giờ) cho HTML đã render
-            let strategy = crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::MediumTerm;
+            // Sử dụng chiến lược cache ShortTerm (5 phút) cho HTML đã render
+            let strategy = crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm;
             cache_system.cache_manager.set_with_strategy(&cache_key, serde_json::json!(html_content), strategy).await?;
             let report_type = if report_id == -1 { "latest report" } else { &format!("report #{}", report_id) };
             println!("💾 Layer 3: Đã cache HTML đã render cho {}", report_type);

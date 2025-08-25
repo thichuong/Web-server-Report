@@ -117,17 +117,21 @@ cache.cache_manager.set_with_strategy(key, value, CacheStrategy::ShortTerm).awai
 let cache_system = CacheSystemIsland::new().await?;
 
 // Use through cache manager (preferred)
-cache_system.cache_manager.set_with_strategy(
-    "my_key",
-    json!({"data": "value"}),
+// **RECOMMENDED USAGE** - Direct cache_manager access with strategy
+cache_system.cache_manager().set_with_strategy(
+    "my_key", 
+    json!({"data": "value"}), 
     CacheStrategy::ShortTerm
 ).await?;
 
-let result = cache_system.cache_manager.get("my_key").await?;
+let result = cache_system.cache_manager().get("my_key").await?;
 
-// Or use compatibility methods  
-cache_system.set("my_key", json!({"data": "value"}), Some(Duration::from_secs(300))).await?;
-let result = cache_system.get("my_key").await?;
+// **DEPRECATED** - Compatibility methods (will be removed in future versions)
+// These methods are deprecated and should not be used in new code:
+// cache_system.set("my_key", json!({"data": "value"}), Some(Duration::from_secs(300))).await?;
+// let result = cache_system.get("my_key").await?;
+// cache_system.get_latest_market_data().await?;
+// cache_system.store_market_data(data).await?;
 ```
 
 ## Health Check

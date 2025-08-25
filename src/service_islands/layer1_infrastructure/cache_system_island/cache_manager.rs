@@ -103,11 +103,6 @@ impl CacheManager {
         Ok(None)
     }
     
-    /// Set value with default strategy (both L1 and L2)
-    pub async fn set(&self, key: &str, value: serde_json::Value) -> Result<()> {
-        self.set_with_strategy(key, value, CacheStrategy::Default).await
-    }
-    
     /// Set value with specific cache strategy (both L1 and L2)
     pub async fn set_with_strategy(&self, key: &str, value: serde_json::Value, strategy: CacheStrategy) -> Result<()> {
         let ttl = strategy.to_duration();

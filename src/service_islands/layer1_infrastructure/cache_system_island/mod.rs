@@ -16,7 +16,8 @@ pub mod cache_manager;
 
 use l1_cache::L1Cache;
 use l2_cache::L2Cache;
-use cache_manager::{CacheManager, CacheStrategy};
+use cache_manager::CacheManager;
+pub use cache_manager::CacheStrategy;
 
 /// Cache System Island - Two-tier caching system
 pub struct CacheSystemIsland {
@@ -69,29 +70,82 @@ impl CacheSystemIsland {
     pub fn get_cache_manager(&self) -> Arc<CacheManager> {
         self.cache_manager.clone()
     }
-
-    // ===== COMPATIBILITY METHODS FOR OLD API =====
     
-    /// Get latest market data (compatibility method)
+    /// Direct access to cache manager
+    pub fn cache_manager(&self) -> &Arc<CacheManager> {
+        &self.cache_manager
+    }
+
+    // ===== COMPATIBILITY METHODS FOR OLD API (DEPRECATED) =====
+    
+    /// Get latest market data (compatibility method - DEPRECATED)
+    /// 
+    /// **DEPRECATED**: Use `cache_manager().get("latest_market_data")` instead.
+    /// 
+    /// Example:
+    /// ```
+    /// // Old way (deprecated):
+    /// let data = cache_system.get_latest_market_data().await?;
+    /// 
+    /// // New way (recommended):
+    /// let data = cache_system.cache_manager().get("latest_market_data").await?;
+    /// ```
+    #[deprecated(note = "Use cache_manager().get(\"latest_market_data\") instead")]
     pub async fn get_latest_market_data(&self) -> Result<Option<serde_json::Value>, anyhow::Error> {
         self.cache_manager.get("latest_market_data").await
     }
     
-    /// Store market data (compatibility method)  
+    /// Store market data (compatibility method - DEPRECATED)
+    /// 
+    /// **DEPRECATED**: Use `cache_manager().set_with_strategy("latest_market_data", data, CacheStrategy::RealTime)` instead.
+    /// 
+    /// Example:
+    /// ```
+    /// // Old way (deprecated):
+    /// cache_system.store_market_data(data).await?;
+    /// 
+    /// // New way (recommended):
+    /// cache_system.cache_manager().set_with_strategy("latest_market_data", data, CacheStrategy::RealTime).await?;
+    /// ```
+    #[deprecated(note = "Use cache_manager().set_with_strategy() with appropriate CacheStrategy instead")]
     pub async fn store_market_data(&self, data: serde_json::Value) -> Result<(), anyhow::Error> {
-        self.cache_manager.set("latest_market_data", data).await
+        self.cache_manager.set_with_strategy("latest_market_data", data, CacheStrategy::Default).await
     }
 
-    /// Generic get method (compatibility)
+    /// Generic get method (compatibility - DEPRECATED)
+    /// 
+    /// **DEPRECATED**: Use `cache_manager().get(key)` instead for direct access.
+    /// 
+    /// Example:
+    /// ```
+    /// // Old way (deprecated):
+    /// let data = cache_system.get("my_key").await?;
+    /// 
+    /// // New way (recommended):
+    /// let data = cache_system.cache_manager().get("my_key").await?;
+    /// ```
+    #[deprecated(note = "Use cache_manager().get() instead")]
     pub async fn get(&self, key: &str) -> Result<Option<serde_json::Value>, anyhow::Error> {
         self.cache_manager.get(key).await
     }
     
-    /// Generic set method with TTL (compatibility)
+    /// Generic set method with TTL (compatibility - DEPRECATED)
+    /// 
+    /// **DEPRECATED**: Use `cache_manager().set_with_strategy()` instead for better semantics.
+    /// 
+    /// Example:
+    /// ```
+    /// // Old way (deprecated):
+    /// cache_system.set("key", value, Some(Duration::from_secs(30))).await?;
+    /// 
+    /// // New way (recommended):
+    /// cache_system.cache_manager().set_with_strategy("key", value, CacheStrategy::RealTime).await?;
+    /// ```
+    #[deprecated(note = "Use cache_manager().set_with_strategy() instead")]
     pub async fn set(&self, key: &str, value: serde_json::Value, ttl: Option<Duration>) -> Result<(), anyhow::Error> {
         match ttl {
             Some(duration) => self.cache_manager.set_with_strategy(key, value, CacheStrategy::Custom(duration)).await,
-            None => self.cache_manager.set(key, value).await,
+            None => self.cache_manager.set_with_strategy(key, value, CacheStrategy::Default).await,
         }
     }
 }
