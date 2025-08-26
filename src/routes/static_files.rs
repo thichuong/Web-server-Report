@@ -15,6 +15,7 @@ use crate::service_islands::ServiceIslands;
 /// - Crypto dashboard assets
 /// - Stock dashboard assets (minimal)
 /// - Shared components and assets
+/// - Test files
 pub fn configure_static_routes() -> Router<Arc<ServiceIslands>> {
     Router::new()
         // Crypto Dashboard static files
@@ -29,4 +30,7 @@ pub fn configure_static_routes() -> Router<Arc<ServiceIslands>> {
         // Shared components and assets
         .nest_service("/shared_components", ServeDir::new("shared_components"))
         .nest_service("/shared_assets", ServeDir::new("shared_assets"))
+        
+        // Test file
+        .nest_service("/test", ServeDir::new("."))
 }

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <title>Market Indicators Test</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <link rel="stylesheet" href="/shared_components/market-indicators/market-indicators.css">
+</head>
+<body class="p-8">
+  <h1 class="text-2xl font-bold mb-6">Market Indicators Test</h1>
+  
+  <!-- Include the market indicators component -->
+  <div id="market-indicators-dashboard" class="market-indicators-container">
+    <h2 class="text-2xl font-bold mb-6 text-center">
+        <i class="fas fa-chart-line text-blue-600 mr-2"></i>
+        <span data-i18n="market-indicators-title">Chỉ Số Thị Trường</span>
+    </h2>
+    
+    <!-- Main Market Stats Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <!-- BTC Price Card -->
+        <div class="market-card">
+            <div class="flex items-center mb-3">
+                <i class="fab fa-bitcoin text-yellow-500 text-2xl mr-3"></i>
+                <h3 class="text-lg font-semibold text-gray-700">Giá BTC</h3>
+            </div>
+            <div id="btc-price-indicator" class="market-value-container">
+                <div class="skeleton-loader"></div>
+            </div>
+            <div class="real-time-indicator">
+                <span class="live-dot"></span>
+                <span class="text-xs text-gray-500">Thời gian thực</span>
+            </div>
+        </div>
+
+        <!-- Market Cap Card -->
+        <div class="market-card">
+            <div class="flex items-center mb-3">
+                <i class="fas fa-globe-americas text-blue-500 text-2xl mr-3"></i>
+                <h3 class="text-lg font-semibold text-gray-700">Tổng Vốn Hóa</h3>
+            </div>
+            <div id="market-cap-indicator" class="market-value-container">
+                <div class="skeleton-loader"></div>
+            </div>
+            <div class="real-time-indicator">
+                <span class="live-dot"></span>
+                <span class="text-xs text-gray-500">Thời gian thực</span>
+            </div>
+        </div>
+
+        <!-- Volume 24h Card -->
+        <div class="market-card">
+            <div class="flex items-center mb-3">
+                <i class="fas fa-chart-bar text-green-500 text-2xl mr-3"></i>
+                <h3 class="text-lg font-semibold text-gray-700">Khối Lượng 24h</h3>
+            </div>
+            <div id="volume-24h-indicator" class="market-value-container">
+                <div class="skeleton-loader"></div>
+            </div>
+            <div class="real-time-indicator">
+                <span class="live-dot"></span>
+                <span class="text-xs text-gray-500">Thời gian thực</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Market Indices Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <!-- Fear & Greed Index -->
+        <div class="market-card">
+            <div class="flex items-center justify-center mb-4">
+                <i class="fas fa-thermometer-half text-purple-500 text-2xl mr-3"></i>
+                <h3 class="text-lg font-semibold text-gray-700">Chỉ Số Sợ Hãi & Tham Lam</h3>
+            </div>
+            <div id="fear-greed-indicator" class="text-center">
+                <div class="skeleton-loader h-16"></div>
+            </div>
+        </div>
+
+        <!-- Bitcoin Dominance -->
+        <div class="market-card">
+            <div class="flex items-center justify-center mb-4">
+                <i class="fab fa-bitcoin text-orange-500 text-2xl mr-3"></i>
+                <h3 class="text-lg font-semibold text-gray-700">Độ Thống Trị BTC</h3>
+            </div>
+            <div id="btc-dominance-indicator" class="text-center">
+                <div class="skeleton-loader h-16"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Additional Metrics Row -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <!-- Active Cryptocurrencies -->
+        <div class="market-mini-card">
+            <div class="text-center">
+                <i class="fas fa-coins text-teal-500 text-xl mb-2"></i>
+                <div id="active-cryptos-indicator" class="text-lg font-bold text-gray-800">
+                    <div class="skeleton-loader h-6"></div>
+                </div>
+                <p class="text-xs text-gray-600">Coin Hoạt Động</p>
+            </div>
+        </div>
+
+        <!-- Markets -->
+        <div class="market-mini-card">
+            <div class="text-center">
+                <i class="fas fa-store text-indigo-500 text-xl mb-2"></i>
+                <div id="markets-indicator" class="text-lg font-bold text-gray-800">
+                    <div class="skeleton-loader h-6"></div>
+                </div>
+                <p class="text-xs text-gray-600">Sàn Giao Dịch</p>
+            </div>
+        </div>
+
+        <!-- Market Cap Change -->
+        <div class="market-mini-card">
+            <div class="text-center">
+                <i class="fas fa-percentage text-pink-500 text-xl mb-2"></i>
+                <div id="market-cap-change-indicator" class="text-lg font-bold text-gray-800">
+                    <div class="skeleton-loader h-6"></div>
+                </div>
+                <p class="text-xs text-gray-600">Thay Đổi Vốn Hóa</p>
+            </div>
+        </div>
+
+        <!-- Last Updated -->
+        <div class="market-mini-card">
+            <div class="text-center">
+                <i class="fas fa-clock text-gray-500 text-xl mb-2"></i>
+                <div id="last-updated-indicator" class="text-sm font-medium text-gray-700">
+                    <div class="skeleton-loader h-6"></div>
+                </div>
+                <p class="text-xs text-gray-600">Cập Nhật Lần Cuối</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="market-status-bar">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center">
+                <div id="connection-status" class="connection-indicator offline">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Đang kết nối...</span>
+                </div>
+            </div>
+            <div class="text-xs text-gray-500">
+                Được cung cấp bởi WebSocket API
+            </div>
+        </div>
+    </div>
+  </div>
+  
+  <!-- Test Buttons -->
+  <div class="mt-8 p-4 bg-gray-100 rounded-lg">
+    <h3 class="text-lg font-bold mb-4">Debug Tools</h3>
+    <button onclick="debugMarketIndicators()" class="bg-blue-600 text-white px-4 py-2 rounded mr-2">Debug Info</button>
+    <button onclick="testMarketIndicators()" class="bg-green-600 text-white px-4 py-2 rounded mr-2">Test with Sample Data</button>
+    <button onclick="testWithRealData()" class="bg-purple-600 text-white px-4 py-2 rounded">Test with Real Data</button>
+  </div>
+
+  <script src="/shared_components/market-indicators/market-indicators.js"></script>
+  <script>
+    function testWithRealData() {
+      const realData = {
+        btc_change_24h: -1.1761369473535623,
+        btc_price_usd: 110349,
+        data_sources: {},
+        fetch_duration_ms: 0,
+        fng_value: 48,
+        last_updated: "2025-08-26T10:18:13.217254633+00:00",
+        market_cap_usd: 3872941106289.462,
+        partial_failure: false,
+        rsi_14: 38.4490332215743,
+        timestamp: "2025-08-26T10:18:13.217238723+00:00"
+      };
+      
+      console.log('🔬 Testing with your real data:', realData);
+      if (window.updateMarketIndicators) {
+        window.updateMarketIndicators(realData);
+      } else if (window.marketIndicatorsDashboard) {
+        window.marketIndicatorsDashboard.updateMarketData(realData);
+      } else {
+        console.error('❌ No update function available');
+      }
+    }
+  </script>
+</body>
+</html>

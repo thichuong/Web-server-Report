@@ -24,9 +24,16 @@ pub fn configure_homepage_route() -> Router<Arc<ServiceIslands>> {
 async fn homepage(
     State(service_islands): State<Arc<ServiceIslands>>
 ) -> Response {
-    // Use the dashboard island's homepage handler
-    match service_islands.dashboard.handlers.homepage().await {
+    // Use the dashboard island's homepage handler with Tera rendering
+    match service_islands.dashboard.handlers.homepage_with_tera(&service_islands.app_state).await {
         Ok(html) => Html(html).into_response(),
-        Err(_) => (StatusCode::NOT_FOUND, "Home page not found").into_response(),
+        Err(e) => {
+            println!("❌ Homepage rendering failed, falling back to simple handler: {}", e);
+            // Fallback to simple homepage method
+            match service_islands.dashboard.handlers.homepage().await {
+                Ok(html) => Html(html).into_response(),
+                Err(_) => (StatusCode::NOT_FOUND, "Home page not found").into_response(),
+            }
+        }
     }
 }

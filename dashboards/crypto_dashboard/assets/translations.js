@@ -69,7 +69,19 @@ function get_translations_data()
     'data-updated': { vi: 'Dữ liệu đã được cập nhật', en: 'Data updated successfully' },
     'refresh-failed': { vi: 'Lỗi cập nhật dữ liệu', en: 'Failed to refresh data' },
     'last-update': { vi: 'Cập nhật lần cuối', en: 'Last updated' },
-    'error-loading-data': { vi: 'Lỗi tải dữ liệu', en: 'Error loading data' }
+    'error-loading-data': { vi: 'Lỗi tải dữ liệu', en: 'Error loading data' },
+    
+    // Market Indicators Component
+    'market-indicators-title': { vi: 'Chỉ Số Thị Trường', en: 'Market Indicators' },
+    'live-data': { vi: 'Thời gian thực', en: 'Live data' },
+    'fear-greed-index': { vi: 'Chỉ Số Sợ Hãi & Tham Lam', en: 'Fear & Greed Index' },
+    'btc-dominance': { vi: 'Độ Thống Trị BTC', en: 'BTC Dominance' },
+    'btc-market-share': { vi: 'Thị phần BTC', en: 'BTC Market Share' },
+    'active-cryptos': { vi: 'Coin Hoạt Động', en: 'Active Coins' },
+    'markets': { vi: 'Sàn Giao Dịch', en: 'Markets' },
+    'market-cap-change': { vi: 'Thay Đổi Vốn Hóa', en: 'Market Cap Change' },
+    'last-updated': { vi: 'Cập Nhật Lần Cuối', en: 'Last Updated' },
+    'powered-by': { vi: 'Được cung cấp bởi', en: 'Powered by' }
     };
     return translations_data;
 }
