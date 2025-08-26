@@ -7,9 +7,26 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
   <link rel="stylesheet" href="/shared_components/market-indicators/market-indicators.css">
+  
+  <!-- Translation System -->
+  <script src="/dashboards/crypto_dashboard/assets/translations.js"></script>
+  <script src="/shared_components/core/language-toggle.js"></script>
 </head>
 <body class="p-8">
-  <h1 class="text-2xl font-bold mb-6">Market Indicators Test</h1>
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold">Market Indicators Test</h1>
+    
+    <!-- Language Toggle -->
+    <div class="flex items-center space-x-2">
+      <span class="text-sm text-gray-600">Language:</span>
+      <button id="lang-vi" class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
+        Tiếng Việt
+      </button>
+      <button id="lang-en" class="px-3 py-1 text-sm bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition-colors">
+        English
+      </button>
+    </div>
+  </div>
   
   <!-- Include the market indicators component -->
   <div id="market-indicators-dashboard" class="market-indicators-container">
@@ -67,12 +84,13 @@
     </div>
 
     <!-- Market Indices Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+    <!-- Market Indicators Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <!-- Fear & Greed Index -->
         <div class="market-card">
             <div class="flex items-center justify-center mb-4">
                 <i class="fas fa-thermometer-half text-purple-500 text-2xl mr-3"></i>
-                <h3 class="text-lg font-semibold text-gray-700">Chỉ Số Sợ Hãi & Tham Lam</h3>
+                <h3 class="text-lg font-semibold text-gray-700" data-i18n="fear-greed-title">Chỉ Số Sợ Hãi & Tham Lam</h3>
             </div>
             <div id="fear-greed-indicator" class="text-center">
                 <div class="skeleton-loader h-16"></div>
@@ -83,9 +101,20 @@
         <div class="market-card">
             <div class="flex items-center justify-center mb-4">
                 <i class="fab fa-bitcoin text-orange-500 text-2xl mr-3"></i>
-                <h3 class="text-lg font-semibold text-gray-700">Độ Thống Trị BTC</h3>
+                <h3 class="text-lg font-semibold text-gray-700" data-i18n="btc-dominance">Độ Thống Trị BTC</h3>
             </div>
             <div id="btc-dominance-indicator" class="text-center">
+                <div class="skeleton-loader h-16"></div>
+            </div>
+        </div>
+
+        <!-- Ethereum Dominance -->
+        <div class="market-card">
+            <div class="flex items-center justify-center mb-4">
+                <i class="fab fa-ethereum text-blue-500 text-2xl mr-3"></i>
+                <h3 class="text-lg font-semibold text-gray-700" data-i18n="eth-dominance">Độ Thống Trị ETH</h3>
+            </div>
+            <div id="eth-dominance-indicator" class="text-center">
                 <div class="skeleton-loader h-16"></div>
             </div>
         </div>
@@ -100,7 +129,7 @@
                 <div id="active-cryptos-indicator" class="text-lg font-bold text-gray-800">
                     <div class="skeleton-loader h-6"></div>
                 </div>
-                <p class="text-xs text-gray-600">Coin Hoạt Động</p>
+                <p class="text-xs text-gray-600" data-i18n="active-cryptos">Coin Hoạt Động</p>
             </div>
         </div>
 
@@ -111,7 +140,7 @@
                 <div id="markets-indicator" class="text-lg font-bold text-gray-800">
                     <div class="skeleton-loader h-6"></div>
                 </div>
-                <p class="text-xs text-gray-600">Sàn Giao Dịch</p>
+                <p class="text-xs text-gray-600" data-i18n="markets">Sàn Giao Dịch</p>
             </div>
         </div>
 
@@ -122,7 +151,7 @@
                 <div id="market-cap-change-indicator" class="text-lg font-bold text-gray-800">
                     <div class="skeleton-loader h-6"></div>
                 </div>
-                <p class="text-xs text-gray-600">Thay Đổi Vốn Hóa</p>
+                <p class="text-xs text-gray-600" data-i18n="market-cap-change">Thay Đổi Vốn Hóa</p>
             </div>
         </div>
 
@@ -133,7 +162,7 @@
                 <div id="last-updated-indicator" class="text-sm font-medium text-gray-700">
                     <div class="skeleton-loader h-6"></div>
                 </div>
-                <p class="text-xs text-gray-600">Cập Nhật Lần Cuối</p>
+                <p class="text-xs text-gray-600" data-i18n="last-updated">Cập Nhật Lần Cuối</p>
             </div>
         </div>
     </div>

@@ -19,8 +19,11 @@ const BASE_RSI_URL_TEMPLATE: &str = "https://api.taapi.io/rsi?secret={secret}&ex
 pub struct DashboardSummary {
     pub market_cap: f64,
     pub volume_24h: f64,
+    pub market_cap_change_percentage_24h_usd: f64,
     pub btc_price_usd: f64,
     pub btc_change_24h: f64,
+    pub btc_market_cap_percentage: f64,
+    pub eth_market_cap_percentage: f64,
     pub fng_value: u32,
     pub rsi_14: f64,
     pub last_updated: chrono::DateTime<chrono::Utc>,
@@ -35,6 +38,8 @@ struct CoinGeckoGlobal {
 struct CoinGeckoGlobalData {
     total_market_cap: HashMap<String, f64>,
     total_volume: HashMap<String, f64>,
+    market_cap_change_percentage_24h_usd: f64,
+    market_cap_percentage: HashMap<String, f64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -227,10 +232,16 @@ impl MarketDataApi {
         self.fetch_with_retry(BASE_GLOBAL_URL, |global_data: CoinGeckoGlobal| {
             let market_cap = global_data.data.total_market_cap.get("usd").copied().unwrap_or(0.0);
             let volume_24h = global_data.data.total_volume.get("usd").copied().unwrap_or(0.0);
+            let market_cap_change_24h = global_data.data.market_cap_change_percentage_24h_usd;
+            let btc_dominance = global_data.data.market_cap_percentage.get("btc").copied().unwrap_or(0.0);
+            let eth_dominance = global_data.data.market_cap_percentage.get("eth").copied().unwrap_or(0.0);
             
             serde_json::json!({
                 "market_cap": market_cap,
                 "volume_24h": volume_24h,
+                "market_cap_change_percentage_24h_usd": market_cap_change_24h,
+                "btc_market_cap_percentage": btc_dominance,
+                "eth_market_cap_percentage": eth_dominance,
                 "last_updated": chrono::Utc::now().to_rfc3339()
             })
         }).await

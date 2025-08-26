@@ -6,7 +6,7 @@
     </h2>
     
     <!-- Main Market Stats Grid -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6 mb-8">
         <!-- BTC Price Card -->
         <div class="market-card">
             <div class="flex items-center mb-3">
@@ -73,6 +73,17 @@
                 <h3 class="text-lg font-semibold text-gray-700" data-i18n="btc-dominance">Độ Thống Trị BTC</h3>
             </div>
             <div id="btc-dominance-indicator" class="text-center">
+                <div class="skeleton-loader h-16"></div>
+            </div>
+        </div>
+
+        <!-- Ethereum Dominance -->
+        <div class="market-card">
+            <div class="flex items-center justify-center mb-4">
+                <i class="fab fa-ethereum text-blue-500 text-2xl mr-3"></i>
+                <h3 class="text-lg font-semibold text-gray-700" data-i18n="eth-dominance">Độ Thống Trị ETH</h3>
+            </div>
+            <div id="eth-dominance-indicator" class="text-center">
                 <div class="skeleton-loader h-16"></div>
             </div>
         </div>

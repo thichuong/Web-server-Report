@@ -81,16 +81,28 @@ impl CryptoReportsIsland {
                     if let Some(market_cap) = market_data.get("market_cap_usd") {
                         println!("  🔍 [Layer 5 via Layer 3] Market Cap received: ${:?}", market_cap);
                     }
+                    if let Some(mc_change) = market_data.get("market_cap_change_percentage_24h_usd") {
+                        println!("  🔍 [Layer 5 via Layer 3] Market Cap Change 24h received: {:?}%", mc_change);
+                    }
+                    if let Some(btc_dom) = market_data.get("btc_market_cap_percentage") {
+                        println!("  🔍 [Layer 5 via Layer 3] BTC Dominance received: {:?}%", btc_dom);
+                    }
+                    if let Some(eth_dom) = market_data.get("eth_market_cap_percentage") {
+                        println!("  🔍 [Layer 5 via Layer 3] ETH Dominance received: {:?}%", eth_dom);
+                    }
                     if let Some(fng) = market_data.get("fng_value") {
                         println!("  🔍 [Layer 5 via Layer 3] Fear & Greed received: {:?}", fng);
                     }
                     
-                    // ✅ NORMALIZE: Ensure consistent field names for JavaScript client
+                    // ✅ NORMALIZE: Ensure consistent field names for JavaScript client with NEW FIELDS
                     let normalized_data = serde_json::json!({
                         "btc_price_usd": market_data.get("btc_price_usd").unwrap_or(&serde_json::Value::Number(serde_json::Number::from(0))),
                         "btc_change_24h": market_data.get("btc_change_24h").unwrap_or(&serde_json::Value::Number(serde_json::Number::from(0))),
                         "market_cap_usd": market_data.get("market_cap_usd").unwrap_or(&serde_json::Value::Number(serde_json::Number::from(0))),
                         "volume_24h_usd": market_data.get("volume_24h_usd").unwrap_or(&serde_json::Value::Number(serde_json::Number::from(0))),
+                        "market_cap_change_percentage_24h_usd": market_data.get("market_cap_change_percentage_24h_usd").unwrap_or(&serde_json::Value::Number(serde_json::Number::from(0))),
+                        "btc_market_cap_percentage": market_data.get("btc_market_cap_percentage").unwrap_or(&serde_json::Value::Number(serde_json::Number::from(0))),
+                        "eth_market_cap_percentage": market_data.get("eth_market_cap_percentage").unwrap_or(&serde_json::Value::Number(serde_json::Number::from(0))),
                         "fng_value": market_data.get("fng_value").unwrap_or(&serde_json::Value::Number(serde_json::Number::from(50))),
                         "rsi_14": market_data.get("rsi_14").unwrap_or(&serde_json::Value::Number(serde_json::Number::from_f64(50.0).unwrap())),
                         "data_sources": market_data.get("data_sources").unwrap_or(&serde_json::Value::Object(serde_json::Map::new())),

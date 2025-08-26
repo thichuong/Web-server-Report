@@ -78,16 +78,22 @@ impl MarketDataAdapter {
         // Use cache-free v2 method to avoid redundant cache logic
         let raw_data = self.fetch_dashboard_summary_v2().await?;
         
-        // Extract and normalize key metrics
+        // Extract and normalize key metrics including new fields
         let btc_price = raw_data.get("btc_price_usd").cloned().unwrap_or(serde_json::Value::Null);
         let market_cap = raw_data.get("market_cap_usd").cloned().unwrap_or(serde_json::Value::Null);
         let volume_24h = raw_data.get("volume_24h_usd").cloned().unwrap_or(serde_json::Value::Null);
         let btc_change_24h = raw_data.get("btc_change_24h").cloned().unwrap_or(serde_json::Value::Null);
+        let market_cap_change_24h = raw_data.get("market_cap_change_percentage_24h_usd").cloned().unwrap_or(serde_json::Value::Number(serde_json::Number::from(0)));
+        let btc_dominance = raw_data.get("btc_market_cap_percentage").cloned().unwrap_or(serde_json::Value::Number(serde_json::Number::from(0)));
+        let eth_dominance = raw_data.get("eth_market_cap_percentage").cloned().unwrap_or(serde_json::Value::Number(serde_json::Number::from(0)));
         let fear_greed = raw_data.get("fng_value").cloned().unwrap_or(serde_json::Value::Number(serde_json::Number::from(50)));
         let rsi_14 = raw_data.get("rsi_14").cloned().unwrap_or(serde_json::Value::Number(serde_json::Number::from(50)));
         
         println!("  🔍 [Layer 5 via Layer 3] BTC Price received: ${:?}", btc_price);
         println!("  🔍 [Layer 5 via Layer 3] Market Cap received: ${:?}", market_cap);
+        println!("  🔍 [Layer 5 via Layer 3] Market Cap Change 24h: {:?}%", market_cap_change_24h);
+        println!("  🔍 [Layer 5 via Layer 3] BTC Dominance: {:?}%", btc_dominance);
+        println!("  🔍 [Layer 5 via Layer 3] ETH Dominance: {:?}%", eth_dominance);
         println!("  🔍 [Layer 5 via Layer 3] Fear & Greed received: {:?}", fear_greed);
         
         let normalized_data = serde_json::json!({
@@ -95,6 +101,9 @@ impl MarketDataAdapter {
             "market_cap_usd": market_cap,
             "volume_24h_usd": volume_24h,
             "btc_change_24h": btc_change_24h,
+            "market_cap_change_percentage_24h_usd": market_cap_change_24h,
+            "btc_market_cap_percentage": btc_dominance,
+            "eth_market_cap_percentage": eth_dominance,
             "fear_greed_index": fear_greed,
             "fng_value": fear_greed,
             "rsi_14": rsi_14,
@@ -103,7 +112,7 @@ impl MarketDataAdapter {
             "normalized_by": "layer3_market_data_adapter"
         });
         
-        println!("🔧 [Layer 5 via Layer 3] Data normalized for client compatibility");
+        println!("🔧 [Layer 5 via Layer 3] Data normalized for client compatibility with enhanced fields");
         Ok(normalized_data)
     }
     

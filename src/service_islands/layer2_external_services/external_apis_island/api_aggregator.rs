@@ -144,25 +144,28 @@ impl ApiAggregator {
         };
         
         // Process global market data
-        let (market_cap, volume_24h) = match global_result {
+        let (market_cap, volume_24h, market_cap_change_24h, btc_dominance, eth_dominance) = match global_result {
             Ok(Ok(global_data)) => {
                 data_sources.insert("market_data".to_string(), "coingecko".to_string());
                 (
                     global_data["market_cap"].as_f64().unwrap_or(0.0),
-                    global_data["volume_24h"].as_f64().unwrap_or(0.0)
+                    global_data["volume_24h"].as_f64().unwrap_or(0.0),
+                    global_data["market_cap_change_percentage_24h_usd"].as_f64().unwrap_or(0.0),
+                    global_data["btc_market_cap_percentage"].as_f64().unwrap_or(0.0),
+                    global_data["eth_market_cap_percentage"].as_f64().unwrap_or(0.0)
                 )
             }
             Ok(Err(e)) => {
                 eprintln!("⚠️ Global data fetch failed: {}", e);
                 data_sources.insert("market_data".to_string(), "failed".to_string());
                 partial_failure = true;
-                (0.0, 0.0) // Keep 0.0 to show loading state on client
+                (0.0, 0.0, 0.0, 0.0, 0.0) // Keep 0.0 to show loading state on client
             }
             Err(_) => {
                 eprintln!("⚠️ Global data fetch timeout");
                 data_sources.insert("market_data".to_string(), "timeout".to_string());
                 partial_failure = true;
-                (0.0, 0.0) // Keep 0.0 to show loading state on client
+                (0.0, 0.0, 0.0, 0.0, 0.0) // Keep 0.0 to show loading state on client
             }
         };
         
@@ -223,6 +226,9 @@ impl ApiAggregator {
             "btc_change_24h": btc_change,
             "market_cap_usd": market_cap,
             "volume_24h_usd": volume_24h,
+            "market_cap_change_percentage_24h_usd": market_cap_change_24h,
+            "btc_market_cap_percentage": btc_dominance,
+            "eth_market_cap_percentage": eth_dominance,
             "fng_value": fng_value,
             "rsi_14": rsi_value,
             "data_sources": data_sources,

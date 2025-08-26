@@ -189,16 +189,25 @@ impl MarketDataStreamer {
                                 // Reset failures on success
                                 consecutive_failures = 0;
                                 
-                                // 🔍 DEBUG: Log market data
+                                // 🔍 DEBUG: Log market data including new fields
                                 println!("🔍 [DEBUG] Market data fetched via unified flow:");
                                 if let Some(price) = market_data.get("btc_price_usd") {
                                     println!("  ₿ Current BTC Price: ${:?}", price);
                                 }
                                 if let Some(change) = market_data.get("btc_change_24h") {
-                                    println!("  📈 24h Change: {:?}%", change);
+                                    println!("  📈 BTC 24h Change: {:?}%", change);
                                 }
                                 if let Some(market_cap) = market_data.get("market_cap_usd") {
                                     println!("  💰 Market Cap: ${:?}", market_cap);
+                                }
+                                if let Some(mc_change) = market_data.get("market_cap_change_percentage_24h_usd") {
+                                    println!("  📊 Market Cap Change 24h: {:?}%", mc_change);
+                                }
+                                if let Some(btc_dom) = market_data.get("btc_market_cap_percentage") {
+                                    println!("  ₿ BTC Dominance: {:?}%", btc_dom);
+                                }
+                                if let Some(eth_dom) = market_data.get("eth_market_cap_percentage") {
+                                    println!("  Ξ ETH Dominance: {:?}%", eth_dom);
                                 }
                                 
                                 // Broadcast to WebSocket clients

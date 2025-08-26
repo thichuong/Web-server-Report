@@ -77,10 +77,31 @@ function get_translations_data()
     'fear-greed-index': { vi: 'Chỉ Số Sợ Hãi & Tham Lam', en: 'Fear & Greed Index' },
     'btc-dominance': { vi: 'Độ Thống Trị BTC', en: 'BTC Dominance' },
     'btc-market-share': { vi: 'Thị phần BTC', en: 'BTC Market Share' },
+    // Market indicators
+    'market-indicators-title': { vi: 'Chỉ Số Thị Trường', en: 'Market Indicators' },
+    'btc-dominance': { vi: 'Độ Thống Trị BTC', en: 'BTC Dominance' },
+    'eth-dominance': { vi: 'Độ Thống Trị ETH', en: 'ETH Dominance' },
+    'btc-market-share': { vi: 'Thị phần BTC', en: 'BTC Market Share' },
+    'eth-market-share': { vi: 'Thị phần ETH', en: 'ETH Market Share' },
     'active-cryptos': { vi: 'Coin Hoạt Động', en: 'Active Coins' },
     'markets': { vi: 'Sàn Giao Dịch', en: 'Markets' },
     'market-cap-change': { vi: 'Thay Đổi Vốn Hóa', en: 'Market Cap Change' },
     'last-updated': { vi: 'Cập Nhật Lần Cuối', en: 'Last Updated' },
+    
+    // Fear & Greed Index classifications
+    'extreme-fear': { vi: 'Sợ hãi tột độ', en: 'Extreme Fear' },
+    'fear': { vi: 'Sợ hãi', en: 'Fear' },
+    'neutral': { vi: 'Trung tính', en: 'Neutral' },
+    'greed': { vi: 'Tham lam', en: 'Greed' },
+    'extreme-greed': { vi: 'Tham lam tột độ', en: 'Extreme Greed' },
+    
+    // Fear & Greed Index descriptions
+    'extreme-fear-desc': { vi: 'Thị trường đang trong trạng thái sợ hãi tột độ', en: 'Market is in extreme fear state' },
+    'fear-desc': { vi: 'Thị trường có xu hướng giảm mạnh', en: 'Market tends to decline strongly' },
+    'neutral-desc': { vi: 'Thị trường ổn định, không có xu hướng rõ ràng', en: 'Market is stable with no clear trend' },
+    'greed-desc': { vi: 'Thị trường có xu hướng tăng mạnh', en: 'Market tends to rise strongly' },
+    'extreme-greed-desc': { vi: 'Thị trường đang trong trạng thái tham lam tột độ', en: 'Market is in extreme greed state' },
+    
     'powered-by': { vi: 'Được cung cấp bởi', en: 'Powered by' }
     };
     return translations_data;

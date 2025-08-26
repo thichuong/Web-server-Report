@@ -325,10 +325,17 @@ function updateDashboardFromData(data) {
     const marketCapContainer = selectDashboardElementByLang('market-cap-container');
     if (marketCapContainer) {
         const marketCapValue = parseFloat(data.market_cap_usd || data.market_cap) || 0;
-        console.log('🔍 [DEBUG] Market Cap parsed:', marketCapValue);
+        const marketCapChange = parseFloat(data.market_cap_change_percentage_24h_usd) || 0;
+        console.log('🔍 [DEBUG] Market Cap parsed:', marketCapValue, 'Change:', marketCapChange);
+        
+        const changeClass = marketCapChange >= 0 ? 'text-green-600' : 'text-red-600';
+        const changeSign = marketCapChange >= 0 ? '+' : '';
+        const changeIcon = marketCapChange >= 0 ? '📈' : '📉';
+        
         marketCapContainer.innerHTML = `
             <p class="text-3xl font-bold text-gray-900">${'$' + formatNumber(marketCapValue)}</p>
-            <p class="text-sm text-gray-500">${getTranslatedText('whole-market')}</p>`;
+            <p class="text-sm ${changeClass}">${changeIcon} ${changeSign}${marketCapChange.toFixed(2)}% (24h)</p>
+            <p class="text-xs text-gray-600">Market Cap</p>`;
         // cache numeric value so we can re-render visuals without re-fetch
         try { marketCapContainer.dataset.marketCap = String(marketCapValue); } catch(e){}
     }
@@ -373,8 +380,8 @@ function updateDashboardFromData(data) {
             min: 0, max: 100,
             segments: [
                 { limit: 24, color: 'var(--fng-extreme-fear-color)', label: getTranslatedText('extreme-fear') },
-                { limit: 49, color: 'var(--fng-fear-color)', label: getTranslatedText('fear') },
-                { limit: 54, color: 'var(--fng-neutral-color)', label: getTranslatedText('neutral') },
+                { limit: 44, color: 'var(--fng-fear-color)', label: getTranslatedText('fear') },
+                { limit: 55, color: 'var(--fng-neutral-color)', label: getTranslatedText('neutral') },
                 { limit: 74, color: 'var(--fng-greed-color)', label: getTranslatedText('greed') },
                 { limit: 100, color: 'var(--fng-extreme-greed-color)', label: getTranslatedText('extreme-greed') }
             ]
@@ -407,6 +414,17 @@ function updateDashboardFromData(data) {
     }
 
     console.log('✅ Dashboard UI updated successfully');
+    
+    // Update dominance info if available
+    if (data.btc_market_cap_percentage) {
+        console.log('🔍 [DEBUG] BTC Dominance:', data.btc_market_cap_percentage);
+        // You can add dominance display logic here if needed
+    }
+    
+    if (data.eth_market_cap_percentage) {
+        console.log('🔍 [DEBUG] ETH Dominance:', data.eth_market_cap_percentage);
+        // You can add dominance display logic here if needed
+    }
     
     // Update last updated time
     updateLastUpdatedTime();

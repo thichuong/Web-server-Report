@@ -4,6 +4,22 @@
  * Integrates with WebSocket for live updates
  */
 
+// Debug mode - set to false for production
+const DEBUG_MODE = false;
+
+// Debug logging wrapper
+function debugLog(...args) {
+    if (DEBUG_MODE) {
+        console.log(...args);
+    }
+}
+
+function debugError(...args) {
+    if (DEBUG_MODE) {
+        console.error(...args);
+    }
+}
+
 class MarketIndicatorsDashboard {
     constructor() {
         this.websocket = null;
@@ -20,6 +36,7 @@ class MarketIndicatorsDashboard {
             volume24h: null,
             fearGreedIndex: null,
             btcDominance: null,
+            ethDominance: null,
             activeCryptos: null,
             markets: null,
             marketCapChange: null,
@@ -30,7 +47,7 @@ class MarketIndicatorsDashboard {
     }
 
     init() {
-        console.log('🚀 Initializing Market Indicators Dashboard');
+        debugLog('🚀 Initializing Market Indicators Dashboard');
         this.initializeElements();
         this.connectWebSocket();
         this.startDataRefresh();
@@ -44,6 +61,7 @@ class MarketIndicatorsDashboard {
             volume24h: document.getElementById('volume-24h-indicator'),
             fearGreed: document.getElementById('fear-greed-indicator'),
             btcDominance: document.getElementById('btc-dominance-indicator'),
+            ethDominance: document.getElementById('eth-dominance-indicator'),
             activeCryptos: document.getElementById('active-cryptos-indicator'),
             markets: document.getElementById('markets-indicator'),
             marketCapChange: document.getElementById('market-cap-change-indicator'),
@@ -52,12 +70,12 @@ class MarketIndicatorsDashboard {
         };
 
         // Debug: Log which elements were found
-        console.log('🔍 Element search results:');
+        debugLog('🔍 Element search results:');
         Object.entries(this.elements).forEach(([key, element]) => {
             if (element) {
-                console.log(`  ✅ ${key}: found`);
+                debugLog(`  ✅ ${key}: found`);
             } else {
-                console.log(`  ❌ ${key}: NOT found`);
+                debugLog(`  ❌ ${key}: NOT found`);
             }
         });
 
@@ -87,14 +105,14 @@ class MarketIndicatorsDashboard {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/ws`;
         
-        console.log('🔌 Connecting to WebSocket for market indicators:', wsUrl);
+        debugLog('🔌 Connecting to WebSocket for market indicators:', wsUrl);
         this.updateConnectionStatus('connecting');
 
         try {
             this.websocket = new WebSocket(wsUrl);
 
             this.websocket.onopen = () => {
-                console.log('✅ Market Indicators WebSocket connected');
+                debugLog('✅ Market Indicators WebSocket connected');
                 this.isConnected = true;
                 this.reconnectAttempts = 0;
                 this.reconnectDelay = 1000;
@@ -111,7 +129,7 @@ class MarketIndicatorsDashboard {
             };
 
             this.websocket.onclose = (event) => {
-                console.log('🔌 Market Indicators WebSocket disconnected:', event.code);
+                debugLog('🔌 Market Indicators WebSocket disconnected:', event.code);
                 this.isConnected = false;
                 this.websocket = null;
                 
@@ -137,46 +155,46 @@ class MarketIndicatorsDashboard {
             this.reconnectAttempts++;
             this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000);
             
-            console.log(`🔄 Scheduling reconnect... Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
+            debugLog(`🔄 Scheduling reconnect... Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
             setTimeout(() => this.connectWebSocket(), this.reconnectDelay);
         } else {
-            console.log('❌ Max reconnect attempts reached');
+            debugLog('❌ Max reconnect attempts reached');
             this.updateConnectionStatus('offline');
         }
     }
 
     handleWebSocketMessage(message) {
-        console.log('📨 Received WebSocket message type:', message.type);
-        console.log('📨 Full message data:', message);
+        debugLog('📨 Received WebSocket message type:', message.type);
+        debugLog('📨 Full message data:', message);
         
         switch (message.type) {
             case 'dashboard_data':
             case 'dashboard_update':
                 if (message.data) {
-                    console.log('📊 Received market data update:', message.data);
+                    debugLog('📊 Received market data update:', message.data);
                     this.updateMarketData(message.data);
                 }
                 break;
                 
             case 'btc_price_update':
                 if (message.data) {
-                    console.log('₿ Received BTC price update:', message.data);
+                    debugLog('₿ Received BTC price update:', message.data);
                     this.updateBtcPrice(message.data);
                 }
                 break;
                 
             case 'market_update':
                 if (message.data) {
-                    console.log('📈 Received market update:', message.data);
+                    debugLog('📈 Received market update:', message.data);
                     this.updateMarketData(message.data);
                 }
                 break;
                 
             default:
-                console.log('❓ Unknown WebSocket message type:', message.type);
+                debugLog('❓ Unknown WebSocket message type:', message.type);
                 // Try to handle as generic market data if it has the expected fields
                 if (message.btc_price_usd || message.market_cap_usd || message.fng_value) {
-                    console.log('🔄 Treating unknown message as market data:', message);
+                    debugLog('🔄 Treating unknown message as market data:', message);
                     this.updateMarketData(message);
                 }
                 break;
@@ -184,7 +202,7 @@ class MarketIndicatorsDashboard {
     }
 
     updateMarketData(data) {
-        console.log('🔄 Updating market indicators with data:', data);
+        debugLog('🔄 Updating market indicators with data:', data);
 
         // Update BTC Price
         if (data.btc_price_usd !== undefined) {
@@ -198,22 +216,15 @@ class MarketIndicatorsDashboard {
         if (data.market_cap_usd !== undefined) {
             this.updateMarketCap({
                 value: data.market_cap_usd,
-                change: data.market_cap_change_24h || 0
+                change: data.market_cap_change_percentage_24h_usd || 0
             });
         }
 
-        // Update Volume 24h - use total_volume_24h if available, or estimate from market cap
-        if (data.total_volume_24h !== undefined) {
+        // Update Volume 24h - use volume_24h_usd if available
+        if (data.volume_24h_usd !== undefined) {
             this.updateVolume24h({
-                value: data.total_volume_24h,
-                change: data.volume_change_24h || 0
-            });
-        } else if (data.market_cap_usd !== undefined) {
-            // Estimate volume as roughly 10% of market cap (common ratio)
-            const estimatedVolume = data.market_cap_usd * 0.1;
-            this.updateVolume24h({
-                value: estimatedVolume,
-                change: 0 // No change data available
+                value: data.volume_24h_usd,
+                change: 0 // Volume change not available from current API
             });
         }
 
@@ -222,14 +233,14 @@ class MarketIndicatorsDashboard {
             this.updateFearGreedIndex(data.fng_value);
         }
 
-        // Update BTC Dominance - calculate or use if available
-        if (data.btc_dominance !== undefined) {
-            this.updateBtcDominance(data.btc_dominance);
-        } else if (data.btc_price_usd && data.market_cap_usd) {
-            // Estimate BTC dominance: assume 21M BTC supply
-            const btcMarketCap = data.btc_price_usd * 21000000;
-            const btcDominance = (btcMarketCap / data.market_cap_usd) * 100;
-            this.updateBtcDominance(btcDominance);
+        // Update BTC Dominance - use btc_market_cap_percentage directly
+        if (data.btc_market_cap_percentage !== undefined) {
+            this.updateBtcDominance(data.btc_market_cap_percentage);
+        }
+
+        // Update ETH Dominance - use eth_market_cap_percentage directly
+        if (data.eth_market_cap_percentage !== undefined) {
+            this.updateEthDominance(data.eth_market_cap_percentage);
         }
 
         // Update additional metrics with reasonable defaults
@@ -245,7 +256,10 @@ class MarketIndicatorsDashboard {
             this.updateMarkets(800); // Reasonable default
         }
 
-        if (data.market_cap_change_24h !== undefined) {
+        // Update Market Cap Change with new field name
+        if (data.market_cap_change_percentage_24h_usd !== undefined) {
+            this.updateMarketCapChange(data.market_cap_change_percentage_24h_usd);
+        } else if (data.market_cap_change_24h !== undefined) {
             this.updateMarketCapChange(data.market_cap_change_24h);
         } else if (data.btc_change_24h !== undefined) {
             // Use BTC change as proxy for market cap change
@@ -285,7 +299,7 @@ class MarketIndicatorsDashboard {
         if (!element) return;
 
         const value = parseFloat(data.value || data.total_market_cap || data.market_cap_usd) || 0;
-        const change = parseFloat(data.change || data.market_cap_change_24h) || 0;
+        const change = parseFloat(data.change || data.market_cap_change_percentage_24h_usd) || 0;
 
         this.cachedData.marketCap = { value, change };
 
@@ -336,35 +350,41 @@ class MarketIndicatorsDashboard {
         this.cachedData.fearGreedIndex = index;
 
         let indexClass = 'neutral';
-        let indexLabel = 'Trung tính';
-        let indexDescription = '';
-
-        if (index <= 25) {
+        let indexLabelKey, indexDescriptionKey;
+        
+        if (index <= 24) {
             indexClass = 'fear';
-            indexLabel = 'Sợ hãi cực độ';
-            indexDescription = 'Thị trường đang trong trạng thái sợ hãi';
-        } else if (index <= 50) {
+            indexLabelKey = 'extreme-fear';
+            indexDescriptionKey = 'extreme-fear-desc';
+        } else if (index <= 44) {
             indexClass = 'fear';
-            indexLabel = 'Sợ hãi';
-            indexDescription = 'Thị trường có xu hướng giảm';
-        } else if (index <= 75) {
+            indexLabelKey = 'fear';
+            indexDescriptionKey = 'fear-desc';
+        } else if (index <= 55) {
+            indexClass = 'neutral';
+            indexLabelKey = 'neutral';
+            indexDescriptionKey = 'neutral-desc';
+        } else if (index <= 74) {
             indexClass = 'greed';
-            indexLabel = 'Tham lam';
-            indexDescription = 'Thị trường có xu hướng tăng';
+            indexLabelKey = 'greed';
+            indexDescriptionKey = 'greed-desc';
         } else {
             indexClass = 'greed';
-            indexLabel = 'Tham lam cực độ';
-            indexDescription = 'Thị trường đang trong trạng thái tham lam';
+            indexLabelKey = 'extreme-greed';
+            indexDescriptionKey = 'extreme-greed-desc';
         }
 
         element.innerHTML = `
             <div class="index-display">
                 <div class="index-value ${indexClass}">${index}</div>
-                <div class="index-label">${indexLabel}</div>
-                <div class="index-description">${indexDescription}</div>
+                <div class="index-label" data-i18n="${indexLabelKey}">Loading...</div>
+                <div class="index-description" data-i18n="${indexDescriptionKey}">Loading...</div>
             </div>
         `;
 
+        // Trigger translation update if available
+        this.updateTranslations(element);
+        
         this.animateUpdate(element);
     }
 
@@ -379,6 +399,23 @@ class MarketIndicatorsDashboard {
             <div class="index-display">
                 <div class="index-value">${dominance.toFixed(1)}%</div>
                 <div class="index-label" data-i18n="btc-market-share">Thị phần BTC</div>
+            </div>
+        `;
+
+        this.animateUpdate(element);
+    }
+
+    updateEthDominance(value) {
+        const element = this.elements.ethDominance;
+        if (!element) return;
+
+        const dominance = parseFloat(value) || 0;
+        this.cachedData.ethDominance = dominance;
+
+        element.innerHTML = `
+            <div class="index-display">
+                <div class="index-value">${dominance.toFixed(1)}%</div>
+                <div class="index-label" data-i18n="eth-market-share">Thị phần ETH</div>
             </div>
         `;
 
@@ -456,6 +493,31 @@ class MarketIndicatorsDashboard {
         }
     }
 
+    updateTranslations(element) {
+        // Try to update translations if translation system is available
+        try {
+            if (typeof window.updateTranslationsForElement === 'function') {
+                window.updateTranslationsForElement(element);
+            } else if (typeof window.updateTranslations === 'function') {
+                window.updateTranslations();
+            } else {
+                // Fallback: manually update elements with data-i18n
+                const elementsWithI18n = element.querySelectorAll('[data-i18n]');
+                elementsWithI18n.forEach(el => {
+                    const key = el.getAttribute('data-i18n');
+                    if (window.translations_data && window.translations_data[key]) {
+                        const currentLang = window.current_language || 'vi';
+                        if (window.translations_data[key][currentLang]) {
+                            el.textContent = window.translations_data[key][currentLang];
+                        }
+                    }
+                });
+            }
+        } catch (error) {
+            console.log('Translation update not available:', error);
+        }
+    }
+
     animateUpdate(element) {
         if (!element) return;
 
@@ -510,23 +572,23 @@ class MarketIndicatorsDashboard {
 
 // Initialize Market Indicators Dashboard when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('📊 DOM loaded, initializing Market Indicators Dashboard');
+    debugLog('📊 DOM loaded, initializing Market Indicators Dashboard');
     
     // Only initialize if the market indicators container exists
     const container = document.getElementById('market-indicators-dashboard');
     if (container) {
-        console.log('✅ Market indicators container found, creating dashboard instance');
+        debugLog('✅ Market indicators container found, creating dashboard instance');
         window.marketIndicatorsDashboard = new MarketIndicatorsDashboard();
         
         // Add a global function to manually update with data (for debugging)
         window.updateMarketIndicators = function(data) {
             if (window.marketIndicatorsDashboard) {
-                console.log('🔧 Manual update triggered with data:', data);
+                debugLog('🔧 Manual update triggered with data:', data);
                 window.marketIndicatorsDashboard.updateMarketData(data);
             }
         };
     } else {
-        console.log('❌ Market indicators container not found');
+        debugLog('❌ Market indicators container not found');
     }
 });
 
@@ -542,8 +604,13 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = MarketIndicatorsDashboard;
 }
 
-// Global debugging helpers
+// Global debugging helpers (only active in DEBUG_MODE)
 window.debugMarketIndicators = function() {
+    if (!DEBUG_MODE) {
+        console.log('Debug mode is disabled. Set DEBUG_MODE = true to enable debugging.');
+        return;
+    }
+    
     console.log('=== Market Indicators Debug Info ===');
     
     if (window.marketIndicatorsDashboard) {
@@ -556,7 +623,7 @@ window.debugMarketIndicators = function() {
     }
 };
 
-// Test function with sample data
+// Test function with sample data (only active in DEBUG_MODE)
 window.testMarketIndicators = function() {
     const sampleData = {
         btc_change_24h: -1.1761369473535623,
@@ -566,10 +633,10 @@ window.testMarketIndicators = function() {
         rsi_14: 38.4490332215743
     };
     
-    console.log('🧪 Testing with sample data:', sampleData);
+    debugLog('🧪 Testing with sample data:', sampleData);
     if (window.updateMarketIndicators) {
         window.updateMarketIndicators(sampleData);
     } else {
-        console.log('❌ updateMarketIndicators function not available');
+        debugLog('❌ updateMarketIndicators function not available');
     }
 };

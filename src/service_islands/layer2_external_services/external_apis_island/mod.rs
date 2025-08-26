@@ -93,3 +93,6 @@ impl ExternalApisIsland {
         self.api_aggregator.fetch_dashboard_data().await
     }
 }
+
+// Re-export commonly used types
+// Note: DashboardSummary removed as it's not used outside this module
