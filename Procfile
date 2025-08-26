@@ -1,1 +1,1 @@
-web: bin/web-server-report
+web: ./web-server-report

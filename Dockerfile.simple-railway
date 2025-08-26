@@ -1,0 +1,44 @@
+# Simple single-stage Dockerfile for Railway (fallback option)
+FROM rust:1.83-bookworm
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    ca-certificates \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy all project files
+COPY . .
+
+# Build the application
+RUN cargo build --release
+
+# Copy binary to working directory and make executable  
+RUN cp ./target/release/web-server-report ./web-server-report && \
+    chmod +x ./web-server-report
+
+# Setup runtime user
+RUN useradd -ms /bin/bash appuser && \
+    chown -R appuser:appuser /app
+
+USER appuser
+
+# Environment variables
+ENV RUST_LOG=info \
+    RUST_BACKTRACE=1 \
+    HOST="0.0.0.0" \
+    PORT="8000"
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Expose port
+EXPOSE 8000
+
+# Start the application
+CMD ["./web-server-report"]
