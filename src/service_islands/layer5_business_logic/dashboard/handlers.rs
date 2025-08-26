@@ -5,9 +5,8 @@
 //! Dashboard Island as part of the Service Islands Architecture.
 
 use tokio::fs;
-use tera::{Tera, Context};
 use std::sync::Arc;
-
+use tera::Context;
 use crate::state::AppState;
 
 /// Dashboard Handlers

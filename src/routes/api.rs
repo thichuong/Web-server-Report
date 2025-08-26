@@ -28,19 +28,19 @@ async fn api_dashboard_summary(
     // Phase 3: Primary reads from Redis Streams, DB as fallback
     println!("🚀 [API] Attempting stream-first dashboard summary fetch...");
     
-    // Try Redis Streams first (primary storage)
+    // Try cache manager first (primary storage)
     let app_state = &service_islands.app_state;
     if let Some(cache_system) = app_state.get_cache_system() {
-        match cache_system.get_latest_market_data().await {
+        match cache_system.cache_manager().get("latest_market_data").await {
             Ok(Some(stream_data)) => {
-                println!("✅ [API] Dashboard summary served from Redis Streams (<1ms)");
+                println!("✅ [API] Dashboard summary served from cache (<1ms)");
                 return Json(stream_data);
             }
             Ok(None) => {
-                println!("⚠️ [API] No data in streams, falling back to Layer 5...");
+                println!("⚠️ [API] No data in cache, falling back to Layer 5...");
             }
             Err(e) => {
-                println!("⚠️ [API] Stream read failed: {}, falling back to Layer 5...", e);
+                println!("⚠️ [API] Cache read failed: {}, falling back to Layer 5...", e);
             }
         }
     }
@@ -50,13 +50,18 @@ async fn api_dashboard_summary(
         Ok(market_data) => {
             println!("✅ [API] Dashboard summary fetched via Layer 5 → Layer 3 → Layer 2");
             
-            // Store in Redis Streams for future reads
+            // Store in cache for future reads  
             let app_state = &service_islands.app_state;
             if let Some(cache_system) = app_state.get_cache_system() {
-                if let Err(e) = cache_system.store_market_data(market_data.clone()).await {
-                    println!("⚠️ [API] Failed to store in streams: {}", e);
+                use crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy;
+                if let Err(e) = cache_system.cache_manager().set_with_strategy(
+                    "latest_market_data", 
+                    market_data.clone(), 
+                    CacheStrategy::ShortTerm
+                ).await {
+                    println!("⚠️ [API] Failed to store in cache: {}", e);
                 } else {
-                    println!("💾 [API] Data stored to Redis Streams for future reads");
+                    println!("💾 [API] Data stored to cache for future reads");
                 }
             }
             

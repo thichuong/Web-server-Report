@@ -173,6 +173,7 @@ impl CacheManager {
     ///     Some(CacheStrategy::RealTime)
     /// ).await?;
     /// ```
+    #[allow(dead_code)]
     pub async fn get_with_fallback<F, Fut>(
         &self,
         key: &str,
@@ -258,6 +259,7 @@ impl CacheManager {
     ///     }
     /// ).await?;
     /// ```
+    #[allow(dead_code)]
     pub async fn get_or_compute_with<F, Fut>(
         &self,
         key: &str,
@@ -323,6 +325,7 @@ impl CacheManager {
     }
     
     /// Get comprehensive cache statistics
+    #[allow(dead_code)]
     pub fn get_stats(&self) -> CacheManagerStats {
         let total_reqs = self.total_requests.load(Ordering::Relaxed);
         let l1_hits = self.l1_hits.load(Ordering::Relaxed);
@@ -348,6 +351,7 @@ impl CacheManager {
 }
 
 /// Cache Manager statistics
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct CacheManagerStats {
     pub total_requests: u64,

@@ -172,14 +172,15 @@ impl CryptoDataService {
         Ok(report)
     }
 
-    /// Lấy nội dung HTML đã render của một report từ cache.
-    pub async fn get_rendered_report_html(&self, state: &Arc<AppState>, report_id: i32) -> Result<Option<String>, anyhow::Error> {
+    /// Get rendered report HTML (cached)
+    #[allow(dead_code)]
+    pub async fn get_rendered_report_html(&self, state: &Arc<AppState>, report_id: &str) -> Result<Option<String>, anyhow::Error> {
         if let Some(ref cache_system) = state.cache_system {
             let cache_key = format!("rendered_html_report_{}", report_id);
             // Chỉ cần lấy dưới dạng String, không cần deserialize
             if let Ok(Some(cached_value)) = cache_system.cache_manager.get(&cache_key).await {
                 if let Some(html_string) = cached_value.as_str() {
-                    let report_type = if report_id == -1 { "latest report" } else { &format!("report #{}", report_id) };
+                    let report_type = if report_id == "-1" { "latest report" } else { &format!("report #{}", report_id) };
                     println!("🔥 Layer 3: Cache HIT cho HTML đã render của {}", report_type);
                     return Ok(Some(html_string.to_string()));
                 }
@@ -204,6 +205,7 @@ impl CryptoDataService {
     }
 
     /// Lưu nội dung HTML đã render của một report vào cache.
+    #[allow(dead_code)]
     pub async fn cache_rendered_report_html(&self, state: &Arc<AppState>, report_id: i32, html_content: String) -> Result<(), anyhow::Error> {
         if let Some(ref cache_system) = state.cache_system {
             let cache_key = format!("rendered_html_report_{}", report_id);

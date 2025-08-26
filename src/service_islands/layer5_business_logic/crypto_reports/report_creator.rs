@@ -153,6 +153,7 @@ impl ReportCreator {
     /// Get available chart modules
     /// 
     /// Returns a list of available chart module names via Layer 1 infrastructure.
+    #[allow(dead_code)]
     pub async fn get_available_chart_modules(&self) -> Vec<String> {
         self.chart_modules_island.get_available_modules().await
     }

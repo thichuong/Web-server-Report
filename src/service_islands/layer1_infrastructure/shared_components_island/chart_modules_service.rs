@@ -12,12 +12,11 @@ use anyhow::Result;
 /// 
 /// Manages JavaScript chart modules for the application.
 /// Pre-loads all chart modules during startup to eliminate I/O during runtime.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ChartModulesService {
-    /// Pre-loaded chart modules content as single concatenated string
-    pub chart_modules_content: Arc<String>,
-    /// Priority order for loading chart modules
-    priority_order: Vec<String>,
+    #[allow(dead_code)]
+    base_path: String,
+    chart_modules_content: Arc<String>,
 }
 
 impl ChartModulesService {
@@ -38,17 +37,9 @@ impl ChartModulesService {
         println!("✅ Layer 1: Chart modules đã sẵn sàng. ({} bytes)", chart_content.len());
         
         Ok(Self {
+            base_path: "shared_assets/js/chart_modules".to_string(),
             chart_modules_content: Arc::new(chart_content),
-            priority_order,
         })
-    }
-    
-    /// Create with custom configuration
-    pub fn with_config(_base_path: String, priority_order: Vec<String>) -> Self {
-        Self {
-            chart_modules_content: Arc::new(String::new()),
-            priority_order,
-        }
     }
     
     /// Pre-load and concatenate all chart modules JavaScript files

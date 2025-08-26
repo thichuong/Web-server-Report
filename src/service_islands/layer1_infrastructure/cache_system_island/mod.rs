@@ -13,11 +13,10 @@ use anyhow::Result;
 pub mod l1_cache;
 pub mod l2_cache;
 pub mod cache_manager;
-pub mod cache_stampede_test;
 
-use l1_cache::{L1Cache, CacheStats as L1CacheStats};
+use l1_cache::L1Cache;
 use l2_cache::L2Cache;
-use cache_manager::{CacheManager, CacheManagerStats};
+use cache_manager::CacheManager;
 pub use cache_manager::CacheStrategy;
 
 /// Cache System Island - Two-tier caching system
@@ -77,26 +76,6 @@ impl CacheSystemIsland {
         &self.cache_manager
     }
 
-    /// Run Cache Stampede protection test
-    /// 
-    /// This method runs comprehensive tests to demonstrate and verify
-    /// that the Cache Stampede protection is working correctly.
-    pub async fn test_cache_stampede_protection(&self) -> Result<()> {
-        cache_stampede_test::test_cache_stampede_protection().await
-    }
-
-    /// Get comprehensive system statistics
-    pub fn get_system_stats(&self) -> CacheSystemStats {
-        let manager_stats = self.cache_manager.get_stats();
-        let l1_stats = self.l1_cache.get_stats();
-        
-        CacheSystemStats {
-            manager_stats,
-            l1_stats,
-            // You could add L2 stats here if L2Cache had a get_stats method
-        }
-    }
-
     // ===== COMPATIBILITY METHODS FOR OLD API (DEPRECATED) =====
     
     /// Get latest market data (compatibility method - DEPRECATED)
@@ -112,6 +91,7 @@ impl CacheSystemIsland {
     /// let data = cache_system.cache_manager().get("latest_market_data").await?;
     /// ```
     #[deprecated(note = "Use cache_manager().get(\"latest_market_data\") instead")]
+    #[allow(dead_code)]
     pub async fn get_latest_market_data(&self) -> Result<Option<serde_json::Value>, anyhow::Error> {
         self.cache_manager.get("latest_market_data").await
     }
@@ -129,26 +109,21 @@ impl CacheSystemIsland {
     /// cache_system.cache_manager().set_with_strategy("latest_market_data", data, CacheStrategy::RealTime).await?;
     /// ```
     #[deprecated(note = "Use cache_manager().set_with_strategy() with appropriate CacheStrategy instead")]
+    #[allow(dead_code)]
     pub async fn store_market_data(&self, data: serde_json::Value) -> Result<(), anyhow::Error> {
         self.cache_manager.set_with_strategy("latest_market_data", data, CacheStrategy::Default).await
     }
 
-    /// Generic get method (compatibility - DEPRECATED)
-    /// 
-    /// **DEPRECATED**: Use `cache_manager().get(key)` instead for direct access.
-    /// 
-    /// Example:
-    /// ```
-    /// // Old way (deprecated):
-    /// let data = cache_system.get("my_key").await?;
-    /// 
-    /// // New way (recommended):
-    /// let data = cache_system.cache_manager().get("my_key").await?;
-    /// ```
-    #[deprecated(note = "Use cache_manager().get() instead")]
+    /// **DEPRECATED**: Use `cache_manager().get(key)` instead.
+    #[deprecated(note = "Use cache_manager().get(key) instead")]
+    #[allow(dead_code)]
     pub async fn get(&self, key: &str) -> Result<Option<serde_json::Value>, anyhow::Error> {
         self.cache_manager.get(key).await
     }
+
+    /// Store a single key-value pair with optional TTL (compatibility method - DEPRECATED)
+    /// 
+    /// **DEPRECATED**: Use `cache_manager().set_with_strategy()` instead for better semantics.
     
     /// Generic set method with TTL (compatibility - DEPRECATED)
     /// 
@@ -163,17 +138,11 @@ impl CacheSystemIsland {
     /// cache_system.cache_manager().set_with_strategy("key", value, CacheStrategy::RealTime).await?;
     /// ```
     #[deprecated(note = "Use cache_manager().set_with_strategy() instead")]
+    #[allow(dead_code)]
     pub async fn set(&self, key: &str, value: serde_json::Value, ttl: Option<Duration>) -> Result<(), anyhow::Error> {
         match ttl {
             Some(duration) => self.cache_manager.set_with_strategy(key, value, CacheStrategy::Custom(duration)).await,
             None => self.cache_manager.set_with_strategy(key, value, CacheStrategy::Default).await,
         }
     }
-}
-
-/// Combined cache system statistics
-#[derive(Debug, Clone)]
-pub struct CacheSystemStats {
-    pub manager_stats: CacheManagerStats,
-    pub l1_stats: L1CacheStats,
 }

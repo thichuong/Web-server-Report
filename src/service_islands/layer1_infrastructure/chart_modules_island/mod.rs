@@ -8,8 +8,6 @@ use std::path::Path;
 use std::env;
 use tokio::fs::read_dir;
 
-pub mod examples;
-
 /// Chart Modules Island
 /// 
 /// Handles the loading and management of chart JavaScript modules.
@@ -38,6 +36,7 @@ impl ChartModulesIsland {
     }
 
     /// Create a new ChartModulesIsland with custom configuration
+    #[allow(dead_code)]
     pub fn with_config(base_dir: String, priority_order: Vec<String>) -> Self {
         Self {
             base_dir,
@@ -164,6 +163,7 @@ impl ChartModulesIsland {
     /// Get available chart module names
     /// 
     /// Returns a list of available chart module file names without loading content.
+    #[allow(dead_code)]
     pub async fn get_available_modules(&self) -> Vec<String> {
         let source_dir = Path::new(&self.base_dir);
 
@@ -190,21 +190,25 @@ impl ChartModulesIsland {
     }
 
     /// Set priority order for chart modules loading
+    #[allow(dead_code)]
     pub fn set_priority_order(&mut self, priority_order: Vec<String>) {
         self.priority_order = priority_order;
     }
 
     /// Get current priority order
+    #[allow(dead_code)]
     pub fn get_priority_order(&self) -> &Vec<String> {
         &self.priority_order
     }
 
     /// Set base directory for chart modules
+    #[allow(dead_code)]
     pub fn set_base_dir(&mut self, base_dir: String) {
         self.base_dir = base_dir;
     }
 
     /// Get current base directory
+    #[allow(dead_code)]
     pub fn get_base_dir(&self) -> &String {
         &self.base_dir
     }

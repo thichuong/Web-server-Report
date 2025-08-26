@@ -269,6 +269,7 @@ impl TemplateOrchestrator {
     /// Render 404 not found template
     /// 
     /// Handles the case when a specific report ID is not found
+    #[allow(dead_code)]
     pub async fn render_not_found_template(
         &self,
         tera: &tera::Tera,

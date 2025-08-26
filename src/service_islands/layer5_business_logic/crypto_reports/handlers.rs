@@ -5,9 +5,9 @@
 //! ONLY uses Template Engine - NO manual HTML creation
 
 use axum::{
-    http::{StatusCode, HeaderMap, header::{CONTENT_TYPE, CONTENT_ENCODING}},
-    response::{IntoResponse, Response},
-    body::Body,
+    response::{Response, IntoResponse},
+    http::StatusCode,
+    body::Body
 };
 use std::{sync::Arc, error::Error as StdError, sync::atomic::Ordering, io::Write};
 use flate2::{Compression, write::GzEncoder};
@@ -57,6 +57,7 @@ impl CryptoHandlers {
     /// Create cached response with proper headers
     /// 
     /// From archive_old_code/handlers/crypto.rs::create_cached_response
+    #[allow(dead_code)]
     pub fn create_cached_response(&self, html: String, cache_status: &str) -> Response {
         Response::builder()
             .status(StatusCode::OK)

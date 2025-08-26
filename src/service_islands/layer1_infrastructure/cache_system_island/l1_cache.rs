@@ -21,6 +21,7 @@ pub struct L1Cache {
     /// Set counter
     sets: Arc<AtomicU64>,
     /// Coalesced requests counter (requests that waited for an ongoing computation)
+    #[allow(dead_code)]
     coalesced_requests: Arc<AtomicU64>,
 }
 
@@ -120,6 +121,7 @@ impl L1Cache {
     ///     fetch_data_from_database().await
     /// }).await?;
     /// ```
+    #[allow(dead_code)]
     pub async fn get_or_compute_with<F, Fut>(
         &self,
         key: &str,
@@ -160,6 +162,7 @@ impl L1Cache {
     }
 
     /// Get statistics about cache performance and coalescing
+    #[allow(dead_code)]
     pub fn get_stats(&self) -> CacheStats {
         CacheStats {
             hits: self.hits.load(Ordering::Relaxed),
@@ -172,6 +175,7 @@ impl L1Cache {
 }
 
 /// Cache statistics
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct CacheStats {
     pub hits: u64,
