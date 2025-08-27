@@ -34,6 +34,15 @@ impl ApiAggregator {
     
     /// Create a new ApiAggregator with CoinMarketCap support
     pub async fn with_cmc_key(taapi_secret: String, cmc_api_key: Option<String>) -> Result<Self> {
+        Self::with_all_keys(taapi_secret, cmc_api_key, None).await
+    }
+    
+    /// Create a new ApiAggregator with all API keys
+    pub async fn with_all_keys(
+        taapi_secret: String, 
+        cmc_api_key: Option<String>, 
+        finnhub_api_key: Option<String>
+    ) -> Result<Self> {
         println!("📊 Initializing API Aggregator...");
         
         // Use optimized HTTP client from performance module if available
@@ -50,7 +59,7 @@ impl ApiAggregator {
         };
         
         // Create market API instance with async initialization
-        let market_api = Arc::new(MarketDataApi::with_cmc_key(taapi_secret, cmc_api_key).await?);
+        let market_api = Arc::new(MarketDataApi::with_all_keys(taapi_secret, cmc_api_key, finnhub_api_key).await?);
         
         Ok(Self {
             market_api,
@@ -74,7 +83,17 @@ impl ApiAggregator {
         cmc_api_key: Option<String>, 
         cache_system: Arc<CacheSystemIsland>
     ) -> Result<Self> {
-        let mut aggregator = Self::with_cmc_key(taapi_secret, cmc_api_key).await?;
+        Self::with_cache_and_all_keys(taapi_secret, cmc_api_key, None, cache_system).await
+    }
+    
+    /// Create ApiAggregator with cache system and all API keys
+    pub async fn with_cache_and_all_keys(
+        taapi_secret: String, 
+        cmc_api_key: Option<String>, 
+        finnhub_api_key: Option<String>,
+        cache_system: Arc<CacheSystemIsland>
+    ) -> Result<Self> {
+        let mut aggregator = Self::with_all_keys(taapi_secret, cmc_api_key, finnhub_api_key).await?;
         aggregator.cache_system = Some(cache_system);
         Ok(aggregator)
     }
@@ -125,12 +144,14 @@ impl ApiAggregator {
         let global_future = timeout(Duration::from_secs(10), self.fetch_global_with_cache());
         let fng_future = timeout(Duration::from_secs(10), self.fetch_fng_with_cache());
         let rsi_future = timeout(Duration::from_secs(10), self.fetch_rsi_with_cache());
+        let us_indices_future = timeout(Duration::from_secs(10), self.fetch_us_indices_with_cache());
         
-        let (btc_result, global_result, fng_result, rsi_result) = tokio::join!(
+        let (btc_result, global_result, fng_result, rsi_result, us_indices_result) = tokio::join!(
             btc_future,
             global_future,
             fng_future,
-            rsi_future
+            rsi_future,
+            us_indices_future
         );
         
         let mut data_sources = HashMap::new();
@@ -225,6 +246,26 @@ impl ApiAggregator {
             }
         };
         
+        // Process US Stock Indices data
+        let us_indices = match us_indices_result {
+            Ok(Ok(indices_data)) => {
+                data_sources.insert("us_indices".to_string(), "finnhub".to_string());
+                indices_data["indices"].clone()
+            }
+            Ok(Err(e)) => {
+                eprintln!("⚠️ US indices data fetch failed: {}", e);
+                data_sources.insert("us_indices".to_string(), "failed".to_string());
+                partial_failure = true;
+                serde_json::json!({}) // Empty object for failed fetch
+            }
+            Err(_) => {
+                eprintln!("⚠️ US indices data fetch timeout");
+                data_sources.insert("us_indices".to_string(), "timeout".to_string());
+                partial_failure = true;
+                serde_json::json!({})
+            }
+        };
+        
         let duration = start_time.elapsed();
         
         // Update statistics
@@ -247,6 +288,7 @@ impl ApiAggregator {
             "eth_market_cap_percentage": eth_dominance,
             "fng_value": fng_value,
             "rsi_14": rsi_value,
+            "us_stock_indices": us_indices,
             "data_sources": data_sources,
             "fetch_duration_ms": duration.as_millis() as u64,
             "partial_failure": partial_failure,
@@ -353,6 +395,32 @@ impl ApiAggregator {
                     let _ = cache_manager.set_with_strategy(cache_key, data.clone(),
                         crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::LongTerm).await;
                     println!("💾 RSI cached for 3 hours (long-term strategy)");
+                }
+                Ok(data)
+            }
+            Err(e) => Err(e)
+        }
+    }
+    
+    /// Fetch US Stock Indices with generic caching strategy
+    async fn fetch_us_indices_with_cache(&self) -> Result<serde_json::Value> {
+        let cache_key = "us_indices_finnhub_5m";
+        
+        // Try cache first
+        if let Some(ref cache) = self.cache_system {
+            if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
+                return Ok(cached_data);
+            }
+        }
+        
+        // Fetch from API
+        match self.market_api.fetch_us_stock_indices().await {
+            Ok(data) => {
+                // Cache using generic ShortTerm strategy (5 minutes)
+                if let Some(ref cache) = self.cache_system {
+                    let _ = cache.cache_manager.set_with_strategy(cache_key, data.clone(),
+                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm).await;
+                    println!("💾 US Stock Indices cached for 5 minutes (short-term strategy)");
                 }
                 Ok(data)
             }

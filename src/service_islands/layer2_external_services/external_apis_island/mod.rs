@@ -50,11 +50,21 @@ impl ExternalApisIsland {
         cmc_api_key: Option<String>, 
         cache_system: Arc<CacheSystemIsland>
     ) -> Result<Self> {
+        Self::with_cache_and_all_keys(taapi_secret, cmc_api_key, None, cache_system).await
+    }
+    
+    /// Initialize External APIs Island with Cache System dependency and all API keys
+    pub async fn with_cache_and_all_keys(
+        taapi_secret: String, 
+        cmc_api_key: Option<String>, 
+        finnhub_api_key: Option<String>,
+        cache_system: Arc<CacheSystemIsland>
+    ) -> Result<Self> {
         println!("🏝️ Initializing External APIs Island with Cache System...");
         
         // Initialize components with cache integration
-        let market_data_api = Arc::new(MarketDataApi::with_cmc_key(taapi_secret.clone(), cmc_api_key.clone()).await?);
-        let api_aggregator = Arc::new(ApiAggregator::with_cache_and_cmc(taapi_secret, cmc_api_key, cache_system.clone()).await?);
+        let market_data_api = Arc::new(MarketDataApi::with_all_keys(taapi_secret.clone(), cmc_api_key.clone(), finnhub_api_key.clone()).await?);
+        let api_aggregator = Arc::new(ApiAggregator::with_cache_and_all_keys(taapi_secret, cmc_api_key, finnhub_api_key, cache_system.clone()).await?);
         let circuit_breaker = Arc::new(CircuitBreaker::new());
         
         println!("✅ External APIs Island initialized with Cache System!");
@@ -64,6 +74,29 @@ impl ExternalApisIsland {
             api_aggregator,
             circuit_breaker,
             cache_system: Some(cache_system),
+        })
+    }
+    
+    /// Initialize External APIs Island without cache system (for testing)
+    pub async fn with_all_keys(
+        taapi_secret: String, 
+        cmc_api_key: Option<String>, 
+        finnhub_api_key: Option<String>
+    ) -> Result<Self> {
+        println!("🏝️ Initializing External APIs Island (no cache)...");
+        
+        // Initialize components without cache
+        let market_data_api = Arc::new(MarketDataApi::with_all_keys(taapi_secret.clone(), cmc_api_key.clone(), finnhub_api_key.clone()).await?);
+        let api_aggregator = Arc::new(ApiAggregator::with_all_keys(taapi_secret, cmc_api_key, finnhub_api_key).await?);
+        let circuit_breaker = Arc::new(CircuitBreaker::new());
+        
+        println!("✅ External APIs Island initialized (no cache)!");
+        
+        Ok(Self {
+            market_data_api,
+            api_aggregator,
+            circuit_breaker,
+            cache_system: None,
         })
     }
     

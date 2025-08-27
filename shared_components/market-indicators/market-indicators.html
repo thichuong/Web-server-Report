@@ -53,6 +53,69 @@
         </div>
     </div>
 
+    <!-- US Stock Market Indices -->
+    <div class="mb-8">
+        <h3 class="text-xl font-bold mb-4 text-center">
+            <i class="fas fa-chart-line text-red-600 mr-2"></i>
+            <span data-i18n="us-stock-indices">Chỉ Số Chứng Khoán Mỹ</span>
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- DJIA (DIA ETF) -->
+            <div class="market-card us-stock-card">
+                <div class="flex items-center mb-3">
+                    <i class="fas fa-building text-blue-600 text-2xl mr-3"></i>
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-700">DJIA</h4>
+                        <p class="text-xs text-gray-500" data-i18n="dia-description">Dow Jones Industrial Average</p>
+                    </div>
+                </div>
+                <div id="dia-indicator" class="stock-value-container">
+                    <div class="skeleton-loader"></div>
+                </div>
+                <div class="real-time-indicator">
+                    <span class="live-dot"></span>
+                    <span class="text-xs text-gray-500" data-i18n="live-data">Thời gian thực</span>
+                </div>
+            </div>
+
+            <!-- S&P 500 (SPY ETF) -->
+            <div class="market-card us-stock-card">
+                <div class="flex items-center mb-3">
+                    <i class="fas fa-chart-area text-green-600 text-2xl mr-3"></i>
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-700">S&P 500</h4>
+                        <p class="text-xs text-gray-500" data-i18n="spy-description">SPDR S&P 500 ETF Trust</p>
+                    </div>
+                </div>
+                <div id="spy-indicator" class="stock-value-container">
+                    <div class="skeleton-loader"></div>
+                </div>
+                <div class="real-time-indicator">
+                    <span class="live-dot"></span>
+                    <span class="text-xs text-gray-500" data-i18n="live-data">Thời gian thực</span>
+                </div>
+            </div>
+
+            <!-- Nasdaq 100 (QQQM ETF) -->
+            <div class="market-card us-stock-card">
+                <div class="flex items-center mb-3">
+                    <i class="fas fa-laptop-code text-purple-600 text-2xl mr-3"></i>
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-700">Nasdaq 100</h4>
+                        <p class="text-xs text-gray-500" data-i18n="qqq-description">INVESCO NASDAQ 100 ETF</p>
+                    </div>
+                </div>
+                <div id="qqq-indicator" class="stock-value-container">
+                    <div class="skeleton-loader"></div>
+                </div>
+                <div class="real-time-indicator">
+                    <span class="live-dot"></span>
+                    <span class="text-xs text-gray-500" data-i18n="live-data">Thời gian thực</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Market Indices Grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <!-- Fear & Greed Index -->
@@ -90,29 +153,7 @@
     </div>
 
     <!-- Additional Metrics Row -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <!-- Active Cryptocurrencies -->
-        <div class="market-mini-card">
-            <div class="text-center">
-                <i class="fas fa-coins text-teal-500 text-xl mb-2"></i>
-                <div id="active-cryptos-indicator" class="text-lg font-bold text-gray-800">
-                    <div class="skeleton-loader h-6"></div>
-                </div>
-                <p class="text-xs text-gray-600" data-i18n="active-cryptos">Coin Hoạt Động</p>
-            </div>
-        </div>
-
-        <!-- Markets -->
-        <div class="market-mini-card">
-            <div class="text-center">
-                <i class="fas fa-store text-indigo-500 text-xl mb-2"></i>
-                <div id="markets-indicator" class="text-lg font-bold text-gray-800">
-                    <div class="skeleton-loader h-6"></div>
-                </div>
-                <p class="text-xs text-gray-600" data-i18n="markets">Sàn Giao Dịch</p>
-            </div>
-        </div>
-
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <!-- Market Cap Change -->
         <div class="market-mini-card">
             <div class="text-center">

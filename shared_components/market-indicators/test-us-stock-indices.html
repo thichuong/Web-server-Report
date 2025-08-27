@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market Indicators Test - US Stock Indices</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="market-indicators.css">
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto py-8">
+        <h1 class="text-3xl font-bold text-center mb-8">
+            📈 Market Indicators Test - US Stock Indices
+        </h1>
+        
+        <!-- Include the market indicators component -->
+        <div id="market-indicators-component">
+            <!-- Content will be loaded here -->
+        </div>
+        
+        <!-- Test Controls -->
+        <div class="mt-8 bg-white p-6 rounded-lg shadow-lg">
+            <h3 class="text-xl font-semibold mb-4">🧪 Test Controls</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <button id="test-crypto-data" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    Test Crypto Data
+                </button>
+                <button id="test-us-stocks" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                    Test US Stock Indices
+                </button>
+                <button id="test-combined" class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600">
+                    Test Combined Data
+                </button>
+            </div>
+            
+            <!-- Debug Info -->
+            <div class="mt-4">
+                <button id="debug-info" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                    Show Debug Info
+                </button>
+                <div id="debug-output" class="mt-2 p-3 bg-gray-100 rounded text-sm font-mono hidden"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include the component files -->
+    <script src="market-indicators.js"></script>
+    
+    <script>
+        // Load the HTML component
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                const response = await fetch('market-indicators.html');
+                const html = await response.text();
+                document.getElementById('market-indicators-component').innerHTML = html;
+                
+                console.log('✅ Market indicators component loaded');
+                
+                // Setup test buttons
+                setupTestButtons();
+                
+            } catch (error) {
+                console.error('❌ Failed to load component:', error);
+                document.getElementById('market-indicators-component').innerHTML = 
+                    '<div class="text-red-500 text-center p-8">Failed to load market indicators component</div>';
+            }
+        });
+        
+        function setupTestButtons() {
+            // Test crypto data only
+            document.getElementById('test-crypto-data').addEventListener('click', function() {
+                const cryptoData = {
+                    btc_change_24h: 1.45,
+                    btc_price_usd: 111650,
+                    fng_value: 51,
+                    market_cap_usd: 3966466665679.736,
+                    market_cap_change_percentage_24h_usd: 2.36,
+                    btc_market_cap_percentage: 56.03,
+                    eth_market_cap_percentage: 14.10,
+                    rsi_14: 58.5,
+                    volume_24h_usd: 45000000000
+                };
+                
+                console.log('🧪 Testing crypto data:', cryptoData);
+                if (window.updateMarketIndicators) {
+                    window.updateMarketIndicators(cryptoData);
+                }
+            });
+            
+            // Test US stock indices only
+            document.getElementById('test-us-stocks').addEventListener('click', function() {
+                const stockData = {
+                    us_stock_indices: {
+                        DIA: {
+                            name: "SPDR Dow Jones Industrial Average ETF",
+                            price: 454.49,
+                            change: 1.42,
+                            change_percent: 0.31,
+                            status: "success"
+                        },
+                        SPY: {
+                            name: "SPDR S&P 500 ETF Trust", 
+                            price: 645.16,
+                            change: 2.69,
+                            change_percent: 0.42,
+                            status: "success"
+                        },
+                        QQQM: {
+                            name: "INVESCO NASDAQ 100 ETF",
+                            price: 572.61,
+                            change: -1.23,
+                            change_percent: -0.21,
+                            status: "success"
+                        }
+                    }
+                };
+                
+                console.log('🧪 Testing US stock indices:', stockData);
+                if (window.updateMarketIndicators) {
+                    window.updateMarketIndicators(stockData);
+                }
+            });
+            
+            // Test combined data
+            document.getElementById('test-combined').addEventListener('click', function() {
+                const combinedData = {
+                    btc_change_24h: 1.33,
+                    btc_price_usd: 110539,
+                    fng_value: 51,
+                    market_cap_usd: 3924612448344.534,
+                    market_cap_change_percentage_24h_usd: 1.33,
+                    btc_market_cap_percentage: 56.09,
+                    eth_market_cap_percentage: 14.03,
+                    rsi_14: 62.1,
+                    volume_24h_usd: 52000000000,
+                    us_stock_indices: {
+                        DIA: {
+                            name: "SPDR Dow Jones Industrial Average ETF",
+                            price: 454.49,
+                            change: 1.42,
+                            change_percent: 0.31,
+                            status: "success"
+                        },
+                        SPY: {
+                            name: "SPDR S&P 500 ETF Trust",
+                            price: 645.16,
+                            change: 2.69,
+                            change_percent: 0.42,
+                            status: "success"
+                        },
+                        QQQM: {
+                            name: "INVESCO NASDAQ 100 ETF",
+                            price: 572.61,
+                            change: 2.29,
+                            change_percent: 0.40,
+                            status: "success"
+                        }
+                    },
+                    data_sources: {
+                        btc_price: "coingecko",
+                        fear_greed: "alternative_me",
+                        market_data: "coingecko",
+                        rsi: "taapi_io",
+                        us_indices: "finnhub"
+                    },
+                    fetch_duration_ms: 1080,
+                    partial_failure: false,
+                    timestamp: new Date().toISOString()
+                };
+                
+                console.log('🧪 Testing combined crypto + US stock data:', combinedData);
+                if (window.updateMarketIndicators) {
+                    window.updateMarketIndicators(combinedData);
+                }
+            });
+            
+            // Debug info
+            document.getElementById('debug-info').addEventListener('click', function() {
+                const output = document.getElementById('debug-output');
+                
+                if (output.classList.contains('hidden')) {
+                    // Show debug info
+                    let debugInfo = '=== Market Indicators Debug Info ===\n\n';
+                    
+                    if (window.marketIndicatorsDashboard) {
+                        debugInfo += '✅ Dashboard instance exists\n';
+                        debugInfo += `🔗 WebSocket connected: ${window.marketIndicatorsDashboard.isConnected}\n`;
+                        debugInfo += `💾 Cached data: ${JSON.stringify(window.marketIndicatorsDashboard.cachedData, null, 2)}\n`;
+                        
+                        // Check elements
+                        const elements = ['dia-indicator', 'spy-indicator', 'qqq-indicator'];
+                        debugInfo += '\n📊 US Stock Elements Status:\n';
+                        elements.forEach(id => {
+                            const el = document.getElementById(id);
+                            debugInfo += `  ${id}: ${el ? '✅ Found' : '❌ Not found'}\n`;
+                        });
+                    } else {
+                        debugInfo += '❌ No dashboard instance found\n';
+                    }
+                    
+                    output.textContent = debugInfo;
+                    output.classList.remove('hidden');
+                    this.textContent = 'Hide Debug Info';
+                } else {
+                    // Hide debug info
+                    output.classList.add('hidden');
+                    this.textContent = 'Show Debug Info';
+                }
+            });
+        }
+    </script>
+</body>
+</html>

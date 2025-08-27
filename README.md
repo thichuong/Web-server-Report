@@ -34,12 +34,12 @@
 - **Backend**: Rust + Axum (high-performance async web framework)
 - **Database**: PostgreSQL with optimized connection pooling (32 max connections)
 - **Caching**: Multi-tier L1 (moka) + L2 (Redis) with Cache Stampede Protection
-- **Market Data**: CoinGecko (primary) + CoinMarketCap (fallback) + TAAPI.io
+- **Market Data**: CoinGecko (primary) + CoinMarketCap (fallback) + TAAPI.io + Finnhub (US stocks)
 - **Concurrency**: Rayon ThreadPool + tokio async runtime + DashMap request coalescing
 - **Real-time**: Redis + WebSocket for live updates
 - **Templates**: Tera template engine with background rendering
 - **Frontend**: Vanilla JS with Chart.js and modern CSS
-- **API Resilience**: Dual-source data with CoinGecko + CoinMarketCap fallback
+- **API Resilience**: Multi-source data with CoinGecko + CoinMarketCap fallback + Finnhub US stocks
 
 ## 🚀 Quick Start
 
@@ -48,6 +48,7 @@
 - PostgreSQL database
 - Redis server (optional, for WebSocket features)
 - CoinMarketCap API key (optional, for fallback support)
+- Finnhub API key (optional, for US stock market indices)
 
 ### 1. Clone & Setup
 ```bash
@@ -69,7 +70,8 @@ AUTO_UPDATE_SECRET_KEY=your_secret_key_here
 
 # External APIs
 TAAPI_SECRET=your_taapi_secret_for_crypto_data
-CMC_API_KEY=your_coinmarketcap_api_key_here  # Optional - enables fallback support
+CMC_API_KEY=your_coinmarketcap_api_key_here    # Optional - enables crypto fallback support
+FINNHUB_API_KEY=your_finnhub_api_key_here      # Optional - enables US stock market data
 
 # Optional: Redis for WebSocket/caching (defaults to localhost:6379)
 REDIS_URL=redis://localhost:6379
@@ -134,7 +136,8 @@ Hệ thống sử dụng **Service Islands Architecture** - kiến trúc phân t
 │                  Layer 2: External Services                │
 │  ┌─────────────────────────────────────────────────────────┐│
 │  │              External APIs Island                      ││
-│  │ • Market Data API (CoinGecko, TaApi.io)               ││
+│  │ • Market Data API (CoinGecko, CoinMarketCap, TaApi.io)││
+│  │ • US Stock Indices (Finnhub)                          ││
 │  │ • Rate Limiter with Exponential Backoff               ││
 │  │ • API Aggregator (Multi-source data)                  ││
 │  │ • Circuit Breaker (Fault tolerance)                   ││
@@ -353,7 +356,7 @@ if let Some(guard) = pending_requests.get(&key) {
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/ws` | WebSocket connection for real-time updates |
-| `GET` | `/api/crypto/dashboard-summary` | Cached dashboard data (JSON) |
+| `GET` | `/api/crypto/dashboard-summary` | Cached dashboard data with crypto + US stocks (JSON) |
 | `GET` | `/api/crypto/dashboard-summary/refresh` | Force refresh dashboard |
 
 ### Static Assets
@@ -546,6 +549,11 @@ cargo watch -x run
 
 # Run tests
 cargo test
+
+# Test API integrations
+./test-finnhub-integration.sh       # Test US stock indices integration
+cargo run --example test_coinmarketcap_fallback  # Test crypto fallback
+cargo run --example test_finnhub_integration     # Test Finnhub API
 
 # Check code quality
 cargo clippy

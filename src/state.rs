@@ -88,6 +88,11 @@ impl AppState {
             println!("Warning: Failed to load crypto language toggle template: {}", e);
         }
         
+        // Register market indicators component for homepage
+        if let Err(e) = tera.add_template_file("shared_components/market-indicators/market-indicators.html", Some("shared/components/market-indicators.html")) {
+            println!("Warning: Failed to load market indicators component: {}", e);
+        }
+        
         tera.autoescape_on(vec![]); // Disable auto-escaping for safe content
 
         Ok(Self {

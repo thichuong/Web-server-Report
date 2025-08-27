@@ -93,27 +93,14 @@ impl CryptoReportsIsland {
                     if let Some(fng) = market_data.get("fng_value") {
                         println!("  🔍 [Layer 5 via Layer 3] Fear & Greed received: {:?}", fng);
                     }
+                    if let Some(us_indices) = market_data.get("us_stock_indices") {
+                        println!("  🔍 [Layer 5 via Layer 3] US Stock Indices received: {:?} symbols", 
+                            us_indices.as_object().map_or(0, |obj| obj.len()));
+                    }
                     
-                    // ✅ NORMALIZE: Ensure consistent field names for JavaScript client with NEW FIELDS
-                    let normalized_data = serde_json::json!({
-                        "btc_price_usd": market_data.get("btc_price_usd").unwrap_or(&serde_json::Value::Number(serde_json::Number::from(0))),
-                        "btc_change_24h": market_data.get("btc_change_24h").unwrap_or(&serde_json::Value::Number(serde_json::Number::from(0))),
-                        "market_cap_usd": market_data.get("market_cap_usd").unwrap_or(&serde_json::Value::Number(serde_json::Number::from(0))),
-                        "volume_24h_usd": market_data.get("volume_24h_usd").unwrap_or(&serde_json::Value::Number(serde_json::Number::from(0))),
-                        "market_cap_change_percentage_24h_usd": market_data.get("market_cap_change_percentage_24h_usd").unwrap_or(&serde_json::Value::Number(serde_json::Number::from(0))),
-                        "btc_market_cap_percentage": market_data.get("btc_market_cap_percentage").unwrap_or(&serde_json::Value::Number(serde_json::Number::from(0))),
-                        "eth_market_cap_percentage": market_data.get("eth_market_cap_percentage").unwrap_or(&serde_json::Value::Number(serde_json::Number::from(0))),
-                        "fng_value": market_data.get("fng_value").unwrap_or(&serde_json::Value::Number(serde_json::Number::from(50))),
-                        "rsi_14": market_data.get("rsi_14").unwrap_or(&serde_json::Value::Number(serde_json::Number::from_f64(50.0).unwrap())),
-                        "data_sources": market_data.get("data_sources").unwrap_or(&serde_json::Value::Object(serde_json::Map::new())),
-                        "fetch_duration_ms": market_data.get("fetch_duration_ms").unwrap_or(&serde_json::Value::Number(serde_json::Number::from(0))),
-                        "partial_failure": market_data.get("partial_failure").unwrap_or(&serde_json::Value::Bool(false)),
-                        "last_updated": market_data.get("last_updated").unwrap_or(&serde_json::Value::String(chrono::Utc::now().to_rfc3339())),
-                        "timestamp": market_data.get("timestamp").unwrap_or(&serde_json::Value::String(chrono::Utc::now().to_rfc3339()))
-                    });
-                    
-                    println!("🔧 [Layer 5 via Layer 3] Data normalized for client compatibility");
-                    Ok(normalized_data)
+                    // ✅ DIRECT USE: Return Layer 3 normalized data directly (no redundant normalization)
+                    println!("🔧 [Layer 5] Using Layer 3 normalized data directly for better architecture");
+                    Ok(market_data)
                 }
                 Err(e) => {
                     println!("❌ Layer 5 → Layer 3 → Layer 2 flow failed: {}", e);

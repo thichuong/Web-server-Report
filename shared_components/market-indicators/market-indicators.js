@@ -37,10 +37,9 @@ class MarketIndicatorsDashboard {
             fearGreedIndex: null,
             btcDominance: null,
             ethDominance: null,
-            activeCryptos: null,
-            markets: null,
             marketCapChange: null,
-            lastUpdated: null
+            lastUpdated: null,
+            usStockIndices: null
         };
         
         this.init();
@@ -62,8 +61,6 @@ class MarketIndicatorsDashboard {
             fearGreed: document.getElementById('fear-greed-indicator'),
             btcDominance: document.getElementById('btc-dominance-indicator'),
             ethDominance: document.getElementById('eth-dominance-indicator'),
-            activeCryptos: document.getElementById('active-cryptos-indicator'),
-            markets: document.getElementById('markets-indicator'),
             marketCapChange: document.getElementById('market-cap-change-indicator'),
             lastUpdated: document.getElementById('last-updated-indicator'),
             connectionStatus: document.getElementById('connection-status')
@@ -243,18 +240,7 @@ class MarketIndicatorsDashboard {
             this.updateEthDominance(data.eth_market_cap_percentage);
         }
 
-        // Update additional metrics with reasonable defaults
-        if (data.active_cryptocurrencies !== undefined) {
-            this.updateActiveCryptos(data.active_cryptocurrencies);
-        } else {
-            this.updateActiveCryptos(15000); // Reasonable default
-        }
 
-        if (data.markets !== undefined) {
-            this.updateMarkets(data.markets);
-        } else {
-            this.updateMarkets(800); // Reasonable default
-        }
 
         // Update Market Cap Change with new field name
         if (data.market_cap_change_percentage_24h_usd !== undefined) {
@@ -268,6 +254,11 @@ class MarketIndicatorsDashboard {
 
         // Update last updated time
         this.updateLastUpdated();
+        
+        // Update US Stock Indices
+        if (data.us_stock_indices) {
+            this.updateUSStockIndices(data.us_stock_indices);
+        }
     }
 
     updateBtcPrice(data) {
@@ -422,28 +413,6 @@ class MarketIndicatorsDashboard {
         this.animateUpdate(element);
     }
 
-    updateActiveCryptos(value) {
-        const element = this.elements.activeCryptos;
-        if (!element) return;
-
-        const count = parseInt(value) || 0;
-        this.cachedData.activeCryptos = count;
-
-        element.innerHTML = `<div class="fade-in">${count.toLocaleString()}</div>`;
-        this.animateUpdate(element);
-    }
-
-    updateMarkets(value) {
-        const element = this.elements.markets;
-        if (!element) return;
-
-        const count = parseInt(value) || 0;
-        this.cachedData.markets = count;
-
-        element.innerHTML = `<div class="fade-in">${count.toLocaleString()}</div>`;
-        this.animateUpdate(element);
-    }
-
     updateMarketCapChange(value) {
         const element = this.elements.marketCapChange;
         if (!element) return;
@@ -561,6 +530,74 @@ class MarketIndicatorsDashboard {
         }, 30000);
     }
 
+    // US Stock Indices Update Methods
+    updateUSStockIndices(indices) {
+        debugLog('📊 Updating US Stock Indices:', indices);
+        
+        if (!indices || typeof indices !== 'object') {
+            debugError('❌ Invalid US stock indices data:', indices);
+            return;
+        }
+        
+        this.cachedData.usStockIndices = indices;
+        
+        // Update individual indices
+        if (indices.DIA) {
+            this.updateStockIndex('dia', indices.DIA, 'DJIA');
+        }
+        
+        if (indices.SPY) {
+            this.updateStockIndex('spy', indices.SPY, 'S&P 500');
+        }
+        
+        if (indices.QQQM) {
+            this.updateStockIndex('qqq', indices.QQQM, 'Nasdaq 100');
+        }
+    }
+    
+    updateStockIndex(elementId, indexData, displayName) {
+        const element = document.getElementById(`${elementId}-indicator`);
+        if (!element) {
+            debugError(`❌ Element not found: ${elementId}-indicator`);
+            return;
+        }
+        
+        if (!indexData || indexData.status !== 'success') {
+            // Handle error or loading state
+            const status = indexData ? indexData.status : 'no data';
+            element.innerHTML = `
+                <div class="stock-value">--</div>
+                <div class="stock-change neutral">
+                    <span class="stock-status error">${status}</span>
+                </div>
+            `;
+            return;
+        }
+        
+        const price = parseFloat(indexData.price) || 0;
+        const change = parseFloat(indexData.change) || 0;
+        const changePercent = parseFloat(indexData.change_percent) || 0;
+        
+        const changeClass = changePercent >= 0 ? 'positive' : 'negative';
+        const changeIcon = changePercent >= 0 ? '📈' : '📉';
+        const changeSign = change >= 0 ? '+' : '';
+        const percentSign = changePercent >= 0 ? '+' : '';
+        
+        element.innerHTML = `
+            <div class="stock-value">$${price.toFixed(2)}</div>
+            <div class="stock-change ${changeClass}">
+                <span class="change-icon">${changeIcon}</span>
+                ${changeSign}$${Math.abs(change).toFixed(2)} (${percentSign}${changePercent.toFixed(2)}%)
+            </div>
+            <div class="stock-status success">
+                ✅ Live
+            </div>
+        `;
+        
+        this.animateUpdate(element);
+        debugLog(`✅ Updated ${displayName}: $${price.toFixed(2)} (${percentSign}${changePercent.toFixed(2)}%)`);
+    }
+
     destroy() {
         if (this.websocket) {
             this.websocket.close();
@@ -630,10 +667,33 @@ window.testMarketIndicators = function() {
         btc_price_usd: 110349,
         fng_value: 48,
         market_cap_usd: 3872941106289.462,
-        rsi_14: 38.4490332215743
+        rsi_14: 38.4490332215743,
+        us_stock_indices: {
+            DIA: {
+                name: "SPDR Dow Jones Industrial Average ETF",
+                price: 454.49,
+                change: 1.42,
+                change_percent: 0.31,
+                status: "success"
+            },
+            SPY: {
+                name: "SPDR S&P 500 ETF Trust",
+                price: 645.16,
+                change: 2.69,
+                change_percent: 0.42,
+                status: "success"
+            },
+            QQQM: {
+                name: "INVESCO NASDAQ 100 ETF",
+                price: 572.61,
+                change: 2.29,
+                change_percent: 0.40,
+                status: "success"
+            }
+        }
     };
     
-    debugLog('🧪 Testing with sample data:', sampleData);
+    debugLog('🧪 Testing with sample data (including US stock indices):', sampleData);
     if (window.updateMarketIndicators) {
         window.updateMarketIndicators(sampleData);
     } else {

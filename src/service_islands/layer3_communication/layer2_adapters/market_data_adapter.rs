@@ -89,12 +89,19 @@ impl MarketDataAdapter {
         let fear_greed = raw_data.get("fng_value").cloned().unwrap_or(serde_json::Value::Number(serde_json::Number::from(50)));
         let rsi_14 = raw_data.get("rsi_14").cloned().unwrap_or(serde_json::Value::Number(serde_json::Number::from(50)));
         
+        // Extract US stock indices data from Layer 2
+        let us_stock_indices = raw_data.get("us_stock_indices").cloned().unwrap_or(serde_json::json!({}));
+        let data_sources = raw_data.get("data_sources").cloned().unwrap_or(serde_json::json!({}));
+        let partial_failure = raw_data.get("partial_failure").cloned().unwrap_or(serde_json::Value::Bool(false));
+        let fetch_duration_ms = raw_data.get("fetch_duration_ms").cloned().unwrap_or(serde_json::Value::Number(serde_json::Number::from(0)));
+        
         println!("  🔍 [Layer 5 via Layer 3] BTC Price received: ${:?}", btc_price);
         println!("  🔍 [Layer 5 via Layer 3] Market Cap received: ${:?}", market_cap);
         println!("  🔍 [Layer 5 via Layer 3] Market Cap Change 24h: {:?}%", market_cap_change_24h);
         println!("  🔍 [Layer 5 via Layer 3] BTC Dominance: {:?}%", btc_dominance);
         println!("  🔍 [Layer 5 via Layer 3] ETH Dominance: {:?}%", eth_dominance);
         println!("  🔍 [Layer 5 via Layer 3] Fear & Greed received: {:?}", fear_greed);
+        println!("  🔍 [Layer 5 via Layer 3] US Stock Indices: {:?}", us_stock_indices.as_object().map_or(0, |obj| obj.len()));
         
         let normalized_data = serde_json::json!({
             "btc_price_usd": btc_price,
@@ -107,12 +114,16 @@ impl MarketDataAdapter {
             "fear_greed_index": fear_greed,
             "fng_value": fear_greed,
             "rsi_14": rsi_14,
+            "us_stock_indices": us_stock_indices,
+            "data_sources": data_sources,
+            "partial_failure": partial_failure,
+            "fetch_duration_ms": fetch_duration_ms,
             "timestamp": chrono::Utc::now().to_rfc3339(),
             "source": "layer2_external_apis",
             "normalized_by": "layer3_market_data_adapter"
         });
         
-        println!("🔧 [Layer 5 via Layer 3] Data normalized for client compatibility with enhanced fields");
+        println!("🔧 [Layer 5 via Layer 3] Data normalized for client compatibility with enhanced fields + US stock indices");
         Ok(normalized_data)
     }
     
