@@ -178,11 +178,10 @@
             }, 50);
         }
 
-        // Re-initialize report visuals after language change (if on a report page)
+        // Re-initialize report visuals after language change (handled by iframe now)
+        // Note: Visual functions are now called inside iframe, not from parent page
         if (document.getElementById('report-container')) {
-            setTimeout(() => {
-                callInitializeReportVisuals();
-            }, 100);
+            console.log('🎨 Report container detected - iframe will handle visual initialization');
         }
     }
 

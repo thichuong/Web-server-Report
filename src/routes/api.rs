@@ -136,14 +136,15 @@ async fn api_sandboxed_report(
     };
 
     // Get language parameter (optional, defaults to Vietnamese)
-    let language = params.get("lang").map(|s| s.as_str());
+    // Note: Language switching is now handled dynamically inside iframe
+    let initial_language = params.get("lang").map(|s| s.as_str());
 
     // Use Service Islands to serve sandboxed content
     match service_islands.crypto_reports.handlers.serve_sandboxed_report(
         &service_islands.app_state,
         report_id,
         sandbox_token,
-        language
+        initial_language
     ).await {
         Ok(response) => {
             println!("✅ [API] Sandboxed report {} served successfully", report_id);

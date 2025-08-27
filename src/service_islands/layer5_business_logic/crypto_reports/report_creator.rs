@@ -289,34 +289,24 @@ impl ReportCreator {
     /// Generate complete sandboxed HTML document
     /// 
     /// Creates a self-contained HTML document for iframe embedding with isolated CSS
+    /// Now includes both languages and dynamic switching capability
     pub fn generate_sandboxed_html_document(&self, sandboxed_report: &SandboxedReport, language: Option<&str>) -> String {
-        let lang = language.unwrap_or("vi");
+        let default_lang = language.unwrap_or("vi");
         
         // Create owned strings to avoid borrow checker issues
         let empty_string = String::new();
-        let default_html = &sandboxed_report.html_content;
-        let default_js = &empty_string;
-        let default_css = &empty_string;
-        
-        let (html_content, js_content) = if lang == "en" {
-            let html_en = sandboxed_report.html_content_en.as_ref().unwrap_or(default_html);
-            let js_en = sandboxed_report.js_content_en.as_ref()
-                .unwrap_or_else(|| sandboxed_report.js_content.as_ref().unwrap_or(default_js));
-            (html_en, js_en)
-        } else {
-            let js_vi = sandboxed_report.js_content.as_ref().unwrap_or(default_js);
-            (default_html, js_vi)
-        };
-
-        // Get CSS content - this is now isolated inside the iframe
-        let css_content = sandboxed_report.css_content.as_ref().unwrap_or(default_css);
+        let default_html_vi = &sandboxed_report.html_content;
+        let default_html_en = sandboxed_report.html_content_en.as_ref().unwrap_or(default_html_vi);
+        let default_js_vi = sandboxed_report.js_content.as_ref().unwrap_or(&empty_string);
+        let default_js_en = sandboxed_report.js_content_en.as_ref().unwrap_or(default_js_vi);
+        let default_css = sandboxed_report.css_content.as_ref().unwrap_or(&empty_string);
 
         format!(r#"<!DOCTYPE html>
-<html lang="{lang}">
+<html lang="{default_lang}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sandboxed Report #{}</title>
+    <title>Sandboxed Report #{report_id}</title>
     
     <!-- Base styling for sandboxed content -->
     <style>
@@ -358,19 +348,40 @@ impl ReportCreator {
             border-bottom: 1px solid #ddd;
         }}
         
+        /* Language switching */
+        .lang-content {{
+            display: none;
+        }}
+        
+        .lang-content.active {{
+            display: block;
+        }}
+        
         /* Report-specific CSS (isolated from main page) */
-        {css_content}
+        .sandboxed-report-content {{
+            {css_content}
+        }}
     </style>
 </head>
 <body>
     <div id="report-content" class="sandboxed-report-content">
-        {html_content}
+        <!-- Vietnamese content -->
+        <div id="content-vi" class="lang-content {vi_active_class}">
+            {html_content_vi}
+        </div>
+        
+        <!-- English content -->
+        <div id="content-en" class="lang-content {en_active_class}">
+            {html_content_en}
+        </div>
     </div>
     
     <script>
         // Sandboxed environment - limited API access
         (function() {{
             'use strict';
+            
+            let currentLanguage = '{default_lang}';
             
             // Disable dangerous APIs
             if (typeof eval !== 'undefined') eval = undefined;
@@ -386,12 +397,70 @@ impl ReportCreator {
                 // Cross-origin restriction - this is expected and good
             }}
             
-            // Report-specific JavaScript in sandboxed context
-            try {{
-                {js_content}
-            }} catch(e) {{
-                console.warn('Sandboxed script error:', e);
+            // Language switching function
+            function switchLanguage(lang) {{
+                if (lang === currentLanguage) return;
+                
+                currentLanguage = lang;
+                document.documentElement.lang = lang;
+                
+                // Hide all content
+                const allContent = document.querySelectorAll('.lang-content');
+                allContent.forEach(el => el.classList.remove('active'));
+                
+                // Show selected language content
+                const targetContent = document.getElementById('content-' + lang);
+                if (targetContent) {{
+                    targetContent.classList.add('active');
+                }}
+                
+                // Re-initialize visuals for new language
+                initializeVisualsForLanguage(lang);
+                
+                // Notify parent about height change
+                setTimeout(notifyParentAboutHeight, 100);
             }}
+            
+            // Initialize visuals based on language
+            function initializeVisualsForLanguage(lang) {{
+                try {{
+                    if (lang === 'en') {{
+                        // Execute English JS
+                        {js_content_en}
+                        
+                        // Call English visuals function
+                        if (typeof initializeAllVisuals_report_en === 'function') {{
+                            console.log('🎨 Calling initializeAllVisuals_report_en() in iframe');
+                            initializeAllVisuals_report_en();
+                        }}
+                    }} else {{
+                        // Execute Vietnamese JS  
+                        {js_content_vi}
+                        
+                        // Call Vietnamese visuals function
+                        if (typeof initializeAllVisuals_report === 'function') {{
+                            console.log('🎨 Calling initializeAllVisuals_report() in iframe');
+                            initializeAllVisuals_report();
+                        }}
+                    }}
+                }} catch(e) {{
+                    console.warn('Sandboxed script error for language ' + lang + ':', e);
+                }}
+            }}
+            
+            // Listen for messages from parent
+            window.addEventListener('message', function(event) {{
+                if (event.data && event.data.type === 'language-change') {{
+                    switchLanguage(event.data.language);
+                }}
+                
+                if (event.data && event.data.type === 'theme-change') {{
+                    // Handle theme changes if needed
+                    console.log('Theme changed to:', event.data.theme);
+                    // Re-initialize visuals for theme change
+                    initializeVisualsForLanguage(currentLanguage);
+                }}
+            }});
             
             // Auto-notify parent about content height changes
             function notifyParentAboutHeight() {{
@@ -416,8 +485,11 @@ impl ReportCreator {
                 }}
             }}
             
-            // Initial height notification
-            setTimeout(notifyParentAboutHeight, 100);
+            // Initialize on load
+            setTimeout(() => {{
+                initializeVisualsForLanguage(currentLanguage);
+                notifyParentAboutHeight();
+            }}, 100);
             
             // Listen for content changes
             if (typeof MutationObserver !== 'undefined') {{
@@ -435,10 +507,15 @@ impl ReportCreator {
     </script>
 </body>
 </html>"#, 
-            sandboxed_report.id,
-            css_content = css_content,
-            html_content = html_content,
-            js_content = js_content
+            report_id = sandboxed_report.id,
+            default_lang = default_lang,
+            css_content = default_css,
+            html_content_vi = default_html_vi,
+            html_content_en = default_html_en,
+            js_content_vi = default_js_vi,
+            js_content_en = default_js_en,
+            vi_active_class = if default_lang == "vi" { "active" } else { "" },
+            en_active_class = if default_lang == "en" { "active" } else { "" }
         )
     }
 }
