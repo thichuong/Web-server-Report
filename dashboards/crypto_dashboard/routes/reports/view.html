@@ -12,12 +12,8 @@
     <link rel="stylesheet" href="/shared_assets/css/chart.css">
     <link rel="stylesheet" href="/shared_assets/css/report.css">
 
-    <!-- report-specific CSS inserted from DB -->
+    <!-- Report-specific CSS is now sandboxed inside iframe for security and isolation -->
     <style>
-        /* <![CDATA[ */
-        {{ report.css_content }}
-        /* ]]> */
-        
         /* Auto-loading enhancements */
         .loading-overlay {
             position: fixed;
@@ -179,15 +175,54 @@
                         </ul>
                 </nav>
             </aside>
-            <main id="report-container" class="lg:col-span-2">
-                <!-- Vietnamese report content injected from DB -->
+            <main id="report-container" class="lg:col-span-3">
+                <!-- Sandboxed report content using iframe for security -->
                 <div id="report-content-vi">
-                    {{ report.html_content }}
+                    {% if report.id %}
+                        <iframe 
+                            id="report-iframe-vi"
+                            src="/api/crypto_reports/{{ report.id }}/sandboxed?token={{ sandbox_token }}&lang=vi"
+                            width="100%" 
+                            height="800px"
+                            frameborder="0"
+                            sandbox="allow-scripts allow-same-origin allow-popups"
+                            style="border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"
+                            loading="lazy">
+                            <!-- Fallback content for browsers that don't support iframes -->
+                            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+                                <p class="text-sm text-gray-700">
+                                    <strong>Iframe không được hỗ trợ:</strong> Trình duyệt của bạn không hỗ trợ iframe. Vui lòng sử dụng trình duyệt hiện đại hơn để xem báo cáo.
+                                </p>
+                            </div>
+                        </iframe>
+                    {% else %}
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+                            <h3 class="text-lg font-semibold text-gray-600 mb-2">Không có báo cáo</h3>
+                            <p class="text-gray-500">Chưa có báo cáo nào được tạo.</p>
+                        </div>
+                    {% endif %}
                 </div>
 
-                <!-- English report content (optional) -->
+                <!-- English report content iframe (optional) -->
                 <div id="report-content-en" style="display:none;">
-                    {{ report.html_content_en }}
+                    {% if report.id and report.html_content_en %}
+                        <iframe 
+                            id="report-iframe-en"
+                            src="/api/crypto_reports/{{ report.id }}/sandboxed?token={{ sandbox_token }}&lang=en"
+                            width="100%" 
+                            height="800px"
+                            frameborder="0"
+                            sandbox="allow-scripts allow-same-origin allow-popups"
+                            style="border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"
+                            loading="lazy">
+                            <!-- Fallback content for browsers that don't support iframes -->
+                            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+                                <p class="text-sm text-gray-700">
+                                    <strong>Iframe not supported:</strong> Your browser doesn't support iframes. Please use a modern browser to view the report.
+                                </p>
+                            </div>
+                        </iframe>
+                    {% endif %}
                 </div>
             </main>
         </div>
@@ -198,12 +233,72 @@
         {{ chart_modules_content }}
     </script>
 
-    <!-- report-specific JS inserted from DB -->
-    <script id="report-js">
-        {{ report.js_content }}
-    </script>
-    <script id="report-js-en">
-        {{ report.js_content_en }}
+    <!-- Iframe sandboxing functionality -->
+    <script>
+        // Listen for height messages from iframe content
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'iframe-height') {
+                const iframes = document.querySelectorAll('#report-iframe-vi, #report-iframe-en');
+                iframes.forEach(iframe => {
+                    if (iframe.contentWindow === event.source) {
+                        iframe.style.height = event.data.height + 'px';
+                    }
+                });
+            }
+        });
+
+        // Auto-resize iframe based on content (fallback method)
+        function autoResizeIframe(iframe) {
+            try {
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                const body = iframeDoc.body;
+                const html = iframeDoc.documentElement;
+                
+                const height = Math.max(
+                    body.scrollHeight,
+                    body.offsetHeight,
+                    html.clientHeight,
+                    html.scrollHeight,
+                    html.offsetHeight
+                );
+                
+                iframe.style.height = Math.max(height + 50, 400) + 'px';
+            } catch (e) {
+                console.warn('Cannot resize iframe due to cross-origin restrictions:', e);
+                // Set a reasonable default height
+                iframe.style.height = '800px';
+            }
+        }
+
+        // Initialize iframe functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const iframes = document.querySelectorAll('#report-iframe-vi, #report-iframe-en');
+            
+            iframes.forEach(iframe => {
+                iframe.addEventListener('load', function() {
+                    // Try postMessage method first, fallback to direct access
+                    setTimeout(() => {
+                        // The iframe will send height via postMessage
+                        // But also try direct access as fallback
+                        autoResizeIframe(iframe);
+                    }, 500);
+                });
+            });
+        });
+
+        // Language switching for iframes
+        window.addEventListener('languageChanged', function(event) {
+            const viContent = document.getElementById('report-content-vi');
+            const enContent = document.getElementById('report-content-en');
+            
+            if (event.detail.language === 'en') {
+                viContent.style.display = 'none';
+                enContent.style.display = 'block';
+            } else {
+                viContent.style.display = 'block';
+                enContent.style.display = 'none';
+            }
+        });
     </script>
 
     <script src="/shared_components/core/theme-manager.js" defer></script>

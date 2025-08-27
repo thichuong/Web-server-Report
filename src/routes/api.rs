@@ -6,11 +6,12 @@
 use axum::{
     routing::get,
     Router,
-    response::Json,
-    extract::State
+    response::{Json, IntoResponse},
+    extract::{State, Path, Query}
 };
 use serde_json::json;
 use std::sync::Arc;
+use std::collections::HashMap;
 
 use crate::service_islands::ServiceIslands;
 
@@ -18,6 +19,7 @@ use crate::service_islands::ServiceIslands;
 pub fn configure_api_routes() -> Router<Arc<ServiceIslands>> {
     Router::new()
         .route("/api/crypto/dashboard-summary", get(api_dashboard_summary))
+        .route("/api/crypto_reports/:id/sandboxed", get(api_sandboxed_report))
         .route("/api/health", get(api_health))
 }
 
@@ -99,4 +101,57 @@ async fn api_health(
             "timestamp": chrono::Utc::now().to_rfc3339()
         }
     }))
+}
+
+/// Sandboxed report content API endpoint
+/// 
+/// Serves sanitized HTML content for iframe embedding with security headers
+async fn api_sandboxed_report(
+    Path(id): Path<String>,
+    Query(params): Query<HashMap<String, String>>,
+    State(service_islands): State<Arc<ServiceIslands>>
+) -> impl IntoResponse {
+    println!("🔒 [API] Sandboxed report requested for ID: {}", id);
+    
+    // Parse report ID (-1 for latest)
+    let report_id: i32 = if id == "latest" {
+        -1
+    } else {
+        match id.parse() {
+            Ok(id) => id,
+            Err(_) => {
+                println!("❌ [API] Invalid report ID format for sandboxing: {}", id);
+                return "Invalid report ID format".into_response();
+            }
+        }
+    };
+
+    // Get sandbox token from query parameters
+    let sandbox_token = match params.get("token") {
+        Some(token) => token,
+        None => {
+            println!("❌ [API] Missing sandbox token for report {}", report_id);
+            return "Missing sandbox token".into_response();
+        }
+    };
+
+    // Get language parameter (optional, defaults to Vietnamese)
+    let language = params.get("lang").map(|s| s.as_str());
+
+    // Use Service Islands to serve sandboxed content
+    match service_islands.crypto_reports.handlers.serve_sandboxed_report(
+        &service_islands.app_state,
+        report_id,
+        sandbox_token,
+        language
+    ).await {
+        Ok(response) => {
+            println!("✅ [API] Sandboxed report {} served successfully", report_id);
+            response
+        }
+        Err(e) => {
+            eprintln!("❌ [API] Failed to serve sandboxed report {}: {}", report_id, e);
+            "Failed to serve sandboxed content".into_response()
+        }
+    }
 }
