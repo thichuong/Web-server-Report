@@ -186,7 +186,8 @@
                         frameborder="0"
                         sandbox="allow-scripts allow-same-origin allow-popups"
                         style="border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"
-                        loading="lazy">
+                        loading="eager"
+                        onload="console.log('🔥 Iframe loaded successfully for report {{ report.id }}');">
                         <!-- Fallback content for browsers that don't support iframes -->
                         <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
                             <p class="text-sm text-gray-700">
@@ -249,7 +250,15 @@
             const iframe = document.getElementById('report-iframe');
             
             if (iframe) {
+                console.log('🚀 Initializing iframe for report loading...');
+                
+                // Add error handling for iframe
+                iframe.addEventListener('error', function() {
+                    console.error('❌ Iframe failed to load');
+                });
+                
                 iframe.addEventListener('load', function() {
+                    console.log('✅ Iframe loaded successfully');
                     // Try postMessage method first, fallback to direct access
                     setTimeout(() => {
                         // The iframe will send height via postMessage
@@ -257,6 +266,16 @@
                         autoResizeIframe(iframe);
                     }, 500);
                 });
+                
+                // Force load iframe immediately if it hasn't started loading
+                setTimeout(() => {
+                    if (!iframe.src || iframe.src === 'about:blank') {
+                        console.warn('⚠️ Iframe src not set, attempting to reload...');
+                        iframe.src = iframe.getAttribute('src') || iframe.src;
+                    }
+                }, 100);
+            } else {
+                console.warn('⚠️ No iframe found on page - report may be empty');
             }
         });
 

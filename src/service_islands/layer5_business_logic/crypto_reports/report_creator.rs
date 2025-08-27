@@ -5,7 +5,12 @@
 
 use serde::{Serialize, Deserialize};
 use sqlx::{FromRow};
-use std::sync::Arc;
+use std::{sync::Arc, error::Error as StdError};
+use axum::{
+    response::{Response, IntoResponse},
+    http::StatusCode,
+    body::Body
+};
 
 // Import from current state - will be refactored when lower layers are implemented
 use crate::state::AppState;
@@ -252,7 +257,7 @@ impl ReportCreator {
         
         // Additional safety: wrap all CSS rules to ensure they only apply within iframe
         let wrapped_css = format!(
-            "/* CSS isolated within iframe sandbox */\n.sandboxed-report-content {{\n{}\n}}",
+            "/* CSS isolated within iframe sandbox */\n.sandboxed-report-container {{\n{}\n}}",
             sanitized
         );
         
@@ -289,8 +294,8 @@ impl ReportCreator {
     /// Generate complete sandboxed HTML document
     /// 
     /// Creates a self-contained HTML document for iframe embedding with isolated CSS
-    /// Now includes both languages and dynamic switching capability
-    pub fn generate_sandboxed_html_document(&self, sandboxed_report: &SandboxedReport, language: Option<&str>) -> String {
+    /// Now includes both languages, dynamic switching capability, and chart modules
+    pub fn generate_sandboxed_html_document(&self, sandboxed_report: &SandboxedReport, language: Option<&str>, chart_modules_content: Option<&str>) -> String {
         let default_lang = language.unwrap_or("vi");
         
         // Create owned strings to avoid borrow checker issues
@@ -300,6 +305,14 @@ impl ReportCreator {
         let default_js_vi = sandboxed_report.js_content.as_ref().unwrap_or(&empty_string);
         let default_js_en = sandboxed_report.js_content_en.as_ref().unwrap_or(default_js_vi);
         let default_css = sandboxed_report.css_content.as_ref().unwrap_or(&empty_string);
+        let chart_modules = chart_modules_content.unwrap_or("");
+
+        // Determine active classes based on default language
+        let (vi_active_class, en_active_class) = if default_lang == "en" {
+            ("", "active")
+        } else {
+            ("active", "")
+        };
 
         format!(r#"<!DOCTYPE html>
 <html lang="{default_lang}">
@@ -308,6 +321,13 @@ impl ReportCreator {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sandboxed Report #{report_id}</title>
     
+    <!-- External resources needed for iframe -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    
+    <link rel="stylesheet" href="/shared_assets/css/colors.css">
+    <link rel="stylesheet" href="/shared_assets/css/chart.css">
+    <link rel="stylesheet" href="/shared_assets/css/report.css">
     <!-- Base styling for sandboxed content -->
     <style>
         /* Reset and base styles for iframe content */
@@ -357,14 +377,26 @@ impl ReportCreator {
             display: block;
         }}
         
+        /* Bridge shared CSS selectors to iframe content */
+        .sandboxed-report-container {{
+            /* Map #report-container styles to .sandboxed-report-container */
+            width: 100%;
+        }}
+        
+        /* Alias #report-container to work with iframe structure */
+        #report-container {{
+            /* This makes #report-container rules apply to #report-container */
+        }}
+        
         /* Report-specific CSS (isolated from main page) */
-        .sandboxed-report-content {{
+        .sandboxed-report-container {{
             {css_content}
         }}
     </style>
 </head>
 <body>
-    <div id="report-content" class="sandboxed-report-content">
+    <!-- Use #report-container to match shared CSS selectors -->
+    <div id="report-container" class="sandboxed-report-container">
         <!-- Vietnamese content -->
         <div id="content-vi" class="lang-content {vi_active_class}">
             {html_content_vi}
@@ -375,6 +407,11 @@ impl ReportCreator {
             {html_content_en}
         </div>
     </div>
+    
+    <!-- Chart modules content - Must be included in iframe for chart functions to work -->
+    <script id="chart-modules">
+        {chart_modules}
+    </script>
     
     <script>
         // Sandboxed environment - limited API access
@@ -432,6 +469,8 @@ impl ReportCreator {
                         if (typeof initializeAllVisuals_report_en === 'function') {{
                             console.log('🎨 Calling initializeAllVisuals_report_en() in iframe');
                             initializeAllVisuals_report_en();
+                        }} else {{
+                            console.warn('⚠️ initializeAllVisuals_report_en function not found in iframe');
                         }}
                     }} else {{
                         // Execute Vietnamese JS  
@@ -441,6 +480,8 @@ impl ReportCreator {
                         if (typeof initializeAllVisuals_report === 'function') {{
                             console.log('🎨 Calling initializeAllVisuals_report() in iframe');
                             initializeAllVisuals_report();
+                        }} else {{
+                            console.warn('⚠️ initializeAllVisuals_report function not found in iframe');
                         }}
                     }}
                 }} catch(e) {{
@@ -448,17 +489,15 @@ impl ReportCreator {
                 }}
             }}
             
-            // Listen for messages from parent
+            // Listen for messages from parent window
             window.addEventListener('message', function(event) {{
                 if (event.data && event.data.type === 'language-change') {{
+                    console.log('🌍 Iframe received language change:', event.data.language);
                     switchLanguage(event.data.language);
-                }}
-                
-                if (event.data && event.data.type === 'theme-change') {{
-                    // Handle theme changes if needed
-                    console.log('Theme changed to:', event.data.theme);
-                    // Re-initialize visuals for theme change
-                    initializeVisualsForLanguage(currentLanguage);
+                }} else if (event.data && event.data.type === 'theme-change') {{
+                    console.log('🎨 Iframe received theme change:', event.data.theme);
+                    // Handle theme switching if needed
+                    document.body.className = event.data.theme;
                 }}
             }});
             
@@ -485,11 +524,14 @@ impl ReportCreator {
                 }}
             }}
             
-            // Initialize on load
-            setTimeout(() => {{
-                initializeVisualsForLanguage(currentLanguage);
-                notifyParentAboutHeight();
-            }}, 100);
+            // Initialize visuals for default language on load
+            document.addEventListener('DOMContentLoaded', function() {{
+                console.log('🚀 Iframe DOM loaded, initializing visuals for language:', currentLanguage);
+                setTimeout(() => {{
+                    initializeVisualsForLanguage(currentLanguage);
+                    notifyParentAboutHeight();
+                }}, 100);
+            }});
             
             // Listen for content changes
             if (typeof MutationObserver !== 'undefined') {{
@@ -509,13 +551,93 @@ impl ReportCreator {
 </html>"#, 
             report_id = sandboxed_report.id,
             default_lang = default_lang,
+            vi_active_class = vi_active_class,
+            en_active_class = en_active_class,
             css_content = default_css,
             html_content_vi = default_html_vi,
             html_content_en = default_html_en,
+            chart_modules = chart_modules,
             js_content_vi = default_js_vi,
-            js_content_en = default_js_en,
-            vi_active_class = if default_lang == "vi" { "active" } else { "" },
-            en_active_class = if default_lang == "en" { "active" } else { "" }
+            js_content_en = default_js_en
         )
+    }
+
+    /// Serve sandboxed report content for iframe
+    /// 
+    /// Returns sanitized HTML content for secure iframe embedding
+    /// This method belongs to ReportCreator as it handles report content generation
+    pub async fn serve_sandboxed_report(
+        &self,
+        state: &Arc<AppState>,
+        report_id: i32,
+        sandbox_token: &str,
+        language: Option<&str>,
+        chart_modules_content: Option<&str>
+    ) -> Result<Response, Box<dyn StdError + Send + Sync>> {
+        println!("🔒 ReportCreator: Serving sandboxed content for report {} with token {}", report_id, sandbox_token);
+        
+        // Fetch report from database
+        let report_result = if report_id == -1 {
+            self.fetch_and_cache_latest_report(state).await
+        } else {
+            self.fetch_and_cache_report_by_id(state, report_id).await
+        };
+
+        match report_result {
+            Ok(Some(report)) => {
+                // Create sandboxed version
+                let sandboxed_report = self.create_sandboxed_report(&report);
+                
+                // Verify sandbox token
+                if sandboxed_report.sandbox_token != sandbox_token {
+                    println!("❌ ReportCreator: Invalid sandbox token for report {}", report_id);
+                    return Ok(Response::builder()
+                        .status(StatusCode::FORBIDDEN)
+                        .header("content-type", "text/plain")
+                        .body(Body::from("Invalid sandbox token"))
+                        .unwrap()
+                        .into_response()
+                    );
+                }
+                
+                // Generate sandboxed HTML document with chart modules
+                let sandboxed_html = self.generate_sandboxed_html_document(&sandboxed_report, language, chart_modules_content);
+                
+                println!("✅ ReportCreator: Sandboxed content generated for report {} with chart modules", report_id);
+                
+                // Return response with security headers
+                Ok(Response::builder()
+                    .status(StatusCode::OK)
+                    .header("content-type", "text/html; charset=utf-8")
+                    .header("x-frame-options", "SAMEORIGIN")
+                    .header("content-security-policy", "default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; img-src 'self' data: https:; connect-src 'self'")
+                    .header("x-content-type-options", "nosniff")
+                    .header("cache-control", "private, max-age=3600")
+                    .body(Body::from(sandboxed_html))
+                    .unwrap()
+                    .into_response()
+                )
+            }
+            Ok(None) => {
+                println!("❌ ReportCreator: Report {} not found for sandboxing", report_id);
+                Ok(Response::builder()
+                    .status(StatusCode::NOT_FOUND)
+                    .header("content-type", "text/plain")
+                    .body(Body::from("Report not found"))
+                    .unwrap()
+                    .into_response()
+                )
+            }
+            Err(e) => {
+                eprintln!("❌ ReportCreator: Database error serving sandboxed report {}: {}", report_id, e);
+                Ok(Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .header("content-type", "text/plain")
+                    .body(Body::from("Database error"))
+                    .unwrap()
+                    .into_response()
+                )
+            }
+        }
     }
 }

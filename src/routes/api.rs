@@ -139,12 +139,19 @@ async fn api_sandboxed_report(
     // Note: Language switching is now handled dynamically inside iframe
     let initial_language = params.get("lang").map(|s| s.as_str());
 
+    // Get chart modules content for iframe inclusion
+    let chart_modules = match params.get("chart_modules") {
+        Some(modules) => Some(modules.as_str()),
+        None => None,
+    };
+
     // Use Service Islands to serve sandboxed content
     match service_islands.crypto_reports.handlers.serve_sandboxed_report(
         &service_islands.app_state,
         report_id,
         sandbox_token,
-        initial_language
+        initial_language,
+        chart_modules
     ).await {
         Ok(response) => {
             println!("✅ [API] Sandboxed report {} served successfully", report_id);

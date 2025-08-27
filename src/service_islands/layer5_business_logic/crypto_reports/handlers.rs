@@ -471,79 +471,25 @@ impl CryptoHandlers {
 
     /// Serve sandboxed report content for iframe
     /// 
-    /// Returns sanitized HTML content for secure iframe embedding
+    /// Delegates to ReportCreator for actual sandboxed content generation
     pub async fn serve_sandboxed_report(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
         sandbox_token: &str,
-        language: Option<&str>
+        language: Option<&str>,
+        chart_modules_content: Option<&str>
     ) -> Result<axum::response::Response, Box<dyn StdError + Send + Sync>> {
-        println!("🔒 CryptoHandlers: Serving sandboxed content for report {} with token {}", report_id, sandbox_token);
+        println!("🔒 CryptoHandlers: Delegating sandboxed content request to ReportCreator for report {} with token {}", report_id, sandbox_token);
         
-        // Fetch report from database
-        let report_result = if report_id == -1 {
-            self.report_creator.fetch_and_cache_latest_report(state).await
-        } else {
-            self.report_creator.fetch_and_cache_report_by_id(state, report_id).await
-        };
-
-        match report_result {
-            Ok(Some(report)) => {
-                // Create sandboxed version
-                let sandboxed_report = self.report_creator.create_sandboxed_report(&report);
-                
-                // Verify sandbox token
-                if sandboxed_report.sandbox_token != sandbox_token {
-                    println!("❌ CryptoHandlers: Invalid sandbox token for report {}", report_id);
-                    return Ok(Response::builder()
-                        .status(StatusCode::FORBIDDEN)
-                        .header("content-type", "text/plain")
-                        .body(Body::from("Invalid sandbox token"))
-                        .unwrap()
-                        .into_response()
-                    );
-                }
-                
-                // Generate sandboxed HTML document
-                let sandboxed_html = self.report_creator.generate_sandboxed_html_document(&sandboxed_report, language);
-                
-                println!("✅ CryptoHandlers: Sandboxed content generated for report {}", report_id);
-                
-                // Return response with security headers
-                Ok(Response::builder()
-                    .status(StatusCode::OK)
-                    .header("content-type", "text/html; charset=utf-8")
-                    .header("x-frame-options", "SAMEORIGIN")
-                    .header("content-security-policy", "default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'")
-                    .header("x-content-type-options", "nosniff")
-                    .header("cache-control", "private, max-age=3600")
-                    .body(Body::from(sandboxed_html))
-                    .unwrap()
-                    .into_response()
-                )
-            }
-            Ok(None) => {
-                println!("❌ CryptoHandlers: Report {} not found for sandboxing", report_id);
-                Ok(Response::builder()
-                    .status(StatusCode::NOT_FOUND)
-                    .header("content-type", "text/plain")
-                    .body(Body::from("Report not found"))
-                    .unwrap()
-                    .into_response()
-                )
-            }
-            Err(e) => {
-                eprintln!("❌ CryptoHandlers: Database error serving sandboxed report {}: {}", report_id, e);
-                Ok(Response::builder()
-                    .status(StatusCode::INTERNAL_SERVER_ERROR)
-                    .header("content-type", "text/plain")
-                    .body(Body::from("Database error"))
-                    .unwrap()
-                    .into_response()
-                )
-            }
-        }
+        // Delegate to ReportCreator - proper separation of concerns
+        self.report_creator.serve_sandboxed_report(
+            state,
+            report_id,
+            sandbox_token,
+            language,
+            chart_modules_content
+        ).await
     }
 
     // NOTE: Crypto handlers implementation following archive_old_code/handlers/crypto.rs
