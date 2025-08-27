@@ -75,8 +75,18 @@ impl ServiceIslands {
         
         // Initialize Layer 2: External Services (depends on Layer 1 - Cache System)
         println!("🌐 Initializing Layer 2: External Services Islands with Cache...");
-        let external_apis = Arc::new(ExternalApisIsland::with_cache(
-            std::env::var("TAAPI_SECRET").unwrap_or_else(|_| "default_secret".to_string()),
+        let taapi_secret = std::env::var("TAAPI_SECRET").unwrap_or_else(|_| "default_secret".to_string());
+        let cmc_api_key = std::env::var("CMC_API_KEY").ok(); // Optional CoinMarketCap API key
+        
+        if cmc_api_key.is_some() {
+            println!("🔑 CoinMarketCap API key found - enabling fallback support");
+        } else {
+            println!("⚠️ No CoinMarketCap API key - using CoinGecko only");
+        }
+        
+        let external_apis = Arc::new(ExternalApisIsland::with_cache_and_cmc(
+            taapi_secret,
+            cmc_api_key,
             cache_system.clone()
         ).await?);
         

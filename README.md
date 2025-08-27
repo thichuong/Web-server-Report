@@ -10,6 +10,7 @@
 - **Responsive Design**: Mobile-first, adaptive UI
 - **PDF Generation**: Export reports to PDF format
 - **Real-time Updates**: WebSocket integration for live data
+- **API Resilience**: CoinGecko + CoinMarketCap fallback system for 99.9% uptime
 
 ### ⚡ Performance Optimizations
 - **Cache Stampede Protection**: DashMap+Mutex request coalescing for L2, Moka's get_with() for L1
@@ -22,14 +23,23 @@
 - **Database Connection Pool**: Optimized for 16-core systems (32 max connections)
 - **Chart Module Bundling**: Optimized JavaScript asset delivery
 
+### 🛡️ Reliability Features
+- **Automatic API Fallback**: CoinGecko → CoinMarketCap seamless switching
+- **Data Validation**: Prevents corrupted data from affecting reports
+- **Rate Limit Handling**: Exponential backoff with intelligent retry logic
+- **Circuit Breaker Pattern**: Automatic recovery from API failures
+- **Source Attribution**: Track which APIs provided data for debugging
+
 ### 🔧 Technical Stack
 - **Backend**: Rust + Axum (high-performance async web framework)
 - **Database**: PostgreSQL with optimized connection pooling (32 max connections)
 - **Caching**: Multi-tier L1 (moka) + L2 (Redis) with Cache Stampede Protection
+- **Market Data**: CoinGecko (primary) + CoinMarketCap (fallback) + TAAPI.io
 - **Concurrency**: Rayon ThreadPool + tokio async runtime + DashMap request coalescing
 - **Real-time**: Redis + WebSocket for live updates
 - **Templates**: Tera template engine with background rendering
 - **Frontend**: Vanilla JS with Chart.js and modern CSS
+- **API Resilience**: Dual-source data with CoinGecko + CoinMarketCap fallback
 
 ## 🚀 Quick Start
 
@@ -37,6 +47,7 @@
 - Rust 1.70+ ([Install Rust](https://rustup.rs/))
 - PostgreSQL database
 - Redis server (optional, for WebSocket features)
+- CoinMarketCap API key (optional, for fallback support)
 
 ### 1. Clone & Setup
 ```bash
@@ -58,6 +69,7 @@ AUTO_UPDATE_SECRET_KEY=your_secret_key_here
 
 # External APIs
 TAAPI_SECRET=your_taapi_secret_for_crypto_data
+CMC_API_KEY=your_coinmarketcap_api_key_here  # Optional - enables fallback support
 
 # Optional: Redis for WebSocket/caching (defaults to localhost:6379)
 REDIS_URL=redis://localhost:6379

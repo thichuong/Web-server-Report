@@ -26,8 +26,14 @@ pub struct ApiAggregator {
 }
 
 impl ApiAggregator {
-    /// Create a new ApiAggregator with cache integration
+    /// Create a new ApiAggregator
+    #[allow(dead_code)]
     pub async fn new(taapi_secret: String) -> Result<Self> {
+        Self::with_cmc_key(taapi_secret, None).await
+    }
+    
+    /// Create a new ApiAggregator with CoinMarketCap support
+    pub async fn with_cmc_key(taapi_secret: String, cmc_api_key: Option<String>) -> Result<Self> {
         println!("📊 Initializing API Aggregator...");
         
         // Use optimized HTTP client from performance module if available
@@ -44,7 +50,7 @@ impl ApiAggregator {
         };
         
         // Create market API instance with async initialization
-        let market_api = Arc::new(MarketDataApi::new(taapi_secret).await?);
+        let market_api = Arc::new(MarketDataApi::with_cmc_key(taapi_secret, cmc_api_key).await?);
         
         Ok(Self {
             market_api,
@@ -57,8 +63,18 @@ impl ApiAggregator {
     }
     
     /// Create ApiAggregator with cache system
+    #[allow(dead_code)]
     pub async fn with_cache(taapi_secret: String, cache_system: Arc<CacheSystemIsland>) -> Result<Self> {
-        let mut aggregator = Self::new(taapi_secret).await?;
+        Self::with_cache_and_cmc(taapi_secret, None, cache_system).await
+    }
+    
+    /// Create ApiAggregator with cache system and CoinMarketCap support
+    pub async fn with_cache_and_cmc(
+        taapi_secret: String, 
+        cmc_api_key: Option<String>, 
+        cache_system: Arc<CacheSystemIsland>
+    ) -> Result<Self> {
+        let mut aggregator = Self::with_cmc_key(taapi_secret, cmc_api_key).await?;
         aggregator.cache_system = Some(cache_system);
         Ok(aggregator)
     }
@@ -253,7 +269,7 @@ impl ApiAggregator {
         // Fetch from API
         match self.market_api.fetch_btc_price().await {
             Ok(data) => {
-                // Cache using generic ShortTerm strategy (5 minutes)
+                // Cache using generic RealTime strategy (30 seconds)
                 if let Some(ref cache) = self.cache_system {
                     let _ = cache.cache_manager.set_with_strategy(cache_key, data.clone(), 
                         crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::RealTime).await;
@@ -267,7 +283,7 @@ impl ApiAggregator {
     
     /// Fetch global data with generic caching strategy  
     async fn fetch_global_with_cache(&self) -> Result<serde_json::Value> {
-        let cache_key = "global_coingecko_30s";
+        let cache_key = "global_coingecko_1h";
         
         // Try cache first
         if let Some(ref cache) = self.cache_system {
@@ -279,7 +295,7 @@ impl ApiAggregator {
         // Fetch from API
         match self.market_api.fetch_global_data().await {
             Ok(data) => {
-                // Cache using generic RealTime strategy (30 seconds)
+                // Cache using generic MediumTerm strategy (1 hour)
                 if let Some(ref cache) = self.cache_system {
                     let _ = cache.cache_manager.set_with_strategy(cache_key, data.clone(),
                         crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::MediumTerm).await;

@@ -10,8 +10,15 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
 // API URLs - extracted from existing data_service.rs with cache-friendly grouping
+// CoinGecko APIs (Primary)
 const BASE_GLOBAL_URL: &str = "https://api.coingecko.com/api/v3/global"; // 30 sec cache
 const BASE_BTC_PRICE_URL: &str = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true"; // 30 sec cache
+
+// CoinMarketCap APIs (Fallback)
+const CMC_GLOBAL_URL: &str = "https://pro-api.coinmarketcap.com/v1/global-metrics/quotes/latest"; // 30 sec cache
+const CMC_BTC_PRICE_URL: &str = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=BTC"; // 30 sec cache
+
+// Other APIs
 const BASE_FNG_URL: &str = "https://api.alternative.me/fng/?limit=1"; // 5 min cache
 const BASE_RSI_URL_TEMPLATE: &str = "https://api.taapi.io/rsi?secret={secret}&exchange=binance&symbol=BTC/USDT&interval=1d"; // 5 min cache
 
@@ -68,12 +75,49 @@ struct TaapiRsiResponse {
     value: f64,
 }
 
+// CoinMarketCap response structures
+#[derive(Debug, Deserialize)]
+struct CmcGlobalResponse {
+    data: CmcGlobalData,
+}
+
+#[derive(Debug, Deserialize)]
+struct CmcGlobalData {
+    quote: HashMap<String, CmcGlobalQuote>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CmcGlobalQuote {
+    total_market_cap: f64,
+    total_volume_24h: f64,
+    market_cap_change_percentage_24h: f64,
+    btc_dominance: f64,
+    eth_dominance: f64,
+}
+
+#[derive(Debug, Deserialize)]
+struct CmcBtcResponse {
+    data: HashMap<String, Vec<CmcBtcData>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CmcBtcData {
+    quote: HashMap<String, CmcBtcQuote>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CmcBtcQuote {
+    price: f64,
+    percent_change_24h: f64,
+}
+
 /// Market Data API
 /// 
 /// Handles direct API calls to cryptocurrency data sources.
 pub struct MarketDataApi {
     client: Client,
     taapi_secret: String,
+    cmc_api_key: Option<String>,
     // Statistics tracking
     api_calls_count: Arc<AtomicUsize>,
     successful_calls: Arc<AtomicUsize>,
@@ -83,7 +127,13 @@ pub struct MarketDataApi {
 
 impl MarketDataApi {
     /// Create a new MarketDataApi
+    #[allow(dead_code)]
     pub async fn new(taapi_secret: String) -> Result<Self> {
+        Self::with_cmc_key(taapi_secret, None).await
+    }
+    
+    /// Create a new MarketDataApi with CoinMarketCap API key
+    pub async fn with_cmc_key(taapi_secret: String, cmc_api_key: Option<String>) -> Result<Self> {
         println!("🌐 Initializing Market Data API...");
         
         // Use optimized HTTP client from performance module
@@ -101,6 +151,7 @@ impl MarketDataApi {
         Ok(Self {
             client,
             taapi_secret,
+            cmc_api_key,
             api_calls_count: Arc::new(AtomicUsize::new(0)),
             successful_calls: Arc::new(AtomicUsize::new(0)),
             failed_calls: Arc::new(AtomicUsize::new(0)),
@@ -147,27 +198,105 @@ impl MarketDataApi {
     pub async fn fetch_btc_price(&self) -> Result<serde_json::Value> {
         self.record_api_call();
         
-        match self.fetch_btc_price_internal().await {
+        // Try CoinGecko first
+        match self.fetch_btc_price_coingecko().await {
             Ok(data) => {
                 self.record_success();
                 Ok(data)
             }
             Err(e) => {
-                self.record_failure();
-                Err(e)
+                println!("⚠️ CoinGecko BTC price failed: {}, trying CoinMarketCap...", e);
+                // Fallback to CoinMarketCap
+                match self.fetch_btc_price_cmc().await {
+                    Ok(data) => {
+                        self.record_success();
+                        Ok(data)
+                    }
+                    Err(cmc_err) => {
+                        self.record_failure();
+                        println!("❌ Both CoinGecko and CoinMarketCap failed for BTC price");
+                        Err(anyhow::anyhow!("Primary error: {}. Fallback error: {}", e, cmc_err))
+                    }
+                }
             }
         }
     }
     
-    /// Internal Bitcoin price fetching with rate limiting
-    async fn fetch_btc_price_internal(&self) -> Result<serde_json::Value> {
-        self.fetch_with_retry(BASE_BTC_PRICE_URL, |response_data: CoinGeckoBtcPrice| {
+    /// Fetch Bitcoin price from CoinGecko
+    async fn fetch_btc_price_coingecko(&self) -> Result<serde_json::Value> {
+        let result = self.fetch_with_retry(BASE_BTC_PRICE_URL, |response_data: CoinGeckoBtcPrice| {
             serde_json::json!({
                 "price_usd": response_data.bitcoin.usd,
                 "change_24h": response_data.bitcoin.usd_24h_change,
+                "source": "coingecko",
                 "last_updated": chrono::Utc::now().to_rfc3339()
             })
-        }).await
+        }).await?;
+        
+        // Post-processing validation: check if we got meaningful data
+        let price_usd = result.get("price_usd").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        
+        // Critical validation: Bitcoin price must be positive and reasonable
+        if price_usd <= 0.0 || price_usd > 1_000_000.0 { // Basic sanity check
+            return Err(anyhow::anyhow!(
+                "CoinGecko Bitcoin price validation failed: price_usd={}", 
+                price_usd
+            ));
+        }
+        
+        Ok(result)
+    }
+    
+    /// Fetch Bitcoin price from CoinMarketCap
+    async fn fetch_btc_price_cmc(&self) -> Result<serde_json::Value> {
+        let cmc_key = self.cmc_api_key.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("CoinMarketCap API key not provided"))?;
+        
+        let mut attempts = 0;
+        let max_attempts = 3;
+        
+        while attempts < max_attempts {
+            let response = self.client
+                .get(CMC_BTC_PRICE_URL)
+                .header("X-CMC_PRO_API_KEY", cmc_key)
+                .header("Accept", "application/json")
+                .send()
+                .await?;
+            
+            match response.status() {
+                status if status.is_success() => {
+                    let cmc_data: CmcBtcResponse = response.json().await?;
+                    
+                    if let Some(btc_data) = cmc_data.data.get("BTC").and_then(|v| v.first()) {
+                        if let Some(usd_quote) = btc_data.quote.get("USD") {
+                            return Ok(serde_json::json!({
+                                "price_usd": usd_quote.price,
+                                "change_24h": usd_quote.percent_change_24h,
+                                "source": "coinmarketcap",
+                                "last_updated": chrono::Utc::now().to_rfc3339()
+                            }));
+                        }
+                    }
+                    return Err(anyhow::anyhow!("Invalid CoinMarketCap BTC response structure"));
+                }
+                status if status == 429 => {
+                    attempts += 1;
+                    if attempts >= max_attempts {
+                        return Err(anyhow::anyhow!("CoinMarketCap rate limit exceeded after {} attempts", max_attempts));
+                    }
+                    
+                    let delay = std::time::Duration::from_millis(1000 * (2_u64.pow(attempts)));
+                    println!("⚠️ CoinMarketCap rate limit (429), retrying in {:?} (attempt {}/{})", delay, attempts, max_attempts);
+                    tokio::time::sleep(delay).await;
+                    continue;
+                }
+                status => {
+                    return Err(anyhow::anyhow!("CoinMarketCap BTC API returned status: {}", status));
+                }
+            }
+        }
+        
+        Err(anyhow::anyhow!("CoinMarketCap BTC API max retry attempts reached"))
     }
     
     /// Generic fetch with retry logic for rate limiting
@@ -215,21 +344,33 @@ impl MarketDataApi {
     pub async fn fetch_global_data(&self) -> Result<serde_json::Value> {
         self.record_api_call();
         
-        match self.fetch_global_data_internal().await {
+        // Try CoinGecko first
+        match self.fetch_global_data_coingecko().await {
             Ok(data) => {
                 self.record_success();
                 Ok(data)
             }
             Err(e) => {
-                self.record_failure();
-                Err(e)
+                println!("⚠️ CoinGecko global data failed: {}, trying CoinMarketCap...", e);
+                // Fallback to CoinMarketCap
+                match self.fetch_global_data_cmc().await {
+                    Ok(data) => {
+                        self.record_success();
+                        Ok(data)
+                    }
+                    Err(cmc_err) => {
+                        self.record_failure();
+                        println!("❌ Both CoinGecko and CoinMarketCap failed for global data");
+                        Err(anyhow::anyhow!("Primary error: {}. Fallback error: {}", e, cmc_err))
+                    }
+                }
             }
         }
     }
     
-    /// Internal global data fetching
-    async fn fetch_global_data_internal(&self) -> Result<serde_json::Value> {
-        self.fetch_with_retry(BASE_GLOBAL_URL, |global_data: CoinGeckoGlobal| {
+    /// Fetch global data from CoinGecko
+    async fn fetch_global_data_coingecko(&self) -> Result<serde_json::Value> {
+        let result = self.fetch_with_retry(BASE_GLOBAL_URL, |global_data: CoinGeckoGlobal| {
             let market_cap = global_data.data.total_market_cap.get("usd").copied().unwrap_or(0.0);
             let volume_24h = global_data.data.total_volume.get("usd").copied().unwrap_or(0.0);
             let market_cap_change_24h = global_data.data.market_cap_change_percentage_24h_usd;
@@ -242,9 +383,78 @@ impl MarketDataApi {
                 "market_cap_change_percentage_24h_usd": market_cap_change_24h,
                 "btc_market_cap_percentage": btc_dominance,
                 "eth_market_cap_percentage": eth_dominance,
+                "source": "coingecko",
                 "last_updated": chrono::Utc::now().to_rfc3339()
             })
-        }).await
+        }).await?;
+        
+        // Post-processing validation: check if we got meaningful data
+        let market_cap = result.get("market_cap").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        let volume_24h = result.get("volume_24h").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        let btc_dominance = result.get("btc_market_cap_percentage").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        
+        // Critical validation: if any essential data is missing or invalid, return error
+        if market_cap <= 0.0 || volume_24h <= 0.0 || btc_dominance <= 0.0 {
+            return Err(anyhow::anyhow!(
+                "CoinGecko data validation failed: market_cap={}, volume_24h={}, btc_dominance={}", 
+                market_cap, volume_24h, btc_dominance
+            ));
+        }
+        
+        Ok(result)
+    }
+    
+    /// Fetch global data from CoinMarketCap
+    async fn fetch_global_data_cmc(&self) -> Result<serde_json::Value> {
+        let cmc_key = self.cmc_api_key.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("CoinMarketCap API key not provided"))?;
+        
+        let mut attempts = 0;
+        let max_attempts = 3;
+        
+        while attempts < max_attempts {
+            let response = self.client
+                .get(CMC_GLOBAL_URL)
+                .header("X-CMC_PRO_API_KEY", cmc_key)
+                .header("Accept", "application/json")
+                .send()
+                .await?;
+            
+            match response.status() {
+                status if status.is_success() => {
+                    let cmc_data: CmcGlobalResponse = response.json().await?;
+                    
+                    if let Some(usd_quote) = cmc_data.data.quote.get("USD") {
+                        return Ok(serde_json::json!({
+                            "market_cap": usd_quote.total_market_cap,
+                            "volume_24h": usd_quote.total_volume_24h,
+                            "market_cap_change_percentage_24h_usd": usd_quote.market_cap_change_percentage_24h,
+                            "btc_market_cap_percentage": usd_quote.btc_dominance,
+                            "eth_market_cap_percentage": usd_quote.eth_dominance,
+                            "source": "coinmarketcap",
+                            "last_updated": chrono::Utc::now().to_rfc3339()
+                        }));
+                    }
+                    return Err(anyhow::anyhow!("Invalid CoinMarketCap global response structure"));
+                }
+                status if status == 429 => {
+                    attempts += 1;
+                    if attempts >= max_attempts {
+                        return Err(anyhow::anyhow!("CoinMarketCap global API rate limit exceeded after {} attempts", max_attempts));
+                    }
+                    
+                    let delay = std::time::Duration::from_millis(1000 * (2_u64.pow(attempts)));
+                    println!("⚠️ CoinMarketCap global API rate limit (429), retrying in {:?} (attempt {}/{})", delay, attempts, max_attempts);
+                    tokio::time::sleep(delay).await;
+                    continue;
+                }
+                status => {
+                    return Err(anyhow::anyhow!("CoinMarketCap global API returned status: {}", status));
+                }
+            }
+        }
+        
+        Err(anyhow::anyhow!("CoinMarketCap global API max retry attempts reached"))
     }
     
     /// Fetch Fear & Greed Index
@@ -355,5 +565,27 @@ impl MarketDataApi {
     /// Record failed API call
     fn record_failure(&self) {
         self.failed_calls.fetch_add(1, Ordering::Relaxed);
+    }
+    
+    /// Get API statistics
+    #[allow(dead_code)]
+    pub fn get_api_stats(&self) -> serde_json::Value {
+        let total_calls = self.api_calls_count.load(Ordering::Relaxed);
+        let successful_calls = self.successful_calls.load(Ordering::Relaxed);
+        let failed_calls = self.failed_calls.load(Ordering::Relaxed);
+        let last_call = self.last_call_timestamp.load(Ordering::Relaxed);
+        
+        serde_json::json!({
+            "total_api_calls": total_calls,
+            "successful_calls": successful_calls,
+            "failed_calls": failed_calls,
+            "success_rate": if total_calls > 0 { 
+                (successful_calls as f64 / total_calls as f64 * 100.0).round() 
+            } else { 
+                0.0 
+            },
+            "last_call_timestamp": last_call,
+            "has_coinmarketcap_key": self.cmc_api_key.is_some()
+        })
     }
 }
