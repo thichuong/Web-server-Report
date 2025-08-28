@@ -19,6 +19,10 @@
     border-radius: 0.5rem;
     background: var(--bg-secondary);
     box-shadow: var(--card-shadow);
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 #report-container h2 {
     font-size: 1.5rem;
@@ -78,6 +82,9 @@
     flex-direction: column;
     transition: all 0.3s ease;
     height: 100%;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 #report-container .report-card:hover {
@@ -118,14 +125,20 @@
 /* === GRID LAYOUTS === */
 #report-container .content-grid {
     display: grid;
-    /* grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); */
+    grid-template-columns: 1fr; /* Single column for mobile by default */
     gap: 1.5rem;
     align-items: start;
+    width: 100%; /* Ensure grid doesn't exceed container */
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 #report-container .content-grid .report-card,
 #report-container .content-grid .sub-card {
     grid-column: span 1; /* Allow 2 cards per row */
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 /* If there's an odd card at the end, make it span full width */
@@ -426,6 +439,14 @@
    Example: <td data-label="Coin Name">Bitcoin</td>
 */
 @media (max-width: 580px) {
+    #report-container .content-grid {
+        grid-template-columns: 1fr !important;
+        gap: 1rem;
+        width: 100%;
+        max-width: 100%;
+        padding: 0;
+        margin: 0;
+    }
     #report-container {
         padding: 0.75rem;
         gap: 1rem;
@@ -447,7 +468,9 @@
         border-radius: 0.5rem;
         box-shadow: none;
         background: transparent;
-        width: 100%;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden;
     }
     /* Crypto table card layout for mobile */
     .crypto-table {
@@ -541,7 +564,9 @@
     background: var(--bg-primary);
     transition: background-color 0.3s ease, color 0.3s ease;
     width: 100%;
+    max-width: 100%;
     min-height: 100vh;
+    overflow-x: hidden;
 }
 
 /* Enhanced body layout for better left navigation - mobile responsive */
@@ -590,8 +615,93 @@
 /* Bridge shared CSS selectors to iframe content */
 .sandboxed-report-container {
     width: 100%;
+    max-width: 100%;
     background-color: var(--bg-primary);
     color: var(--text-primary);
+}
+
+/* ===== SANDBOXED REPORT LAYOUT OVERRIDES ===== */
+
+/* Override report-layout for sandboxed iframe - make it full width */
+.sandboxed-report .report-layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 1.5rem;
+    max-width: 100%;
+    width: 100%;
+    padding: 1rem;
+    min-height: 100vh;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+/* Sandboxed navigation sidebar adjustments */
+.sandboxed-report .navigation-sidebar {
+    position: sticky;
+    top: 1rem;
+    height: fit-content;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    width: 100%;
+    max-width: 300px;
+    box-sizing: border-box;
+}
+
+/* Sandboxed content area - full width within container */
+.sandboxed-report .content-area {
+    min-width: 0;
+    width: 100%;
+    flex: 1;
+    box-sizing: border-box;
+}
+
+/* Sandboxed report container full width */
+.sandboxed-report #report-container {
+    width: 100%;
+    max-width: none;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Mobile responsiveness for sandboxed reports */
+@media (max-width: 768px) {
+    .sandboxed-report .report-layout {
+        grid-template-columns: 1fr;
+        gap: 0;
+        padding: 0.75rem;
+    }
+    
+    .sandboxed-report .navigation-sidebar {
+        display: none;
+    }
+    
+    .sandboxed-report .content-area {
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    .sandboxed-report .content-area #report-container {
+        padding: 0.5rem;
+    }
+}
+
+/* Small tablet adjustments for sandboxed */
+@media (max-width: 480px) {
+    .sandboxed-report .report-layout {
+        padding: 0.5rem;
+    }
+    
+    .sandboxed-report .content-area #report-container {
+        padding: 0.25rem;
+    }
+}
+
+/* Tablet responsiveness for sandboxed */
+@media (max-width: 1024px) and (min-width: 769px) {
+    .sandboxed-report .report-layout {
+        grid-template-columns: 280px 1fr;
+        gap: 1.25rem;
+    }
 }
 
 /* ===== NEW TWO-COLUMN LAYOUT SYSTEM ===== */
@@ -751,14 +861,7 @@
     display: block;
 }
 
-/* Bridge shared CSS selectors to iframe content */
-.sandboxed-report-container {
-    width: 100%;
-    background-color: var(--bg-primary);
-    color: var(--text-primary);
-}
-
-/* Content area full width styling */
+/* Enhanced content area styles - these apply to both regular and sandboxed reports */
 .content-area #report-container {
     width: 100%;
     max-width: none;

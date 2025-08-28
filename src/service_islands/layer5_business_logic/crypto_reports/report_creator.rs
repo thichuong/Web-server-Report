@@ -365,12 +365,29 @@ impl ReportCreator {
     <style>
         /* Apply sandboxed report class to body for CSS targeting */
         body {{
-            /* This will be styled by external CSS via .sandboxed-report body selector */
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
         }}
         
         /* Report-specific CSS from database will be injected here */
         .sandboxed-report-container {{
             {css_content}
+        }}
+        
+        /* Ensure report layout takes full width within iframe */
+        .sandboxed-report .report-layout {{
+            max-width: 100%;
+            margin: 0;
+            padding: 1rem;
+        }}
+        
+        /* Full width content area in iframe */
+        .sandboxed-report .content-area {{
+            width: 100%;
+            max-width: none;
         }}
     </style>
 </head>
