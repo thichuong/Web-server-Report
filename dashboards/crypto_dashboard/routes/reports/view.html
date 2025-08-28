@@ -93,6 +93,9 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
             overflow: hidden;
             transition: all 0.3s ease;
+            word-wrap: break-word;
+            min-width: 280px;
+            max-width: 320px;
         }
         
         #navigation-sidebar.dark-theme {
@@ -116,12 +119,14 @@
         .nav-content {
             max-height: calc(100vh - 120px);
             overflow-y: auto;
+            overflow-x: hidden;
         }
         
         .nav-links {
             list-style: none;
             padding: 0;
             margin: 0;
+            word-wrap: break-word;
         }
         
         .nav-links li {
@@ -135,9 +140,15 @@
             text-decoration: none;
             border-left: 3px solid transparent;
             transition: all 0.3s ease;
-            font-size: 0.875rem;
+            font-size: 0.9rem;
             font-weight: 500;
-            line-height: 1.3;
+            line-height: 1.4;
+            word-wrap: break-word;
+            white-space: normal;
+            overflow-wrap: break-word;
+            hyphens: auto;
+            max-width: 100%;
+            box-sizing: border-box;
         }
         
         .nav-links a:hover {
@@ -531,7 +542,13 @@
             // Show navigation sidebar
             navigationSidebar.classList.remove('hidden');
             
-            // Create navigation HTML
+            // Create navigation HTML with proper escaping
+            const escapeHtml = (text) => {
+                const div = document.createElement('div');
+                div.textContent = text || '';
+                return div.innerHTML;
+            };
+            
             const navHTML = `
                 <div class="nav-header">
                     <h3 class="nav-title">📋 Mục lục Báo cáo</h3>
@@ -544,15 +561,18 @@
                 </div>
                 <div class="nav-content">
                     <ul class="nav-links">
-                        ${currentNavigationData.sections.map((section, index) => `
+                        ${currentNavigationData.sections.map((section, index) => {
+                            const safeSectionId = escapeHtml(section.id);
+                            const safeSectionTitle = escapeHtml(section.title);
+                            return `
                             <li>
-                                <a href="#${section.id}" 
-                                   data-section-id="${section.id}" 
-                                   title="${section.title}">
-                                    ${section.title}
+                                <a href="#${safeSectionId}" 
+                                   data-section-id="${safeSectionId}" 
+                                   title="${safeSectionTitle}">
+                                    ${safeSectionTitle}
                                 </a>
-                            </li>
-                        `).join('')}
+                            </li>`;
+                        }).join('')}
                     </ul>
                 </div>
             `;

@@ -506,13 +506,9 @@
                         const icon = h2Text.querySelector('i');
                         if (icon && icon.parentNode) icon.parentNode.removeChild(icon);
                         
-                        // Truncate text if too long to prevent wrapping
+                        // Allow full text display with line wrapping
                         let linkText = h2Text.textContent.trim();
                         const fullText = linkText;
-                        const maxLength = 35; // Adjust based on sidebar width
-                        if (linkText.length > maxLength) {
-                            linkText = linkText.substring(0, maxLength) + '...';
-                        }
                         
                         a.textContent = linkText;
                         a.title = fullText; // Full text in tooltip
