@@ -178,17 +178,16 @@
                     isNavigationReady = false; // Reset navigation state for new language
                     CreateNav();
                     
-                    // Force recalculation of section ranges for new language
+                    // Force recalculation after language switch
                     setTimeout(() => {
                         const activeContent = document.getElementById('content-' + lang);
                         if (activeContent) {
                             const sections = Array.from(activeContent.querySelectorAll('section[id]'));
                             if (sections.length > 0) {
-                                calculateSectionScrollRanges(sections);
-                                console.log('🔄 Iframe: Section ranges recalculated for language:', lang);
+                                console.log('🔄 Iframe: Sections available for language:', lang);
                             }
                         }
-                    }, 50); // Reduced from 100ms to 50ms for faster section range recalculation
+                    }, 50); // Reduced from 100ms to 50ms for faster section check
                 }, 250); // Reduced from 600ms to 250ms for faster navigation update
             }
         }
@@ -222,6 +221,11 @@
                 case 'get-active-section':
                     console.log('🔍 Iframe: Active section request');
                     sendActiveSectionToParent();
+                    break;
+                    
+                case 'request-current-scroll':
+                    console.log('📍 Iframe: Request current scroll received');
+                    // This will be handled by parent window - no action needed here
                     break;
                     
                 default:
@@ -283,12 +287,12 @@
             }
         }
         
-        // Handle parent scroll updates - ACCURATE CALCULATION VERSION
+        // Handle parent scroll updates - POSITION-BASED VERSION
         function handleParentScrollUpdate(scrollData) {
             try {
                 console.log('📜 Iframe: Processing parent scroll update:', scrollData);
                 
-                const { scrollPercent, scrollTop } = scrollData;
+                const { scrollTop, iframeOffsetTop } = scrollData;
                 
                 // Find active content container
                 const viContainer = document.getElementById('content-vi');
@@ -310,47 +314,62 @@
                     return;
                 }
                 
-                // Calculate section ranges if not already done
-                if (!window.sectionScrollRanges || window.sectionScrollRanges.language !== currentLanguage) {
-                    calculateSectionScrollRanges(sections);
-                }
+                // Calculate parent scroll position relative to iframe
+                const parentViewportCenter = scrollTop + (window.parent.innerHeight / 2);
+                const iframeViewportPosition = parentViewportCenter - iframeOffsetTop;
                 
-                // Find active section based on scroll percentage using pre-calculated ranges
+                console.log(`📐 Iframe: Parent scroll ${scrollTop}px, iframe offset ${iframeOffsetTop}px, relative position ${iframeViewportPosition}px`);
+                
+                // Find active section based on which section the viewport center intersects
                 let activeSection = null;
+                let bestMatch = null;
+                let bestScore = -1;
                 
-                // Rule: Below max of first section (even 0%) -> first section is active
-                if (scrollPercent <= window.sectionScrollRanges.ranges[0].max) {
-                    activeSection = sections[0];
-                    console.log(`📐 Iframe: First section rule applied at ${scrollPercent.toFixed(1)}% (≤ ${window.sectionScrollRanges.ranges[0].max.toFixed(1)}%)`);
-                } else {
-                    // Find section based on range
-                    for (let i = 0; i < window.sectionScrollRanges.ranges.length; i++) {
-                        const range = window.sectionScrollRanges.ranges[i];
-                        if (scrollPercent >= range.min && scrollPercent <= range.max) {
-                            activeSection = sections[i];
-                            console.log(`📐 Iframe: Section ${i + 1} active at ${scrollPercent.toFixed(1)}% (range: ${range.min.toFixed(1)}% - ${range.max.toFixed(1)}%)`);
-                            break;
-                        }
+                sections.forEach((section, index) => {
+                    const sectionTop = section.offsetTop;
+                    const sectionBottom = sectionTop + section.offsetHeight;
+                    
+                    // Check if viewport center is within this section
+                    if (iframeViewportPosition >= sectionTop && iframeViewportPosition <= sectionBottom) {
+                        activeSection = section;
+                        console.log(`📐 Iframe: Direct hit - Section ${index + 1} (${section.id}) contains viewport center at ${iframeViewportPosition}px (${sectionTop}-${sectionBottom}px)`);
+                        return;
                     }
                     
-                    // Fallback to last section if scroll is beyond all ranges
-                    if (!activeSection && scrollPercent > 90) {
-                        activeSection = sections[sections.length - 1];
-                        console.log(`📐 Iframe: Last section fallback at ${scrollPercent.toFixed(1)}%`);
+                    // Calculate distance from viewport center to section center for fallback
+                    const sectionCenter = sectionTop + (section.offsetHeight / 2);
+                    const distance = Math.abs(iframeViewportPosition - sectionCenter);
+                    const score = 1 / (distance + 1); // Higher score for closer sections
+                    
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestMatch = section;
                     }
+                });
+                
+                // Use best match if no direct hit
+                if (!activeSection && bestMatch) {
+                    activeSection = bestMatch;
+                    const sectionIndex = sections.indexOf(activeSection);
+                    console.log(`📐 Iframe: Best match - Section ${sectionIndex + 1} (${activeSection.id}) closest to viewport center`);
                 }
                 
-                // Default to first section if no match
+                // Fallback to first or last section based on scroll position
                 if (!activeSection) {
-                    activeSection = sections[0];
-                    console.log(`📐 Iframe: Default to first section at ${scrollPercent.toFixed(1)}%`);
+                    if (iframeViewportPosition < 0) {
+                        activeSection = sections[0];
+                        console.log(`📐 Iframe: Above content - using first section`);
+                    } else {
+                        activeSection = sections[sections.length - 1];
+                        console.log(`📐 Iframe: Below content - using last section`);
+                    }
                 }
                 
                 if (activeSection && activeSection.id) {
                     // Update global state
                     window.currentActiveSectionId = activeSection.id;
                     
-                    console.log(`✅ Iframe: Active section determined: ${activeSection.id} at ${scrollPercent.toFixed(1)}% scroll`);
+                    console.log(`✅ Iframe: Active section determined: ${activeSection.id} at scroll position ${scrollTop}px`);
                     
                     // Update iframe navigation if exists
                     const navLinksContainer = document.getElementById('report-nav-links');
@@ -368,12 +387,15 @@
                             type: 'active-section-response',
                             activeSection: activeSection.id,
                             language: currentLanguage,
-                            reason: 'scroll-calculation',
+                            reason: 'position-calculation',
                             debug: {
-                                scrollPercent: scrollPercent.toFixed(1),
+                                parentScrollTop: scrollTop,
+                                iframeOffsetTop: iframeOffsetTop,
+                                viewportPosition: iframeViewportPosition,
                                 sectionIndex: sections.indexOf(activeSection),
                                 totalSections: sections.length,
-                                sectionRanges: window.sectionScrollRanges.ranges.map(r => `${r.min.toFixed(1)}-${r.max.toFixed(1)}%`)
+                                sectionTop: activeSection.offsetTop,
+                                sectionHeight: activeSection.offsetHeight
                             }
                         }, '*');
                     }
@@ -384,57 +406,6 @@
             }
         }
         
-        // Calculate scroll percentage ranges for each section - NEW FUNCTION
-        function calculateSectionScrollRanges(sections) {
-            try {
-                console.log('📊 Iframe: Calculating section scroll ranges for', sections.length, 'sections');
-                
-                const ranges = [];
-                const totalSections = sections.length;
-                
-                for (let i = 0; i < totalSections; i++) {
-                    let min, max;
-                    
-                    if (i === 0) {
-                        // First section: 0% to its proportional share
-                        min = 0;
-                        max = (100 / totalSections);
-                    } else if (i === totalSections - 1) {
-                        // Last section: from previous max to 100%
-                        min = ranges[i - 1].max;
-                        max = 100;
-                    } else {
-                        // Middle sections: proportional ranges
-                        min = ranges[i - 1].max;
-                        max = ((i + 1) * 100) / totalSections;
-                    }
-                    
-                    ranges.push({
-                        sectionId: sections[i].id,
-                        index: i,
-                        min: min,
-                        max: max
-                    });
-                    
-                    console.log(`📊 Section ${i + 1} (${sections[i].id}): ${min.toFixed(1)}% - ${max.toFixed(1)}%`);
-                }
-                
-                // Store ranges globally with language info for cache invalidation
-                window.sectionScrollRanges = {
-                    ranges: ranges,
-                    language: currentLanguage,
-                    totalSections: totalSections,
-                    calculatedAt: Date.now()
-                };
-                
-                console.log('✅ Iframe: Section scroll ranges calculated and cached');
-                return ranges;
-                
-            } catch (error) {
-                console.error('❌ Iframe: Error calculating section ranges:', error);
-                return [];
-            }
-        }
         
         // Function to apply theme to iframe
         function applyTheme(theme) {
@@ -597,13 +568,18 @@
                 // Mark navigation as ready
                 isNavigationReady = true;
                 
-                // Calculate section scroll ranges after navigation is created
+                // Immediately update parent with current active section after navigation is created
                 setTimeout(() => {
-                    calculateSectionScrollRanges(reportSections);
-                    console.log('📊 Iframe: Section ranges calculated after navigation creation');
-                    
-                    // Navigation creation complete - height will be reported by chart initialization
-                }, 50); // Reduced from 100ms to 50ms for faster section range calculation
+                    // Request current scroll position from parent to update active section
+                    if (window.parent && window.parent !== window) {
+                        console.log('📤 Iframe: Requesting parent scroll position to update navigation');
+                        window.parent.postMessage({
+                            type: 'request-current-scroll'
+                        }, '*');
+                    }
+                }, 100); // Small delay to ensure navigation is fully rendered
+                
+                // Navigation creation complete - height will be reported by chart initialization
 
             } catch (error) {
                 console.error('❌ Iframe: Error creating navigation:', error);
@@ -656,7 +632,9 @@
                 
                 // Charts initialized - height will be reported by ResizeObserver when needed
             }, 150); // Reduced from 200ms to 150ms for faster chart initialization
-            
+            setTimeout(() => {
+                reportHeightUpdate('Language switch - charts rendered');
+            }, 100); // Reduced from 500ms to 250ms for faster height update
             // Create navigation after charts are initialized
             setTimeout(() => {
                 console.log('🧭 Iframe: Creating initial navigation');

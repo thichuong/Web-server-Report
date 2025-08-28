@@ -328,8 +328,58 @@
                 handleActiveSectionResponse(event);
             } else if (event.data && event.data.type === 'section-position-response') {
                 handleSectionPositionResponse(event);
+            } else if (event.data && event.data.type === 'request-current-scroll') {
+                handleCurrentScrollRequest(event);
             }
         });
+        
+        // Handle current scroll position request from iframe - NEW FUNCTION
+        function handleCurrentScrollRequest(event) {
+            console.log('📍 Parent: Received request for current scroll position');
+            
+            const iframe = document.getElementById('report-iframe');
+            if (!iframe || !iframe.contentWindow) {
+                console.warn('⚠️ Parent: No iframe found for scroll position update');
+                return;
+            }
+            
+            // Calculate current scroll data
+            const currentScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            const docHeight = document.documentElement.scrollHeight;
+            const winHeight = window.innerHeight;
+            const scrollPercent = docHeight > winHeight ? (currentScrollTop / (docHeight - winHeight)) * 100 : 0;
+            
+            // Calculate iframe's position relative to parent window
+            const iframeRect = iframe.getBoundingClientRect();
+            const iframeOffsetTop = iframeRect.top + currentScrollTop;
+            
+            console.log('📤 Parent: Sending current scroll position to iframe:', {
+                scrollTop: currentScrollTop,
+                iframeOffsetTop: iframeOffsetTop,
+                scrollPercent: scrollPercent
+            });
+            
+            // Update scroll progress bar immediately
+            handleScrollPositionUpdate({
+                data: {
+                    scrollPercent: scrollPercent,
+                    scrollTop: currentScrollTop
+                }
+            });
+            
+            // Send current scroll position to iframe
+            iframe.contentWindow.postMessage({
+                type: 'parent-scroll-update',
+                scrollTop: currentScrollTop,
+                iframeOffsetTop: iframeOffsetTop,
+                iframeRect: {
+                    top: iframeRect.top,
+                    height: iframeRect.height,
+                    bottom: iframeRect.bottom
+                },
+                viewportHeight: winHeight
+            }, '*');
+        }
         
         // Handle section position response from iframe - NEW FUNCTION
         function handleSectionPositionResponse(event) {
@@ -638,12 +688,20 @@
                         
                         // Send scroll update to iframe for better active section detection
                         if (iframe && iframe.contentWindow) {
+                            // Calculate iframe's position relative to parent window
+                            const iframeRect = iframe.getBoundingClientRect();
+                            const iframeOffsetTop = iframeRect.top + currentScrollTop;
+                            
                             iframe.contentWindow.postMessage({
                                 type: 'parent-scroll-update',
-                                scrollPercent: scrollPercent,
                                 scrollTop: currentScrollTop,
-                                docHeight: docHeight,
-                                winHeight: winHeight
+                                iframeOffsetTop: iframeOffsetTop,
+                                iframeRect: {
+                                    top: iframeRect.top,
+                                    height: iframeRect.height,
+                                    bottom: iframeRect.bottom
+                                },
+                                viewportHeight: winHeight
                             }, '*');
                         }
                         
@@ -669,7 +727,7 @@
                     // Also try direct access as fallback
                     setTimeout(() => {
                         autoResizeIframe(iframe);
-                    }, 500);
+                    }, 200);
                     
                     // Send initial theme to iframe
                     setTimeout(() => {
@@ -680,13 +738,13 @@
                                 theme: currentTheme
                             }, '*');
                         }
-                    }, 1000);
+                    }, 200);
                     
                     // Start scroll tracking after iframe loads
                     setTimeout(() => {
                         startScrollTracking();
                         console.log('📜 Parent: Started scroll tracking');
-                    }, 1500);
+                    }, 200);
                 });
                 
                 // Force load iframe immediately if it hasn't started loading
