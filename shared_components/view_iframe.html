@@ -176,6 +176,18 @@
                 setTimeout(() => {
                     console.log('🧭 Iframe: Updating navigation after language switch');
                     CreateNav();
+                    
+                    // Force recalculation of section ranges for new language
+                    setTimeout(() => {
+                        const activeContent = document.getElementById('content-' + lang);
+                        if (activeContent) {
+                            const sections = Array.from(activeContent.querySelectorAll('section[id]'));
+                            if (sections.length > 0) {
+                                calculateSectionScrollRanges(sections);
+                                console.log('🔄 Iframe: Section ranges recalculated for language:', lang);
+                            }
+                        }
+                    }, 200);
                 }, 600); // Wait for charts to complete before updating nav
             }
         }
@@ -270,7 +282,7 @@
             }
         }
         
-        // Handle parent scroll updates - SIMPLIFIED VERSION
+        // Handle parent scroll updates - ACCURATE CALCULATION VERSION
         function handleParentScrollUpdate(scrollData) {
             try {
                 console.log('📜 Iframe: Processing parent scroll update:', scrollData);
@@ -297,24 +309,54 @@
                     return;
                 }
                 
-                // Estimate active section based on scroll percentage
-                // This is a simple mapping: scroll % → section index
-                const sectionIndex = Math.floor((scrollPercent / 100) * sections.length);
-                const clampedIndex = Math.max(0, Math.min(sectionIndex, sections.length - 1));
-                const estimatedActiveSection = sections[clampedIndex];
+                // Calculate section ranges if not already done
+                if (!window.sectionScrollRanges || window.sectionScrollRanges.language !== currentLanguage) {
+                    calculateSectionScrollRanges(sections);
+                }
                 
-                if (estimatedActiveSection && estimatedActiveSection.id) {
-                    // Update global state
-                    window.currentActiveSectionId = estimatedActiveSection.id;
+                // Find active section based on scroll percentage using pre-calculated ranges
+                let activeSection = null;
+                
+                // Rule: Below max of first section (even 0%) -> first section is active
+                if (scrollPercent <= window.sectionScrollRanges.ranges[0].max) {
+                    activeSection = sections[0];
+                    console.log(`📐 Iframe: First section rule applied at ${scrollPercent.toFixed(1)}% (≤ ${window.sectionScrollRanges.ranges[0].max.toFixed(1)}%)`);
+                } else {
+                    // Find section based on range
+                    for (let i = 0; i < window.sectionScrollRanges.ranges.length; i++) {
+                        const range = window.sectionScrollRanges.ranges[i];
+                        if (scrollPercent >= range.min && scrollPercent <= range.max) {
+                            activeSection = sections[i];
+                            console.log(`📐 Iframe: Section ${i + 1} active at ${scrollPercent.toFixed(1)}% (range: ${range.min.toFixed(1)}% - ${range.max.toFixed(1)}%)`);
+                            break;
+                        }
+                    }
                     
-                    console.log(`📐 Iframe: Estimated active section from ${scrollPercent.toFixed(1)}% scroll: ${estimatedActiveSection.id} (section ${clampedIndex + 1}/${sections.length})`);
+                    // Fallback to last section if scroll is beyond all ranges
+                    if (!activeSection && scrollPercent > 90) {
+                        activeSection = sections[sections.length - 1];
+                        console.log(`📐 Iframe: Last section fallback at ${scrollPercent.toFixed(1)}%`);
+                    }
+                }
+                
+                // Default to first section if no match
+                if (!activeSection) {
+                    activeSection = sections[0];
+                    console.log(`📐 Iframe: Default to first section at ${scrollPercent.toFixed(1)}%`);
+                }
+                
+                if (activeSection && activeSection.id) {
+                    // Update global state
+                    window.currentActiveSectionId = activeSection.id;
+                    
+                    console.log(`✅ Iframe: Active section determined: ${activeSection.id} at ${scrollPercent.toFixed(1)}% scroll`);
                     
                     // Update iframe navigation if exists
                     const navLinksContainer = document.getElementById('report-nav-links');
                     if (navLinksContainer) {
                         navLinksContainer.querySelectorAll('a').forEach(link => {
                             const linkHref = link.getAttribute('href');
-                            const isActive = linkHref === `#${estimatedActiveSection.id}`;
+                            const isActive = linkHref === `#${activeSection.id}`;
                             link.classList.toggle('active', isActive);
                         });
                     }
@@ -323,13 +365,14 @@
                     if (window.parent && window.parent !== window) {
                         window.parent.postMessage({
                             type: 'active-section-response',
-                            activeSection: estimatedActiveSection.id,
+                            activeSection: activeSection.id,
                             language: currentLanguage,
-                            reason: 'scroll-estimation',
+                            reason: 'scroll-calculation',
                             debug: {
                                 scrollPercent: scrollPercent.toFixed(1),
-                                sectionIndex: clampedIndex,
-                                totalSections: sections.length
+                                sectionIndex: sections.indexOf(activeSection),
+                                totalSections: sections.length,
+                                sectionRanges: window.sectionScrollRanges.ranges.map(r => `${r.min.toFixed(1)}-${r.max.toFixed(1)}%`)
                             }
                         }, '*');
                     }
@@ -337,6 +380,58 @@
                 
             } catch (error) {
                 console.error('❌ Iframe: Error handling parent scroll update:', error);
+            }
+        }
+        
+        // Calculate scroll percentage ranges for each section - NEW FUNCTION
+        function calculateSectionScrollRanges(sections) {
+            try {
+                console.log('📊 Iframe: Calculating section scroll ranges for', sections.length, 'sections');
+                
+                const ranges = [];
+                const totalSections = sections.length;
+                
+                for (let i = 0; i < totalSections; i++) {
+                    let min, max;
+                    
+                    if (i === 0) {
+                        // First section: 0% to its proportional share
+                        min = 0;
+                        max = (100 / totalSections);
+                    } else if (i === totalSections - 1) {
+                        // Last section: from previous max to 100%
+                        min = ranges[i - 1].max;
+                        max = 100;
+                    } else {
+                        // Middle sections: proportional ranges
+                        min = ranges[i - 1].max;
+                        max = ((i + 1) * 100) / totalSections;
+                    }
+                    
+                    ranges.push({
+                        sectionId: sections[i].id,
+                        index: i,
+                        min: min,
+                        max: max
+                    });
+                    
+                    console.log(`📊 Section ${i + 1} (${sections[i].id}): ${min.toFixed(1)}% - ${max.toFixed(1)}%`);
+                }
+                
+                // Store ranges globally with language info for cache invalidation
+                window.sectionScrollRanges = {
+                    ranges: ranges,
+                    language: currentLanguage,
+                    totalSections: totalSections,
+                    calculatedAt: Date.now()
+                };
+                
+                console.log('✅ Iframe: Section scroll ranges calculated and cached');
+                return ranges;
+                
+            } catch (error) {
+                console.error('❌ Iframe: Error calculating section ranges:', error);
+                return [];
             }
         }
         
@@ -500,6 +595,12 @@
                 }
                 
                 console.log('✅ Iframe: Navigation created successfully');
+                
+                // Calculate section scroll ranges after navigation is created
+                setTimeout(() => {
+                    calculateSectionScrollRanges(reportSections);
+                    console.log('📊 Iframe: Section ranges calculated after navigation creation');
+                }, 100);
 
             } catch (error) {
                 console.error('❌ Iframe: Error creating navigation:', error);
