@@ -191,6 +191,15 @@
             } else if (event.data && event.data.type === 'scroll-to-section') {
                 console.log('🎯 Iframe: Received scroll request:', event.data.sectionId);
                 scrollToSection(event.data.sectionId);
+            } else if (event.data && event.data.type === 'get-scroll-info') {
+                // Parent is asking for current scroll information
+                sendScrollInfoToParent();
+            } else if (event.data && event.data.type === 'parent-scroll-update') {
+                // Parent window scrolled, update active sections based on visibility
+                handleParentScroll(event.data);
+            } else if (event.data && event.data.type === 'get-active-section') {
+                // Parent asking for current active section
+                sendActiveSectionToParent();
             }
         });
         
@@ -267,12 +276,6 @@
                 if (!reportContainer || !navLinksContainer) {
                     console.warn('⚠️ Iframe: Navigation containers not found');
                     return;
-                }
-
-                // Disconnect old observer if exists
-                if (reportContainer._navObserver) {
-                    try { reportContainer._navObserver.disconnect(); } catch(e){}
-                    reportContainer._navObserver = null;
                 }
 
                 // Clear old navigation content
@@ -391,72 +394,10 @@
                     navLinksContainer.appendChild(li);
                 }
 
-                // Set up intersection observer for active highlighting
-                const observer = new IntersectionObserver(() => {
-                    const viewportHeight = window.innerHeight;
-                    const anchor = viewportHeight * 0.2; // 20% from top
-
-                    let bestSection = null;
-                    let bestTop = -Infinity;
-
-                    // Find best section that's in view (only from visible sections)
-                    reportSections.forEach(section => {
-                        const rect = section.getBoundingClientRect();
-                        if (rect.bottom <= 0 || rect.top >= viewportHeight) return;
-                        if (rect.top <= anchor && rect.top > bestTop) {
-                            bestTop = rect.top;
-                            bestSection = section;
-                        }
-                    });
-
-                    // If no section above anchor, find closest below
-                    if (!bestSection) {
-                        let minBelow = Infinity;
-                        reportSections.forEach(section => {
-                            const rect = section.getBoundingClientRect();
-                            if (rect.bottom <= 0 || rect.top >= viewportHeight) return;
-                            if (rect.top > anchor && rect.top < minBelow) {
-                                minBelow = rect.top;
-                                bestSection = section;
-                            }
-                        });
-                    }
-
-                    // Update active navigation link (locally)
-                    if (bestSection) {
-                        const targetId = bestSection.id;
-                        navLinks.forEach(link => {
-                            const isTarget = link.getAttribute('href').substring(1) === targetId;
-                            link.classList.toggle('active', isTarget);
-                        });
-                        
-                        // Send active section to parent
-                        if (window.parent && window.parent !== window) {
-                            window.parent.postMessage({
-                                type: 'active-section-change',
-                                activeSection: targetId,
-                                language: currentLanguage
-                            }, '*');
-                        }
-                    }
-                }, {
-                    root: null,
-                    rootMargin: "0px",
-                    threshold: [0, 0.1, 0.25, 0.5, 1.0]
-                });
-
-                // Observe visible sections only
-                reportSections.forEach(section => {
-                    observer.observe(section);
-                });
-
                 // Set first link as active initially
                 if (navLinks.length > 0 && !navLinksContainer.querySelector('a.active')) {
                     navLinks[0].classList.add('active');
                 }
-
-                // Save observer for cleanup
-                reportContainer._navObserver = observer;
                 
                 console.log('✅ Iframe: Navigation created successfully');
 
@@ -560,6 +501,151 @@
             heightUpdateTimeout = setTimeout(() => {
                 reportHeightUpdate(reason);
             }, 150); // Debounce multiple rapid changes
+        }
+        
+        // Handle parent window scroll and find active sections based on viewport visibility
+        function handleParentScroll(scrollData) {
+            try {
+                const { parentScrollTop, iframeRect, viewportHeight } = scrollData;
+                
+                // Find active section based on what's visible in parent viewport
+                const activeSection = findActiveSectionFromParentScroll(parentScrollTop, iframeRect, viewportHeight);
+                
+                if (activeSection) {
+                    // Send active section to parent
+                    const totalDocHeight = document.documentElement.scrollHeight;
+                    const iframeVisibleHeight = Math.min(iframeRect.height, viewportHeight - Math.max(0, -iframeRect.top));
+                    const scrollPercent = iframeVisibleHeight > 0 ? 
+                        Math.min(100, Math.max(0, (iframeVisibleHeight / iframeRect.height) * 100)) : 0;
+                    
+                    if (window.parent && window.parent !== window) {
+                        window.parent.postMessage({
+                            type: 'active-section-response',
+                            activeSection: activeSection.id,
+                            parentScrollPercent: scrollPercent,
+                            language: currentLanguage
+                        }, '*');
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Iframe: Error handling parent scroll:', error);
+            }
+        }
+        
+        // Find active section based on parent viewport
+        function findActiveSectionFromParentScroll(parentScrollTop, iframeRect, viewportHeight) {
+            const reportContainer = document.getElementById('report-container');
+            if (!reportContainer) return null;
+
+            // Find active content based on current language
+            const viContainer = document.getElementById('content-vi');
+            const enContainer = document.getElementById('content-en');
+            let activeContent = reportContainer;
+
+            if (viContainer || enContainer) {
+                const viVisible = viContainer && window.getComputedStyle(viContainer).display !== 'none';
+                const enVisible = enContainer && window.getComputedStyle(enContainer).display !== 'none';
+                if (viVisible) activeContent = viContainer;
+                else if (enVisible) activeContent = enContainer;
+                else activeContent = viContainer || enContainer || reportContainer;
+            }
+
+            const sections = Array.from(activeContent.querySelectorAll('section'));
+            if (sections.length === 0) return null;
+
+            // Calculate which section is most visible in parent viewport
+            let bestSection = null;
+            let bestScore = -1;
+
+            sections.forEach(section => {
+                const sectionRect = section.getBoundingClientRect();
+                
+                // Convert section position relative to iframe to parent window coordinates
+                const sectionTopInParent = sectionRect.top + iframeRect.top;
+                const sectionBottomInParent = sectionRect.bottom + iframeRect.top;
+                
+                // Calculate intersection with parent viewport
+                const visibleTop = Math.max(0, sectionTopInParent);
+                const visibleBottom = Math.min(viewportHeight, sectionBottomInParent);
+                const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+                
+                // Score based on how much of the section is visible
+                const sectionHeight = sectionRect.height;
+                const visibilityScore = sectionHeight > 0 ? visibleHeight / sectionHeight : 0;
+                
+                if (visibilityScore > bestScore && visibilityScore > 0.1) { // At least 10% visible
+                    bestScore = visibilityScore;
+                    bestSection = section;
+                }
+            });
+
+            return bestSection;
+        }
+        
+        // Send current active section to parent (simplified)
+        function sendActiveSectionToParent() {
+            try {
+                const reportContainer = document.getElementById('report-container');
+                if (!reportContainer) return;
+
+                // Find active content based on current language
+                const viContainer = document.getElementById('content-vi');
+                const enContainer = document.getElementById('content-en');
+                let activeContent = reportContainer;
+
+                if (viContainer || enContainer) {
+                    const viVisible = viContainer && window.getComputedStyle(viContainer).display !== 'none';
+                    const enVisible = enContainer && window.getComputedStyle(enContainer).display !== 'none';
+                    if (viVisible) activeContent = viContainer;
+                    else if (enVisible) activeContent = enContainer;
+                    else activeContent = viContainer || enContainer || reportContainer;
+                }
+
+                const sections = Array.from(activeContent.querySelectorAll('section'));
+                if (sections.length === 0) return;
+
+                // Since iframe doesn't scroll, estimate which section should be active
+                // based on parent document scroll position relative to iframe position
+                let activeSection = sections[0]; // Default to first section
+                
+                // Try to get parent scroll info through DOM
+                try {
+                    const parentWindow = window.parent;
+                    if (parentWindow && parentWindow !== window) {
+                        // For now, use a simple approach - cycle through sections based on time or use first section
+                        // This could be improved with better parent-iframe communication
+                        activeSection = sections[0];
+                    }
+                } catch (e) {
+                    // Cross-origin restrictions, use default
+                }
+                
+                if (activeSection && activeSection.id && window.parent && window.parent !== window) {
+                    window.parent.postMessage({
+                        type: 'active-section-response',
+                        activeSection: activeSection.id,
+                        language: currentLanguage
+                    }, '*');
+                }
+            } catch (error) {
+                console.error('❌ Iframe: Error sending active section:', error);
+            }
+        }
+        
+        // Keep for backward compatibility
+        function sendScrollInfoToParent() {
+            // Since iframe doesn't scroll, just send basic info
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({
+                    type: 'scroll-info-response',
+                    scrollTop: 0,
+                    scrollHeight: document.documentElement.scrollHeight,
+                    clientHeight: document.documentElement.clientHeight,
+                    scrollPercent: 0,
+                    activeSection: null,
+                    language: currentLanguage
+                }, '*');
+            }
         }
         
         // Set up ResizeObserver to monitor height changes automatically

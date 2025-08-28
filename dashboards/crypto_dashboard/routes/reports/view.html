@@ -320,6 +320,12 @@
                 handleNavigationData(event);
             } else if (event.data && event.data.type === 'active-section-change') {
                 handleActiveSectionChange(event);
+            } else if (event.data && event.data.type === 'scroll-position') {
+                handleScrollPositionUpdate(event);
+            } else if (event.data && event.data.type === 'scroll-info-response') {
+                handleScrollInfoResponse(event);
+            } else if (event.data && event.data.type === 'active-section-response') {
+                handleActiveSectionResponse(event);
             }
         });
         
@@ -352,6 +358,57 @@
             updateSidebarNavigationActive(event.data.activeSection);
         }
         
+        // Handle scroll position updates from iframe
+        function handleScrollPositionUpdate(event) {
+            const scrollData = event.data;
+            const sidebar = document.getElementById('navigation-sidebar');
+            
+            if (sidebar) {
+                // Update scroll progress bar
+                const scrollIndicator = sidebar.querySelector('.scroll-indicator');
+                const scrollProgressText = sidebar.querySelector('.scroll-progress-text');
+                
+                if (scrollIndicator) {
+                    scrollIndicator.style.width = scrollData.scrollPercent + '%';
+                }
+                
+                if (scrollProgressText) {
+                    const isVietnamese = currentNavigationData && currentNavigationData.language === 'vi';
+                    const progressText = isVietnamese ? 'Đọc' : 'Read';
+                    scrollProgressText.textContent = `${progressText}: ${Math.round(scrollData.scrollPercent)}%`;
+                }
+                
+                // Optionally log scroll updates (can be disabled for performance)
+                if (window.debugScrollTracking) {
+                    console.log('📜 Parent: Iframe scroll - Top:', scrollData.scrollTop, 
+                               'Percent:', scrollData.scrollPercent + '%');
+                }
+            }
+        }
+        
+        // Handle scroll info response from iframe
+        function handleScrollInfoResponse(event) {
+            const scrollData = event.data;
+            
+            // Update progress bar
+            handleScrollPositionUpdate(event);
+            
+            // Update active section if provided
+            if (scrollData.activeSection) {
+                updateSidebarNavigationActive(scrollData.activeSection);
+            }
+        }
+        
+        // Handle active section response (simplified)
+        function handleActiveSectionResponse(event) {
+            const data = event.data;
+            
+            if (data.activeSection) {
+                updateSidebarNavigationActive(data.activeSection);
+                console.log('📍 Parent: Updated active section to:', data.activeSection);
+            }
+        }
+        
         // Create navigation in left sidebar
         function createSidebarNavigation() {
             if (!currentNavigationData || !currentNavigationData.sections) {
@@ -375,6 +432,13 @@
                         <span class="nav-title-vi" ${currentNavigationData.language === 'en' ? 'style="display: none;"' : ''}>📋 Mục lục Báo cáo</span>
                         <span class="nav-title-en" ${currentNavigationData.language === 'vi' ? 'style="display: none;"' : ''}>📋 Report Contents</span>
                     </h3>
+                    <!-- Scroll progress indicator -->
+                    <div class="scroll-progress-container mb-3">
+                        <div class="scroll-progress-bar bg-gray-200 h-2 rounded-full relative overflow-hidden">
+                            <div class="scroll-indicator bg-blue-500 h-full rounded-full transition-all duration-300" style="width: 0%;"></div>
+                        </div>
+                        <span class="scroll-progress-text text-xs text-gray-500 mt-1 block">Đọc: 0%</span>
+                    </div>
                 </div>
                 <div class="nav-content">
                     <ul class="nav-links">
@@ -424,13 +488,15 @@
         
         // Update active navigation item
         function updateSidebarNavigationActive(sectionId) {
-            if (!navigationSidebar) return;
+            const sidebar = document.getElementById('navigation-sidebar');
+            if (!sidebar) return;
             
-            const links = navigationSidebar.querySelectorAll('a[data-section-id]');
+            const links = sidebar.querySelectorAll('a[data-section-id]');
             links.forEach(link => {
                 const isActive = link.getAttribute('data-section-id') === sectionId;
                 link.classList.toggle('active', isActive);
             });
+            console.log('📍 Parent: Updated active navigation to section:', sectionId);
         }
 
         // Auto-resize iframe based on content (fallback method) - Enhanced version
@@ -485,6 +551,55 @@
                     console.error('❌ Parent: Iframe failed to load');
                 });
                 
+                // Add scroll detection using Intersection Observer for better accuracy
+                function startScrollTracking() {
+                    // Simple scroll tracking based on parent window scroll
+                    let lastScrollTop = 0;
+                    
+                    function handleParentScroll() {
+                        const currentScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                        const docHeight = document.documentElement.scrollHeight;
+                        const winHeight = window.innerHeight;
+                        const scrollPercent = docHeight > winHeight ? (currentScrollTop / (docHeight - winHeight)) * 100 : 0;
+                        
+                        // Update progress bar immediately
+                        const sidebar = document.getElementById('navigation-sidebar');
+                        if (sidebar) {
+                            const scrollIndicator = sidebar.querySelector('.scroll-indicator');
+                            const scrollProgressText = sidebar.querySelector('.scroll-progress-text');
+                            
+                            if (scrollIndicator) {
+                                scrollIndicator.style.width = scrollPercent + '%';
+                            }
+                            
+                            if (scrollProgressText) {
+                                const isVietnamese = currentNavigationData && currentNavigationData.language === 'vi';
+                                const progressText = isVietnamese ? 'Đọc' : 'Read';
+                                scrollProgressText.textContent = `${progressText}: ${Math.round(scrollPercent)}%`;
+                            }
+                        }
+                        
+                        // Ask iframe for active section less frequently
+                        if (Math.abs(currentScrollTop - lastScrollTop) > 100) { // Only check every 100px
+                            if (iframe && iframe.contentWindow) {
+                                iframe.contentWindow.postMessage({
+                                    type: 'get-active-section'
+                                }, '*');
+                            }
+                            lastScrollTop = currentScrollTop;
+                        }
+                    }
+                    
+                    // Listen to parent window scroll with throttling
+                    let scrollTimeout;
+                    window.addEventListener('scroll', () => {
+                        clearTimeout(scrollTimeout);
+                        scrollTimeout = setTimeout(handleParentScroll, 16); // ~60fps
+                    }, { passive: true });
+                    
+                    console.log('📜 Parent: Started scroll tracking on parent window');
+                }
+                
                 iframe.addEventListener('load', function() {
                     console.log('✅ Parent: Iframe loaded successfully');
                     
@@ -504,6 +619,12 @@
                             }, '*');
                         }
                     }, 1000);
+                    
+                    // Start scroll tracking after iframe loads
+                    setTimeout(() => {
+                        startScrollTracking();
+                        console.log('📜 Parent: Started scroll tracking');
+                    }, 1500);
                 });
                 
                 // Force load iframe immediately if it hasn't started loading
@@ -533,6 +654,8 @@
             if (navigationSidebar) {
                 const navTitleVi = navigationSidebar.querySelector('.nav-title-vi');
                 const navTitleEn = navigationSidebar.querySelector('.nav-title-en');
+                const scrollProgressText = navigationSidebar.querySelector('.scroll-progress-text');
+                
                 if (navTitleVi && navTitleEn) {
                     if (event.detail.language === 'en') {
                         navTitleVi.style.display = 'none';
@@ -541,6 +664,15 @@
                         navTitleVi.style.display = 'inline';
                         navTitleEn.style.display = 'none';
                     }
+                }
+                
+                // Update scroll progress text language
+                if (scrollProgressText) {
+                    const currentText = scrollProgressText.textContent;
+                    const percentMatch = currentText.match(/(\d+)%/);
+                    const percent = percentMatch ? percentMatch[1] : '0';
+                    const progressText = event.detail.language === 'en' ? 'Read' : 'Đọc';
+                    scrollProgressText.textContent = `${progressText}: ${percent}%`;
                 }
             }
         });
