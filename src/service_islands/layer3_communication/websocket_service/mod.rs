@@ -90,36 +90,6 @@ impl WebSocketServiceIsland {
         })
     }
     
-    /// Initialize WebSocket Service Island without cache (for testing)
-    pub async fn with_external_apis(external_apis: Arc<ExternalApisIsland>) -> Result<Self> {
-        println!("🔧 Initializing WebSocket Service Island (no cache)...");
-        
-        // Initialize Layer 2 adapters with only External APIs
-        let layer2_adapters = Arc::new(
-            Layer2AdaptersHub::new().with_external_apis(external_apis.clone())
-        );
-        
-        // Initialize components
-        let connection_manager = Arc::new(ConnectionManager::new());
-        let message_handler = Arc::new(MessageHandler::new());
-        let broadcast_service = Arc::new(BroadcastService::new());
-        let handlers = Arc::new(WebSocketHandlers::new());
-        let market_data_streamer = Arc::new(MarketDataStreamer::new());
-        
-        // Create broadcast channel
-        let (broadcast_tx, _) = broadcast::channel(1000);
-        
-        Ok(Self {
-            connection_manager,
-            message_handler,
-            broadcast_service,
-            handlers,
-            market_data_streamer,
-            layer2_adapters,
-            broadcast_tx,
-        })
-    }
-    
     /// Health check for the entire WebSocket Service Island
     /// 
     /// Validates that all components are operational.

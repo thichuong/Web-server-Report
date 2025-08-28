@@ -72,6 +72,7 @@ impl TemplateOrchestrator {
     /// 
     /// Builds complete template context with all necessary data for rendering
     /// Enhanced to accept pre-loaded chart_modules_content for optimal performance
+    /// Now includes sandbox token generation for iframe security
     pub async fn prepare_crypto_report_context(
         &self,
         report: &Report,
@@ -93,11 +94,15 @@ impl TemplateOrchestrator {
             }
         };
         
+        // Generate sandbox token for iframe security
+        let sandboxed_report = self.report_creator.create_sandboxed_report(report, Some(&chart_modules_content));
+        let sandbox_token = sandboxed_report.sandbox_token.clone();
+        
         // Prepare basic context
         let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string();
         let pdf_url = format!("/crypto_report/{}/pdf", report.id);
         
-        let context = TemplateContext {
+        let mut context = TemplateContext {
             report: report.clone(),
             chart_modules_content,
             current_route: "dashboard".to_string(),
@@ -107,7 +112,12 @@ impl TemplateOrchestrator {
             additional_context,
         };
         
-        println!("✅ TemplateOrchestrator: Context prepared successfully");
+        // Add sandbox token to additional context
+        let mut extra_context = context.additional_context.unwrap_or_else(HashMap::new);
+        extra_context.insert("sandbox_token".to_string(), serde_json::Value::String(sandbox_token));
+        context.additional_context = Some(extra_context);
+        
+        println!("✅ TemplateOrchestrator: Context prepared successfully with sandbox token");
         Ok(context)
     }
 

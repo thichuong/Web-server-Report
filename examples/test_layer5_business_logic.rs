@@ -6,6 +6,7 @@
 use web_server_report::service_islands::layer2_external_services::external_apis_island::ExternalApisIsland;
 use web_server_report::service_islands::layer3_communication::websocket_service::WebSocketServiceIsland;
 use web_server_report::service_islands::layer5_business_logic::crypto_reports::CryptoReportsIsland;
+use web_server_report::service_islands::layer1_infrastructure::CacheSystemIsland;
 use std::sync::Arc;
 
 #[tokio::main]
@@ -23,18 +24,24 @@ async fn main() -> anyhow::Result<()> {
     println!("   • CoinMarketCap: {}", if cmc_api_key.is_some() { "✅ Found" } else { "⚠️ Optional" });
     println!("   • Finnhub: {}", if finnhub_api_key.is_some() { "✅ Found" } else { "❌ Missing" });
 
+    // Initialize Cache System first
+    println!("\n🗄️ Initializing Cache System...");
+    let cache_system = Arc::new(CacheSystemIsland::new().await?);
+
     // Initialize Layer 2 External APIs Island
     println!("\n🏗️ Initializing Layer 2 External APIs Island...");
-    let external_apis = ExternalApisIsland::with_all_keys(
+    let external_apis = ExternalApisIsland::with_cache_and_all_keys(
         taapi_secret,
         cmc_api_key,
-        finnhub_api_key
+        finnhub_api_key,
+        cache_system.clone()
     ).await?;
     
     // Initialize Layer 3 WebSocket Service
     println!("🌐 Initializing Layer 3 WebSocket Service...");
-    let websocket_service = WebSocketServiceIsland::with_external_apis(
-        Arc::new(external_apis)
+    let websocket_service = WebSocketServiceIsland::with_external_apis_and_cache(
+        Arc::new(external_apis),
+        cache_system
     ).await?;
     
     // Initialize Layer 5 Crypto Reports Island

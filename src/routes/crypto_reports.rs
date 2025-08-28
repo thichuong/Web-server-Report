@@ -1,15 +1,15 @@
 //! Crypto Reports Routes
 //! 
-//! This module handles all cryptocurrency report-related routes including
-//! report viewing, listing, and PDF template generation.
+//! This module defines all HTTP routes for crypto reports functionality including
+//! report viewing and listing.
 
 use axum::{
+    extract::{Path, Query, State},
+    http::StatusCode,
+    response::{IntoResponse, Response},
     routing::get,
     Router,
-    response::{IntoResponse, Response},
-    extract::{Path, State, Query},
-    http::StatusCode,
-    body::Body,
+    body::Body
 };
 use std::sync::Arc;
 use std::collections::HashMap;
@@ -22,7 +22,6 @@ pub fn configure_crypto_reports_routes() -> Router<Arc<ServiceIslands>> {
     Router::new()
         .route("/crypto_report", get(crypto_index))
         .route("/crypto_report/:id", get(crypto_view_report))
-        .route("/crypto_report/:id/pdf", get(crypto_report_pdf))
         .route("/crypto_reports_list", get(crypto_reports_list))
 }
 
@@ -169,76 +168,6 @@ async fn crypto_view_report(
                 (
                     StatusCode::INTERNAL_SERVER_ERROR, 
                     format!("Failed to load report #{}", report_id)
-                ).into_response()
-            }
-        }
-    }
-}
-
-/// PDF template for crypto report by ID with Service Islands Integration
-async fn crypto_report_pdf(
-    Path(id): Path<String>,
-    State(service_islands): State<Arc<ServiceIslands>>
-) -> impl IntoResponse {
-    println!("📄 [Route] crypto_report_pdf called for ID: {} - fetching from Service Islands Layer 5", id);
-    
-    // Parse report ID
-    let report_id: i32 = match id.parse() {
-        Ok(id) => id,
-        Err(_) => {
-            println!("❌ [Route] Invalid report ID format for PDF: {}", id);
-            return (
-                StatusCode::BAD_REQUEST,
-                "Invalid report ID format"
-            ).into_response();
-        }
-    };
-
-    println!("📄 [Route] Requesting PDF for report ID: {}", report_id);
-
-    // First fetch real-time market data from Layer 5 → Layer 2 for enhanced template context
-    // let realtime_data = match service_islands.crypto_reports.fetch_realtime_market_data().await {
-    //     Ok(data) => {
-    //         println!("✅ [Route] Got real-time data from Layer 5 for PDF template context");
-    //         Some(data)
-    //     }
-    //     Err(e) => {
-    //         println!("⚠️ [Route] Failed to get real-time data for PDF: {}, using cached template only", e);
-    //         None
-    //     }
-    // };
-
-    // Use Service Islands architecture to get PDF template for specific report
-    match service_islands.crypto_reports.handlers.crypto_report_pdf_with_tera(&service_islands.app_state, report_id).await {
-        Ok(html) => {
-            println!("✅ [Route] PDF template for report ID: {} rendered successfully from Layer 5", report_id);
-
-            // Create PDF-optimized response with proper headers
-            Response::builder()
-                .status(StatusCode::OK)
-                .header("cache-control", "public, max-age=300") // 5min cache for PDF templates
-                .header("content-type", "text/html; charset=utf-8")
-                .header("x-cache", "Layer5-Generated-PDF")
-                .header("x-report-id", report_id.to_string())
-                .header("x-template-type", "pdf-printable")
-                .body(html)
-                .unwrap()
-                .into_response()
-        }
-        Err(e) => {
-            eprintln!("❌ [Route] Failed to render PDF template for report ID: {} from Layer 5: {}", report_id, e);
-            
-            // Check if it's a not found case or other error
-            let error_message = e.to_string();
-            if error_message.contains("not found") || error_message.contains("Database error") {
-                (
-                    StatusCode::NOT_FOUND,
-                    format!("Report #{} not found for PDF generation", report_id)
-                ).into_response()
-            } else {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR, 
-                    format!("Failed to generate PDF for report #{}", report_id)
                 ).into_response()
             }
         }

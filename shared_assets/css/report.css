@@ -19,6 +19,10 @@
     border-radius: 0.5rem;
     background: var(--bg-secondary);
     box-shadow: var(--card-shadow);
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 #report-container h2 {
     font-size: 1.5rem;
@@ -78,6 +82,9 @@
     flex-direction: column;
     transition: all 0.3s ease;
     height: 100%;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 #report-container .report-card:hover {
@@ -118,14 +125,20 @@
 /* === GRID LAYOUTS === */
 #report-container .content-grid {
     display: grid;
-    /* grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); */
+    grid-template-columns: 1fr; /* Single column for mobile by default */
     gap: 1.5rem;
     align-items: start;
+    width: 100%; /* Ensure grid doesn't exceed container */
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 #report-container .content-grid .report-card,
 #report-container .content-grid .sub-card {
     grid-column: span 1; /* Allow 2 cards per row */
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 /* If there's an odd card at the end, make it span full width */
@@ -426,6 +439,14 @@
    Example: <td data-label="Coin Name">Bitcoin</td>
 */
 @media (max-width: 580px) {
+    #report-container .content-grid {
+        grid-template-columns: 1fr !important;
+        gap: 1rem;
+        width: 100%;
+        max-width: 100%;
+        padding: 0;
+        margin: 0;
+    }
     #report-container {
         padding: 0.75rem;
         gap: 1rem;
@@ -447,7 +468,9 @@
         border-radius: 0.5rem;
         box-shadow: none;
         background: transparent;
-        width: 100%;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden;
     }
     /* Crypto table card layout for mobile */
     .crypto-table {
@@ -526,5 +549,356 @@
     .chart-container * {
         transition: none !important;
         animation: none !important;
+    }
+}
+
+/* ===== IFRAME SANDBOX SPECIFIC STYLES ===== */
+
+/* Reset and base styles for iframe content */
+.sandboxed-report body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.6;
+    color: var(--text-primary);
+    background: var(--bg-primary);
+    transition: background-color 0.3s ease, color 0.3s ease;
+    width: 100%;
+    max-width: 100%;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* Enhanced body layout for better left navigation - mobile responsive */
+@media (max-width: 768px) {
+    .sandboxed-report body {
+        padding: 0 !important;
+    }
+}
+
+/* Content should flow naturally in full width */
+.sandboxed-report section {
+    break-inside: auto;
+    width: 100%;
+    margin-bottom: 1.5rem;
+}
+
+/* Chart containers should not break across columns */
+.sandboxed-report .chart-container,
+.sandboxed-report .gauge-container,
+.sandboxed-report .doughnut-container,
+.sandboxed-report .line-chart-container,
+.sandboxed-report .bar-chart-container {
+    break-inside: avoid;
+}
+
+/* Theme-aware styling for iframe */
+.dark-theme {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.light-theme {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+/* Language switching */
+.lang-content {
+    display: none;
+}
+
+.lang-content.active {
+    display: block;
+}
+
+/* Bridge shared CSS selectors to iframe content */
+.sandboxed-report-container {
+    width: 100%;
+    max-width: 100%;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+/* ===== SANDBOXED REPORT LAYOUT OVERRIDES ===== */
+
+/* Override report-layout for sandboxed iframe - make it full width */
+.sandboxed-report .report-layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 1.5rem;
+    max-width: 100%;
+    width: 100%;
+    padding: 1rem;
+    min-height: 100vh;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+/* Sandboxed navigation sidebar adjustments */
+.sandboxed-report .navigation-sidebar {
+    position: sticky;
+    top: 1rem;
+    height: fit-content;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    width: 100%;
+    max-width: 300px;
+    box-sizing: border-box;
+}
+
+/* Sandboxed content area - full width within container */
+.sandboxed-report .content-area {
+    min-width: 0;
+    width: 100%;
+    flex: 1;
+    box-sizing: border-box;
+}
+
+/* Sandboxed report container full width */
+.sandboxed-report #report-container {
+    width: 100%;
+    max-width: none;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Mobile responsiveness for sandboxed reports */
+@media (max-width: 768px) {
+    .sandboxed-report .report-layout {
+        grid-template-columns: 1fr;
+        gap: 0;
+        padding: 0.75rem;
+    }
+    
+    .sandboxed-report .navigation-sidebar {
+        display: none;
+    }
+    
+    .sandboxed-report .content-area {
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    .sandboxed-report .content-area #report-container {
+        padding: 0.5rem;
+    }
+}
+
+/* Small tablet adjustments for sandboxed */
+@media (max-width: 480px) {
+    .sandboxed-report .report-layout {
+        padding: 0.5rem;
+    }
+    
+    .sandboxed-report .content-area #report-container {
+        padding: 0.25rem;
+    }
+}
+
+/* Tablet responsiveness for sandboxed */
+@media (max-width: 1024px) and (min-width: 769px) {
+    .sandboxed-report .report-layout {
+        grid-template-columns: 280px 1fr;
+        gap: 1.25rem;
+    }
+}
+
+/* ===== NEW TWO-COLUMN LAYOUT SYSTEM ===== */
+
+/* Main layout container */
+.report-layout {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 2rem;
+    max-width: 100%;
+    width: 100%;
+    padding: 1rem;
+    min-height: 100vh;
+}
+
+/* Navigation sidebar */
+.navigation-sidebar {
+    position: sticky;
+    top: 1rem;
+    height: fit-content;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    width: 100%;
+    box-sizing: border-box; /* Ensure consistent width calculation */
+}
+
+/* Content area - full width */
+.content-area {
+    min-width: 0; /* Allows content to shrink */
+    width: 100%;
+    flex: 1;
+}
+
+#report-container {
+    width: 100%;
+    max-width: none; /* Remove any max-width restrictions */
+}
+
+/* Mobile responsiveness - Hide table of contents */
+@media (max-width: 768px) {
+    .report-layout {
+        grid-template-columns: 1fr; /* Single column on mobile */
+        gap: 0;
+        padding: 0.75rem;
+    }
+    
+    .navigation-sidebar {
+        display: none; /* Hide table of contents on mobile */
+    }
+    
+    .content-area {
+        width: 100%;
+    }
+    
+    /* Adjust report container padding for mobile */
+    .content-area #report-container {
+        padding: 0.5rem;
+    }
+}
+
+/* Small tablet adjustments */
+@media (max-width: 480px) {
+    .report-layout {
+        padding: 0.5rem;
+    }
+    
+    .content-area #report-container {
+        padding: 0.25rem;
+    }
+}
+
+/* Tablet responsiveness */
+@media (max-width: 1024px) and (min-width: 769px) {
+    .report-layout {
+        grid-template-columns: 300px 1fr; /* Larger sidebar on tablet */
+        gap: 1.5rem;
+    }
+}
+
+/* ===== NAVIGATION PANEL STYLES ===== */
+
+/* Enhanced Navigation styling for left sidebar */
+#report-navigation-panel {
+    padding: 1rem;
+    background-color: var(--card-bg);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 6px var(--shadow);
+    width: 100%;
+    height: fit-content;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    box-sizing: border-box; /* Ensure padding is included in width calculation */
+}
+
+.nav-title {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.nav-title-vi, .nav-title-en {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+#report-nav-links {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#report-nav-links li {
+    margin-bottom: 0.15rem;
+}
+
+#report-nav-links a {
+    display: block;
+    padding: 0.5rem 0.75rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    font-size: 0.85rem;
+    font-weight: 500;
+    line-height: 1.3;
+    border-left: 3px solid transparent;
+}
+
+#report-nav-links a:hover {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    border-left-color: var(--accent-color);
+    transform: translateX(2px);
+}
+
+#report-nav-links a.active {
+    background-color: #3b82f6;
+    color: white;
+    font-weight: 600;
+    border-left-color: #1e40af;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.25);
+}
+
+/* ===== RESPONSIVE DESIGN FOR REPORT LAYOUT ===== */
+
+/* Language switching */
+.lang-content {
+    display: none;
+}
+
+.lang-content.active {
+    display: block;
+}
+
+/* Enhanced content area styles - these apply to both regular and sandboxed reports */
+.content-area #report-container {
+    width: 100%;
+    max-width: none;
+    padding: 1rem;
+}
+
+/* Ensure sections take full width */
+.content-area section {
+    width: 100%;
+    max-width: none;
+}
+
+/* Cards should expand to full available width */
+.content-area .report-card,
+.content-area .sub-card,
+.content-area .wide-card {
+    width: 100%;
+    max-width: none;
+}
+
+/* Grid layouts should use full width */
+.content-area .content-grid {
+    width: 100%;
+    max-width: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+}
+
+/* Mobile adjustments for content area */
+@media (max-width: 768px) {
+    .content-area #report-container {
+        padding: 0.75rem;
+    }
+    
+    .content-area .content-grid {
+        grid-template-columns: 1fr; /* Single column on mobile */
+        gap: 1rem;
     }
 }

@@ -84,7 +84,7 @@ async fn main() -> Result<()> {
     
     for handle in handles {
         match handle.await {
-            Ok(Ok(data)) => {
+            Ok(Ok(_data)) => {
                 successful_requests += 1;
                 // Check if data was promoted to L1
                 if !promoted_to_l1 {

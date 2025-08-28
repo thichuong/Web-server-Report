@@ -3,7 +3,6 @@
 //! This benchmark tests the maximum load capacity of the /crypto_report endpoint
 //! to determine how many requests it can handle per second with Cache Stampede protection.
 
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::time::sleep;
@@ -89,7 +88,7 @@ async fn run_gradual_ramp_up_test() -> Result<()> {
     
     // Ramp up from 10 to 100 concurrent clients over 1 second
     for batch in 1..=10 {
-        let batch_size = batch * 10; // 10, 20, 30, ..., 100
+        let _batch_size = batch * 10; // 10, 20, 30, ..., 100
         
         for _ in 0..10 { // 10 clients per batch
             let handle = tokio::spawn(async move {

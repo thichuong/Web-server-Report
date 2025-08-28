@@ -17,17 +17,15 @@ use crate::state::AppState;
 
 // Import from our specialized components
 use super::report_creator::{ReportSummary, ReportListItem, ReportCreator};
-use super::pdf_generator::PdfGenerator;
 use super::template_orchestrator::TemplateOrchestrator;
 
 /// Crypto Handlers
 /// 
 /// Contains all HTTP request handlers for crypto reports-related operations.
-/// These handlers manage crypto report generation, PDF creation, and API interactions.
+/// These handlers manage crypto report generation and API interactions.
 /// ONLY uses Template Engine like archive_old_code/handlers/crypto.rs
 pub struct CryptoHandlers {
     pub report_creator: ReportCreator,
-    pub pdf_generator: PdfGenerator,
     pub template_orchestrator: TemplateOrchestrator,
 }
 
@@ -39,7 +37,6 @@ impl CryptoHandlers {
         
         Self {
             report_creator,
-            pdf_generator: PdfGenerator::new(),
             template_orchestrator,
         }
     }
@@ -48,10 +45,9 @@ impl CryptoHandlers {
     pub async fn health_check(&self) -> bool {
         // Verify handlers are functioning properly
         let report_creator_ok = self.report_creator.health_check().await;
-        let pdf_generator_ok = self.pdf_generator.health_check().await;
         let template_orchestrator_ok = self.template_orchestrator.health_check().await;
         
-        report_creator_ok && pdf_generator_ok && template_orchestrator_ok
+        report_creator_ok && template_orchestrator_ok
     }
 
     /// Create cached response with proper headers
@@ -462,11 +458,27 @@ impl CryptoHandlers {
         }
     }
 
-    /// Generate PDF template for a specific crypto report by ID
+    /// Serve sandboxed report content for iframe
     /// 
-    /// Delegates to PdfGenerator component for clean architecture separation
-    pub async fn crypto_report_pdf_with_tera(&self, app_state: &Arc<AppState>, report_id: i32) -> Result<String, Box<dyn StdError + Send + Sync>> {
-        self.pdf_generator.crypto_report_pdf_with_tera(app_state, report_id).await
+    /// Delegates to ReportCreator for actual sandboxed content generation
+    pub async fn serve_sandboxed_report(
+        &self,
+        state: &Arc<AppState>,
+        report_id: i32,
+        sandbox_token: &str,
+        language: Option<&str>,
+        chart_modules_content: Option<&str>
+    ) -> Result<axum::response::Response, Box<dyn StdError + Send + Sync>> {
+        println!("🔒 CryptoHandlers: Delegating sandboxed content request to ReportCreator for report {} with token {}", report_id, sandbox_token);
+        
+        // Delegate to ReportCreator - proper separation of concerns
+        self.report_creator.serve_sandboxed_report(
+            state,
+            report_id,
+            sandbox_token,
+            language,
+            chart_modules_content
+        ).await
     }
 
     // NOTE: Crypto handlers implementation following archive_old_code/handlers/crypto.rs

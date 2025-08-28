@@ -4,10 +4,7 @@
 //! to demonstrate the fallback mechanism in action.
 
 use web_server_report::service_islands::layer2_external_services::external_apis_island::market_data_api::MarketDataApi;
-use reqwest::Client;
 use serde_json::Value;
-use std::sync::atomic::{AtomicUsize, AtomicU64, Ordering};
-use std::sync::Arc;
 
 // Custom API client that simulates failures
 struct FailureSimulatingApi {

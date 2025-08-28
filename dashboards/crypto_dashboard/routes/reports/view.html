@@ -10,14 +10,9 @@
     <link rel="stylesheet" href="/shared_assets/css/colors.css">
     <link rel="stylesheet" href="/shared_assets/css/style.css">
     <link rel="stylesheet" href="/shared_assets/css/chart.css">
-    <link rel="stylesheet" href="/shared_assets/css/report.css">
 
-    <!-- report-specific CSS inserted from DB -->
+    <!-- Report-specific CSS is now sandboxed inside iframe for security and isolation -->
     <style>
-        /* <![CDATA[ */
-        {{ report.css_content }}
-        /* ]]> */
-        
         /* Auto-loading enhancements */
         .loading-overlay {
             position: fixed;
@@ -85,6 +80,110 @@
             0%, 50% { opacity: 1; }
             51%, 100% { opacity: 0.3; }
         }
+        
+        /* Navigation Sidebar Styles - Left positioned within container */
+        #navigation-sidebar {
+            position: sticky;
+            top: 20px;
+            height: fit-content;
+            max-height: calc(100vh - 40px);
+            background: var(--card-bg, #ffffff);
+            border: 1px solid var(--border-color, #e5e7eb);
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: all 0.3s ease;
+            word-wrap: break-word;
+            min-width: 280px;
+            max-width: 320px;
+        }
+        
+        #navigation-sidebar.dark-theme {
+            background: var(--dark-card-bg, #1f2937);
+            border-color: var(--dark-border-color, #374151);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .nav-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color, #e5e7eb);
+        }
+        
+        .nav-title {
+            color: var(--text-primary, #1f2937);
+            font-weight: 600;
+            font-size: 1rem;
+            margin: 0;
+        }
+        
+        .nav-content {
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        
+        .nav-links {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            word-wrap: break-word;
+        }
+        
+        .nav-links li {
+            margin: 0;
+        }
+        
+        .nav-links a {
+            display: block;
+            padding: 0.75rem 1rem;
+            color: var(--text-secondary, #6b7280);
+            text-decoration: none;
+            border-left: 3px solid transparent;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            font-weight: 500;
+            line-height: 1.4;
+            word-wrap: break-word;
+            white-space: normal;
+            overflow-wrap: break-word;
+            hyphens: auto;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        
+        .nav-links a:hover {
+            background-color: var(--bg-secondary, #f9fafb);
+            color: var(--text-primary, #1f2937);
+            border-left-color: var(--accent-color, #3b82f6);
+            transform: translateX(2px);
+        }
+        
+        .nav-links a.active {
+            background-color: #3b82f6;
+            color: white;
+            font-weight: 600;
+            border-left-color: #1e40af;
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.25);
+        }
+        
+        .nav-links .nav-more span {
+            display: block;
+            padding: 0.5rem 1rem;
+            color: var(--text-muted, #9ca3af);
+            font-style: italic;
+            font-size: 0.8rem;
+        }
+        
+        /* Mobile responsive - hide navigation on mobile */
+        @media (max-width: 1024px) {
+            #navigation-sidebar {
+                display: none !important;
+            }
+            
+            .flex.gap-6 {
+                display: block;
+            }
+        }
     </style>
 </head>
 <body class="antialiased">
@@ -104,9 +203,9 @@
             </p>
             <div class="mt-6 flex items-center justify-center space-x-4">
                 <a href="/" class="inline-block bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700"><span data-i18n="home">Trang chủ</span></a>
-                <a href="{{ pdf_url }}" target="_blank" class="inline-block bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-green-700 transition-colors duration-300">
+                <!-- <a href="{{ pdf_url }}" target="_blank" class="inline-block bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-green-700 transition-colors duration-300">
                     <i class="fas fa-print mr-2"></i> <span data-i18n="print-report">In Báo cáo</span>
-                </a>
+                </a> -->
                 <a href="/crypto_reports_list" class="inline-block bg-gray-700 text-white font-bold py-3 px-6 rounded-lg"><span data-i18n="view-report-history">Lịch sử báo cáo</span></a>
             </div>
         </header>
@@ -171,25 +270,44 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-x-12 pb-96">
-            <aside class="hidden lg:block lg:col-span-1">
-                 <nav id="report-navigation-panel" class="sticky top-8">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-3 tracking-wide">Mục lục Báo cáo</h3>
-                    <ul id="report-nav-links" class="space-y-2">
-                        </ul>
-                </nav>
-            </aside>
-            <main id="report-container" class="lg:col-span-2">
-                <!-- Vietnamese report content injected from DB -->
-                <div id="report-content-vi">
-                    {{ report.html_content }}
-                </div>
-
-                <!-- English report content (optional) -->
-                <div id="report-content-en" style="display:none;">
-                    {{ report.html_content_en }}
-                </div>
-            </main>
+        <div class="w-full pb-96">
+            <!-- Navigation and content layout -->
+            <div class="flex gap-6">
+                <!-- Left navigation sidebar -->
+                <aside id="navigation-sidebar" class="w-80 flex-shrink-0 hidden">
+                    <!-- Navigation will be inserted here by JavaScript -->
+                </aside>
+                
+                <!-- Main report content -->
+                <main id="report-container" class="w-full flex-1">
+                    <!-- Single unified sandboxed iframe for both languages with navigation inside -->
+                    {% if report.id %}
+                        <iframe 
+                            id="report-iframe"
+                            src="/api/crypto_reports/{{ report.id }}/sandboxed?token={{ sandbox_token }}&lang=vi&chart_modules=true"
+                            width="100%" 
+                            height="400px"
+                            frameborder="0"
+                            scrolling="no"
+                            sandbox="allow-scripts allow-same-origin allow-popups"
+                            style="border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden;"
+                            loading="eager"
+                            onload="console.log('🔥 Parent: Iframe loaded successfully for report {{ report.id }}');">
+                            <!-- Fallback content for browsers that don't support iframes -->
+                            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+                                <p class="text-sm text-gray-700">
+                                    <strong>Iframe không được hỗ trợ:</strong> Trình duyệt của bạn không hỗ trợ iframe. Vui lòng sử dụng trình duyệt hiện đại hơn để xem báo cáo.
+                                </p>
+                            </div>
+                        </iframe>
+                    {% else %}
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+                            <h3 class="text-lg font-semibold text-gray-600 mb-2">Không có báo cáo</h3>
+                            <p class="text-gray-500">Chưa có báo cáo nào được tạo.</p>
+                        </div>
+                    {% endif %}
+                </main>
+            </div>
         </div>
     </div>
 
@@ -198,12 +316,553 @@
         {{ chart_modules_content }}
     </script>
 
-    <!-- report-specific JS inserted from DB -->
-    <script id="report-js">
-        {{ report.js_content }}
-    </script>
-    <script id="report-js-en">
-        {{ report.js_content_en }}
+    <!-- Iframe sandboxing functionality -->
+    <script>
+        // Global state for navigation
+        let currentNavigationData = null;
+        let currentActiveSection = null;
+        let navigationSidebar = null;
+        
+        // Listen for height messages from iframe content
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'iframe-height-change') {
+                handleIframeHeightChange(event);
+            } else if (event.data && event.data.type === 'navigation-data') {
+                handleNavigationData(event);
+            } else if (event.data && event.data.type === 'active-section-change') {
+                handleActiveSectionChange(event);
+            } else if (event.data && event.data.type === 'scroll-position') {
+                handleScrollPositionUpdate(event);
+            } else if (event.data && event.data.type === 'scroll-info-response') {
+                handleScrollInfoResponse(event);
+            } else if (event.data && event.data.type === 'active-section-response') {
+                handleActiveSectionResponse(event);
+            } else if (event.data && event.data.type === 'section-position-response') {
+                handleSectionPositionResponse(event);
+            } else if (event.data && event.data.type === 'request-current-scroll') {
+                handleCurrentScrollRequest(event);
+            }
+        });
+        
+        // Handle current scroll position request from iframe - NEW FUNCTION
+        function handleCurrentScrollRequest(event) {
+            console.log('📍 Parent: Received request for current scroll position');
+            
+            const iframe = document.getElementById('report-iframe');
+            if (!iframe || !iframe.contentWindow) {
+                console.warn('⚠️ Parent: No iframe found for scroll position update');
+                return;
+            }
+            
+            // Calculate current scroll data
+            const currentScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            const docHeight = document.documentElement.scrollHeight;
+            const winHeight = window.innerHeight;
+            const scrollPercent = docHeight > winHeight ? (currentScrollTop / (docHeight - winHeight)) * 100 : 0;
+            
+            // Calculate iframe's position relative to parent window
+            const iframeRect = iframe.getBoundingClientRect();
+            const iframeOffsetTop = iframeRect.top + currentScrollTop;
+            
+            console.log('📤 Parent: Sending current scroll position to iframe:', {
+                scrollTop: currentScrollTop,
+                iframeOffsetTop: iframeOffsetTop,
+                scrollPercent: scrollPercent
+            });
+            
+            // Update scroll progress bar immediately
+            handleScrollPositionUpdate({
+                data: {
+                    scrollPercent: scrollPercent,
+                    scrollTop: currentScrollTop
+                }
+            });
+            
+            // Send current scroll position to iframe
+            iframe.contentWindow.postMessage({
+                type: 'parent-scroll-update',
+                scrollTop: currentScrollTop,
+                iframeOffsetTop: iframeOffsetTop,
+                iframeRect: {
+                    top: iframeRect.top,
+                    height: iframeRect.height,
+                    bottom: iframeRect.bottom
+                },
+                viewportHeight: winHeight
+            }, '*');
+        }
+        
+        // Handle section position response from iframe - NEW FUNCTION
+        function handleSectionPositionResponse(event) {
+            const { sectionId, offsetTop, success, error } = event.data;
+            
+            if (!success) {
+                console.error('❌ Parent: Could not get section position:', error);
+                return;
+            }
+            
+            console.log('📍 Parent: Section position received - sectionId:', sectionId, 'offsetTop:', offsetTop);
+            
+            // Calculate scroll position relative to iframe position
+            const iframe = document.getElementById('report-iframe');
+            if (!iframe) return;
+            
+            const iframeRect = iframe.getBoundingClientRect();
+            const parentScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            
+            // Calculate target scroll position
+            const targetScrollTop = parentScrollTop + iframeRect.top + offsetTop - 100; // 100px offset for better visibility
+            
+            console.log('🚀 Parent: Scrolling to position:', targetScrollTop);
+            
+            // Smooth scroll to target position
+            window.scrollTo({
+                top: targetScrollTop,
+                behavior: 'smooth'
+            });
+            
+            // Update navigation highlighting
+            updateSidebarNavigationActive(sectionId);
+            currentActiveSection = sectionId;
+            
+            console.log('✅ Parent: Navigation completed for section:', sectionId);
+        }
+        
+        // Handle iframe height change with enhanced logging
+        function handleIframeHeightChange(event) {
+            const iframe = document.getElementById('report-iframe');
+            if (iframe && iframe.contentWindow === event.source) {
+                const newHeight = event.data.height;
+                const reason = event.data.reason || 'Unknown';
+                
+                console.log(`📏 Parent: Setting iframe height to ${newHeight}px (${reason})`);
+                iframe.style.height = newHeight + 'px';
+                
+                // Remove any fixed height and scrolling from iframe
+                iframe.style.overflow = 'hidden';
+                iframe.scrolling = 'no';
+            }
+        }
+        
+        // Handle navigation data from iframe
+        function handleNavigationData(event) {
+            console.log('🧭 Parent: Received navigation data:', event.data);
+            
+            // Validate navigation data
+            if (!event.data || !event.data.sections || event.data.sections.length === 0) {
+                console.warn('⚠️ Parent: Invalid or empty navigation data received');
+                return;
+            }
+            
+            currentNavigationData = event.data;
+            console.log('📊 Parent: Processing', currentNavigationData.sections.length, 'navigation sections');
+            createSidebarNavigation();
+        }
+        
+        // Handle active section change from iframe
+        function handleActiveSectionChange(event) {
+            currentActiveSection = event.data.activeSection;
+            updateSidebarNavigationActive(event.data.activeSection);
+        }
+        
+        // Handle scroll position updates from iframe
+        function handleScrollPositionUpdate(event) {
+            const scrollData = event.data;
+            const sidebar = document.getElementById('navigation-sidebar');
+            
+            if (sidebar) {
+                // Update scroll progress bar
+                const scrollIndicator = sidebar.querySelector('.scroll-indicator');
+                const scrollProgressText = sidebar.querySelector('.scroll-progress-text');
+                
+                if (scrollIndicator) {
+                    scrollIndicator.style.width = scrollData.scrollPercent + '%';
+                }
+                
+                if (scrollProgressText) {
+                    const isVietnamese = currentNavigationData && currentNavigationData.language === 'vi';
+                    const progressText = isVietnamese ? 'Đọc' : 'Read';
+                    scrollProgressText.textContent = `${progressText}: ${Math.round(scrollData.scrollPercent)}%`;
+                }
+                
+                // Optionally log scroll updates (can be disabled for performance)
+                if (window.debugScrollTracking) {
+                    console.log('📜 Parent: Iframe scroll - Top:', scrollData.scrollTop, 
+                               'Percent:', scrollData.scrollPercent + '%');
+                }
+            }
+        }
+        
+        // Handle scroll info response from iframe
+        function handleScrollInfoResponse(event) {
+            const scrollData = event.data;
+            
+            // Update progress bar
+            handleScrollPositionUpdate(event);
+            
+            // Update active section if provided
+            if (scrollData.activeSection) {
+                updateSidebarNavigationActive(scrollData.activeSection);
+            }
+        }
+        
+        // Handle active section response (simplified)
+        function handleActiveSectionResponse(event) {
+            const data = event.data;
+            
+            if (data.activeSection) {
+                currentActiveSection = data.activeSection;
+                updateSidebarNavigationActive(data.activeSection);
+                
+                const reason = data.reason || 'scroll';
+                console.log(`📍 Parent: Updated active section to "${data.activeSection}" (${reason})`);
+                
+                // Log debug info if available
+                if (data.debug) {
+                    console.log('🔍 Debug info:', data.debug);
+                }
+            }
+        }
+        
+        // Create navigation in left sidebar - SIMPLIFIED
+        function createSidebarNavigation() {
+            if (!currentNavigationData || !currentNavigationData.sections) {
+                console.log('🧭 Parent: No navigation data available');
+                return;
+            }
+            
+            navigationSidebar = document.getElementById('navigation-sidebar');
+            if (!navigationSidebar) {
+                console.warn('⚠️ Parent: Navigation sidebar element not found');
+                return;
+            }
+            
+            console.log('🧭 Parent: Creating navigation with', currentNavigationData.sections.length, 'sections');
+            
+            // Show navigation sidebar
+            navigationSidebar.classList.remove('hidden');
+            
+            // Create navigation HTML with proper escaping
+            const escapeHtml = (text) => {
+                const div = document.createElement('div');
+                div.textContent = text || '';
+                return div.innerHTML;
+            };
+            
+            const navHTML = `
+                <div class="nav-header">
+                    <h3 class="nav-title">📋 Mục lục Báo cáo</h3>
+                    <div class="scroll-progress-container mb-3">
+                        <div class="scroll-progress-bar bg-gray-200 h-2 rounded-full relative overflow-hidden">
+                            <div class="scroll-indicator bg-blue-500 h-full rounded-full transition-all duration-300" style="width: 0%;"></div>
+                        </div>
+                        <span class="scroll-progress-text text-xs text-gray-500 mt-1 block">Đọc: 0%</span>
+                    </div>
+                </div>
+                <div class="nav-content">
+                    <ul class="nav-links">
+                        ${currentNavigationData.sections.map((section, index) => {
+                            const safeSectionId = escapeHtml(section.id);
+                            const safeSectionTitle = escapeHtml(section.title);
+                            return `
+                            <li>
+                                <a href="#${safeSectionId}" 
+                                   data-section-id="${safeSectionId}" 
+                                   title="${safeSectionTitle}">
+                                    ${safeSectionTitle}
+                                </a>
+                            </li>`;
+                        }).join('')}
+                    </ul>
+                </div>
+            `;
+            
+            navigationSidebar.innerHTML = navHTML;
+            
+            // Remove any existing event listeners to prevent duplicates
+            navigationSidebar.removeEventListener('click', handleSidebarNavClick);
+            
+            // Add single click handler to sidebar
+            navigationSidebar.addEventListener('click', handleSidebarNavClick);
+            
+            console.log('✅ Parent: Navigation created successfully');
+            console.log('🔗 Parent: Event listener attached to navigation sidebar');
+        }
+        
+        // Handle sidebar navigation clicks - PARENT SCROLL VERSION
+        function handleSidebarNavClick(event) {
+            console.log('🔴 Parent: Click detected on navigation sidebar:', event.target);
+            
+            // Find the clicked navigation link
+            const link = event.target.closest('a[data-section-id]');
+            if (!link) {
+                console.log('❌ Parent: No navigation link found in click target');
+                return;
+            }
+            
+            // Prevent default link behavior only after we confirm it's a valid navigation link
+            event.preventDefault();
+            event.stopPropagation();
+            
+            const sectionId = link.getAttribute('data-section-id');
+            if (!sectionId) {
+                console.log('❌ Parent: No section ID found on clicked link');
+                return;
+            }
+            
+            console.log('🎯 Parent: Navigating to section:', sectionId);
+            
+            // Request section position from iframe
+            const iframe = document.getElementById('report-iframe');
+            if (iframe && iframe.contentWindow) {
+                console.log('📤 Parent: Sending get-section-position request for:', sectionId);
+                iframe.contentWindow.postMessage({
+                    type: 'get-section-position',
+                    sectionId: sectionId
+                }, '*');
+            } else {
+                console.error('❌ Parent: Iframe not found or contentWindow unavailable');
+            }
+        }
+        
+        // Update active navigation item
+        function updateSidebarNavigationActive(sectionId) {
+            const sidebar = document.getElementById('navigation-sidebar');
+            if (!sidebar) return;
+            
+            const links = sidebar.querySelectorAll('a[data-section-id]');
+            let foundMatch = false;
+            
+            links.forEach(link => {
+                const isActive = link.getAttribute('data-section-id') === sectionId;
+                link.classList.toggle('active', isActive);
+                if (isActive) foundMatch = true;
+            });
+            
+            if (foundMatch) {
+                console.log('✅ Parent: Successfully highlighted navigation for section:', sectionId);
+            } else {
+                console.warn('⚠️ Parent: No navigation link found for section:', sectionId);
+                // List all available section IDs for debugging
+                const availableSections = Array.from(links).map(link => link.getAttribute('data-section-id'));
+                console.log('Available sections:', availableSections);
+            }
+        }
+
+        // Auto-resize iframe based on content (fallback method) - Enhanced version
+        function autoResizeIframe(iframe) {
+            try {
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                if (!iframeDoc) {
+                    console.warn('Cannot access iframe document - using fallback height');
+                    iframe.style.height = '800px';
+                    return;
+                }
+                
+                const body = iframeDoc.body;
+                const html = iframeDoc.documentElement;
+                
+                const height = Math.max(
+                    body.scrollHeight,
+                    body.offsetHeight,
+                    html.clientHeight,
+                    html.scrollHeight,
+                    html.offsetHeight
+                );
+                
+                // Set iframe height and remove scrolling
+                iframe.style.height = Math.max(height + 20, 400) + 'px'; // Add small buffer
+                iframe.style.overflow = 'hidden';
+                iframe.scrolling = 'no';
+                
+                console.log(`📏 Parent: Auto-resized iframe to ${height}px`);
+            } catch (e) {
+                console.warn('Cannot resize iframe due to cross-origin restrictions:', e);
+                // Set a reasonable default height and remove scrolling
+                iframe.style.height = '800px';
+                iframe.style.overflow = 'hidden';
+                iframe.scrolling = 'no';
+            }
+        }
+
+        // Initialize iframe functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const iframe = document.getElementById('report-iframe');
+            
+            if (iframe) {
+                console.log('🚀 Parent: Initializing iframe for report loading...');
+                
+                // Configure iframe for auto-resize
+                iframe.style.overflow = 'hidden';
+                iframe.scrolling = 'no';
+                
+                // Add error handling for iframe
+                iframe.addEventListener('error', function() {
+                    console.error('❌ Parent: Iframe failed to load');
+                });
+                
+                // Add scroll detection using Intersection Observer for better accuracy
+                function startScrollTracking() {
+                    // Simple scroll tracking based on parent window scroll
+                    let lastScrollTop = 0;
+                    let activeSectionCheckTimeout;
+                    
+                    function handleParentScroll() {
+                        const currentScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                        const docHeight = document.documentElement.scrollHeight;
+                        const winHeight = window.innerHeight;
+                        const scrollPercent = docHeight > winHeight ? (currentScrollTop / (docHeight - winHeight)) * 100 : 0;
+                        
+                        // Update progress bar immediately
+                        const sidebar = document.getElementById('navigation-sidebar');
+                        if (sidebar) {
+                            const scrollIndicator = sidebar.querySelector('.scroll-indicator');
+                            const scrollProgressText = sidebar.querySelector('.scroll-progress-text');
+                            
+                            if (scrollIndicator) {
+                                scrollIndicator.style.width = scrollPercent + '%';
+                            }
+                            
+                            if (scrollProgressText) {
+                                const isVietnamese = currentNavigationData && currentNavigationData.language === 'vi';
+                                const progressText = isVietnamese ? 'Đọc' : 'Read';
+                                scrollProgressText.textContent = `${progressText}: ${Math.round(scrollPercent)}%`;
+                            }
+                        }
+                        
+                        // Send scroll update to iframe for better active section detection
+                        if (iframe && iframe.contentWindow) {
+                            // Calculate iframe's position relative to parent window
+                            const iframeRect = iframe.getBoundingClientRect();
+                            const iframeOffsetTop = iframeRect.top + currentScrollTop;
+                            
+                            iframe.contentWindow.postMessage({
+                                type: 'parent-scroll-update',
+                                scrollTop: currentScrollTop,
+                                iframeOffsetTop: iframeOffsetTop,
+                                iframeRect: {
+                                    top: iframeRect.top,
+                                    height: iframeRect.height,
+                                    bottom: iframeRect.bottom
+                                },
+                                viewportHeight: winHeight
+                            }, '*');
+                        }
+                        
+                        
+                        lastScrollTop = currentScrollTop;
+                    }
+                    
+                    // Listen to parent window scroll with throttling
+                    let scrollTimeout;
+                    window.addEventListener('scroll', () => {
+                        clearTimeout(scrollTimeout);
+                        scrollTimeout = setTimeout(handleParentScroll, 16); // ~60fps
+                    }, { passive: true });
+                    
+                    
+                    console.log('📜 Parent: Started enhanced scroll tracking with iframe communication');
+                }
+                
+                iframe.addEventListener('load', function() {
+                    console.log('✅ Parent: Iframe loaded successfully');
+                    
+                    // The iframe will send height via postMessage
+                    // Also try direct access as fallback
+                    setTimeout(() => {
+                        autoResizeIframe(iframe);
+                    }, 200);
+                    
+                    // Send initial theme to iframe
+                    setTimeout(() => {
+                        const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+                        if (iframe.contentWindow) {
+                            iframe.contentWindow.postMessage({
+                                type: 'theme-change',
+                                theme: currentTheme
+                            }, '*');
+                        }
+                    }, 200);
+                    
+                    // Start scroll tracking after iframe loads
+                    setTimeout(() => {
+                        startScrollTracking();
+                        console.log('📜 Parent: Started scroll tracking');
+                    }, 200);
+                });
+                
+                // Force load iframe immediately if it hasn't started loading
+                setTimeout(() => {
+                    if (!iframe.src || iframe.src === 'about:blank') {
+                        console.warn('⚠️ Parent: Iframe src not set, attempting to reload...');
+                        iframe.src = iframe.getAttribute('src') || iframe.src;
+                    }
+                }, 100);
+            } else {
+                console.warn('⚠️ Parent: No iframe found on page - report may be empty');
+            }
+        });
+
+        // Language and theme switching for iframe
+        window.addEventListener('languageChanged', function(event) {
+            const iframe = document.getElementById('report-iframe');
+            if (iframe && iframe.contentWindow) {
+                // Send language change message to iframe
+                iframe.contentWindow.postMessage({
+                    type: 'language-change',
+                    language: event.detail.language
+                }, '*');
+            }
+            
+            // Update sidebar navigation language
+            if (navigationSidebar) {
+                const navTitleVi = navigationSidebar.querySelector('.nav-title-vi');
+                const navTitleEn = navigationSidebar.querySelector('.nav-title-en');
+                const scrollProgressText = navigationSidebar.querySelector('.scroll-progress-text');
+                
+                if (navTitleVi && navTitleEn) {
+                    if (event.detail.language === 'en') {
+                        navTitleVi.style.display = 'none';
+                        navTitleEn.style.display = 'inline';
+                    } else {
+                        navTitleVi.style.display = 'inline';
+                        navTitleEn.style.display = 'none';
+                    }
+                }
+                
+                // Update scroll progress text language
+                if (scrollProgressText) {
+                    const currentText = scrollProgressText.textContent;
+                    const percentMatch = currentText.match(/(\d+)%/);
+                    const percent = percentMatch ? percentMatch[1] : '0';
+                    const progressText = event.detail.language === 'en' ? 'Read' : 'Đọc';
+                    scrollProgressText.textContent = `${progressText}: ${percent}%`;
+                }
+            }
+        });
+
+        // Theme switching for iframe and sidebar navigation
+        window.addEventListener('themeChanged', function(event) {
+            const iframe = document.getElementById('report-iframe');
+            if (iframe && iframe.contentWindow) {
+                // Send theme change message to iframe
+                iframe.contentWindow.postMessage({
+                    type: 'theme-change',
+                    theme: event.detail.theme
+                }, '*');
+            }
+            
+            // Apply theme to sidebar navigation
+            if (navigationSidebar) {
+                if (event.detail.theme === 'dark') {
+                    navigationSidebar.classList.add('dark-theme');
+                    navigationSidebar.classList.remove('light-theme');
+                } else {
+                    navigationSidebar.classList.add('light-theme');
+                    navigationSidebar.classList.remove('dark-theme');
+                }
+            }
+        });
     </script>
 
     <script src="/shared_components/core/theme-manager.js" defer></script>
