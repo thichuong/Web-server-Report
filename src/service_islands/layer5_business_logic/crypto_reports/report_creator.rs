@@ -565,10 +565,18 @@ impl ReportCreator {
                 }}
 
                 // Find all sections in active content
-                const reportSections = activeContent.querySelectorAll('section');
-                console.log('🧭 Iframe: Found', reportSections.length, 'sections for navigation');
+                const allSections = activeContent.querySelectorAll('section');
+                console.log('🧭 Iframe: Found', allSections.length, 'total sections');
 
-                // Build navigation links
+                // Limit sections to prevent overflow - show max 12 sections to avoid scrolling
+                const maxSections = 12;
+                const reportSections = Array.from(allSections).slice(0, maxSections);
+                
+                if (allSections.length > maxSections) {{
+                    console.log('🧭 Iframe: Limiting navigation to first', maxSections, 'sections out of', allSections.length);
+                }}
+
+                // Build navigation links with truncated text
                 reportSections.forEach((section, index) => {{
                     const h2 = section.querySelector('h2');
                     if (h2 && section.id) {{
@@ -580,7 +588,16 @@ impl ReportCreator {
                         const h2Text = h2.cloneNode(true);
                         const icon = h2Text.querySelector('i');
                         if (icon && icon.parentNode) icon.parentNode.removeChild(icon);
-                        a.textContent = h2Text.textContent.trim();
+                        
+                        // Truncate text if too long to prevent wrapping
+                        let linkText = h2Text.textContent.trim();
+                        const maxLength = 35; // Adjust based on sidebar width
+                        if (linkText.length > maxLength) {{
+                            linkText = linkText.substring(0, maxLength) + '...';
+                        }}
+                        
+                        a.textContent = linkText;
+                        a.title = h2Text.textContent.trim(); // Full text in tooltip
                         
                         // Smooth scroll on click
                         a.addEventListener('click', (e) => {{
@@ -605,6 +622,23 @@ impl ReportCreator {
                 const navLinks = navLinksContainer.querySelectorAll('a');
                 console.log('🧭 Iframe: Created', navLinks.length, 'navigation links');
 
+                // Add "Show More" link if there are more sections
+                if (allSections.length > maxSections) {{
+                    const li = document.createElement('li');
+                    const a = document.createElement('a');
+                    a.href = '#';
+                    a.textContent = `+ ${{allSections.length - maxSections}} phần khác`;
+                    a.style.fontStyle = 'italic';
+                    a.style.color = 'var(--text-muted)';
+                    a.addEventListener('click', (e) => {{
+                        e.preventDefault();
+                        // Could implement expand functionality here
+                        console.log('🧭 User clicked show more sections');
+                    }});
+                    li.appendChild(a);
+                    navLinksContainer.appendChild(li);
+                }}
+
                 // Set up intersection observer for active highlighting
                 const observer = new IntersectionObserver(() => {{
                     const viewportHeight = window.innerHeight;
@@ -613,7 +647,7 @@ impl ReportCreator {
                     let bestSection = null;
                     let bestTop = -Infinity;
 
-                    // Find best section that's in view
+                    // Find best section that's in view (only from visible sections)
                     reportSections.forEach(section => {{
                         const rect = section.getBoundingClientRect();
                         if (rect.bottom <= 0 || rect.top >= viewportHeight) return;
@@ -650,7 +684,7 @@ impl ReportCreator {
                     threshold: [0, 0.1, 0.25, 0.5, 1.0]
                 }});
 
-                // Observe all sections
+                // Observe visible sections only
                 reportSections.forEach(section => {{
                     observer.observe(section);
                 }});

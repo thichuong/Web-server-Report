@@ -10,7 +10,6 @@
     <link rel="stylesheet" href="/shared_assets/css/colors.css">
     <link rel="stylesheet" href="/shared_assets/css/style.css">
     <link rel="stylesheet" href="/shared_assets/css/chart.css">
-    <link rel="stylesheet" href="/shared_assets/css/report.css">
 
     <!-- Report-specific CSS is now sandboxed inside iframe for security and isolation -->
     <style>
@@ -167,7 +166,7 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-1 gap-x-12 pb-96">
+        <div class="w-full pb-96">
             <main id="report-container" class="w-full">
                 <!-- Single unified sandboxed iframe for both languages with navigation inside -->
                 {% if report.id %}
