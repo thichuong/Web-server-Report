@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sandboxed Report #{{report_id}}</title>
-    
+    <script src="https://cdn.tailwindcss.com"></script>
     <!-- External resources needed for iframe -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" crossorigin="anonymous">
     
     <link rel="stylesheet" href="/shared_assets/css/colors.css">
     <link rel="stylesheet" href="/shared_assets/css/chart.css">
@@ -22,6 +22,24 @@
             max-width: 100%;
             overflow-x: hidden;
         }
+        
+        /* Fallback styles for Font Awesome icons if CDN fails */
+        .fa, .fas, .far, .fal, .fab {
+            font-family: 'Font Awesome 6 Free', 'Font Awesome 6 Pro', 'Font Awesome 5 Free', 'Font Awesome 5 Pro', sans-serif;
+            font-weight: 900;
+            font-style: normal;
+            text-rendering: auto;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        /* Fallback content for common icons if Font Awesome fails */
+        .fa-chart-line:before { content: "📈"; }
+        .fa-coins:before { content: "🪙"; }
+        .fa-arrow-up:before { content: "↑"; }
+        .fa-arrow-down:before { content: "↓"; }
+        .fa-info-circle:before { content: "ℹ️"; }
+        .fa-warning:before { content: "⚠️"; }
         
         /* Report-specific CSS from database will be injected here */
         .sandboxed-report-container {
@@ -375,6 +393,28 @@
         // Initialize charts for default language when page loads
         document.addEventListener('DOMContentLoaded', function() {
             console.log('📄 Iframe: DOM loaded, initializing default language charts:', currentLanguage);
+            
+            // Check Font Awesome loading status
+            setTimeout(() => {
+                const testIcon = document.createElement('i');
+                testIcon.className = 'fas fa-test-icon';
+                testIcon.style.display = 'none';
+                document.body.appendChild(testIcon);
+                
+                const computedStyle = window.getComputedStyle(testIcon, ':before');
+                const fontFamily = computedStyle.getPropertyValue('font-family');
+                
+                if (fontFamily.includes('Font Awesome')) {
+                    console.log('✅ Iframe: Font Awesome loaded successfully');
+                } else {
+                    console.warn('⚠️ Iframe: Font Awesome failed to load, using fallback icons');
+                    
+                    // Add fallback class to body for CSS targeting
+                    document.body.classList.add('fa-fallback');
+                }
+                
+                document.body.removeChild(testIcon);
+            }, 500);
             
             // Apply initial theme based on parent page
             const parentTheme = '{{default_lang}}' === 'en' ? 'light' : 'light'; // Default to light
