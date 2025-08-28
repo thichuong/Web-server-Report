@@ -222,8 +222,8 @@ impl CryptoDataService {
     pub async fn cache_rendered_report_compressed(&self, state: &Arc<AppState>, report_id: i32, compressed_data: Vec<u8>) -> Result<(), anyhow::Error> {
         if let Some(ref cache_system) = state.cache_system {
             let cache_key = format!("compressed_report_{}", report_id);
-            // Sử dụng chiến lược cache MediumTerm (15 phút) cho compressed data vì nó đã được optimize
-            let strategy = crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::MediumTerm;
+            // Sử dụng chiến lược cache ShortTerm (5 phút) cho compressed data vì nó đã được optimize
+            let strategy = crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm;
             let compressed_json = serde_json::to_value(&compressed_data).unwrap_or_default();
             cache_system.cache_manager.set_with_strategy(&cache_key, compressed_json, strategy).await?;
             let report_type = if report_id == -1 { "latest report" } else { &format!("report #{}", report_id) };
