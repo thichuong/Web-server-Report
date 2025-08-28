@@ -180,32 +180,103 @@
             }
         }
         
-        // Listen for messages from parent window
+        // Listen for messages from parent window - POSITION-BASED VERSION
         window.addEventListener('message', function(event) {
-            if (event.data && event.data.type === 'language-change') {
-                console.log('📨 Iframe: Received language change message:', event.data.language);
-                switchLanguage(event.data.language);
-            } else if (event.data && event.data.type === 'theme-change') {
-                console.log('🎨 Iframe: Received theme change message:', event.data.theme);
-                applyTheme(event.data.theme);
-            } else if (event.data && event.data.type === 'scroll-to-section') {
-                console.log('🎯 Iframe: Received scroll request:', event.data.sectionId);
-                scrollToSection(event.data.sectionId);
-            } else if (event.data && event.data.type === 'get-scroll-info') {
-                // Parent is asking for current scroll information
-                sendScrollInfoToParent();
-            } else if (event.data && event.data.type === 'parent-scroll-update') {
-                // Parent window scrolled, update active sections based on visibility
-                handleParentScroll(event.data);
-            } else if (event.data && event.data.type === 'get-active-section') {
-                // Parent asking for current active section
-                sendActiveSectionToParent();
+            const messageType = event.data?.type;
+            console.log('📨 Iframe: Message received:', messageType);
+            
+            switch (messageType) {
+                case 'language-change':
+                    console.log('🌐 Iframe: Language change to:', event.data.language);
+                    switchLanguage(event.data.language);
+                    break;
+                    
+                case 'theme-change':
+                    console.log('🎨 Iframe: Theme change to:', event.data.theme);
+                    applyTheme(event.data.theme);
+                    break;
+                    
+                case 'get-section-position':
+                    console.log('📍 Iframe: Section position request for:', event.data.sectionId);
+                    getSectionPositionForParent(event.data.sectionId);
+                    break;
+                    
+                case 'parent-scroll-update':
+                    console.log('📜 Iframe: Parent scroll update:', event.data.scrollPercent + '%');
+                    handleParentScrollUpdate(event.data);
+                    break;
+                    
+                case 'get-active-section':
+                    console.log('🔍 Iframe: Active section request');
+                    sendActiveSectionToParent();
+                    break;
+                    
+                default:
+                    if (messageType) {
+                        console.log('❓ Iframe: Unknown message type:', messageType);
+                    }
+                    break;
             }
         });
         
-        // Function to scroll to a specific section (called by parent)
-        function scrollToSection(sectionId) {
+        // Get section position and send to parent - NEW FUNCTION
+        function getSectionPositionForParent(sectionId) {
+            console.log('🚀 Iframe: Getting position for section:', sectionId);
+            
             try {
+                const targetSection = document.getElementById(sectionId);
+                
+                if (!targetSection) {
+                    console.error('❌ Iframe: Section not found:', sectionId);
+                    
+                    // Send error response to parent
+                    parent.postMessage({
+                        type: 'section-position-response',
+                        sectionId: sectionId,
+                        success: false,
+                        error: 'Section not found'
+                    }, '*');
+                    return;
+                }
+                
+                // Get element's offset position within iframe
+                const offsetTop = targetSection.offsetTop;
+                
+                console.log('✅ Iframe: Section found at offsetTop:', offsetTop);
+                
+                // Send position to parent
+                parent.postMessage({
+                    type: 'section-position-response',
+                    sectionId: sectionId,
+                    offsetTop: offsetTop,
+                    success: true
+                }, '*');
+                
+                // Also update internal active section
+                window.currentActiveSectionId = sectionId;
+                
+                console.log('📡 Iframe: Section position sent to parent');
+                
+            } catch (error) {
+                console.error('❌ Iframe: Error getting section position:', error);
+                
+                // Send error response to parent
+                parent.postMessage({
+                    type: 'section-position-response',
+                    sectionId: sectionId,
+                    success: false,
+                    error: error.message
+                }, '*');
+            }
+        }
+        
+        // Handle parent scroll updates - SIMPLIFIED VERSION
+        function handleParentScrollUpdate(scrollData) {
+            try {
+                console.log('📜 Iframe: Processing parent scroll update:', scrollData);
+                
+                const { scrollPercent, scrollTop } = scrollData;
+                
                 // Find active content container
                 const viContainer = document.getElementById('content-vi');
                 const enContainer = document.getElementById('content-en');
@@ -214,29 +285,58 @@
                 if (viContainer || enContainer) {
                     const viVisible = viContainer && window.getComputedStyle(viContainer).display !== 'none';
                     const enVisible = enContainer && window.getComputedStyle(enContainer).display !== 'none';
+                    
                     if (viVisible) activeContent = viContainer;
                     else if (enVisible) activeContent = enContainer;
                     else activeContent = viContainer || enContainer || activeContent;
                 }
 
-                const target = activeContent.querySelector(`#${sectionId}`);
-                if (target) {
-                    console.log('🎯 Iframe: Scrolling to section:', sectionId);
-                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                const sections = Array.from(activeContent.querySelectorAll('section[id]'));
+                if (sections.length === 0) {
+                    console.warn('🚨 Iframe: No sections found for scroll update');
+                    return;
+                }
+                
+                // Estimate active section based on scroll percentage
+                // This is a simple mapping: scroll % → section index
+                const sectionIndex = Math.floor((scrollPercent / 100) * sections.length);
+                const clampedIndex = Math.max(0, Math.min(sectionIndex, sections.length - 1));
+                const estimatedActiveSection = sections[clampedIndex];
+                
+                if (estimatedActiveSection && estimatedActiveSection.id) {
+                    // Update global state
+                    window.currentActiveSectionId = estimatedActiveSection.id;
                     
-                    // Update active state in iframe navigation (if still visible)
+                    console.log(`📐 Iframe: Estimated active section from ${scrollPercent.toFixed(1)}% scroll: ${estimatedActiveSection.id} (section ${clampedIndex + 1}/${sections.length})`);
+                    
+                    // Update iframe navigation if exists
                     const navLinksContainer = document.getElementById('report-nav-links');
                     if (navLinksContainer) {
                         navLinksContainer.querySelectorAll('a').forEach(link => {
-                            const isTarget = link.getAttribute('href') === `#${sectionId}`;
-                            link.classList.toggle('active', isTarget);
+                            const linkHref = link.getAttribute('href');
+                            const isActive = linkHref === `#${estimatedActiveSection.id}`;
+                            link.classList.toggle('active', isActive);
                         });
                     }
-                } else {
-                    console.warn('⚠️ Iframe: Section not found:', sectionId);
+                    
+                    // Send response to parent
+                    if (window.parent && window.parent !== window) {
+                        window.parent.postMessage({
+                            type: 'active-section-response',
+                            activeSection: estimatedActiveSection.id,
+                            language: currentLanguage,
+                            reason: 'scroll-estimation',
+                            debug: {
+                                scrollPercent: scrollPercent.toFixed(1),
+                                sectionIndex: clampedIndex,
+                                totalSections: sections.length
+                            }
+                        }, '*');
+                    }
                 }
+                
             } catch (error) {
-                console.error('❌ Iframe: Error scrolling to section:', error);
+                console.error('❌ Iframe: Error handling parent scroll update:', error);
             }
         }
         
@@ -582,11 +682,14 @@
             return bestSection;
         }
         
-        // Send current active section to parent (simplified)
+        // Send current active section to parent (completely rewritten for accuracy)
         function sendActiveSectionToParent() {
             try {
                 const reportContainer = document.getElementById('report-container');
-                if (!reportContainer) return;
+                if (!reportContainer) {
+                    console.warn('🚨 Iframe: No report container found');
+                    return;
+                }
 
                 // Find active content based on current language
                 const viContainer = document.getElementById('content-vi');
@@ -596,36 +699,92 @@
                 if (viContainer || enContainer) {
                     const viVisible = viContainer && window.getComputedStyle(viContainer).display !== 'none';
                     const enVisible = enContainer && window.getComputedStyle(enContainer).display !== 'none';
-                    if (viVisible) activeContent = viContainer;
-                    else if (enVisible) activeContent = enContainer;
-                    else activeContent = viContainer || enContainer || reportContainer;
+                    
+                    if (viVisible) {
+                        activeContent = viContainer;
+                        console.log('🌐 Iframe: Using Vietnamese content');
+                    } else if (enVisible) {
+                        activeContent = enContainer;
+                        console.log('🌐 Iframe: Using English content');
+                    } else {
+                        activeContent = viContainer || enContainer || reportContainer;
+                        console.log('🌐 Iframe: Using fallback content');
+                    }
                 }
 
-                const sections = Array.from(activeContent.querySelectorAll('section'));
-                if (sections.length === 0) return;
+                const sections = Array.from(activeContent.querySelectorAll('section[id]'));
+                if (sections.length === 0) {
+                    console.warn('🚨 Iframe: No sections with ID found');
+                    return;
+                }
 
-                // Since iframe doesn't scroll, estimate which section should be active
-                // based on parent document scroll position relative to iframe position
+                console.log(`📋 Iframe: Found ${sections.length} sections:`, sections.map(s => s.id));
+
+                // Since iframe can't scroll, we need a different approach
+                // We'll use a simple cycling system or respond to parent requests
                 let activeSection = sections[0]; // Default to first section
                 
-                // Try to get parent scroll info through DOM
-                try {
-                    const parentWindow = window.parent;
-                    if (parentWindow && parentWindow !== window) {
-                        // For now, use a simple approach - cycle through sections based on time or use first section
-                        // This could be improved with better parent-iframe communication
-                        activeSection = sections[0];
+                // Check if we have a globally stored active section
+                if (window.currentActiveSectionId) {
+                    const storedSection = sections.find(s => s.id === window.currentActiveSectionId);
+                    if (storedSection) {
+                        activeSection = storedSection;
+                        console.log('📌 Iframe: Using stored active section:', window.currentActiveSectionId);
                     }
-                } catch (e) {
-                    // Cross-origin restrictions, use default
                 }
                 
-                if (activeSection && activeSection.id && window.parent && window.parent !== window) {
-                    window.parent.postMessage({
-                        type: 'active-section-response',
-                        activeSection: activeSection.id,
-                        language: currentLanguage
-                    }, '*');
+                // Estimate active section based on iframe position relative to parent
+                // This is a simplified approach since we can't get parent scroll directly
+                try {
+                    // Try to estimate based on section positions within iframe
+                    const iframeRect = document.documentElement.getBoundingClientRect();
+                    const iframeHeight = window.innerHeight;
+                    const iframeMidpoint = iframeHeight / 2;
+                    
+                    // Find section closest to iframe midpoint
+                    let bestSection = null;
+                    let minDistance = Infinity;
+                    
+                    sections.forEach(section => {
+                        const rect = section.getBoundingClientRect();
+                        const sectionCenter = rect.top + (rect.height / 2);
+                        const distance = Math.abs(sectionCenter - iframeMidpoint);
+                        
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            bestSection = section;
+                        }
+                    });
+                    
+                    if (bestSection) {
+                        activeSection = bestSection;
+                        console.log('📐 Iframe: Estimated active section based on position:', activeSection.id);
+                    }
+                    
+                } catch (error) {
+                    console.warn('⚠️ Iframe: Could not estimate active section, using default');
+                }
+                
+                if (activeSection && activeSection.id) {
+                    // Store the current active section globally
+                    window.currentActiveSectionId = activeSection.id;
+                    
+                    if (window.parent && window.parent !== window) {
+                        console.log('🎯 Iframe: Sending active section to parent:', activeSection.id);
+                        window.parent.postMessage({
+                            type: 'active-section-response',
+                            activeSection: activeSection.id,
+                            language: currentLanguage,
+                            debug: {
+                                totalSections: sections.length,
+                                selectedIndex: sections.indexOf(activeSection),
+                                method: 'position-estimation',
+                                allSectionIds: sections.map(s => s.id)
+                            }
+                        }, '*');
+                    }
+                } else {
+                    console.error('❌ Iframe: No valid active section found');
                 }
             } catch (error) {
                 console.error('❌ Iframe: Error sending active section:', error);

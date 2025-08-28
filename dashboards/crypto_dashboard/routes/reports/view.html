@@ -326,8 +326,46 @@
                 handleScrollInfoResponse(event);
             } else if (event.data && event.data.type === 'active-section-response') {
                 handleActiveSectionResponse(event);
+            } else if (event.data && event.data.type === 'section-position-response') {
+                handleSectionPositionResponse(event);
             }
         });
+        
+        // Handle section position response from iframe - NEW FUNCTION
+        function handleSectionPositionResponse(event) {
+            const { sectionId, offsetTop, success, error } = event.data;
+            
+            if (!success) {
+                console.error('❌ Parent: Could not get section position:', error);
+                return;
+            }
+            
+            console.log('📍 Parent: Section position received - sectionId:', sectionId, 'offsetTop:', offsetTop);
+            
+            // Calculate scroll position relative to iframe position
+            const iframe = document.getElementById('report-iframe');
+            if (!iframe) return;
+            
+            const iframeRect = iframe.getBoundingClientRect();
+            const parentScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            
+            // Calculate target scroll position
+            const targetScrollTop = parentScrollTop + iframeRect.top + offsetTop - 100; // 100px offset for better visibility
+            
+            console.log('🚀 Parent: Scrolling to position:', targetScrollTop);
+            
+            // Smooth scroll to target position
+            window.scrollTo({
+                top: targetScrollTop,
+                behavior: 'smooth'
+            });
+            
+            // Update navigation highlighting
+            updateSidebarNavigationActive(sectionId);
+            currentActiveSection = sectionId;
+            
+            console.log('✅ Parent: Navigation completed for section:', sectionId);
+        }
         
         // Handle iframe height change with enhanced logging
         function handleIframeHeightChange(event) {
@@ -404,12 +442,20 @@
             const data = event.data;
             
             if (data.activeSection) {
+                currentActiveSection = data.activeSection;
                 updateSidebarNavigationActive(data.activeSection);
-                console.log('📍 Parent: Updated active section to:', data.activeSection);
+                
+                const reason = data.reason || 'scroll';
+                console.log(`📍 Parent: Updated active section to "${data.activeSection}" (${reason})`);
+                
+                // Log debug info if available
+                if (data.debug) {
+                    console.log('🔍 Debug info:', data.debug);
+                }
             }
         }
         
-        // Create navigation in left sidebar
+        // Create navigation in left sidebar - SIMPLIFIED
         function createSidebarNavigation() {
             if (!currentNavigationData || !currentNavigationData.sections) {
                 console.log('🧭 Parent: No navigation data available');
@@ -422,17 +468,15 @@
                 return;
             }
             
+            console.log('🧭 Parent: Creating navigation with', currentNavigationData.sections.length, 'sections');
+            
             // Show navigation sidebar
             navigationSidebar.classList.remove('hidden');
             
-            // Create navigation content
-            navigationSidebar.innerHTML = `
+            // Create navigation HTML
+            const navHTML = `
                 <div class="nav-header">
-                    <h3 class="nav-title">
-                        <span class="nav-title-vi" ${currentNavigationData.language === 'en' ? 'style="display: none;"' : ''}>📋 Mục lục Báo cáo</span>
-                        <span class="nav-title-en" ${currentNavigationData.language === 'vi' ? 'style="display: none;"' : ''}>📋 Report Contents</span>
-                    </h3>
-                    <!-- Scroll progress indicator -->
+                    <h3 class="nav-title">📋 Mục lục Báo cáo</h3>
                     <div class="scroll-progress-container mb-3">
                         <div class="scroll-progress-bar bg-gray-200 h-2 rounded-full relative overflow-hidden">
                             <div class="scroll-indicator bg-blue-500 h-full rounded-full transition-all duration-300" style="width: 0%;"></div>
@@ -444,45 +488,46 @@
                     <ul class="nav-links">
                         ${currentNavigationData.sections.map((section, index) => `
                             <li>
-                                <a href="#" data-section-id="${section.id}" title="${section.fullTitle}">
+                                <a href="#${section.id}" 
+                                   data-section-id="${section.id}" 
+                                   title="${section.title}">
                                     ${section.title}
                                 </a>
                             </li>
                         `).join('')}
-                        ${currentNavigationData.hasMore ? `
-                            <li class="nav-more">
-                                <span>+ ${currentNavigationData.totalSections - currentNavigationData.visibleSections} phần khác</span>
-                            </li>
-                        ` : ''}
                     </ul>
                 </div>
             `;
             
-            // Add click handlers
+            navigationSidebar.innerHTML = navHTML;
+            
+            // Add single click handler to sidebar
             navigationSidebar.addEventListener('click', handleSidebarNavClick);
             
-            console.log('🧭 Parent: Created sidebar navigation with', currentNavigationData.sections.length, 'sections');
+            console.log('✅ Parent: Navigation created successfully');
         }
         
-        // Handle sidebar navigation clicks
+        // Handle sidebar navigation clicks - PARENT SCROLL VERSION
         function handleSidebarNavClick(event) {
+            // Prevent default link behavior
             event.preventDefault();
+            
+            // Find the clicked navigation link
             const link = event.target.closest('a[data-section-id]');
-            if (link) {
-                const sectionId = link.getAttribute('data-section-id');
-                console.log('🎯 Parent: Navigation clicked, scrolling to:', sectionId);
-                
-                // Update active state immediately
-                updateSidebarNavigationActive(sectionId);
-                
-                // Send scroll message to iframe
-                const iframe = document.getElementById('report-iframe');
-                if (iframe && iframe.contentWindow) {
-                    iframe.contentWindow.postMessage({
-                        type: 'scroll-to-section',
-                        sectionId: sectionId
-                    }, '*');
-                }
+            if (!link) return;
+            
+            const sectionId = link.getAttribute('data-section-id');
+            if (!sectionId) return;
+            
+            console.log('🎯 Parent: Navigating to section:', sectionId);
+            
+            // Request section position from iframe
+            const iframe = document.getElementById('report-iframe');
+            if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.postMessage({
+                    type: 'get-section-position',
+                    sectionId: sectionId
+                }, '*');
             }
         }
         
@@ -492,11 +537,22 @@
             if (!sidebar) return;
             
             const links = sidebar.querySelectorAll('a[data-section-id]');
+            let foundMatch = false;
+            
             links.forEach(link => {
                 const isActive = link.getAttribute('data-section-id') === sectionId;
                 link.classList.toggle('active', isActive);
+                if (isActive) foundMatch = true;
             });
-            console.log('📍 Parent: Updated active navigation to section:', sectionId);
+            
+            if (foundMatch) {
+                console.log('✅ Parent: Successfully highlighted navigation for section:', sectionId);
+            } else {
+                console.warn('⚠️ Parent: No navigation link found for section:', sectionId);
+                // List all available section IDs for debugging
+                const availableSections = Array.from(links).map(link => link.getAttribute('data-section-id'));
+                console.log('Available sections:', availableSections);
+            }
         }
 
         // Auto-resize iframe based on content (fallback method) - Enhanced version
@@ -555,6 +611,7 @@
                 function startScrollTracking() {
                     // Simple scroll tracking based on parent window scroll
                     let lastScrollTop = 0;
+                    let activeSectionCheckTimeout;
                     
                     function handleParentScroll() {
                         const currentScrollTop = window.pageYOffset || document.documentElement.scrollTop;
@@ -579,15 +636,31 @@
                             }
                         }
                         
-                        // Ask iframe for active section less frequently
-                        if (Math.abs(currentScrollTop - lastScrollTop) > 100) { // Only check every 100px
-                            if (iframe && iframe.contentWindow) {
+                        // Send scroll update to iframe for better active section detection
+                        if (iframe && iframe.contentWindow) {
+                            iframe.contentWindow.postMessage({
+                                type: 'parent-scroll-update',
+                                scrollPercent: scrollPercent,
+                                scrollTop: currentScrollTop,
+                                docHeight: docHeight,
+                                winHeight: winHeight
+                            }, '*');
+                        }
+                        
+                        // Also request active section less frequently for double-checking
+                        clearTimeout(activeSectionCheckTimeout);
+                        activeSectionCheckTimeout = setTimeout(() => {
+                            if (iframe && iframe.contentWindow && Math.abs(currentScrollTop - lastScrollTop) > 50) {
+                                console.log('🔍 Parent: Requesting active section verification at scroll:', Math.round(scrollPercent) + '%');
                                 iframe.contentWindow.postMessage({
-                                    type: 'get-active-section'
+                                    type: 'get-active-section',
+                                    scrollPercent: scrollPercent,
+                                    scrollTop: currentScrollTop
                                 }, '*');
                             }
-                            lastScrollTop = currentScrollTop;
-                        }
+                        }, 200); // Debounce verification requests
+                        
+                        lastScrollTop = currentScrollTop;
                     }
                     
                     // Listen to parent window scroll with throttling
@@ -597,7 +670,18 @@
                         scrollTimeout = setTimeout(handleParentScroll, 16); // ~60fps
                     }, { passive: true });
                     
-                    console.log('📜 Parent: Started scroll tracking on parent window');
+                    // Initial active section request
+                    setTimeout(() => {
+                        if (iframe && iframe.contentWindow) {
+                            console.log('🚀 Parent: Initial active section request');
+                            iframe.contentWindow.postMessage({
+                                type: 'get-active-section',
+                                reason: 'initial-load'
+                            }, '*');
+                        }
+                    }, 2000);
+                    
+                    console.log('📜 Parent: Started enhanced scroll tracking with iframe communication');
                 }
                 
                 iframe.addEventListener('load', function() {
