@@ -214,7 +214,7 @@
                     break;
                     
                 case 'parent-scroll-update':
-                    console.log('📜 Iframe: Parent scroll update:', event.data.scrollPercent + '%');
+                    console.log('📜 Iframe: Parent scroll update received:', event.data);
                     handleParentScrollUpdate(event.data);
                     break;
                     
@@ -241,10 +241,32 @@
             console.log('🚀 Iframe: Getting position for section:', sectionId);
             
             try {
-                const targetSection = document.getElementById(sectionId);
+                // Find active content first
+                const viContainer = document.getElementById('content-vi');
+                const enContainer = document.getElementById('content-en');
+                let activeContent = document.getElementById('report-container');
+
+                if (viContainer || enContainer) {
+                    const viVisible = viContainer && window.getComputedStyle(viContainer).display !== 'none';
+                    const enVisible = enContainer && window.getComputedStyle(enContainer).display !== 'none';
+                    
+                    if (viVisible) {
+                        activeContent = viContainer;
+                        console.log('🌐 Iframe: Using Vietnamese content for section search');
+                    } else if (enVisible) {
+                        activeContent = enContainer;
+                        console.log('🌐 Iframe: Using English content for section search');
+                    } else {
+                        activeContent = viContainer || enContainer || activeContent;
+                        console.log('🌐 Iframe: Using fallback content for section search');
+                    }
+                }
+                
+                const targetSection = activeContent.querySelector(`#${sectionId}`);
                 
                 if (!targetSection) {
                     console.error('❌ Iframe: Section not found:', sectionId);
+                    console.log('🔍 Iframe: Available sections:', Array.from(activeContent.querySelectorAll('section[id]')).map(s => s.id));
                     
                     // Send error response to parent
                     parent.postMessage({

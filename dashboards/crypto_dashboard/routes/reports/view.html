@@ -436,7 +436,15 @@
         // Handle navigation data from iframe
         function handleNavigationData(event) {
             console.log('🧭 Parent: Received navigation data:', event.data);
+            
+            // Validate navigation data
+            if (!event.data || !event.data.sections || event.data.sections.length === 0) {
+                console.warn('⚠️ Parent: Invalid or empty navigation data received');
+                return;
+            }
+            
             currentNavigationData = event.data;
+            console.log('📊 Parent: Processing', currentNavigationData.sections.length, 'navigation sections');
             createSidebarNavigation();
         }
         
@@ -551,33 +559,49 @@
             
             navigationSidebar.innerHTML = navHTML;
             
+            // Remove any existing event listeners to prevent duplicates
+            navigationSidebar.removeEventListener('click', handleSidebarNavClick);
+            
             // Add single click handler to sidebar
             navigationSidebar.addEventListener('click', handleSidebarNavClick);
             
             console.log('✅ Parent: Navigation created successfully');
+            console.log('🔗 Parent: Event listener attached to navigation sidebar');
         }
         
         // Handle sidebar navigation clicks - PARENT SCROLL VERSION
         function handleSidebarNavClick(event) {
-            // Prevent default link behavior
-            event.preventDefault();
+            console.log('🔴 Parent: Click detected on navigation sidebar:', event.target);
             
             // Find the clicked navigation link
             const link = event.target.closest('a[data-section-id]');
-            if (!link) return;
+            if (!link) {
+                console.log('❌ Parent: No navigation link found in click target');
+                return;
+            }
+            
+            // Prevent default link behavior only after we confirm it's a valid navigation link
+            event.preventDefault();
+            event.stopPropagation();
             
             const sectionId = link.getAttribute('data-section-id');
-            if (!sectionId) return;
+            if (!sectionId) {
+                console.log('❌ Parent: No section ID found on clicked link');
+                return;
+            }
             
             console.log('🎯 Parent: Navigating to section:', sectionId);
             
             // Request section position from iframe
             const iframe = document.getElementById('report-iframe');
             if (iframe && iframe.contentWindow) {
+                console.log('📤 Parent: Sending get-section-position request for:', sectionId);
                 iframe.contentWindow.postMessage({
                     type: 'get-section-position',
                     sectionId: sectionId
                 }, '*');
+            } else {
+                console.error('❌ Parent: Iframe not found or contentWindow unavailable');
             }
         }
         
