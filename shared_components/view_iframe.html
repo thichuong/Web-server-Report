@@ -170,7 +170,7 @@
                 // Notify parent window about height change
                 setTimeout(() => {
                     reportHeightUpdate('Language switch - charts rendered');
-                }, 500); // Wait for charts to render
+                }, 250); // Reduced from 500ms to 250ms for faster height update
                 
                 // Update navigation after language switch
                 setTimeout(() => {
@@ -188,8 +188,8 @@
                                 console.log('🔄 Iframe: Section ranges recalculated for language:', lang);
                             }
                         }
-                    }, 200);
-                }, 600); // Wait for charts to complete before updating nav
+                    }, 50); // Reduced from 100ms to 50ms for faster section range recalculation
+                }, 250); // Reduced from 600ms to 250ms for faster navigation update
             }
         }
         
@@ -454,12 +454,7 @@
                 console.log('☀️ Iframe: Light theme applied');
             }
             
-            // Notify parent about height change after theme application
-            setTimeout(() => {
-                if (isNavigationReady) {
-                    reportHeightUpdate('Theme change applied');
-                }
-            }, 100);
+            // Theme change doesn't affect iframe height significantly
         }
         
         // CreateNav function - Generate navigation for report sections and send to parent
@@ -607,11 +602,8 @@
                     calculateSectionScrollRanges(reportSections);
                     console.log('📊 Iframe: Section ranges calculated after navigation creation');
                     
-                    // Report final height now that navigation is complete
-                    setTimeout(() => {
-                        reportHeightUpdate('Navigation creation complete');
-                    }, 100);
-                }, 100);
+                    // Navigation creation complete - height will be reported by chart initialization
+                }, 50); // Reduced from 100ms to 50ms for faster section range calculation
 
             } catch (error) {
                 console.error('❌ Iframe: Error creating navigation:', error);
@@ -642,7 +634,7 @@
                 }
                 
                 document.body.removeChild(testIcon);
-            }, 500);
+            }, 200); // Reduced from 500ms to 200ms for faster Font Awesome check
             
             // Apply initial theme based on parent page
             const parentTheme = '{{default_lang}}' === 'en' ? 'light' : 'light'; // Default to light
@@ -662,15 +654,14 @@
                     }
                 }
                 
-                // Notify parent about initial height
-                reportHeightUpdate('Initial charts loaded');
-            }, 200); // Wait for everything to load
+                // Charts initialized - height will be reported by ResizeObserver when needed
+            }, 150); // Reduced from 200ms to 150ms for faster chart initialization
             
             // Create navigation after charts are initialized
             setTimeout(() => {
                 console.log('🧭 Iframe: Creating initial navigation');
                 CreateNav();
-            }, 300); // Create nav after charts are ready
+            }, 200); // Reduced from 300ms to 200ms for faster navigation creation
         });
         
         // Enhanced height reporting function with anti-loop protection
@@ -680,10 +671,16 @@
         
         function reportHeightUpdate(reason = 'Content change') {
             try {
-                // Only report height after navigation is ready, unless it's critical
-                const criticalReasons = ['Initial charts loaded', 'Language switch - charts rendered', 'Theme change applied'];
+                // Only allow height reports for language switch (chart reinitialization)
+                const criticalReasons = ['Language switch - charts rendered'];
                 if (!isNavigationReady && !criticalReasons.includes(reason)) {
                     console.log(`📏 Iframe: Height report deferred - navigation not ready (${reason})`);
+                    return;
+                }
+                
+                // Only report height for critical reasons or ResizeObserver
+                if (!criticalReasons.includes(reason) && !reason.includes('ResizeObserver')) {
+                    console.log(`📏 Iframe: Height report skipped - not critical (${reason})`);
                     return;
                 }
                 
@@ -743,16 +740,14 @@
             }
         }, 5000); // Reset every 5 seconds
         
-        // Monitor content changes for height updates with improved debouncing
-        let heightUpdateTimeout;
-        function scheduleHeightUpdate(reason = 'Content change') {
-            clearTimeout(heightUpdateTimeout);
-            heightUpdateTimeout = setTimeout(() => {
-                reportHeightUpdate(reason);
-            }, 300); // Increased debounce time to reduce frequency
-        }
-        
-        // Handle parent window scroll and find active sections based on viewport visibility
+            // Monitor content changes for height updates with improved debouncing
+            let heightUpdateTimeout;
+            function scheduleHeightUpdate(reason = 'Content change') {
+                clearTimeout(heightUpdateTimeout);
+                heightUpdateTimeout = setTimeout(() => {
+                    reportHeightUpdate(reason);
+                }, 200); // Reduced from 300ms to 200ms for faster height updates
+            }        // Handle parent window scroll and find active sections based on viewport visibility
         function handleParentScroll(scrollData) {
             try {
                 const { parentScrollTop, iframeRect, viewportHeight } = scrollData;
@@ -950,6 +945,8 @@
         // Set up ResizeObserver with throttling to prevent excessive height reports
         if (window.ResizeObserver) {
             let resizeObserverTimeout;
+            let lastObservedHeight = 0;
+            
             const resizeObserver = new ResizeObserver(entries => {
                 // Only trigger if navigation is ready to prevent initial load spam
                 if (!isNavigationReady) {
@@ -957,11 +954,21 @@
                     return;
                 }
                 
+                // Check if height actually changed significantly
+                const currentHeight = document.documentElement.scrollHeight;
+                const heightDiff = Math.abs(currentHeight - lastObservedHeight);
+                
+                if (heightDiff < 10) {  // Only react to significant height changes (10px+)
+                    return;
+                }
+                
+                lastObservedHeight = currentHeight;
+                
                 // Throttle resize events to prevent spam
                 clearTimeout(resizeObserverTimeout);
                 resizeObserverTimeout = setTimeout(() => {
                     scheduleHeightUpdate('ResizeObserver triggered');
-                }, 500); // Increased throttling time
+                }, 500); // Increased to 500ms for better throttling
             });
             
             // Observe body element for size changes
