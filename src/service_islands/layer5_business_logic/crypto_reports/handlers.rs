@@ -17,17 +17,15 @@ use crate::state::AppState;
 
 // Import from our specialized components
 use super::report_creator::{ReportSummary, ReportListItem, ReportCreator};
-use super::pdf_generator::PdfGenerator;
 use super::template_orchestrator::TemplateOrchestrator;
 
 /// Crypto Handlers
 /// 
 /// Contains all HTTP request handlers for crypto reports-related operations.
-/// These handlers manage crypto report generation, PDF creation, and API interactions.
+/// These handlers manage crypto report generation and API interactions.
 /// ONLY uses Template Engine like archive_old_code/handlers/crypto.rs
 pub struct CryptoHandlers {
     pub report_creator: ReportCreator,
-    pub pdf_generator: PdfGenerator,
     pub template_orchestrator: TemplateOrchestrator,
 }
 
@@ -39,7 +37,6 @@ impl CryptoHandlers {
         
         Self {
             report_creator,
-            pdf_generator: PdfGenerator::new(),
             template_orchestrator,
         }
     }
@@ -48,10 +45,9 @@ impl CryptoHandlers {
     pub async fn health_check(&self) -> bool {
         // Verify handlers are functioning properly
         let report_creator_ok = self.report_creator.health_check().await;
-        let pdf_generator_ok = self.pdf_generator.health_check().await;
         let template_orchestrator_ok = self.template_orchestrator.health_check().await;
         
-        report_creator_ok && pdf_generator_ok && template_orchestrator_ok
+        report_creator_ok && template_orchestrator_ok
     }
 
     /// Create cached response with proper headers
@@ -460,13 +456,6 @@ impl CryptoHandlers {
                 Err(format!("Task join error: {}", e).into())
             }
         }
-    }
-
-    /// Generate PDF template for a specific crypto report by ID
-    /// 
-    /// Delegates to PdfGenerator component for clean architecture separation
-    pub async fn crypto_report_pdf_with_tera(&self, app_state: &Arc<AppState>, report_id: i32) -> Result<String, Box<dyn StdError + Send + Sync>> {
-        self.pdf_generator.crypto_report_pdf_with_tera(app_state, report_id).await
     }
 
     /// Serve sandboxed report content for iframe

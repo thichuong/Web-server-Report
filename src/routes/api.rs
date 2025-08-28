@@ -20,7 +20,6 @@ pub fn configure_api_routes() -> Router<Arc<ServiceIslands>> {
     Router::new()
         .route("/api/crypto/dashboard-summary", get(api_dashboard_summary))
         .route("/api/crypto_reports/:id/sandboxed", get(api_sandboxed_report))
-        .route("/api/crypto_reports/:id/pdf_sandboxed", get(api_pdf_sandboxed_report))
         .route("/api/health", get(api_health))
 }
 
@@ -168,73 +167,6 @@ async fn api_sandboxed_report(
         Err(e) => {
             eprintln!("❌ [API] Failed to serve sandboxed report {}: {}", report_id, e);
             "Failed to serve sandboxed content".into_response()
-        }
-    }
-}
-
-/// PDF Sandboxed report content API endpoint
-/// 
-/// Serves sanitized HTML content for PDF iframe embedding without navigation
-async fn api_pdf_sandboxed_report(
-    Path(id): Path<String>,
-    Query(params): Query<HashMap<String, String>>,
-    State(service_islands): State<Arc<ServiceIslands>>
-) -> impl IntoResponse {
-    println!("🔒 [API] PDF Sandboxed report requested for ID: {}", id);
-    
-    // Parse report ID (-1 for latest)
-    let report_id: i32 = if id == "latest" {
-        -1
-    } else {
-        match id.parse() {
-            Ok(id) => id,
-            Err(_) => {
-                println!("❌ [API] Invalid report ID format for PDF sandboxing: {}", id);
-                return "Invalid report ID format".into_response();
-            }
-        }
-    };
-
-    // Get sandbox token from query parameters
-    let sandbox_token = match params.get("token") {
-        Some(token) => token,
-        None => {
-            println!("❌ [API] Missing PDF sandbox token for report {}", report_id);
-            return "Missing PDF sandbox token".into_response();
-        }
-    };
-
-    // Get language parameter (optional, defaults to Vietnamese)
-    let initial_language = params.get("lang").map(|s| s.as_str());
-
-    // Get chart modules content for iframe inclusion
-    let chart_modules = match params.get("chart_modules") {
-        Some(_) => {
-            // If chart_modules parameter is present, load actual chart modules
-            println!("📊 [API] Loading chart modules for PDF iframe");
-            Some(service_islands.shared_components.chart_modules_content.as_str())
-        },
-        None => {
-            println!("⚠️ [API] No chart_modules parameter - PDF iframe will have empty charts");
-            None
-        }
-    };
-
-    // Use Service Islands to serve PDF sandboxed content
-    match service_islands.crypto_reports.pdf_generator.serve_pdf_sandboxed_report(
-        &service_islands.app_state,
-        report_id,
-        sandbox_token,
-        initial_language,
-        chart_modules
-    ).await {
-        Ok(response) => {
-            println!("✅ [API] PDF Sandboxed report {} served successfully", report_id);
-            response
-        }
-        Err(e) => {
-            eprintln!("❌ [API] Failed to serve PDF sandboxed report {}: {}", report_id, e);
-            "Failed to serve PDF sandboxed content".into_response()
         }
     }
 }
