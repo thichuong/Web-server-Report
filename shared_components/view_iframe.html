@@ -58,6 +58,19 @@
             width: 100%;
             max-width: none;
         }
+        
+        /* Hide navigation sidebar in iframe since we have parent sticky nav */
+        .sandboxed-report .navigation-sidebar {
+            display: none;
+        }
+        
+        /* Make report layout single column since nav is hidden */
+        .sandboxed-report .report-layout {
+            display: block;
+            max-width: 100%;
+            margin: 0;
+            padding: 1rem;
+        }
     </style>
 </head>
 <body class="sandboxed-report">
@@ -156,13 +169,7 @@
                 
                 // Notify parent window about height change
                 setTimeout(() => {
-                    const height = document.body.scrollHeight;
-                    if (window.parent && window.parent !== window) {
-                        window.parent.postMessage({
-                            type: 'iframe-height-change',
-                            height: height
-                        }, '*');
-                    }
+                    reportHeightUpdate('Language switch - charts rendered');
                 }, 500); // Wait for charts to render
                 
                 // Update navigation after language switch
@@ -181,8 +188,48 @@
             } else if (event.data && event.data.type === 'theme-change') {
                 console.log('🎨 Iframe: Received theme change message:', event.data.theme);
                 applyTheme(event.data.theme);
+            } else if (event.data && event.data.type === 'scroll-to-section') {
+                console.log('🎯 Iframe: Received scroll request:', event.data.sectionId);
+                scrollToSection(event.data.sectionId);
             }
         });
+        
+        // Function to scroll to a specific section (called by parent)
+        function scrollToSection(sectionId) {
+            try {
+                // Find active content container
+                const viContainer = document.getElementById('content-vi');
+                const enContainer = document.getElementById('content-en');
+                let activeContent = document.getElementById('report-container');
+
+                if (viContainer || enContainer) {
+                    const viVisible = viContainer && window.getComputedStyle(viContainer).display !== 'none';
+                    const enVisible = enContainer && window.getComputedStyle(enContainer).display !== 'none';
+                    if (viVisible) activeContent = viContainer;
+                    else if (enVisible) activeContent = enContainer;
+                    else activeContent = viContainer || enContainer || activeContent;
+                }
+
+                const target = activeContent.querySelector(`#${sectionId}`);
+                if (target) {
+                    console.log('🎯 Iframe: Scrolling to section:', sectionId);
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    
+                    // Update active state in iframe navigation (if still visible)
+                    const navLinksContainer = document.getElementById('report-nav-links');
+                    if (navLinksContainer) {
+                        navLinksContainer.querySelectorAll('a').forEach(link => {
+                            const isTarget = link.getAttribute('href') === `#${sectionId}`;
+                            link.classList.toggle('active', isTarget);
+                        });
+                    }
+                } else {
+                    console.warn('⚠️ Iframe: Section not found:', sectionId);
+                }
+            } catch (error) {
+                console.error('❌ Iframe: Error scrolling to section:', error);
+            }
+        }
         
         // Function to apply theme to iframe
         function applyTheme(theme) {
@@ -204,17 +251,11 @@
             
             // Notify parent about height change after theme application
             setTimeout(() => {
-                const height = document.body.scrollHeight;
-                if (window.parent && window.parent !== window) {
-                    window.parent.postMessage({
-                        type: 'iframe-height-change',
-                        height: height
-                    }, '*');
-                }
+                reportHeightUpdate('Theme change applied');
             }, 100);
         }
         
-        // CreateNav function - Generate navigation for report sections
+        // CreateNav function - Generate navigation for report sections and send to parent
         async function CreateNav() {
             try {
                 console.log('🧭 Iframe: Creating navigation...');
@@ -263,6 +304,7 @@
                 }
 
                 // Build navigation links with truncated text
+                const navigationData = [];
                 reportSections.forEach((section, index) => {
                     const h2 = section.querySelector('h2');
                     if (h2 && section.id) {
@@ -277,13 +319,22 @@
                         
                         // Truncate text if too long to prevent wrapping
                         let linkText = h2Text.textContent.trim();
+                        const fullText = linkText;
                         const maxLength = 35; // Adjust based on sidebar width
                         if (linkText.length > maxLength) {
                             linkText = linkText.substring(0, maxLength) + '...';
                         }
                         
                         a.textContent = linkText;
-                        a.title = h2Text.textContent.trim(); // Full text in tooltip
+                        a.title = fullText; // Full text in tooltip
+                        
+                        // Collect navigation data for parent
+                        navigationData.push({
+                            id: section.id,
+                            title: linkText,
+                            fullTitle: fullText,
+                            index: index
+                        });
                         
                         // Smooth scroll on click
                         a.addEventListener('click', (e) => {
@@ -307,6 +358,21 @@
 
                 const navLinks = navLinksContainer.querySelectorAll('a');
                 console.log('🧭 Iframe: Created', navLinks.length, 'navigation links');
+
+                // Send navigation data to parent window
+                if (window.parent && window.parent !== window) {
+                    const navMessage = {
+                        type: 'navigation-data',
+                        sections: navigationData,
+                        totalSections: allSections.length,
+                        visibleSections: reportSections.length,
+                        language: currentLanguage,
+                        hasMore: allSections.length > maxSections
+                    };
+                    
+                    console.log('📤 Iframe: Sending navigation data to parent:', navMessage);
+                    window.parent.postMessage(navMessage, '*');
+                }
 
                 // Add "Show More" link if there are more sections
                 if (allSections.length > maxSections) {
@@ -356,13 +422,22 @@
                         });
                     }
 
-                    // Update active navigation link
+                    // Update active navigation link (locally)
                     if (bestSection) {
                         const targetId = bestSection.id;
                         navLinks.forEach(link => {
                             const isTarget = link.getAttribute('href').substring(1) === targetId;
                             link.classList.toggle('active', isTarget);
                         });
+                        
+                        // Send active section to parent
+                        if (window.parent && window.parent !== window) {
+                            window.parent.postMessage({
+                                type: 'active-section-change',
+                                activeSection: targetId,
+                                language: currentLanguage
+                            }, '*');
+                        }
                     }
                 }, {
                     root: null,
@@ -435,13 +510,7 @@
                 }
                 
                 // Notify parent about initial height
-                const height = document.body.scrollHeight;
-                if (window.parent && window.parent !== window) {
-                    window.parent.postMessage({
-                        type: 'iframe-height-change',
-                        height: height
-                    }, '*');
-                }
+                reportHeightUpdate('Initial charts loaded');
             }, 200); // Wait for everything to load
             
             // Create navigation after charts are initialized
@@ -450,6 +519,64 @@
                 CreateNav();
             }, 300); // Create nav after charts are ready
         });
+        
+        // Enhanced height reporting function
+        function reportHeightUpdate(reason = 'Content change') {
+            try {
+                const body = document.body;
+                const html = document.documentElement;
+                
+                // Calculate accurate height including all content
+                const height = Math.max(
+                    body.scrollHeight,
+                    body.offsetHeight,
+                    html.clientHeight,
+                    html.scrollHeight,
+                    html.offsetHeight
+                );
+                
+                if (window.parent && window.parent !== window) {
+                    const message = {
+                        type: 'iframe-height-change',
+                        height: height,
+                        reason: reason,
+                        timestamp: Date.now()
+                    };
+                    
+                    console.log(`📏 Iframe: Reporting height ${height}px (${reason})`);
+                    window.parent.postMessage(message, '*');
+                } else {
+                    console.log(`📏 Iframe: Height ${height}px calculated but no parent to report to`);
+                }
+            } catch (error) {
+                console.error('❌ Iframe: Error calculating height:', error);
+            }
+        }
+        
+        // Monitor content changes for height updates
+        let heightUpdateTimeout;
+        function scheduleHeightUpdate(reason = 'Content change') {
+            clearTimeout(heightUpdateTimeout);
+            heightUpdateTimeout = setTimeout(() => {
+                reportHeightUpdate(reason);
+            }, 150); // Debounce multiple rapid changes
+        }
+        
+        // Set up ResizeObserver to monitor height changes automatically
+        if (window.ResizeObserver) {
+            const resizeObserver = new ResizeObserver(entries => {
+                scheduleHeightUpdate('ResizeObserver triggered');
+            });
+            
+            // Observe body element for size changes
+            resizeObserver.observe(document.body);
+        } else {
+            // Fallback for browsers without ResizeObserver
+            console.log('⚠️ ResizeObserver not supported, using periodic height checks');
+            setInterval(() => {
+                reportHeightUpdate('Periodic height check');
+            }, 2000);
+        }
         
         // Debug: Log available functions
         setTimeout(() => {

@@ -80,6 +80,99 @@
             0%, 50% { opacity: 1; }
             51%, 100% { opacity: 0.3; }
         }
+        
+        /* Navigation Sidebar Styles - Left positioned within container */
+        #navigation-sidebar {
+            position: sticky;
+            top: 20px;
+            height: fit-content;
+            max-height: calc(100vh - 40px);
+            background: var(--card-bg, #ffffff);
+            border: 1px solid var(--border-color, #e5e7eb);
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        #navigation-sidebar.dark-theme {
+            background: var(--dark-card-bg, #1f2937);
+            border-color: var(--dark-border-color, #374151);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .nav-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color, #e5e7eb);
+        }
+        
+        .nav-title {
+            color: var(--text-primary, #1f2937);
+            font-weight: 600;
+            font-size: 1rem;
+            margin: 0;
+        }
+        
+        .nav-content {
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+        }
+        
+        .nav-links {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .nav-links li {
+            margin: 0;
+        }
+        
+        .nav-links a {
+            display: block;
+            padding: 0.75rem 1rem;
+            color: var(--text-secondary, #6b7280);
+            text-decoration: none;
+            border-left: 3px solid transparent;
+            transition: all 0.3s ease;
+            font-size: 0.875rem;
+            font-weight: 500;
+            line-height: 1.3;
+        }
+        
+        .nav-links a:hover {
+            background-color: var(--bg-secondary, #f9fafb);
+            color: var(--text-primary, #1f2937);
+            border-left-color: var(--accent-color, #3b82f6);
+            transform: translateX(2px);
+        }
+        
+        .nav-links a.active {
+            background-color: #3b82f6;
+            color: white;
+            font-weight: 600;
+            border-left-color: #1e40af;
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.25);
+        }
+        
+        .nav-links .nav-more span {
+            display: block;
+            padding: 0.5rem 1rem;
+            color: var(--text-muted, #9ca3af);
+            font-style: italic;
+            font-size: 0.8rem;
+        }
+        
+        /* Mobile responsive - hide navigation on mobile */
+        @media (max-width: 1024px) {
+            #navigation-sidebar {
+                display: none !important;
+            }
+            
+            .flex.gap-6 {
+                display: block;
+            }
+        }
     </style>
 </head>
 <body class="antialiased">
@@ -167,33 +260,43 @@
         </div>
 
         <div class="w-full pb-96">
-            <main id="report-container" class="w-full">
-                <!-- Single unified sandboxed iframe for both languages with navigation inside -->
-                {% if report.id %}
-                    <iframe 
-                        id="report-iframe"
-                        src="/api/crypto_reports/{{ report.id }}/sandboxed?token={{ sandbox_token }}&lang=vi&chart_modules=true"
-                        width="100%" 
-                        height="800px"
-                        frameborder="0"
-                        sandbox="allow-scripts allow-same-origin allow-popups"
-                        style="border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"
-                        loading="eager"
-                        onload="console.log('🔥 Iframe loaded successfully for report {{ report.id }}');">
-                        <!-- Fallback content for browsers that don't support iframes -->
-                        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
-                            <p class="text-sm text-gray-700">
-                                <strong>Iframe không được hỗ trợ:</strong> Trình duyệt của bạn không hỗ trợ iframe. Vui lòng sử dụng trình duyệt hiện đại hơn để xem báo cáo.
-                            </p>
+            <!-- Navigation and content layout -->
+            <div class="flex gap-6">
+                <!-- Left navigation sidebar -->
+                <aside id="navigation-sidebar" class="w-80 flex-shrink-0 hidden">
+                    <!-- Navigation will be inserted here by JavaScript -->
+                </aside>
+                
+                <!-- Main report content -->
+                <main id="report-container" class="w-full flex-1">
+                    <!-- Single unified sandboxed iframe for both languages with navigation inside -->
+                    {% if report.id %}
+                        <iframe 
+                            id="report-iframe"
+                            src="/api/crypto_reports/{{ report.id }}/sandboxed?token={{ sandbox_token }}&lang=vi&chart_modules=true"
+                            width="100%" 
+                            height="400px"
+                            frameborder="0"
+                            scrolling="no"
+                            sandbox="allow-scripts allow-same-origin allow-popups"
+                            style="border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden;"
+                            loading="eager"
+                            onload="console.log('🔥 Parent: Iframe loaded successfully for report {{ report.id }}');">
+                            <!-- Fallback content for browsers that don't support iframes -->
+                            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+                                <p class="text-sm text-gray-700">
+                                    <strong>Iframe không được hỗ trợ:</strong> Trình duyệt của bạn không hỗ trợ iframe. Vui lòng sử dụng trình duyệt hiện đại hơn để xem báo cáo.
+                                </p>
+                            </div>
+                        </iframe>
+                    {% else %}
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+                            <h3 class="text-lg font-semibold text-gray-600 mb-2">Không có báo cáo</h3>
+                            <p class="text-gray-500">Chưa có báo cáo nào được tạo.</p>
                         </div>
-                    </iframe>
-                {% else %}
-                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
-                        <h3 class="text-lg font-semibold text-gray-600 mb-2">Không có báo cáo</h3>
-                        <p class="text-gray-500">Chưa có báo cáo nào được tạo.</p>
-                    </div>
-                {% endif %}
-            </main>
+                    {% endif %}
+                </main>
+            </div>
         </div>
     </div>
 
@@ -204,20 +307,142 @@
 
     <!-- Iframe sandboxing functionality -->
     <script>
+        // Global state for navigation
+        let currentNavigationData = null;
+        let currentActiveSection = null;
+        let navigationSidebar = null;
+        
         // Listen for height messages from iframe content
         window.addEventListener('message', function(event) {
-            if (event.data && event.data.type === 'iframe-height') {
-                const iframe = document.getElementById('report-iframe');
-                if (iframe && iframe.contentWindow === event.source) {
-                    iframe.style.height = event.data.height + 'px';
-                }
+            if (event.data && event.data.type === 'iframe-height-change') {
+                handleIframeHeightChange(event);
+            } else if (event.data && event.data.type === 'navigation-data') {
+                handleNavigationData(event);
+            } else if (event.data && event.data.type === 'active-section-change') {
+                handleActiveSectionChange(event);
             }
         });
+        
+        // Handle iframe height change with enhanced logging
+        function handleIframeHeightChange(event) {
+            const iframe = document.getElementById('report-iframe');
+            if (iframe && iframe.contentWindow === event.source) {
+                const newHeight = event.data.height;
+                const reason = event.data.reason || 'Unknown';
+                
+                console.log(`📏 Parent: Setting iframe height to ${newHeight}px (${reason})`);
+                iframe.style.height = newHeight + 'px';
+                
+                // Remove any fixed height and scrolling from iframe
+                iframe.style.overflow = 'hidden';
+                iframe.scrolling = 'no';
+            }
+        }
+        
+        // Handle navigation data from iframe
+        function handleNavigationData(event) {
+            console.log('🧭 Parent: Received navigation data:', event.data);
+            currentNavigationData = event.data;
+            createSidebarNavigation();
+        }
+        
+        // Handle active section change from iframe
+        function handleActiveSectionChange(event) {
+            currentActiveSection = event.data.activeSection;
+            updateSidebarNavigationActive(event.data.activeSection);
+        }
+        
+        // Create navigation in left sidebar
+        function createSidebarNavigation() {
+            if (!currentNavigationData || !currentNavigationData.sections) {
+                console.log('🧭 Parent: No navigation data available');
+                return;
+            }
+            
+            navigationSidebar = document.getElementById('navigation-sidebar');
+            if (!navigationSidebar) {
+                console.warn('⚠️ Parent: Navigation sidebar element not found');
+                return;
+            }
+            
+            // Show navigation sidebar
+            navigationSidebar.classList.remove('hidden');
+            
+            // Create navigation content
+            navigationSidebar.innerHTML = `
+                <div class="nav-header">
+                    <h3 class="nav-title">
+                        <span class="nav-title-vi" ${currentNavigationData.language === 'en' ? 'style="display: none;"' : ''}>📋 Mục lục Báo cáo</span>
+                        <span class="nav-title-en" ${currentNavigationData.language === 'vi' ? 'style="display: none;"' : ''}>📋 Report Contents</span>
+                    </h3>
+                </div>
+                <div class="nav-content">
+                    <ul class="nav-links">
+                        ${currentNavigationData.sections.map((section, index) => `
+                            <li>
+                                <a href="#" data-section-id="${section.id}" title="${section.fullTitle}">
+                                    ${section.title}
+                                </a>
+                            </li>
+                        `).join('')}
+                        ${currentNavigationData.hasMore ? `
+                            <li class="nav-more">
+                                <span>+ ${currentNavigationData.totalSections - currentNavigationData.visibleSections} phần khác</span>
+                            </li>
+                        ` : ''}
+                    </ul>
+                </div>
+            `;
+            
+            // Add click handlers
+            navigationSidebar.addEventListener('click', handleSidebarNavClick);
+            
+            console.log('🧭 Parent: Created sidebar navigation with', currentNavigationData.sections.length, 'sections');
+        }
+        
+        // Handle sidebar navigation clicks
+        function handleSidebarNavClick(event) {
+            event.preventDefault();
+            const link = event.target.closest('a[data-section-id]');
+            if (link) {
+                const sectionId = link.getAttribute('data-section-id');
+                console.log('🎯 Parent: Navigation clicked, scrolling to:', sectionId);
+                
+                // Update active state immediately
+                updateSidebarNavigationActive(sectionId);
+                
+                // Send scroll message to iframe
+                const iframe = document.getElementById('report-iframe');
+                if (iframe && iframe.contentWindow) {
+                    iframe.contentWindow.postMessage({
+                        type: 'scroll-to-section',
+                        sectionId: sectionId
+                    }, '*');
+                }
+            }
+        }
+        
+        // Update active navigation item
+        function updateSidebarNavigationActive(sectionId) {
+            if (!navigationSidebar) return;
+            
+            const links = navigationSidebar.querySelectorAll('a[data-section-id]');
+            links.forEach(link => {
+                const isActive = link.getAttribute('data-section-id') === sectionId;
+                link.classList.toggle('active', isActive);
+            });
+        }
 
-        // Auto-resize iframe based on content (fallback method)
+        // Auto-resize iframe based on content (fallback method) - Enhanced version
         function autoResizeIframe(iframe) {
             try {
                 const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                if (!iframeDoc) {
+                    console.warn('Cannot access iframe document - using fallback height');
+                    iframe.style.height = '800px';
+                    return;
+                }
+                
                 const body = iframeDoc.body;
                 const html = iframeDoc.documentElement;
                 
@@ -229,11 +454,18 @@
                     html.offsetHeight
                 );
                 
-                iframe.style.height = Math.max(height + 50, 400) + 'px';
+                // Set iframe height and remove scrolling
+                iframe.style.height = Math.max(height + 20, 400) + 'px'; // Add small buffer
+                iframe.style.overflow = 'hidden';
+                iframe.scrolling = 'no';
+                
+                console.log(`📏 Parent: Auto-resized iframe to ${height}px`);
             } catch (e) {
                 console.warn('Cannot resize iframe due to cross-origin restrictions:', e);
-                // Set a reasonable default height
+                // Set a reasonable default height and remove scrolling
                 iframe.style.height = '800px';
+                iframe.style.overflow = 'hidden';
+                iframe.scrolling = 'no';
             }
         }
 
@@ -242,32 +474,47 @@
             const iframe = document.getElementById('report-iframe');
             
             if (iframe) {
-                console.log('🚀 Initializing iframe for report loading...');
+                console.log('🚀 Parent: Initializing iframe for report loading...');
+                
+                // Configure iframe for auto-resize
+                iframe.style.overflow = 'hidden';
+                iframe.scrolling = 'no';
                 
                 // Add error handling for iframe
                 iframe.addEventListener('error', function() {
-                    console.error('❌ Iframe failed to load');
+                    console.error('❌ Parent: Iframe failed to load');
                 });
                 
                 iframe.addEventListener('load', function() {
-                    console.log('✅ Iframe loaded successfully');
-                    // Try postMessage method first, fallback to direct access
+                    console.log('✅ Parent: Iframe loaded successfully');
+                    
+                    // The iframe will send height via postMessage
+                    // Also try direct access as fallback
                     setTimeout(() => {
-                        // The iframe will send height via postMessage
-                        // But also try direct access as fallback
                         autoResizeIframe(iframe);
                     }, 500);
+                    
+                    // Send initial theme to iframe
+                    setTimeout(() => {
+                        const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+                        if (iframe.contentWindow) {
+                            iframe.contentWindow.postMessage({
+                                type: 'theme-change',
+                                theme: currentTheme
+                            }, '*');
+                        }
+                    }, 1000);
                 });
                 
                 // Force load iframe immediately if it hasn't started loading
                 setTimeout(() => {
                     if (!iframe.src || iframe.src === 'about:blank') {
-                        console.warn('⚠️ Iframe src not set, attempting to reload...');
+                        console.warn('⚠️ Parent: Iframe src not set, attempting to reload...');
                         iframe.src = iframe.getAttribute('src') || iframe.src;
                     }
                 }, 100);
             } else {
-                console.warn('⚠️ No iframe found on page - report may be empty');
+                console.warn('⚠️ Parent: No iframe found on page - report may be empty');
             }
         });
 
@@ -281,9 +528,24 @@
                     language: event.detail.language
                 }, '*');
             }
+            
+            // Update sidebar navigation language
+            if (navigationSidebar) {
+                const navTitleVi = navigationSidebar.querySelector('.nav-title-vi');
+                const navTitleEn = navigationSidebar.querySelector('.nav-title-en');
+                if (navTitleVi && navTitleEn) {
+                    if (event.detail.language === 'en') {
+                        navTitleVi.style.display = 'none';
+                        navTitleEn.style.display = 'inline';
+                    } else {
+                        navTitleVi.style.display = 'inline';
+                        navTitleEn.style.display = 'none';
+                    }
+                }
+            }
         });
 
-        // Theme switching for iframe
+        // Theme switching for iframe and sidebar navigation
         window.addEventListener('themeChanged', function(event) {
             const iframe = document.getElementById('report-iframe');
             if (iframe && iframe.contentWindow) {
@@ -292,6 +554,17 @@
                     type: 'theme-change',
                     theme: event.detail.theme
                 }, '*');
+            }
+            
+            // Apply theme to sidebar navigation
+            if (navigationSidebar) {
+                if (event.detail.theme === 'dark') {
+                    navigationSidebar.classList.add('dark-theme');
+                    navigationSidebar.classList.remove('light-theme');
+                } else {
+                    navigationSidebar.classList.add('light-theme');
+                    navigationSidebar.classList.remove('dark-theme');
+                }
             }
         });
     </script>
