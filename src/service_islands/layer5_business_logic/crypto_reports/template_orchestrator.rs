@@ -95,7 +95,7 @@ impl TemplateOrchestrator {
         };
         
         // Generate sandbox token for iframe security
-        let sandboxed_report = self.report_creator.create_sandboxed_report(report);
+        let sandboxed_report = self.report_creator.create_sandboxed_report(report, Some(&chart_modules_content));
         let sandbox_token = sandboxed_report.sandbox_token.clone();
         
         // Prepare basic context

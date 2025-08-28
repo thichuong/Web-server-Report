@@ -141,8 +141,15 @@ async fn api_sandboxed_report(
 
     // Get chart modules content for iframe inclusion
     let chart_modules = match params.get("chart_modules") {
-        Some(modules) => Some(modules.as_str()),
-        None => None,
+        Some(_) => {
+            // If chart_modules parameter is present, load actual chart modules
+            println!("📊 [API] Loading chart modules for iframe");
+            Some(service_islands.shared_components.chart_modules_content.as_str())
+        },
+        None => {
+            println!("⚠️ [API] No chart_modules parameter - iframe will have empty charts");
+            None
+        }
     };
 
     // Use Service Islands to serve sandboxed content

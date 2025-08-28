@@ -42,6 +42,8 @@ pub struct SandboxedReport {
     pub js_content_en: Option<String>,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub sandbox_token: String, // Security token for iframe access
+    pub chart_modules_content: Option<String>, // Chart modules content for iframe
+    pub complete_html_document: String, // Complete HTML document ready for iframe
 }
 
 /// Report summary for listing - from archive_old_code/models.rs
@@ -179,8 +181,8 @@ impl ReportCreator {
     /// Generate sandboxed report content
     /// 
     /// Creates a secure sandboxed version of the report for iframe delivery.
-    /// This method sanitizes content and generates a security token.
-    pub fn create_sandboxed_report(&self, report: &Report) -> SandboxedReport {
+    /// This method sanitizes content, generates a security token, and creates the complete HTML document.
+    pub fn create_sandboxed_report(&self, report: &Report, chart_modules_content: Option<&str>) -> SandboxedReport {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
         
@@ -192,7 +194,8 @@ impl ReportCreator {
         
         println!("🔒 ReportCreator: Generated sandbox token for report {}: {}", report.id, sandbox_token);
         
-        SandboxedReport {
+        // Create sandboxed report with sanitized content
+        let mut sandboxed_report = SandboxedReport {
             id: report.id,
             html_content: self.sanitize_html_content(&report.html_content),
             css_content: report.css_content.as_ref().map(|css| self.sanitize_css_content(css)),
@@ -200,8 +203,32 @@ impl ReportCreator {
             html_content_en: report.html_content_en.as_ref().map(|html| self.sanitize_html_content(html)),
             js_content_en: report.js_content_en.as_ref().map(|js| self.sanitize_js_content(js)),
             created_at: report.created_at,
-            sandbox_token,
-        }
+            sandbox_token: sandbox_token.clone(),
+            chart_modules_content: chart_modules_content.map(|s| s.to_string()),
+            complete_html_document: String::new(), // Will be populated below
+        };
+        
+        // Generate complete HTML document and store it
+        sandboxed_report.complete_html_document = self.generate_sandboxed_html_document(&sandboxed_report, None, chart_modules_content);
+        
+        println!("📄 ReportCreator: Complete HTML document generated for report {} ({} bytes)", 
+                report.id, sandboxed_report.complete_html_document.len());
+        
+        sandboxed_report
+    }
+    
+    /// Regenerate HTML document for a specific language if needed
+    /// 
+    /// This method allows generating a new HTML document with a specific language
+    /// without recreating the entire SandboxedReport.
+    pub fn regenerate_html_document(&self, sandboxed_report: &SandboxedReport, language: Option<&str>) -> String {
+        let html_doc = self.generate_sandboxed_html_document(sandboxed_report, language, 
+            sandboxed_report.chart_modules_content.as_deref());
+        
+        println!("🔄 ReportCreator: Regenerated HTML document for report {} with language {:?} ({} bytes)",
+                sandboxed_report.id, language.unwrap_or("vi"), html_doc.len());
+        
+        html_doc
     }
 
     /// Sanitize HTML content for sandbox
@@ -305,7 +332,13 @@ impl ReportCreator {
         let default_js_vi = sandboxed_report.js_content.as_ref().unwrap_or(&empty_string);
         let default_js_en = sandboxed_report.js_content_en.as_ref().unwrap_or(default_js_vi);
         let default_css = sandboxed_report.css_content.as_ref().unwrap_or(&empty_string);
-        let chart_modules = chart_modules_content.unwrap_or("");
+        
+        // Use chart modules from SandboxedReport if available, otherwise use parameter, otherwise empty
+        let chart_modules = sandboxed_report.chart_modules_content
+            .as_ref()
+            .map(|s| s.as_str())
+            .or(chart_modules_content)
+            .unwrap_or("");
 
         // Determine active classes based on default language
         let (vi_active_class, en_active_class) = if default_lang == "en" {
@@ -328,225 +361,363 @@ impl ReportCreator {
     <link rel="stylesheet" href="/shared_assets/css/colors.css">
     <link rel="stylesheet" href="/shared_assets/css/chart.css">
     <link rel="stylesheet" href="/shared_assets/css/report.css">
-    <!-- Base styling for sandboxed content -->
+    <!-- Minimal inline styles for iframe-specific functionality only -->
     <style>
-        /* Reset and base styles for iframe content */
+        /* Apply sandboxed report class to body for CSS targeting */
         body {{
-            margin: 0;
-            padding: 20px;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background: #fff;
+            /* This will be styled by external CSS via .sandboxed-report body selector */
         }}
         
-        /* Common elements styling */
-        h1, h2, h3, h4, h5, h6 {{
-            margin-top: 0;
-            margin-bottom: 1rem;
-            font-weight: 600;
-        }}
-        
-        p {{
-            margin-bottom: 1rem;
-        }}
-        
-        img {{
-            max-width: 100%;
-            height: auto;
-        }}
-        
-        table {{
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 1rem;
-        }}
-        
-        th, td {{
-            padding: 0.5rem;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }}
-        
-        /* Language switching */
-        .lang-content {{
-            display: none;
-        }}
-        
-        .lang-content.active {{
-            display: block;
-        }}
-        
-        /* Bridge shared CSS selectors to iframe content */
-        .sandboxed-report-container {{
-            /* Map #report-container styles to .sandboxed-report-container */
-            width: 100%;
-        }}
-        
-        /* Alias #report-container to work with iframe structure */
-        #report-container {{
-            /* This makes #report-container rules apply to #report-container */
-        }}
-        
-        /* Report-specific CSS (isolated from main page) */
+        /* Report-specific CSS from database will be injected here */
         .sandboxed-report-container {{
             {css_content}
         }}
     </style>
 </head>
-<body>
-    <!-- Use #report-container to match shared CSS selectors -->
-    <div id="report-container" class="sandboxed-report-container">
-        <!-- Vietnamese content -->
-        <div id="content-vi" class="lang-content {vi_active_class}">
-            {html_content_vi}
-        </div>
+<body class="sandboxed-report">
+    <!-- Enhanced grid layout with prominent left navigation - Always horizontal layout -->
+    <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-x-4 md:gap-x-6 lg:gap-x-8 max-w-7xl mx-auto">
+        <!-- Navigation sidebar - Always on left, responsive width -->
+        <aside class="block md:col-span-1 lg:col-span-1 order-1">
+            <nav id="report-navigation-panel" class="sticky top-4">
+                <h3 class="text-lg font-semibold mb-3 tracking-wide" style="color: var(--text-primary);">
+                    <span class="nav-title-vi">📋 Mục lục Báo cáo</span>
+                    <span class="nav-title-en" style="display: none;">📋 Report Contents</span>
+                </h3>
+                <ul id="report-nav-links" class="space-y-1">
+                    <!-- Navigation links will be generated by CreateNav() -->
+                </ul>
+            </nav>
+        </aside>
         
-        <!-- English content -->
-        <div id="content-en" class="lang-content {en_active_class}">
-            {html_content_en}
-        </div>
+        <!-- Main report content - Responsive width, always on right -->
+        <main class="md:col-span-3 lg:col-span-4 order-2 min-w-0">
+            <div id="report-container" class="sandboxed-report-container">
+                <!-- Vietnamese content -->
+                <div id="content-vi" class="lang-content {vi_active_class}">
+                    {html_content_vi}
+                </div>
+                
+                <!-- English content -->
+                <div id="content-en" class="lang-content {en_active_class}">
+                    {html_content_en}
+                </div>
+            </div>
+        </main>
     </div>
     
     <!-- Chart modules content - Must be included in iframe for chart functions to work -->
     <script id="chart-modules">
         {chart_modules}
     </script>
+    <script id="report-js-vi">
+        {js_content_vi}
+    </script>
+    <script id="report-js-en">
+        {js_content_en}
+    </script>
     
+    <!-- Language switching and chart initialization script -->
     <script>
-        // Sandboxed environment - limited API access
-        (function() {{
-            'use strict';
+        // Current language state
+        let currentLanguage = '{default_lang}';
+        
+        // Function to switch language and initialize charts
+        function switchLanguage(lang) {{
+            console.log('🔄 Iframe: Switching language to', lang);
             
-            let currentLanguage = '{default_lang}';
+            // Hide all content
+            const allContent = document.querySelectorAll('.lang-content');
+            allContent.forEach(content => content.classList.remove('active'));
             
-            // Disable dangerous APIs
-            if (typeof eval !== 'undefined') eval = undefined;
-            if (typeof Function !== 'undefined') Function = undefined;
-            
-            // Prevent access to parent window
-            try {{
-                if (window.parent && window.parent !== window) {{
-                    // Only allow safe communication
-                    window.parent.postMessage = undefined;
-                }}
-            }} catch(e) {{
-                // Cross-origin restriction - this is expected and good
-            }}
-            
-            // Language switching function
-            function switchLanguage(lang) {{
-                if (lang === currentLanguage) return;
-                
+            // Show selected language content
+            const targetContent = document.getElementById('content-' + lang);
+            if (targetContent) {{
+                targetContent.classList.add('active');
                 currentLanguage = lang;
-                document.documentElement.lang = lang;
                 
-                // Hide all content
-                const allContent = document.querySelectorAll('.lang-content');
-                allContent.forEach(el => el.classList.remove('active'));
-                
-                // Show selected language content
-                const targetContent = document.getElementById('content-' + lang);
-                if (targetContent) {{
-                    targetContent.classList.add('active');
+                // Update navigation title based on language
+                const navTitleVi = document.querySelector('.nav-title-vi');
+                const navTitleEn = document.querySelector('.nav-title-en');
+                if (navTitleVi && navTitleEn) {{
+                    if (lang === 'en') {{
+                        navTitleVi.style.display = 'none';
+                        navTitleEn.style.display = 'inline';
+                    }} else {{
+                        navTitleVi.style.display = 'inline';
+                        navTitleEn.style.display = 'none';
+                    }}
                 }}
                 
-                // Re-initialize visuals for new language
-                initializeVisualsForLanguage(lang);
-                
-                // Notify parent about height change
-                setTimeout(notifyParentAboutHeight, 100);
-            }}
-            
-            // Initialize visuals based on language
-            function initializeVisualsForLanguage(lang) {{
-                try {{
-                    if (lang === 'en') {{
-                        // Execute English JS
-                        {js_content_en}
-                        
-                        // Call English visuals function
-                        if (typeof initializeAllVisuals_report_en === 'function') {{
-                            console.log('🎨 Calling initializeAllVisuals_report_en() in iframe');
-                            initializeAllVisuals_report_en();
-                        }} else {{
-                            console.warn('⚠️ initializeAllVisuals_report_en function not found in iframe');
-                        }}
-                    }} else {{
-                        // Execute Vietnamese JS  
-                        {js_content_vi}
-                        
-                        // Call Vietnamese visuals function
+                // Initialize charts for the selected language
+                setTimeout(() => {{
+                    if (lang === 'vi') {{
                         if (typeof initializeAllVisuals_report === 'function') {{
-                            console.log('🎨 Calling initializeAllVisuals_report() in iframe');
+                            console.log('🎯 Iframe: Initializing Vietnamese charts');
                             initializeAllVisuals_report();
                         }} else {{
-                            console.warn('⚠️ initializeAllVisuals_report function not found in iframe');
+                            console.warn('⚠️ Iframe: initializeAllVisuals_report function not found');
+                        }}
+                    }} else if (lang === 'en') {{
+                        if (typeof initializeAllVisuals_report_en === 'function') {{
+                            console.log('🎯 Iframe: Initializing English charts');
+                            initializeAllVisuals_report_en();
+                        }} else {{
+                            console.warn('⚠️ Iframe: initializeAllVisuals_report_en function not found');
                         }}
                     }}
-                }} catch(e) {{
-                    console.warn('Sandboxed script error for language ' + lang + ':', e);
-                }}
-            }}
-            
-            // Listen for messages from parent window
-            window.addEventListener('message', function(event) {{
-                if (event.data && event.data.type === 'language-change') {{
-                    console.log('🌍 Iframe received language change:', event.data.language);
-                    switchLanguage(event.data.language);
-                }} else if (event.data && event.data.type === 'theme-change') {{
-                    console.log('🎨 Iframe received theme change:', event.data.theme);
-                    // Handle theme switching if needed
-                    document.body.className = event.data.theme;
-                }}
-            }});
-            
-            // Auto-notify parent about content height changes
-            function notifyParentAboutHeight() {{
-                try {{
-                    const height = Math.max(
-                        document.body.scrollHeight,
-                        document.body.offsetHeight,
-                        document.documentElement.clientHeight,
-                        document.documentElement.scrollHeight,
-                        document.documentElement.offsetHeight
-                    );
-                    
-                    // Safe postMessage to parent for height adjustment
+                }}, 100); // Small delay to ensure DOM is ready
+                
+                // Notify parent window about height change
+                setTimeout(() => {{
+                    const height = document.body.scrollHeight;
                     if (window.parent && window.parent !== window) {{
                         window.parent.postMessage({{
-                            type: 'iframe-height',
-                            height: height + 50 // Add some padding
+                            type: 'iframe-height-change',
+                            height: height
                         }}, '*');
                     }}
-                }} catch(e) {{
-                    // Cross-origin restrictions - expected
-                }}
-            }}
-            
-            // Initialize visuals for default language on load
-            document.addEventListener('DOMContentLoaded', function() {{
-                console.log('🚀 Iframe DOM loaded, initializing visuals for language:', currentLanguage);
+                }}, 500); // Wait for charts to render
+                
+                // Update navigation after language switch
                 setTimeout(() => {{
-                    initializeVisualsForLanguage(currentLanguage);
-                    notifyParentAboutHeight();
-                }}, 100);
-            }});
+                    console.log('🧭 Iframe: Updating navigation after language switch');
+                    CreateNav();
+                }}, 600); // Wait for charts to complete before updating nav
+            }}
+        }}
+        
+        // Listen for messages from parent window
+        window.addEventListener('message', function(event) {{
+            if (event.data && event.data.type === 'language-change') {{
+                console.log('📨 Iframe: Received language change message:', event.data.language);
+                switchLanguage(event.data.language);
+            }} else if (event.data && event.data.type === 'theme-change') {{
+                console.log('🎨 Iframe: Received theme change message:', event.data.theme);
+                applyTheme(event.data.theme);
+            }}
+        }});
+        
+        // Function to apply theme to iframe
+        function applyTheme(theme) {{
+            console.log('🎨 Iframe: Applying theme:', theme);
             
-            // Listen for content changes
-            if (typeof MutationObserver !== 'undefined') {{
-                const observer = new MutationObserver(notifyParentAboutHeight);
-                observer.observe(document.body, {{
-                    childList: true,
-                    subtree: true,
-                    attributes: true
-                }});
+            // Apply theme to document element
+            document.documentElement.setAttribute('data-theme', theme);
+            
+            // Apply theme to body for additional styling
+            if (theme === 'dark') {{
+                document.body.classList.add('dark-theme');
+                document.body.classList.remove('light-theme');
+                console.log('🌙 Iframe: Dark theme applied');
+            }} else {{
+                document.body.classList.add('light-theme');
+                document.body.classList.remove('dark-theme');
+                console.log('☀️ Iframe: Light theme applied');
             }}
             
-            // Fallback periodic height check
-            setInterval(notifyParentAboutHeight, 2000);
-        }})();
+            // Notify parent about height change after theme application
+            setTimeout(() => {{
+                const height = document.body.scrollHeight;
+                if (window.parent && window.parent !== window) {{
+                    window.parent.postMessage({{
+                        type: 'iframe-height-change',
+                        height: height
+                    }}, '*');
+                }}
+            }}, 100);
+        }}
+        
+        // CreateNav function - Generate navigation for report sections
+        async function CreateNav() {{
+            try {{
+                console.log('🧭 Iframe: Creating navigation...');
+                
+                const reportContainer = document.getElementById('report-container');
+                const navLinksContainer = document.getElementById('report-nav-links');
+
+                // Exit early if main containers don't exist
+                if (!reportContainer || !navLinksContainer) {{
+                    console.warn('⚠️ Iframe: Navigation containers not found');
+                    return;
+                }}
+
+                // Disconnect old observer if exists
+                if (reportContainer._navObserver) {{
+                    try {{ reportContainer._navObserver.disconnect(); }} catch(e){{}}
+                    reportContainer._navObserver = null;
+                }}
+
+                // Clear old navigation content
+                navLinksContainer.innerHTML = '';
+
+                // Find active content based on current language
+                const viContainer = document.getElementById('content-vi');
+                const enContainer = document.getElementById('content-en');
+                let activeContent = reportContainer; // fallback
+
+                if (viContainer || enContainer) {{
+                    const viVisible = viContainer && window.getComputedStyle(viContainer).display !== 'none';
+                    const enVisible = enContainer && window.getComputedStyle(enContainer).display !== 'none';
+                    if (viVisible) activeContent = viContainer;
+                    else if (enVisible) activeContent = enContainer;
+                    else activeContent = viContainer || enContainer || reportContainer;
+                }}
+
+                // Find all sections in active content
+                const reportSections = activeContent.querySelectorAll('section');
+                console.log('🧭 Iframe: Found', reportSections.length, 'sections for navigation');
+
+                // Build navigation links
+                reportSections.forEach((section, index) => {{
+                    const h2 = section.querySelector('h2');
+                    if (h2 && section.id) {{
+                        const li = document.createElement('li');
+                        const a = document.createElement('a');
+                        a.href = `#${{section.id}}`;
+                        
+                        // Clean h2 text (remove icons)
+                        const h2Text = h2.cloneNode(true);
+                        const icon = h2Text.querySelector('i');
+                        if (icon && icon.parentNode) icon.parentNode.removeChild(icon);
+                        a.textContent = h2Text.textContent.trim();
+                        
+                        // Smooth scroll on click
+                        a.addEventListener('click', (e) => {{
+                            e.preventDefault();
+                            
+                            const target = activeContent.querySelector(`#${{section.id}}`);
+                            if (target) {{
+                                // Set active immediately
+                                navLinksContainer.querySelectorAll('a').forEach(link => link.classList.remove('active'));
+                                a.classList.add('active');
+                                
+                                // Scroll to target
+                                target.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
+                            }}
+                        }});
+                        
+                        li.appendChild(a);
+                        navLinksContainer.appendChild(li);
+                    }}
+                }});
+
+                const navLinks = navLinksContainer.querySelectorAll('a');
+                console.log('🧭 Iframe: Created', navLinks.length, 'navigation links');
+
+                // Set up intersection observer for active highlighting
+                const observer = new IntersectionObserver(() => {{
+                    const viewportHeight = window.innerHeight;
+                    const anchor = viewportHeight * 0.2; // 20% from top
+
+                    let bestSection = null;
+                    let bestTop = -Infinity;
+
+                    // Find best section that's in view
+                    reportSections.forEach(section => {{
+                        const rect = section.getBoundingClientRect();
+                        if (rect.bottom <= 0 || rect.top >= viewportHeight) return;
+                        if (rect.top <= anchor && rect.top > bestTop) {{
+                            bestTop = rect.top;
+                            bestSection = section;
+                        }}
+                    }});
+
+                    // If no section above anchor, find closest below
+                    if (!bestSection) {{
+                        let minBelow = Infinity;
+                        reportSections.forEach(section => {{
+                            const rect = section.getBoundingClientRect();
+                            if (rect.bottom <= 0 || rect.top >= viewportHeight) return;
+                            if (rect.top > anchor && rect.top < minBelow) {{
+                                minBelow = rect.top;
+                                bestSection = section;
+                            }}
+                        }});
+                    }}
+
+                    // Update active navigation link
+                    if (bestSection) {{
+                        const targetId = bestSection.id;
+                        navLinks.forEach(link => {{
+                            const isTarget = link.getAttribute('href').substring(1) === targetId;
+                            link.classList.toggle('active', isTarget);
+                        }});
+                    }}
+                }}, {{
+                    root: null,
+                    rootMargin: "0px",
+                    threshold: [0, 0.1, 0.25, 0.5, 1.0]
+                }});
+
+                // Observe all sections
+                reportSections.forEach(section => {{
+                    observer.observe(section);
+                }});
+
+                // Set first link as active initially
+                if (navLinks.length > 0 && !navLinksContainer.querySelector('a.active')) {{
+                    navLinks[0].classList.add('active');
+                }}
+
+                // Save observer for cleanup
+                reportContainer._navObserver = observer;
+                
+                console.log('✅ Iframe: Navigation created successfully');
+
+            }} catch (error) {{
+                console.error('❌ Iframe: Error creating navigation:', error);
+            }}
+        }}
+        
+        // Initialize charts for default language when page loads
+        document.addEventListener('DOMContentLoaded', function() {{
+            console.log('📄 Iframe: DOM loaded, initializing default language charts:', currentLanguage);
+            
+            // Apply initial theme based on parent page
+            const parentTheme = '{default_lang}' === 'en' ? 'light' : 'light'; // Default to light
+            console.log('🎨 Iframe: Applying initial theme:', parentTheme);
+            applyTheme(parentTheme);
+            
+            setTimeout(() => {{
+                if (currentLanguage === 'vi') {{
+                    if (typeof initializeAllVisuals_report === 'function') {{
+                        console.log('🎯 Iframe: Initializing default Vietnamese charts');
+                        initializeAllVisuals_report();
+                    }}
+                }} else if (currentLanguage === 'en') {{
+                    if (typeof initializeAllVisuals_report_en === 'function') {{
+                        console.log('🎯 Iframe: Initializing default English charts');
+                        initializeAllVisuals_report_en();
+                    }}
+                }}
+                
+                // Notify parent about initial height
+                const height = document.body.scrollHeight;
+                if (window.parent && window.parent !== window) {{
+                    window.parent.postMessage({{
+                        type: 'iframe-height-change',
+                        height: height
+                    }}, '*');
+                }}
+            }}, 200); // Wait for everything to load
+            
+            // Create navigation after charts are initialized
+            setTimeout(() => {{
+                console.log('🧭 Iframe: Creating initial navigation');
+                CreateNav();
+            }}, 300); // Create nav after charts are ready
+        }});
+        
+        // Debug: Log available functions
+        setTimeout(() => {{
+            console.log('🔍 Iframe: Available chart functions:');
+            console.log('- initializeAllVisuals_report:', typeof initializeAllVisuals_report);
+            console.log('- initializeAllVisuals_report_en:', typeof initializeAllVisuals_report_en);
+            console.log('- CreateNav:', typeof CreateNav);
+        }}, 100);
     </script>
+
 </body>
 </html>"#, 
             report_id = sandboxed_report.id,
@@ -585,8 +756,8 @@ impl ReportCreator {
 
         match report_result {
             Ok(Some(report)) => {
-                // Create sandboxed version
-                let sandboxed_report = self.create_sandboxed_report(&report);
+                // Create sandboxed version with complete HTML document
+                let sandboxed_report = self.create_sandboxed_report(&report, chart_modules_content);
                 
                 // Verify sandbox token
                 if sandboxed_report.sandbox_token != sandbox_token {
@@ -600,10 +771,23 @@ impl ReportCreator {
                     );
                 }
                 
-                // Generate sandboxed HTML document with chart modules
-                let sandboxed_html = self.generate_sandboxed_html_document(&sandboxed_report, language, chart_modules_content);
+                // Use the pre-generated complete HTML document from cache
+                // If a specific language is requested and it's different from default (vi), regenerate
+                let sandboxed_html = if let Some(lang) = language {
+                    if lang != "vi" {
+                        // Regenerate with specific language
+                        self.regenerate_html_document(&sandboxed_report, Some(lang))
+                    } else {
+                        // Use cached default document
+                        sandboxed_report.complete_html_document.clone()
+                    }
+                } else {
+                    // Use cached default document
+                    sandboxed_report.complete_html_document.clone()
+                };
                 
-                println!("✅ ReportCreator: Sandboxed content generated for report {} with chart modules", report_id);
+                println!("✅ ReportCreator: Serving HTML document for report {} with language {:?} ({} bytes)", 
+                        report_id, language.unwrap_or("vi"), sandboxed_html.len());
                 
                 // Return response with security headers
                 Ok(Response::builder()

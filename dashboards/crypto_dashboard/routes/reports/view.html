@@ -167,20 +167,13 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-x-12 pb-96">
-            <aside class="hidden lg:block lg:col-span-1">
-                 <nav id="report-navigation-panel" class="sticky top-8">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-3 tracking-wide">Mục lục Báo cáo</h3>
-                    <ul id="report-nav-links" class="space-y-2">
-                        </ul>
-                </nav>
-            </aside>
-            <main id="report-container" class="lg:col-span-3">
-                <!-- Single unified sandboxed iframe for both languages -->
+        <div class="grid grid-cols-1 lg:grid-cols-1 gap-x-12 pb-96">
+            <main id="report-container" class="w-full">
+                <!-- Single unified sandboxed iframe for both languages with navigation inside -->
                 {% if report.id %}
                     <iframe 
                         id="report-iframe"
-                        src="/api/crypto_reports/{{ report.id }}/sandboxed?token={{ sandbox_token }}&lang=vi"
+                        src="/api/crypto_reports/{{ report.id }}/sandboxed?token={{ sandbox_token }}&lang=vi&chart_modules=true"
                         width="100%" 
                         height="800px"
                         frameborder="0"
