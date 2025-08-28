@@ -647,18 +647,6 @@
                             }, '*');
                         }
                         
-                        // Also request active section less frequently for double-checking
-                        clearTimeout(activeSectionCheckTimeout);
-                        activeSectionCheckTimeout = setTimeout(() => {
-                            if (iframe && iframe.contentWindow && Math.abs(currentScrollTop - lastScrollTop) > 50) {
-                                console.log('🔍 Parent: Requesting active section verification at scroll:', Math.round(scrollPercent) + '%');
-                                iframe.contentWindow.postMessage({
-                                    type: 'get-active-section',
-                                    scrollPercent: scrollPercent,
-                                    scrollTop: currentScrollTop
-                                }, '*');
-                            }
-                        }, 200); // Debounce verification requests
                         
                         lastScrollTop = currentScrollTop;
                     }
@@ -670,16 +658,6 @@
                         scrollTimeout = setTimeout(handleParentScroll, 16); // ~60fps
                     }, { passive: true });
                     
-                    // Initial active section request
-                    setTimeout(() => {
-                        if (iframe && iframe.contentWindow) {
-                            console.log('🚀 Parent: Initial active section request');
-                            iframe.contentWindow.postMessage({
-                                type: 'get-active-section',
-                                reason: 'initial-load'
-                            }, '*');
-                        }
-                    }, 2000);
                     
                     console.log('📜 Parent: Started enhanced scroll tracking with iframe communication');
                 }

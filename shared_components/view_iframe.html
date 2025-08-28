@@ -175,6 +175,7 @@
                 // Update navigation after language switch
                 setTimeout(() => {
                     console.log('🧭 Iframe: Updating navigation after language switch');
+                    isNavigationReady = false; // Reset navigation state for new language
                     CreateNav();
                     
                     // Force recalculation of section ranges for new language
@@ -455,7 +456,9 @@
             
             // Notify parent about height change after theme application
             setTimeout(() => {
-                reportHeightUpdate('Theme change applied');
+                if (isNavigationReady) {
+                    reportHeightUpdate('Theme change applied');
+                }
             }, 100);
         }
         
@@ -596,10 +599,18 @@
                 
                 console.log('✅ Iframe: Navigation created successfully');
                 
+                // Mark navigation as ready
+                isNavigationReady = true;
+                
                 // Calculate section scroll ranges after navigation is created
                 setTimeout(() => {
                     calculateSectionScrollRanges(reportSections);
                     console.log('📊 Iframe: Section ranges calculated after navigation creation');
+                    
+                    // Report final height now that navigation is complete
+                    setTimeout(() => {
+                        reportHeightUpdate('Navigation creation complete');
+                    }, 100);
                 }, 100);
 
             } catch (error) {
@@ -662,9 +673,20 @@
             }, 300); // Create nav after charts are ready
         });
         
-        // Enhanced height reporting function
+        // Enhanced height reporting function with anti-loop protection
+        let lastReportedHeight = 0;
+        let heightReportCount = 0;
+        let isNavigationReady = false;
+        
         function reportHeightUpdate(reason = 'Content change') {
             try {
+                // Only report height after navigation is ready, unless it's critical
+                const criticalReasons = ['Initial charts loaded', 'Language switch - charts rendered', 'Theme change applied'];
+                if (!isNavigationReady && !criticalReasons.includes(reason)) {
+                    console.log(`📏 Iframe: Height report deferred - navigation not ready (${reason})`);
+                    return;
+                }
+                
                 const body = document.body;
                 const html = document.documentElement;
                 
@@ -677,6 +699,21 @@
                     html.offsetHeight
                 );
                 
+                // Prevent excessive height reports for minor changes
+                const heightDiff = Math.abs(height - lastReportedHeight);
+                const minChangeDelta = 5; // Only report if height changes by more than 5px
+                
+                if (heightDiff < minChangeDelta && heightReportCount > 0) {
+                    console.log(`📏 Iframe: Height change too small (${heightDiff}px), skipping report`);
+                    return;
+                }
+                
+                // Anti-spam protection - limit reports per second
+                if (heightReportCount > 10) {
+                    console.log(`📏 Iframe: Height report limit reached, ignoring (${reason})`);
+                    return;
+                }
+                
                 if (window.parent && window.parent !== window) {
                     const message = {
                         type: 'iframe-height-change',
@@ -685,8 +722,11 @@
                         timestamp: Date.now()
                     };
                     
-                    console.log(`📏 Iframe: Reporting height ${height}px (${reason})`);
+                    console.log(`📏 Iframe: Reporting height ${height}px (${reason}) [${heightReportCount + 1}]`);
                     window.parent.postMessage(message, '*');
+                    
+                    lastReportedHeight = height;
+                    heightReportCount++;
                 } else {
                     console.log(`📏 Iframe: Height ${height}px calculated but no parent to report to`);
                 }
@@ -695,13 +735,21 @@
             }
         }
         
-        // Monitor content changes for height updates
+        // Reset height report counter periodically
+        setInterval(() => {
+            if (heightReportCount > 0) {
+                console.log(`📏 Iframe: Resetting height report counter (was: ${heightReportCount})`);
+                heightReportCount = 0;
+            }
+        }, 5000); // Reset every 5 seconds
+        
+        // Monitor content changes for height updates with improved debouncing
         let heightUpdateTimeout;
         function scheduleHeightUpdate(reason = 'Content change') {
             clearTimeout(heightUpdateTimeout);
             heightUpdateTimeout = setTimeout(() => {
                 reportHeightUpdate(reason);
-            }, 150); // Debounce multiple rapid changes
+            }, 300); // Increased debounce time to reduce frequency
         }
         
         // Handle parent window scroll and find active sections based on viewport visibility
@@ -824,16 +872,7 @@
                 // Since iframe can't scroll, we need a different approach
                 // We'll use a simple cycling system or respond to parent requests
                 let activeSection = sections[0]; // Default to first section
-                
-                // Check if we have a globally stored active section
-                if (window.currentActiveSectionId) {
-                    const storedSection = sections.find(s => s.id === window.currentActiveSectionId);
-                    if (storedSection) {
-                        activeSection = storedSection;
-                        console.log('📌 Iframe: Using stored active section:', window.currentActiveSectionId);
-                    }
-                }
-                
+                                
                 // Estimate active section based on iframe position relative to parent
                 // This is a simplified approach since we can't get parent scroll directly
                 try {
@@ -908,20 +947,34 @@
             }
         }
         
-        // Set up ResizeObserver to monitor height changes automatically
+        // Set up ResizeObserver with throttling to prevent excessive height reports
         if (window.ResizeObserver) {
+            let resizeObserverTimeout;
             const resizeObserver = new ResizeObserver(entries => {
-                scheduleHeightUpdate('ResizeObserver triggered');
+                // Only trigger if navigation is ready to prevent initial load spam
+                if (!isNavigationReady) {
+                    console.log('📏 Iframe: ResizeObserver triggered but navigation not ready, ignoring');
+                    return;
+                }
+                
+                // Throttle resize events to prevent spam
+                clearTimeout(resizeObserverTimeout);
+                resizeObserverTimeout = setTimeout(() => {
+                    scheduleHeightUpdate('ResizeObserver triggered');
+                }, 500); // Increased throttling time
             });
             
             // Observe body element for size changes
             resizeObserver.observe(document.body);
+            console.log('👀 Iframe: ResizeObserver set up with throttling');
         } else {
-            // Fallback for browsers without ResizeObserver
+            // Fallback for browsers without ResizeObserver - reduced frequency
             console.log('⚠️ ResizeObserver not supported, using periodic height checks');
             setInterval(() => {
-                reportHeightUpdate('Periodic height check');
-            }, 2000);
+                if (isNavigationReady) {
+                    reportHeightUpdate('Periodic height check');
+                }
+            }, 10000); // Increased to 10 seconds to reduce spam
         }
         
         // Debug: Log available functions
