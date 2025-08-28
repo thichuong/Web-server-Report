@@ -534,19 +534,37 @@
 /* Reset and base styles for iframe content */
 .sandboxed-report body {
     margin: 0;
-    padding: 20px;
+    padding: 0;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     line-height: 1.6;
     color: var(--text-primary);
     background: var(--bg-primary);
     transition: background-color 0.3s ease, color 0.3s ease;
+    width: 100%;
+    min-height: 100vh;
 }
 
 /* Enhanced body layout for better left navigation - mobile responsive */
 @media (max-width: 768px) {
     .sandboxed-report body {
-        padding: 0.75rem !important;
+        padding: 0 !important;
     }
+}
+
+/* Content should flow naturally in full width */
+.sandboxed-report section {
+    break-inside: auto;
+    width: 100%;
+    margin-bottom: 1.5rem;
+}
+
+/* Chart containers should not break across columns */
+.sandboxed-report .chart-container,
+.sandboxed-report .gauge-container,
+.sandboxed-report .doughnut-container,
+.sandboxed-report .line-chart-container,
+.sandboxed-report .bar-chart-container {
+    break-inside: avoid;
 }
 
 /* Theme-aware styling for iframe */
@@ -576,6 +594,81 @@
     color: var(--text-primary);
 }
 
+/* ===== NEW TWO-COLUMN LAYOUT SYSTEM ===== */
+
+/* Main layout container */
+.report-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 2rem;
+    max-width: 100%;
+    width: 100%;
+    padding: 1rem;
+    min-height: 100vh;
+}
+
+/* Navigation sidebar */
+.navigation-sidebar {
+    position: sticky;
+    top: 1rem;
+    height: fit-content;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+}
+
+/* Content area - full width */
+.content-area {
+    min-width: 0; /* Allows content to shrink */
+    width: 100%;
+    flex: 1;
+}
+
+#report-container {
+    width: 100%;
+    max-width: none; /* Remove any max-width restrictions */
+}
+
+/* Mobile responsiveness - Hide table of contents */
+@media (max-width: 768px) {
+    .report-layout {
+        grid-template-columns: 1fr; /* Single column on mobile */
+        gap: 0;
+        padding: 0.75rem;
+    }
+    
+    .navigation-sidebar {
+        display: none; /* Hide table of contents on mobile */
+    }
+    
+    .content-area {
+        width: 100%;
+    }
+    
+    /* Adjust report container padding for mobile */
+    .content-area #report-container {
+        padding: 0.5rem;
+    }
+}
+
+/* Small tablet adjustments */
+@media (max-width: 480px) {
+    .report-layout {
+        padding: 0.5rem;
+    }
+    
+    .content-area #report-container {
+        padding: 0.25rem;
+    }
+}
+
+/* Tablet responsiveness */
+@media (max-width: 1024px) and (min-width: 769px) {
+    .report-layout {
+        grid-template-columns: 240px 1fr; /* Smaller sidebar on tablet */
+        gap: 1.5rem;
+    }
+}
+
 /* ===== NAVIGATION PANEL STYLES ===== */
 
 /* Enhanced Navigation styling for left sidebar */
@@ -585,20 +678,25 @@
     border-radius: 12px;
     border: 1px solid var(--border-color);
     box-shadow: 0 4px 6px var(--shadow);
-    position: sticky;
-    top: 1rem;
+    width: 100%;
+    height: fit-content;
     max-height: calc(100vh - 2rem);
     overflow-y: auto;
-    min-width: 250px;
 }
 
-.nav-title-vi, .nav-title-en {
+.nav-title {
     color: var(--text-primary);
     font-weight: 600;
     font-size: 1.1rem;
     margin-bottom: 1rem;
     padding-bottom: 0.5rem;
     border-bottom: 2px solid var(--border-color);
+}
+
+.nav-title-vi, .nav-title-en {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 1.1rem;
 }
 
 #report-nav-links {
@@ -638,78 +736,62 @@
     box-shadow: 0 2px 4px rgba(59, 130, 246, 0.25);
 }
 
-/* ===== RESPONSIVE GRID LAYOUTS ===== */
+/* ===== RESPONSIVE DESIGN FOR REPORT LAYOUT ===== */
 
-/* Container max width and centering */
-.grid {
+/* Language switching */
+.lang-content {
+    display: none;
+}
+
+.lang-content.active {
+    display: block;
+}
+
+/* Bridge shared CSS selectors to iframe content */
+.sandboxed-report-container {
+    width: 100%;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+/* Content area full width styling */
+.content-area #report-container {
+    width: 100%;
     max-width: none;
-    margin: 0 auto;
-    padding: 0;
+    padding: 1rem;
 }
 
-/* Responsive navigation - Always maintain left/right horizontal layout */
-@media (max-width: 1024px) {
-    .grid {
-        grid-template-columns: 200px 1fr !important;
-        gap: 1rem !important;
-    }
-    
-    /* Navigation always on left side */
-    aside {
-        display: block !important;
-        order: 1;
-        margin-bottom: 0;
-    }
-    
-    #report-navigation-panel {
-        position: sticky !important;
-        top: 1rem !important;
-        max-height: calc(100vh - 2rem) !important;
-        overflow-y: auto !important;
-        min-width: 180px !important;
-        padding: 1rem !important;
-    }
-    
-    main {
-        order: 2;
-        min-width: 0;
-    }
+/* Ensure sections take full width */
+.content-area section {
+    width: 100%;
+    max-width: none;
 }
 
-/* Extra small screens - optimized for mobile but still left/right */
+/* Cards should expand to full available width */
+.content-area .report-card,
+.content-area .sub-card,
+.content-area .wide-card {
+    width: 100%;
+    max-width: none;
+}
+
+/* Grid layouts should use full width */
+.content-area .content-grid {
+    width: 100%;
+    max-width: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+}
+
+/* Mobile adjustments for content area */
 @media (max-width: 768px) {
-    .grid {
-        grid-template-columns: 160px 1fr !important;
-        gap: 0.5rem !important;
+    .content-area #report-container {
+        padding: 0.75rem;
     }
     
-    aside {
-        display: block !important;
-        order: 1;
-    }
-    
-    #report-navigation-panel {
-        padding: 0.75rem !important;
-        min-width: 140px !important;
-        font-size: 0.85rem !important;
-        position: sticky !important;
-        top: 0.5rem !important;
-        max-height: calc(100vh - 1rem) !important;
-    }
-    
-    .nav-title-vi, .nav-title-en {
-        font-size: 0.9rem !important;
-        margin-bottom: 0.5rem !important;
-        padding-bottom: 0.25rem !important;
-    }
-    
-    #report-nav-links a {
-        padding: 0.4rem 0.5rem !important;
-        font-size: 0.8rem !important;
-    }
-    
-    main {
-        order: 2;
-        min-width: 0;
+    .content-area .content-grid {
+        grid-template-columns: 1fr; /* Single column on mobile */
+        gap: 1rem;
     }
 }
