@@ -162,7 +162,7 @@ async fn await_scenario_medium_concurrency(cache_system: Arc<CacheSystemIsland>)
     let mut computation_sources = std::collections::HashSet::new();
     
     for handle in handles {
-        if let Ok((req_id, Ok(data), _duration)) = handle.await {
+        if let Ok((_req_id, Ok(data), _duration)) = handle.await {
             successful += 1;
             
             if let Some(computed_by) = data.get("computed_by").and_then(|v| v.as_str()) {

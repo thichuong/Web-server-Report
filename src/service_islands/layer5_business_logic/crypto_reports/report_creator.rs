@@ -349,13 +349,13 @@ impl ReportCreator {
         };
 
         // Load HTML template from external file
-        let template_path = "dashboards/crypto_dashboard/pages/view_iframe.html";
+        let template_path = "shared_components/view_iframe.html";
         let template_content = match std::fs::read_to_string(template_path) {
             Ok(content) => content,
             Err(e) => {
                 eprintln!("⚠️ ReportCreator: Failed to load template {}: {}. Using fallback.", template_path, e);
                 // Fallback to minimal template if file loading fails
-                include_str!("../../../../dashboards/crypto_dashboard/pages/view_iframe.html").to_string()
+                include_str!("../../../../shared_components/view_iframe.html").to_string()
             }
         };
 

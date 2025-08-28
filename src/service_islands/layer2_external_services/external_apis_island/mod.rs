@@ -77,29 +77,6 @@ impl ExternalApisIsland {
         })
     }
     
-    /// Initialize External APIs Island without cache system (for testing)
-    pub async fn with_all_keys(
-        taapi_secret: String, 
-        cmc_api_key: Option<String>, 
-        finnhub_api_key: Option<String>
-    ) -> Result<Self> {
-        println!("🏝️ Initializing External APIs Island (no cache)...");
-        
-        // Initialize components without cache
-        let market_data_api = Arc::new(MarketDataApi::with_all_keys(taapi_secret.clone(), cmc_api_key.clone(), finnhub_api_key.clone()).await?);
-        let api_aggregator = Arc::new(ApiAggregator::with_all_keys(taapi_secret, cmc_api_key, finnhub_api_key).await?);
-        let circuit_breaker = Arc::new(CircuitBreaker::new());
-        
-        println!("✅ External APIs Island initialized (no cache)!");
-        
-        Ok(Self {
-            market_data_api,
-            api_aggregator,
-            circuit_breaker,
-            cache_system: None,
-        })
-    }
-    
     /// Health check for the entire External APIs Island
     /// 
     /// Validates that all external service components are operational.

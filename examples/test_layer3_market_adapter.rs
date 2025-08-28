@@ -5,6 +5,7 @@
 
 use web_server_report::service_islands::layer2_external_services::external_apis_island::ExternalApisIsland;
 use web_server_report::service_islands::layer3_communication::layer2_adapters::market_data_adapter::MarketDataAdapter;
+use web_server_report::service_islands::layer1_infrastructure::CacheSystemIsland;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -21,12 +22,17 @@ async fn main() -> anyhow::Result<()> {
     println!("   • CoinMarketCap: {}", if cmc_api_key.is_some() { "✅ Found" } else { "⚠️ Optional" });
     println!("   • Finnhub: {}", if finnhub_api_key.is_some() { "✅ Found" } else { "❌ Missing" });
 
+    // Initialize Cache System first
+    println!("\n🗄️ Initializing Cache System...");
+    let cache_system = std::sync::Arc::new(CacheSystemIsland::new().await?);
+
     // Initialize Layer 2 External APIs Island
     println!("\n🏗️ Initializing Layer 2 External APIs Island...");
-    let external_apis = ExternalApisIsland::with_all_keys(
+    let external_apis = ExternalApisIsland::with_cache_and_all_keys(
         taapi_secret,
         cmc_api_key,
-        finnhub_api_key
+        finnhub_api_key,
+        cache_system
     ).await?;
     
     // Initialize Layer 3 Market Data Adapter
