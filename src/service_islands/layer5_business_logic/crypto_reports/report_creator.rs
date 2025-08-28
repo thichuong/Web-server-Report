@@ -234,7 +234,7 @@ impl ReportCreator {
     /// Sanitize HTML content for sandbox
     /// 
     /// Removes potentially dangerous HTML elements and attributes
-    fn sanitize_html_content(&self, html: &str) -> String {
+    pub fn sanitize_html_content(&self, html: &str) -> String {
         // Basic HTML sanitization - remove dangerous elements
         let dangerous_patterns = [
             r"<script[^>]*>.*?</script>", // Remove inline scripts
@@ -261,7 +261,7 @@ impl ReportCreator {
     /// 
     /// Removes potentially dangerous CSS properties and expressions
     /// Enhanced to prevent CSS from affecting parent page
-    fn sanitize_css_content(&self, css: &str) -> String {
+    pub fn sanitize_css_content(&self, css: &str) -> String {
         // Basic CSS sanitization - remove dangerous properties
         let dangerous_patterns = [
             r"expression\s*\(", // Remove CSS expressions
@@ -294,7 +294,7 @@ impl ReportCreator {
     /// Sanitize JavaScript content for sandbox
     /// 
     /// Applies basic JavaScript sanitization for sandbox environment
-    fn sanitize_js_content(&self, js: &str) -> String {
+    pub fn sanitize_js_content(&self, js: &str) -> String {
         // Basic JS sanitization - remove dangerous functions
         let dangerous_patterns = [
             r"eval\s*\(", // Remove eval calls

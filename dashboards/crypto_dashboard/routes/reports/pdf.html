@@ -15,13 +15,6 @@
     <link rel="stylesheet" href="/shared_assets/css/pdf-template.css">
     <link rel="stylesheet" href="/shared_assets/css/report.css">
 
-    {% if report and report.css_content %}
-        <style>
-            /* <![CDATA[ */
-            {{ report.css_content | safe }}
-            /* ]]> */
-        </style>
-    {% endif %}
 </head>
 <body class="pdf-template antialiased">
 
@@ -62,15 +55,24 @@
             </header>
 
             <main id="report-container" class="max-w-none" {% if report %}data-report-id="{{ report.id }}"{% endif %}>
-                {% if report and report.html_content %}
-                    <div id="report-content-vi" style="display: block;">
-                        {{ report.html_content }}
-                    </div>
-                    {% if report.html_content_en %}
-                        <div id="report-content-en" style="display: none;">
-                            {{ report.html_content_en }}
+                {% if report and report.id %}
+                    <iframe 
+                        id="pdf-report-iframe"
+                        src="/api/crypto_reports/{{ report.id }}/pdf_sandboxed?token={{ sandbox_token }}&lang=vi&chart_modules=true"
+                        width="100%" 
+                        height="800px"
+                        frameborder="0"
+                        sandbox="allow-scripts allow-same-origin allow-popups"
+                        style="border: none; border-radius: 8px;"
+                        loading="eager"
+                        onload="console.log('🔥 PDF Iframe loaded successfully for report {{ report.id }}');">
+                        <!-- Fallback content for browsers that don't support iframes -->
+                        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+                            <p class="text-sm text-gray-700">
+                                <strong>Iframe không được hỗ trợ:</strong> Trình duyệt của bạn không hỗ trợ iframe. Vui lòng sử dụng trình duyệt hiện đại hơn để xem báo cáo PDF.
+                            </p>
                         </div>
-                    {% endif %}
+                    </iframe>
                 {% else %}
                     <div class="placeholder avoid-break">
                         <h2 data-i18n="no-report-created">Chưa có báo cáo nào được tạo.</h2>
@@ -81,19 +83,6 @@
         </div>
     </div>
     
-    <!-- Chart modules injected from server context -->
-    <script>
-        {{ chart_modules_content }}
-    </script>
-    
-    {% if report and report.js_content %}
-        <script>
-            {{ report.js_content }}
-        </script>
-    {% else %}
-        <script src="/crypto_dashboard/assets/js/report.js"></script>
-    {% endif %}
-   
     <script src="/shared_components/report-initializer.js" defer></script>
     <script src="/shared_components/pdf-template.js" defer></script>
     <script src="/shared_components/core/language-toggle.js" defer></script>

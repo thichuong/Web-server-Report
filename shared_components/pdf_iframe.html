@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="{{default_lang}}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sandboxed Report #{{report_id}}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- External resources needed for iframe -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" crossorigin="anonymous">
+    
+    <link rel="stylesheet" href="/shared_assets/css/colors.css">
+    <link rel="stylesheet" href="/shared_assets/css/chart.css">
+    <link rel="stylesheet" href="/shared_assets/css/report.css">
+    <!-- Minimal inline styles for iframe-specific functionality only -->
+    <style>
+        /* Apply sandboxed report class to body for CSS targeting */
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+        
+        /* Fallback styles for Font Awesome icons if CDN fails */
+        .fa, .fas, .far, .fal, .fab {
+            font-family: 'Font Awesome 6 Free', 'Font Awesome 6 Pro', 'Font Awesome 5 Free', 'Font Awesome 5 Pro', sans-serif;
+            font-weight: 900;
+            font-style: normal;
+            text-rendering: auto;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        /* Fallback content for common icons if Font Awesome fails */
+        .fa-chart-line:before { content: "📈"; }
+        .fa-coins:before { content: "🪙"; }
+        .fa-arrow-up:before { content: "↑"; }
+        .fa-arrow-down:before { content: "↓"; }
+        .fa-info-circle:before { content: "ℹ️"; }
+        .fa-warning:before { content: "⚠️"; }
+        
+        /* Report-specific CSS from database will be injected here */
+        .sandboxed-report-container {
+            {{css_content}}
+        }
+        
+        /* Ensure report layout takes full width within iframe */
+        .sandboxed-report .report-layout {
+            max-width: 100%;
+            margin: 0;
+            padding: 1rem;
+        }
+        
+        /* Full width content area in iframe */
+        .sandboxed-report .content-area {
+            width: 100%;
+            max-width: none;
+        }
+    </style>
+</head>
+<body class="sandboxed-report">
+    <!-- Two-column layout with table of contents and content -->
+    <div class="report-layout">
+        <!-- Main report content - Full width content area -->
+        <main class="content-area">
+            <div id="report-container" class="sandboxed-report-container">
+                <!-- Vietnamese content -->
+                <div id="content-vi" class="lang-content {{vi_active_class}}">
+                    {{html_content_vi}}
+                </div>
+                
+                <!-- English content -->
+                <div id="content-en" class="lang-content {{en_active_class}}">
+                    {{html_content_en}}
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Chart modules content - Must be included in iframe for chart functions to work -->
+    <script id="chart-modules">
+        {{chart_modules}}
+    </script>
+    <script id="report-js-vi">
+        {{js_content_vi}}
+    </script>
+    <script id="report-js-en">
+        {{js_content_en}}
+    </script>
+    
+    <!-- Language switching and chart initialization script -->
+    <script>
+        // Current language state
+        let currentLanguage = '{{default_lang}}';
+        
+        // Function to switch language and initialize charts
+        function switchLanguage(lang) {
+            console.log('🔄 Iframe: Switching language to', lang);
+            
+            // Hide all content
+            const allContent = document.querySelectorAll('.lang-content');
+            allContent.forEach(content => content.classList.remove('active'));
+            
+            // Show selected language content
+            const targetContent = document.getElementById('content-' + lang);
+            if (targetContent) {
+                targetContent.classList.add('active');
+                currentLanguage = lang;
+                
+                // Initialize charts for the selected language
+                setTimeout(() => {
+                    if (lang === 'vi') {
+                        if (typeof initializeAllVisuals_report === 'function') {
+                            console.log('🎯 Iframe: Initializing Vietnamese charts');
+                            initializeAllVisuals_report();
+                        } else {
+                            console.warn('⚠️ Iframe: initializeAllVisuals_report function not found');
+                        }
+                    } else if (lang === 'en') {
+                        if (typeof initializeAllVisuals_report_en === 'function') {
+                            console.log('🎯 Iframe: Initializing English charts');
+                            initializeAllVisuals_report_en();
+                        } else {
+                            console.warn('⚠️ Iframe: initializeAllVisuals_report_en function not found');
+                        }
+                    }
+                }, 100); // Small delay to ensure DOM is ready
+                
+                // Notify parent window about height change
+                setTimeout(() => {
+                    const height = document.body.scrollHeight;
+                    if (window.parent && window.parent !== window) {
+                        window.parent.postMessage({
+                            type: 'iframe-height-change',
+                            height: height
+                        }, '*');
+                    }
+                }, 500); // Wait for charts to render
+            }
+        }
+        
+        // Listen for messages from parent window
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'language-change') {
+                console.log('📨 Iframe: Received language change message:', event.data.language);
+                switchLanguage(event.data.language);
+            } else if (event.data && event.data.type === 'theme-change') {
+                console.log('🎨 Iframe: Received theme change message:', event.data.theme);
+                applyTheme(event.data.theme);
+            }
+        });
+        
+        // Function to apply theme to iframe
+        function applyTheme(theme) {
+            console.log('🎨 Iframe: Applying theme:', theme);
+            
+            // Apply theme to document element
+            document.documentElement.setAttribute('data-theme', theme);
+            
+            // Apply theme to body for additional styling
+            if (theme === 'dark') {
+                document.body.classList.add('dark-theme');
+                document.body.classList.remove('light-theme');
+                console.log('🌙 Iframe: Dark theme applied');
+            } else {
+                document.body.classList.add('light-theme');
+                document.body.classList.remove('dark-theme');
+                console.log('☀️ Iframe: Light theme applied');
+            }
+            
+            // Notify parent about height change after theme application
+            setTimeout(() => {
+                const height = document.body.scrollHeight;
+                if (window.parent && window.parent !== window) {
+                    window.parent.postMessage({
+                        type: 'iframe-height-change',
+                        height: height
+                    }, '*');
+                }
+            }, 100);
+        }
+        
+        // Initialize charts for default language when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('📄 Iframe: DOM loaded, initializing default language charts:', currentLanguage);
+            
+            // Check Font Awesome loading status
+            setTimeout(() => {
+                const testIcon = document.createElement('i');
+                testIcon.className = 'fas fa-test-icon';
+                testIcon.style.display = 'none';
+                document.body.appendChild(testIcon);
+                
+                const computedStyle = window.getComputedStyle(testIcon, ':before');
+                const fontFamily = computedStyle.getPropertyValue('font-family');
+                
+                if (fontFamily.includes('Font Awesome')) {
+                    console.log('✅ Iframe: Font Awesome loaded successfully');
+                } else {
+                    console.warn('⚠️ Iframe: Font Awesome failed to load, using fallback icons');
+                    
+                    // Add fallback class to body for CSS targeting
+                    document.body.classList.add('fa-fallback');
+                }
+                
+                document.body.removeChild(testIcon);
+            }, 500);
+            
+            // Apply initial theme based on parent page
+            const parentTheme = '{{default_lang}}' === 'en' ? 'light' : 'light'; // Default to light
+            console.log('🎨 Iframe: Applying initial theme:', parentTheme);
+            applyTheme(parentTheme);
+            
+            setTimeout(() => {
+                if (currentLanguage === 'vi') {
+                    if (typeof initializeAllVisuals_report === 'function') {
+                        console.log('🎯 Iframe: Initializing default Vietnamese charts');
+                        initializeAllVisuals_report();
+                    }
+                } else if (currentLanguage === 'en') {
+                    if (typeof initializeAllVisuals_report_en === 'function') {
+                        console.log('🎯 Iframe: Initializing default English charts');
+                        initializeAllVisuals_report_en();
+                    }
+                }
+                
+                // Notify parent about initial height
+                const height = document.body.scrollHeight;
+                if (window.parent && window.parent !== window) {
+                    window.parent.postMessage({
+                        type: 'iframe-height-change',
+                        height: height
+                    }, '*');
+                }
+            }, 200); // Wait for everything to load
+        });
+        
+        // Debug: Log available functions
+        setTimeout(() => {
+            console.log('🔍 Iframe: Available chart functions:');
+            console.log('- initializeAllVisuals_report:', typeof initializeAllVisuals_report);
+            console.log('- initializeAllVisuals_report_en:', typeof initializeAllVisuals_report_en);
+        }, 100);
+    </script>
+
+</body>
+</html>
