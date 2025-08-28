@@ -549,9 +549,15 @@
                 return div.innerHTML;
             };
             
+            // Determine navigation title based on current language
+            const isVietnamese = currentNavigationData && currentNavigationData.language === 'vi';
+            const navTitle = isVietnamese ? '📋 Mục lục Báo cáo' : '📋 Report Contents';
+            
             const navHTML = `
                 <div class="nav-header">
-                    <h3 class="nav-title">📋 Mục lục Báo cáo</h3>
+                    <h3 class="nav-title">
+                        <span class="nav-title">${navTitle}</span>
+                    </h3>
                     <div class="scroll-progress-container mb-3">
                         <div class="scroll-progress-bar bg-gray-200 h-2 rounded-full relative overflow-hidden">
                             <div class="scroll-indicator bg-blue-500 h-full rounded-full transition-all duration-300" style="width: 0%;"></div>
@@ -816,19 +822,8 @@
             
             // Update sidebar navigation language
             if (navigationSidebar) {
-                const navTitleVi = navigationSidebar.querySelector('.nav-title-vi');
-                const navTitleEn = navigationSidebar.querySelector('.nav-title-en');
+
                 const scrollProgressText = navigationSidebar.querySelector('.scroll-progress-text');
-                
-                if (navTitleVi && navTitleEn) {
-                    if (event.detail.language === 'en') {
-                        navTitleVi.style.display = 'none';
-                        navTitleEn.style.display = 'inline';
-                    } else {
-                        navTitleVi.style.display = 'inline';
-                        navTitleEn.style.display = 'none';
-                    }
-                }
                 
                 // Update scroll progress text language
                 if (scrollProgressText) {

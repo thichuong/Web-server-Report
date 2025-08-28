@@ -47,6 +47,9 @@ function get_translations_data()
     'disclaimer-title': { vi: 'Tuyên bố miễn trừ trách nhiệm:', en: 'Disclaimer:' },
     'disclaimer-body': { vi: 'Nội dung và phân tích trên trang này chỉ mang tính chất tham khảo và không cấu thành lời khuyên đầu tư. Mọi quyết định đầu tư là trách nhiệm của người đọc.', en: 'The content and analysis on this site are for informational purposes only and do not constitute investment advice. All investment decisions are the responsibility of the reader.' },
     
+    // Navigation
+    'report-table-of-contents': { vi: '📋 Mục lục Báo cáo', en: '📋 Report Table of Contents' },
+    
     // Fear & Greed / RSI labels
     'extreme-fear': { vi: 'Sợ hãi Tột độ', en: 'Extreme Fear' },
     'fear': { vi: 'Sợ hãi', en: 'Fear' },
