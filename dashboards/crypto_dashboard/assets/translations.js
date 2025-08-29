@@ -4,7 +4,7 @@ function get_translations_data()
     // Homepage
     'homepage-title': { vi: 'Trang chủ - Crypto Dashboard', en: 'Homepage - Crypto Dashboard' },
     'welcome-message': { vi: 'Chào mừng đến Crypto Dashboard', en: 'Welcome to Crypto Dashboard' },
-    'homepage-description': { vi: 'Theo dõi và phân tích thị trường tiền mã hóa', en: 'Track and analyze cryptocurrency markets' },
+    'homepage-description': { vi: 'Theo dõi và phân tích thị trường tiền mã hóa với các công cụ phân tích chuyên nghiệp và dữ liệu thời gian thực', en: 'Track and analyze cryptocurrency markets with professional analysis tools and real-time data' },
     'view-dashboard': { vi: 'Xem Bài phân tích thị trường Crypto mới nhất', en: 'View Latest Crypto Market Analysis' },
     
     // Dashboard card titles
@@ -76,6 +76,7 @@ function get_translations_data()
     
     // Market Indicators Component
     'market-indicators-title': { vi: 'Chỉ Số Thị Trường', en: 'Market Indicators' },
+    'crypto-market-stats': { vi: 'Thống Kê Thị Trường Crypto', en: 'Crypto Market Statistics' },
     'live-data': { vi: 'Thời gian thực', en: 'Live data' },
     'fear-greed-index': { vi: 'Chỉ Số Sợ Hãi & Tham Lam của thị trường crypto', en: 'Fear & Greed Index of Crypto Market' },
     'btc-dominance': { vi: 'Độ Thống Trị BTC', en: 'BTC Dominance' },

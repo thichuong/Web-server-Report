@@ -19,10 +19,26 @@
     --positive-color: #16a34a;
     --negative-color: #dc2626;
     --neutral-color: #f59e0b;
+    --warning-color: #f59e0b;
     --bull-card-bg: #f0fdf4;
     --bear-card-bg: #fef2f2;
     --sideway-card-bg: #fffbeb;
     --table-row-hover-bg: #f0f9ff;
+    
+    /* -- Additional UI Variables -- */
+    --text-muted: #9ca3af;
+    --background-light: #f8fafc;
+    --primary-blue: #3b82f6;
+    --primary-blue-dark: #1d4ed8;
+    --card-hover: #e2e8f0;
+    --skeleton-base: #f0f0f0;
+    --skeleton-highlight: #e0e0e0;
+    --success-bg: #dcfce7;
+    --success-text: #166534;
+    --error-bg: #fef2f2;
+    --error-text: #991b1b;
+    --warning-bg: #fef3c7;
+    --warning-text: #92400e;
     
     /* -- Original Added Colors -- */
     --crimson-color: #dc143c;
@@ -108,10 +124,26 @@
     --positive-color: #22c55e;
     --negative-color: #ef4444;
     --neutral-color: #f59e0b;
+    --warning-color: #f59e0b;
     --bull-card-bg: #052e16;
     --bear-card-bg: #450a0a;
     --sideway-card-bg: #451a03;
     --table-row-hover-bg: #1e293b;
+    
+    /* -- Additional UI Variables (Dark Mode) -- */
+    --text-muted: #6b7280;
+    --background-light: #1f2937;
+    --primary-blue: #60a5fa;
+    --primary-blue-dark: #3b82f6;
+    --card-hover: #374151;
+    --skeleton-base: #374151;
+    --skeleton-highlight: #4b5563;
+    --success-bg: #052e16;
+    --success-text: #4ade80;
+    --error-bg: #450a0a;
+    --error-text: #f87171;
+    --warning-bg: #451a03;
+    --warning-text: #fb923c;
 
     /* -- Original Added Colors -- */
     --crimson-color: #ff5277;
