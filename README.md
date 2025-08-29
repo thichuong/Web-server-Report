@@ -10,7 +10,7 @@
 - **Responsive Design**: Mobile-first, adaptive UI
 - **PDF Generation**: Export reports to PDF format
 - **Real-time Updates**: WebSocket integration for live data
-- **API Resilience**: CoinGecko + CoinMarketCap fallback system for 99.9% uptime
+- **API Resilience**: Binance + CoinGecko + CoinMarketCap fallback system for 99.9% uptime
 
 ### ⚡ Performance Optimizations
 - **Cache Stampede Protection**: DashMap+Mutex request coalescing for L2, Moka's get_with() for L1
@@ -24,9 +24,9 @@
 - **Chart Module Bundling**: Optimized JavaScript asset delivery
 
 ### 🛡️ Reliability Features
-- **Automatic API Fallback**: CoinGecko → CoinMarketCap seamless switching
+- **Automatic API Fallback**: Binance → CoinGecko → CoinMarketCap seamless switching
 - **Data Validation**: Prevents corrupted data from affecting reports
-- **Rate Limit Handling**: Exponential backoff with intelligent retry logic
+- **Cache-first Data Strategy**: Cache persistence với intelligent API fallback logic
 - **Circuit Breaker Pattern**: Automatic recovery from API failures
 - **Source Attribution**: Track which APIs provided data for debugging
 
@@ -34,12 +34,12 @@
 - **Backend**: Rust + Axum (high-performance async web framework)
 - **Database**: PostgreSQL with optimized connection pooling (32 max connections)
 - **Caching**: Multi-tier L1 (moka) + L2 (Redis) with Cache Stampede Protection
-- **Market Data**: CoinGecko (primary) + CoinMarketCap (fallback) + TAAPI.io + Finnhub (US stocks)
+- **Market Data**: Binance (primary) + CoinGecko + CoinMarketCap (fallback) + TAAPI.io + Finnhub (US stocks)
 - **Concurrency**: Rayon ThreadPool + tokio async runtime + DashMap request coalescing
 - **Real-time**: Redis + WebSocket for live updates
 - **Templates**: Tera template engine with background rendering
 - **Frontend**: Vanilla JS with Chart.js and modern CSS
-- **API Resilience**: Multi-source data with CoinGecko + CoinMarketCap fallback + Finnhub US stocks
+- **API Resilience**: Multi-source data with Binance + CoinGecko + CoinMarketCap fallback + Finnhub US stocks
 
 ## 🚀 Quick Start
 
@@ -136,10 +136,10 @@ Hệ thống sử dụng **Service Islands Architecture** - kiến trúc phân t
 │                  Layer 2: External Services                │
 │  ┌─────────────────────────────────────────────────────────┐│
 │  │              External APIs Island                      ││
-│  │ • Market Data API (CoinGecko, CoinMarketCap, TaApi.io)││
+│  │ • Market Data API (Binance, CoinGecko, CoinMarketCap) ││
 │  │ • US Stock Indices (Finnhub)                          ││
-│  │ • Rate Limiter with Exponential Backoff               ││
-│  │ • API Aggregator (Multi-source data)                  ││
+│  │ • Cache-first Strategy with Data Persistence          ││
+│  │ • API Aggregator (Multi-source data + Cache storage)  ││
 │  │ • Circuit Breaker (Fault tolerance)                   ││
 │  └─────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────┘
@@ -216,9 +216,9 @@ Client Request ───► Axum Router
                         │ Data Fetching
                         ▼
               ┌─────────────────────────┐
-              │   Layer 2: External    │ ──► CoinGecko API
-              │   • APIs Island        │     TaApi.io API
-              │   • Rate Limiter       │     Circuit Breaker
+              │   Layer 2: External    │ ──► Binance API
+              │   • APIs Island        │     TaApi.io API  
+              │   • Cache-first        │     Circuit Breaker
               └─────────┬───────────────┘
                         │ Cache Integration
                         ▼
@@ -250,9 +250,9 @@ Client Request ───► Axum Router
 - **Cache Integration**: L2 cache cho database queries
 
 #### External Services Performance (Layer 2)
-- **Rate Limiter**: Exponential backoff cho API protection
+- **Cache-first Strategy**: Binance API primary với cache persistence
 - **Circuit Breaker**: Fault tolerance cho external APIs
-- **API Aggregator**: Multi-source data với intelligent failover
+- **API Aggregator**: Multi-source data với intelligent failover và cache storage
 
 #### Infrastructure Performance (Layer 1)
 - **🚄 16,829+ RPS**: Handle 16,829+ concurrent requests per second with Cache Stampede Protection
@@ -487,8 +487,8 @@ Web-server-Report/
 │       ├── 🏗️ layer1_infrastructure/     # Generic cache + shared components
 │       │   ├── cache_system_island.rs    # L1/L2 cache với generic strategies
 │       │   └── shared_components_island.rs # Template registry + utilities
-│       ├── 🌐 layer2_external_services/   # External APIs + rate limiting
-│       │   └── external_apis_island.rs    # CoinGecko, TaApi.io + circuit breaker
+│       ├── 🌐 layer2_external_services/   # External APIs + cache-first strategy
+│       │   └── external_apis_island.rs    # Binance, CoinGecko + cache-first + circuit breaker
 │       ├── 📡 layer3_communication/       # WebSocket + data communication
 │       │   ├── websocket_service.rs       # Real-time communication
 │       │   └── data_communication.rs      # Database operations + cache
