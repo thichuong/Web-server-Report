@@ -16,7 +16,7 @@ use flate2::{Compression, write::GzEncoder};
 use crate::state::AppState;
 
 // Import from our specialized components
-use super::report_creator::{ReportSummary, ReportListItem, ReportCreator};
+use super::report_creator::ReportCreator;
 use super::template_orchestrator::TemplateOrchestrator;
 
 /// Crypto Handlers
@@ -288,13 +288,13 @@ impl CryptoHandlers {
 
     /// Crypto Reports List handler - Paginated list of all reports
     /// 
-    /// Exactly like archive_old_code/handlers/crypto.rs::report_list - Full implementation with pagination
+    /// Delegated to Layer 3 with cache integration - similar to crypto_index_with_tera pattern
     pub async fn crypto_reports_list_with_tera(
         &self, 
         state: &Arc<AppState>,
         page: i64
     ) -> Result<String, Box<dyn StdError + Send + Sync>> {
-        println!("📋 CryptoHandlers::crypto_reports_list_with_tera - Full Pagination Implementation");
+        println!("� Layer 5: Nhận yêu cầu cho crypto reports list page {}", page);
         
         // Increment request counter to monitor performance
         let request_count = state.request_counter.fetch_add(1, Ordering::Relaxed);
@@ -304,156 +304,22 @@ impl CryptoHandlers {
             println!("Processed {} requests to crypto_reports_list", request_count);
         }
 
-        // Pagination configuration
+        // BƯỚC 1: ỦY QUYỀN CHO LAYER 3 ĐỂ XỬ LÝ CACHE VÀ DATABASE
+        let data_service = &self.report_creator.data_service; // Truy cập data_service
         let per_page: i64 = 10;
-        let offset = (page - 1) * per_page;
-
-        // Parallel fetch total count and page rows - exactly like archive
-        let total_fut = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM crypto_report").fetch_one(&state.db);
-        let rows_fut = sqlx::query_as::<_, ReportSummary>(
-            "SELECT id, created_at FROM crypto_report ORDER BY created_at DESC LIMIT $1 OFFSET $2",
-        )
-        .bind(per_page)
-        .bind(offset)
-        .fetch_all(&state.db);
-
-        let (total_res, rows_res) = tokio::join!(total_fut, rows_fut);
-
-        let total = match total_res {
-            Ok(t) => t,
-            Err(e) => {
-                eprintln!("❌ Database error getting total count: {}", e);
-                return Err(format!("Database error: {}", e).into());
-            }
-        };
-
-        let list = match rows_res {
-            Ok(list) => list,
-            Err(e) => {
-                eprintln!("❌ Database error getting report list: {}", e);
-                return Err(format!("Database error: {}", e).into());
-            }
-        };
-
-        // Parallel processing of items with rayon (CPU-intensive date formatting) - exactly like archive
-        let items: Vec<ReportListItem> = tokio::task::spawn_blocking(move || {
-            use rayon::prelude::*;
-            
-            list.par_iter()
-                .map(|r| {
-                    let dt = r.created_at + chrono::Duration::hours(7);
-                    let created_date = dt.format("%d/%m/%Y").to_string();
-                    let created_time = format!("{} UTC+7", dt.format("%H:%M:%S"));
-                    ReportListItem { 
-                        id: r.id, 
-                        created_date, 
-                        created_time 
-                    }
-                })
-                .collect()
-        }).await.unwrap_or_else(|e| {
-            eprintln!("❌ Date formatting task join error: {:#?}", e);
-            Vec::new()
-        });
-
-        // Parallel computation of pagination logic - exactly like archive
-        let (pages, page_numbers) = tokio::task::spawn_blocking(move || {
-            let pages = if total == 0 { 1 } else { ((total as f64) / (per_page as f64)).ceil() as i64 };
-            
-            // Build simple page numbers similar to Flask pagination.iter_pages
-            let mut page_numbers: Vec<Option<i64>> = Vec::new();
-            if pages <= 10 {
-                for p in 1..=pages { 
-                    page_numbers.push(Some(p)); 
-                }
-            } else {
-                // always show first 1-2, last 1-2, and current +/-2 with ellipses
-                let mut added = std::collections::HashSet::new();
-                let push = |vec: &mut Vec<Option<i64>>, v: i64, added: &mut std::collections::HashSet<i64>| {
-                    if !added.contains(&v) && v > 0 && v <= pages {
-                        vec.push(Some(v));
-                        added.insert(v);
-                    }
-                };
-                
-                push(&mut page_numbers, 1, &mut added);
-                push(&mut page_numbers, 2, &mut added);
-                for v in (page-2)..=(page+2) { 
-                    if v > 2 && v < pages-1 { 
-                        push(&mut page_numbers, v, &mut added); 
-                    } 
-                }
-                push(&mut page_numbers, pages-1, &mut added);
-                push(&mut page_numbers, pages, &mut added);
-
-                // sort and insert None where gaps >1
-                let mut nums: Vec<i64> = page_numbers.iter().filter_map(|o| *o).collect();
-                nums.sort();
-                page_numbers.clear();
-                let mut last: Option<i64> = None;
-                for n in nums {
-                    if let Some(l) = last {
-                        if n - l > 1 {
-                            page_numbers.push(None);
-                        }
-                    }
-                    page_numbers.push(Some(n));
-                    last = Some(n);
-                }
-            }
-            
-            (pages, page_numbers)
-        }).await.unwrap_or_else(|e| {
-            eprintln!("❌ Pagination task join error: {:#?}", e);
-            (1, vec![Some(1)])
-        });
-
-        // Build reports context - exactly like archive
-        let display_start = if total == 0 { 0 } else { offset + 1 };
-        let display_end = offset + (items.len() as i64);
-
-        let reports = serde_json::json!({
-            "items": items,
-            "total": total,
-            "per_page": per_page,
-            "page": page,
-            "pages": pages,
-            "has_prev": page > 1,
-            "has_next": page < pages,
-            "prev_num": if page > 1 { page - 1 } else { 1 },
-            "next_num": if page < pages { page + 1 } else { pages },
-            "page_numbers": page_numbers,
-            "display_start": display_start,
-            "display_end": display_end,
-        });
-
-        // Template rendering in spawn_blocking - exactly like archive
-        let tera = state.tera.clone();
-        let reports_clone = reports.clone();
         
-        let render_result = tokio::task::spawn_blocking(move || {
-            let mut context = tera::Context::new();
-            context.insert("reports", &reports_clone);
-            tera.render("crypto/routes/reports/list.html", &context)
-        }).await;
-
-        match render_result {
-            Ok(Ok(html)) => {
-                println!("✅ Reports list template rendered successfully - {} items, page {} of {}", items.len(), page, pages);
+        match data_service.fetch_reports_list_with_cache(state, page, per_page).await {
+            Ok(Some(html)) => {
+                println!("✅ Layer 5: Nhận HTML từ Layer 3 cho reports list page {}", page);
                 Ok(html)
             }
-            Ok(Err(e)) => {
-                eprintln!("❌ Reports list template render error: {:#?}", e);
-                let mut src = e.source();
-                while let Some(s) = src {
-                    eprintln!("❌ Template render error source: {:#?}", s);
-                    src = s.source();
-                }
-                Err(format!("Template render error: {}", e).into())
+            Ok(None) => {
+                println!("⚠️ Layer 5: Layer 3 trả về None cho reports list page {}", page);
+                Err("No reports list data available".into())
             }
             Err(e) => {
-                eprintln!("❌ Reports list task join error: {:#?}", e);
-                Err(format!("Task join error: {}", e).into())
+                println!("❌ Layer 5: Layer 3 error cho reports list page {}: {}", page, e);
+                Err(e)
             }
         }
     }
