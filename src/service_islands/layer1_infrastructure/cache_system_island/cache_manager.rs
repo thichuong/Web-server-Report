@@ -36,7 +36,7 @@ impl CacheStrategy {
     /// Convert strategy to duration
     pub fn to_duration(&self) -> Duration {
         match self {
-            Self::RealTime => Duration::from_secs(30),
+            Self::RealTime => Duration::from_secs(10),
             Self::ShortTerm => Duration::from_secs(300), // 5 minutes
             Self::MediumTerm => Duration::from_secs(3600), // 1 hour
             Self::LongTerm => Duration::from_secs(10800), // 3 hours
