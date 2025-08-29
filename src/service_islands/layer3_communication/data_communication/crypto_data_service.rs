@@ -7,7 +7,6 @@
 use serde::{Serialize, Deserialize};
 use sqlx::{FromRow};
 use std::sync::Arc;
-use rayon::prelude::*; // Add rayon for parallel processing
 
 // Import from current state - will be refactored when lower layers are implemented
 use crate::service_islands::layer1_infrastructure::AppState;

@@ -43,23 +43,6 @@ pub struct AppState {
     pub tera: Tera,
 }
 
-/// Cache statistics for backward compatibility
-#[allow(dead_code)]
-pub struct CacheStats {
-    pub entries: u64,
-    pub l1_entry_count: u64,
-    pub l1_hit_count: u64,
-    pub l1_miss_count: u64,
-    pub l1_hit_rate: f64,
-}
-
-/// Cache health status for backward compatibility
-#[allow(dead_code)]
-pub struct CacheHealth {
-    pub l2_healthy: bool,
-    pub overall_healthy: bool,
-}
-
 impl AppStateIsland {
     /// Initialize the App State Island
     pub async fn new() -> Result<Self> {
@@ -167,36 +150,6 @@ impl AppStateIsland {
         }
     }
     
-    /// Get database connection pool
-    pub fn db(&self) -> &PgPool {
-        &self.db
-    }
-    
-    /// Get template engine
-    pub fn tera(&self) -> &Tera {
-        &self.tera
-    }
-    
-    /// Get request counter value
-    pub fn get_request_count(&self) -> u64 {
-        self.request_counter.load(std::sync::atomic::Ordering::Relaxed)
-    }
-    
-    /// Increment request counter
-    pub fn increment_request_count(&self) -> u64 {
-        self.request_counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1
-    }
-    
-    /// Get cache system for backward compatibility
-    /// 
-    /// This method is a placeholder that returns None since AppStateIsland
-    /// doesn't directly hold a CacheSystemIsland reference. Use ServiceIslands
-    /// to access the cache system instead.
-    pub fn get_cache_system(&self) -> Option<Arc<crate::service_islands::layer1_infrastructure::CacheSystemIsland>> {
-        // AppStateIsland doesn't directly hold cache system reference
-        // This method exists for backward compatibility only
-        None
-    }
 }
 
 impl AppState {
@@ -204,6 +157,7 @@ impl AppState {
     /// 
     /// **DEPRECATED**: Use `AppStateIsland::new()` and `ServiceIslands::initialize()` instead.
     /// This method is kept for backward compatibility only.
+    #[allow(dead_code)]
     pub async fn new() -> Result<Self, anyhow::Error> {
         println!("⚠️ Using deprecated AppState::new() - consider migrating to ServiceIslands architecture");
         
@@ -235,10 +189,5 @@ impl AppState {
             cached_latest_id: AtomicI32::new(0),
             tera,
         })
-    }
-    
-    /// Get cache system for Layer 3 → Layer 1 communication
-    pub fn get_cache_system(&self) -> Option<Arc<crate::service_islands::layer1_infrastructure::CacheSystemIsland>> {
-        self.cache_system.clone()
     }
 }
