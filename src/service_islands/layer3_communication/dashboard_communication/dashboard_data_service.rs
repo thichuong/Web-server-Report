@@ -4,7 +4,6 @@
 //! Handles caching and data operations for dashboard pages, isolating business logic
 //! from infrastructure concerns.
 
-use serde::{Serialize, Deserialize};
 use std::sync::Arc;
 
 // Import from current state - will be refactored when lower layers are implemented

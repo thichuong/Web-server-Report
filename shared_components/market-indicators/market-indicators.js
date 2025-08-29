@@ -37,8 +37,6 @@ class MarketIndicatorsDashboard {
             fearGreedIndex: null,
             btcDominance: null,
             ethDominance: null,
-            marketCapChange: null,
-            lastUpdated: null,
             usStockIndices: null
         };
         
@@ -61,8 +59,6 @@ class MarketIndicatorsDashboard {
             fearGreed: document.getElementById('fear-greed-indicator'),
             btcDominance: document.getElementById('btc-dominance-indicator'),
             ethDominance: document.getElementById('eth-dominance-indicator'),
-            marketCapChange: document.getElementById('market-cap-change-indicator'),
-            lastUpdated: document.getElementById('last-updated-indicator'),
             connectionStatus: document.getElementById('connection-status')
         };
 
@@ -241,19 +237,6 @@ class MarketIndicatorsDashboard {
         }
 
 
-
-        // Update Market Cap Change with new field name
-        if (data.market_cap_change_percentage_24h_usd !== undefined) {
-            this.updateMarketCapChange(data.market_cap_change_percentage_24h_usd);
-        } else if (data.market_cap_change_24h !== undefined) {
-            this.updateMarketCapChange(data.market_cap_change_24h);
-        } else if (data.btc_change_24h !== undefined) {
-            // Use BTC change as proxy for market cap change
-            this.updateMarketCapChange(data.btc_change_24h * 0.8); // Slightly lower than BTC
-        }
-
-        // Update last updated time
-        this.updateLastUpdated();
         
         // Update US Stock Indices
         if (data.us_stock_indices) {
@@ -413,36 +396,6 @@ class MarketIndicatorsDashboard {
         this.animateUpdate(element);
     }
 
-    updateMarketCapChange(value) {
-        const element = this.elements.marketCapChange;
-        if (!element) return;
-
-        const change = parseFloat(value) || 0;
-        this.cachedData.marketCapChange = change;
-
-        const changeClass = change >= 0 ? 'text-green-600' : 'text-red-600';
-        const changeSign = change >= 0 ? '+' : '';
-
-        element.innerHTML = `<div class="fade-in ${changeClass}">${changeSign}${change.toFixed(2)}%</div>`;
-        this.animateUpdate(element);
-    }
-
-    updateLastUpdated() {
-        const element = this.elements.lastUpdated;
-        if (!element) return;
-
-        const now = new Date();
-        const timeStr = now.toLocaleTimeString('vi-VN', { 
-            hour: '2-digit', 
-            minute: '2-digit', 
-            second: '2-digit' 
-        });
-
-        this.cachedData.lastUpdated = now;
-
-        element.innerHTML = `<div class="fade-in">${timeStr}</div>`;
-    }
-
     updateConnectionStatus(status) {
         const element = this.elements.connectionStatus;
         if (!element) return;
@@ -525,7 +478,8 @@ class MarketIndicatorsDashboard {
         // Refresh data every 30 seconds as backup
         setInterval(() => {
             if (!this.isConnected) {
-                this.updateLastUpdated();
+                // Connection status will be updated by WebSocket events
+                debugLog('⏰ Data refresh interval - not connected');
             }
         }, 30000);
     }
