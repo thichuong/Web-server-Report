@@ -30,9 +30,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         cache_system.clone()
     ).await?;
     
-    println!("🔄 Testing fetch_market_data_for_layer5...");
+    println!("🔄 Testing fetch_market_data...");
     
-    match websocket_service.fetch_market_data_for_layer5().await {
+    match websocket_service.fetch_market_data().await {
         Ok(data) => {
             println!("✅ Layer 5 via Layer 3 data fetched successfully:");
             

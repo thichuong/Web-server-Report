@@ -65,7 +65,7 @@ impl CryptoReportsIsland {
         // ✅ STRICT: Only Layer 5 → Layer 3 → Layer 2 flow allowed
         if let Some(websocket_service) = &self.websocket_service {
             println!("🔄 Layer 5 requesting market data via Layer 3 (strict architecture)...");
-            match websocket_service.fetch_market_data_for_layer5().await {
+            match websocket_service.fetch_market_data().await {
                 Ok(market_data) => {
                     println!("✅ Layer 5 received market data via Layer 3 → Layer 2 successfully");
                     

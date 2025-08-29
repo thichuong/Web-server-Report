@@ -136,7 +136,7 @@ impl WebSocketServiceIsland {
     /// This method allows Layer 5 to request market data through Layer 3,
     /// maintaining proper Service Islands Architecture dependency flow:
     /// Layer 5 → Layer 3 → Layer 2
-    pub async fn fetch_market_data_for_layer5(&self) -> Result<serde_json::Value> {
+    pub async fn fetch_market_data(&self) -> Result<serde_json::Value> {
         println!("🔄 Layer 3 WebSocketService handling Layer 5 market data request...");
         
         // Use Layer 2 adapters for clean API access

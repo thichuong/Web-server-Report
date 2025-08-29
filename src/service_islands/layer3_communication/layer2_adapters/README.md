@@ -63,7 +63,7 @@ let layer2_adapters = Arc::new(
 );
 
 // Use in Layer 3 methods
-pub async fn fetch_market_data_for_layer5(&self) -> Result<serde_json::Value> {
+pub async fn fetch_market_data(&self) -> Result<serde_json::Value> {
     println!("🔄 Layer 3 WebSocketService handling Layer 5 market data request...");
     
     // Use Layer 2 adapters for clean API access
@@ -75,7 +75,7 @@ pub async fn fetch_market_data_for_layer5(&self) -> Result<serde_json::Value> {
 
 ```rust
 // Layer 5 calls Layer 3, which uses Layer 2 Adapters
-let market_data = websocket_service.fetch_market_data_for_layer5().await?;
+let market_data = websocket_service.fetch_market_data().await?;
 ```
 
 ## Benefits

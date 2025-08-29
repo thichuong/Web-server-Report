@@ -36,7 +36,7 @@ Layer 5 → Layer 3 → fetch_normalized_market_data() → Layer 2 → API Aggre
 
 ### 3. WebSocket Streaming Optimization
 - **Before**: Direct Layer 2 access via `external_apis.fetch_btc_price()`
-- **After**: Unified flow via `service_islands.layer3_communication.websocket_service.fetch_market_data_for_layer5()`
+- **After**: Unified flow via `service_islands.layer3_communication.websocket_service.fetch_market_data()`
 - **Benefit**: Consistent data source cho cả HTTP API và WebSocket streaming
 
 ## 📋 Deprecated Methods (Removed)
@@ -58,7 +58,7 @@ Layer 5 → Layer 3 → fetch_normalized_market_data() → Layer 2 → API Aggre
 
 ### Supporting Methods:
 - ✅ `fetch_dashboard_summary_v2()` - Cache-free Layer 2 access
-- ✅ `fetch_market_data_for_layer5()` - WebSocket service unified access
+- ✅ `fetch_market_data()` - WebSocket service unified access
 
 ## 🔧 Implementation Details
 
@@ -107,7 +107,7 @@ let market_data = adapter.fetch_normalized_market_data().await?;
 external_apis.fetch_btc_price().await
 
 // NEW (optimized)
-service_islands.layer3_communication.websocket_service.fetch_market_data_for_layer5().await
+service_islands.layer3_communication.websocket_service.fetch_market_data().await
 ```
 
 ## 🔍 Rate Limiting Improvements
