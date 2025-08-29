@@ -299,7 +299,7 @@ impl ApiAggregator {
     
     /// Fetch BTC data with generic caching strategy
     async fn fetch_btc_with_cache(&self) -> Result<serde_json::Value> {
-        let cache_key = "btc_coingecko_30s";
+        let cache_key = "btc_price_30s";
         
         // Try cache first
         if let Some(ref cache) = self.cache_system {

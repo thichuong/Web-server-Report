@@ -11,7 +11,10 @@ use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use futures;
 
 // API URLs - extracted from existing data_service.rs with cache-friendly grouping
-// CoinGecko APIs (Primary)
+// Binance APIs (Primary)
+const BINANCE_BTC_PRICE_URL: &str = "https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT"; // 30 sec cache
+
+// CoinGecko APIs (Fallback)
 const BASE_GLOBAL_URL: &str = "https://api.coingecko.com/api/v3/global"; // 30 sec cache
 const BASE_BTC_PRICE_URL: &str = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true"; // 30 sec cache
 
@@ -59,6 +62,16 @@ struct CoinGeckoBtcPrice {
 struct BtcPriceData {
     usd: f64,
     usd_24h_change: f64,
+}
+
+#[derive(Debug, Deserialize)]
+struct BinanceBtcPrice {
+    #[allow(dead_code)]
+    symbol: String,
+    #[serde(rename = "lastPrice")]
+    last_price: String,
+    #[serde(rename = "priceChangePercent")]
+    price_change_percent: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -216,9 +229,9 @@ impl MarketDataApi {
     
     /// Test API connectivity
     async fn test_api_connectivity(&self) -> Result<()> {
-        // Simple test call to CoinGecko global endpoint
+        // Simple test call to Binance ping endpoint
         let response = self.client
-            .get("https://api.coingecko.com/api/v3/ping")
+            .get("https://api.binance.com/api/v3/ping")
             .send()
             .await?;
         
@@ -233,28 +246,67 @@ impl MarketDataApi {
     pub async fn fetch_btc_price(&self) -> Result<serde_json::Value> {
         self.record_api_call();
         
-        // Try CoinGecko first
-        match self.fetch_btc_price_coingecko().await {
+        // Try Binance first
+        match self.fetch_btc_price_binance().await {
             Ok(data) => {
                 self.record_success();
                 Ok(data)
             }
             Err(e) => {
-                println!("⚠️ CoinGecko BTC price failed: {}, trying CoinMarketCap...", e);
-                // Fallback to CoinMarketCap
-                match self.fetch_btc_price_cmc().await {
+                println!("⚠️ Binance BTC price failed: {}, trying CoinGecko...", e);
+                // Fallback to CoinGecko
+                match self.fetch_btc_price_coingecko().await {
                     Ok(data) => {
                         self.record_success();
                         Ok(data)
                     }
-                    Err(cmc_err) => {
-                        self.record_failure();
-                        println!("❌ Both CoinGecko and CoinMarketCap failed for BTC price");
-                        Err(anyhow::anyhow!("Primary error: {}. Fallback error: {}", e, cmc_err))
+                    Err(cg_err) => {
+                        println!("⚠️ CoinGecko BTC price also failed: {}, trying CoinMarketCap...", cg_err);
+                        // Final fallback to CoinMarketCap
+                        match self.fetch_btc_price_cmc().await {
+                            Ok(data) => {
+                                self.record_success();
+                                Ok(data)
+                            }
+                            Err(cmc_err) => {
+                                self.record_failure();
+                                println!("❌ All three APIs failed for BTC price");
+                                Err(anyhow::anyhow!("Primary error: {}. CoinGecko error: {}. CoinMarketCap error: {}", e, cg_err, cmc_err))
+                            }
+                        }
                     }
                 }
             }
         }
+    }
+    
+    /// Fetch Bitcoin price from Binance
+    async fn fetch_btc_price_binance(&self) -> Result<serde_json::Value> {
+        let result = self.fetch_with_retry(BINANCE_BTC_PRICE_URL, |response_data: BinanceBtcPrice| {
+            // Parse price and change from strings
+            let price_usd: f64 = response_data.last_price.parse().unwrap_or(0.0);
+            let change_24h: f64 = response_data.price_change_percent.parse().unwrap_or(0.0);
+            
+            serde_json::json!({
+                "price_usd": price_usd,
+                "change_24h": change_24h,
+                "source": "binance",
+                "last_updated": chrono::Utc::now().to_rfc3339()
+            })
+        }).await?;
+        
+        // Post-processing validation: check if we got meaningful data
+        let price_usd = result.get("price_usd").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        
+        // Critical validation: Bitcoin price must be positive and reasonable
+        if price_usd <= 0.0 || price_usd > 1_000_000.0 { // Basic sanity check
+            return Err(anyhow::anyhow!(
+                "Binance Bitcoin price validation failed: price_usd={}", 
+                price_usd
+            ));
+        }
+        
+        Ok(result)
     }
     
     /// Fetch Bitcoin price from CoinGecko
