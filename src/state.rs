@@ -93,6 +93,11 @@ impl AppState {
             println!("Warning: Failed to load market indicators component: {}", e);
         }
         
+        // Register home.html template 
+        if let Err(e) = tera.add_template_file("dashboards/home.html", Some("home.html")) {
+            println!("Warning: Failed to load homepage template: {}", e);
+        }
+        
         tera.autoescape_on(vec![]); // Disable auto-escaping for safe content
 
         Ok(Self {

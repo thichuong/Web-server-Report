@@ -5,9 +5,11 @@
 //! - HTTP request/response handling
 //! - Message broadcasting and routing
 //! - Data communication with infrastructure layer
+//! - Dashboard data communication and caching
 //! - Layer 2 adapters for clean API access
 
 pub mod websocket_service;
 pub mod data_communication;
+pub mod dashboard_communication;
 pub mod layer2_adapters;
 

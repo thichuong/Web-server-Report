@@ -13,6 +13,7 @@ use axum::{
 use std::sync::Arc;
 
 use crate::service_islands::ServiceIslands;
+use crate::service_islands::layer5_business_logic::dashboard::handlers::DashboardHandlers;
 
 /// Configure homepage route
 pub fn configure_homepage_route() -> Router<Arc<ServiceIslands>> {
@@ -26,7 +27,11 @@ async fn homepage(
 ) -> Response {
     // Use the dashboard island's homepage handler with Tera rendering
     match service_islands.dashboard.handlers.homepage_with_tera(&service_islands.app_state).await {
-        Ok(html) => Html(html).into_response(),
+        Ok(compressed_data) => {
+            println!("✅ [Route] Compressed homepage rendered successfully from Layer 5");
+            // Use create_compressed_response for compressed data with proper headers
+            DashboardHandlers::create_compressed_response(compressed_data)
+        }
         Err(e) => {
             println!("❌ Homepage rendering failed, falling back to simple handler: {}", e);
             // Fallback to simple homepage method
