@@ -14,6 +14,7 @@ use std::sync::Arc;
 use std::collections::HashMap;
 
 use crate::service_islands::ServiceIslands;
+use crate::service_islands::layer5_business_logic::market_data_service::fetch_realtime_market_data;
 
 /// Configure API routes
 pub fn configure_api_routes() -> Router<Arc<ServiceIslands>> {
@@ -45,10 +46,10 @@ async fn api_dashboard_summary(
         }
     }
     
-    // Fallback to Service Islands Layer 5 + immediate stream storage
-    match service_islands.crypto_reports.fetch_realtime_market_data().await {
+    // Fallback to Layer 5 Market Data Service + immediate stream storage
+    match fetch_realtime_market_data(&service_islands.websocket_service).await {
         Ok(market_data) => {
-            println!("✅ [API] Dashboard summary fetched via Layer 5 → Layer 3 → Layer 2");
+            println!("✅ [API] Dashboard summary fetched via Layer 5 Market Data Service");
             
             // Store in cache for future reads  
             let cache_system = &service_islands.cache_system;

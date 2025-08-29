@@ -87,14 +87,6 @@ impl L1Cache {
         }
     }
     
-    /// Set value in L1 cache with custom TTL
-    pub async fn set(&self, key: &str, value: serde_json::Value, ttl: Duration) -> Result<()> {
-        let entry = CacheEntry::new(value, ttl);
-        self.cache.insert(key.to_string(), entry).await;
-        self.sets.fetch_add(1, Ordering::Relaxed);
-        Ok(())
-    }
-    
     /// Set value with custom TTL (same as set method now)
     pub async fn set_with_ttl(&self, key: &str, value: serde_json::Value, ttl: Duration) -> Result<()> {
         let entry = CacheEntry::new(value, ttl);

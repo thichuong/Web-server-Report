@@ -13,6 +13,7 @@ use std::sync::Arc;
 use serde_json::json;
 
 use crate::service_islands::ServiceIslands;
+use crate::service_islands::layer5_business_logic::market_data_service::fetch_realtime_market_data;
 
 /// Configure WebSocket routes
 pub fn configure_websocket_routes() -> Router<Arc<ServiceIslands>> {
@@ -54,18 +55,18 @@ async fn websocket_connection_handler(
         return;
     }
     
-    // ✅ Send initial dashboard data via proper architecture: Layer 5 → Layer 3 → Layer 2
-    if let Ok(dashboard_data) = service_islands.crypto_reports.fetch_realtime_market_data().await {
+    // ✅ Send initial dashboard data via Layer 5 Market Data Service (improved architecture)
+    if let Ok(dashboard_data) = fetch_realtime_market_data(&service_islands.websocket_service).await {
         // ✅ Use compatible message format that JavaScript client expects
         let initial_msg = json!({
             "type": "dashboard_data",  // Compatible with JavaScript client
             "data": dashboard_data,
             "timestamp": chrono::Utc::now().to_rfc3339(),
-            "source": "layer5_via_layer3"  // Updated to reflect proper architecture
+            "source": "layer5_market_data_service"  // Updated to reflect new service
         });
         
         if let Ok(_) = socket.send(axum::extract::ws::Message::Text(initial_msg.to_string())).await {
-            println!("📊 Initial dashboard data sent via Layer 5 → Layer 3 → Layer 2 (proper architecture)");
+            println!("📊 Initial dashboard data sent via Layer 5 Market Data Service (shared architecture)");
         }
     }
     

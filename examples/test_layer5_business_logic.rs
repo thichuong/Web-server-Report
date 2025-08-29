@@ -3,10 +3,16 @@
 //! This example tests the updated Layer 5 crypto reports that now uses
 //! Layer 3 normalized data directly including US stock market indices
 
-use web_server_report::service_islands::layer2_external_services::external_apis_island::ExternalApisIsland;
-use web_server_report::service_islands::layer3_communication::websocket_service::WebSocketServiceIsland;
-use web_server_report::service_islands::layer5_business_logic::crypto_reports::CryptoReportsIsland;
-use web_server_report::service_islands::layer1_infrastructure::CacheSystemIsland;
+use web_server_report::service_islands::{
+    ServiceIslands,
+    layer1_infrastructure::AppStateIsland,
+    layer2_external_services::external_apis_island::ExternalApisIsland,
+    layer3_communication::websocket_service::WebSocketServiceIsland,
+    layer5_business_logic::{
+        crypto_reports::CryptoReportsIsland,
+        market_data_service::fetch_realtime_market_data,
+    },
+};
 use std::sync::Arc;
 
 #[tokio::main]
@@ -52,9 +58,9 @@ async fn main() -> anyhow::Result<()> {
     
     println!("✅ All layers initialized successfully!");
 
-    // Test Layer 5 market data fetch (Layer 5 → Layer 3 → Layer 2)
-    println!("\n📈 Testing Layer 5 market data fetch with US indices...");
-    match crypto_reports.fetch_realtime_market_data().await {
+    // Test Layer 5 market data fetch using standalone function (Layer 5 → Layer 3 → Layer 2)
+    println!("\n📈 Testing Layer 5 market data fetch with US indices using standalone function...");
+    match fetch_realtime_market_data(&websocket_service).await {
         Ok(market_data) => {
             println!("✅ Layer 5 market data fetched successfully!");
             

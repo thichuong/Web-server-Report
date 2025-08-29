@@ -5,4 +5,5 @@
 
 pub mod dashboard;
 pub mod crypto_reports;
+pub mod market_data_service;
 
