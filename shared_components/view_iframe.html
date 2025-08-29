@@ -21,17 +21,7 @@
             width: 100%;
             max-width: 100%;
             overflow-x: hidden;
-        }
-        
-        /* Fallback styles for Font Awesome icons if CDN fails */
-        .fa, .fas, .far, .fal, .fab {
-            font-family: 'Font Awesome 6 Free', 'Font Awesome 6 Pro', 'Font Awesome 5 Free', 'Font Awesome 5 Pro', sans-serif;
-            font-weight: 900;
-            font-style: normal;
-            text-rendering: auto;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
+        }        
         
         /* Fallback content for common icons if Font Awesome fails */
         .fa-chart-line:before { content: "📈"; }
@@ -45,14 +35,7 @@
         .sandboxed-report-container {
             {{css_content}}
         }
-        
-        /* Ensure report layout takes full width within iframe */
-        .sandboxed-report .report-layout {
-            max-width: 100%;
-            margin: 0;
-            padding: 1rem;
-        }
-        
+                
         /* Full width content area in iframe */
         .sandboxed-report .content-area {
             width: 100%;
@@ -69,7 +52,7 @@
             display: block;
             max-width: 100%;
             margin: 0;
-            padding: 1rem;
+            padding: 0;
         }
     </style>
 </head>
