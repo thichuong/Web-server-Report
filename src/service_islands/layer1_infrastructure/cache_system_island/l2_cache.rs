@@ -84,6 +84,7 @@ impl L2Cache {
         
         let _: () = conn.set_ex(key, json_str, ttl.as_secs()).await?;
         self.sets.fetch_add(1, Ordering::Relaxed);
+        println!("💾 [L2] Cached '{}' with TTL {:?}", key, ttl);
         Ok(())
     }
     

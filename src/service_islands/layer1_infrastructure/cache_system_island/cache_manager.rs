@@ -123,7 +123,7 @@ impl CacheManager {
             self.l2_hits.fetch_add(1, Ordering::Relaxed);
             
             // Promote to L1 for faster access next time
-            if let Err(_) = self.l1_cache.set(key, value.clone(), Duration::from_secs(300)).await {
+            if let Err(_) = self.l1_cache.set_with_ttl(key, value.clone(), Duration::from_secs(300)).await {
                 // L1 promotion failed, but we still have the data
                 eprintln!("⚠️ Failed to promote key '{}' to L1 cache", key);
             } else {
@@ -173,35 +173,6 @@ impl CacheManager {
     ///     Some(CacheStrategy::RealTime)
     /// ).await?;
     /// ```
-    #[allow(dead_code)]
-    pub async fn get_with_fallback<F, Fut>(
-        &self,
-        key: &str,
-        compute_fn: Option<F>,
-        strategy: Option<CacheStrategy>,
-    ) -> Result<Option<serde_json::Value>>
-    where
-        F: FnOnce() -> Fut + Send,
-        Fut: Future<Output = Result<serde_json::Value>> + Send,
-    {
-        // First try regular get (with built-in Cache Stampede protection)
-        if let Some(value) = self.get(key).await? {
-            return Ok(Some(value));
-        }
-        
-        // If no compute function provided, return None (traditional behavior)
-        let compute_fn = match compute_fn {
-            Some(f) => f,
-            None => return Ok(None),
-        };
-        
-        // Use the full Cache Stampede protected computation
-        let strategy = strategy.unwrap_or(CacheStrategy::ShortTerm);
-        match self.get_or_compute_with(key, strategy, compute_fn).await {
-            Ok(value) => Ok(Some(value)),
-            Err(e) => Err(e),
-        }
-    }
     
     /// Set value with specific cache strategy (both L1 and L2)
     pub async fn set_with_strategy(&self, key: &str, value: serde_json::Value, strategy: CacheStrategy) -> Result<()> {
@@ -299,7 +270,7 @@ impl CacheManager {
             
             // Promote to L1 for future requests
             let ttl = strategy.to_duration();
-            if let Err(e) = self.l1_cache.set(key, value.clone(), ttl).await {
+            if let Err(e) = self.l1_cache.set_with_ttl(key, value.clone(), ttl).await {
                 eprintln!("⚠️ Failed to promote key '{}' to L1: {}", key, e);
             } else {
                 self.promotions.fetch_add(1, Ordering::Relaxed);
