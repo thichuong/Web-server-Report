@@ -26,7 +26,7 @@ async fn homepage(
     State(service_islands): State<Arc<ServiceIslands>>
 ) -> Response {
     // Use the dashboard island's homepage handler with Tera rendering
-    match service_islands.dashboard.handlers.homepage_with_tera(&service_islands.app_state).await {
+    match service_islands.dashboard.handlers.homepage_with_tera(&service_islands.get_legacy_app_state()).await {
         Ok(compressed_data) => {
             println!("✅ [Route] Compressed homepage rendered successfully from Layer 5");
             // Use create_compressed_response for compressed data with proper headers

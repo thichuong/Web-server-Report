@@ -13,7 +13,7 @@ use axum::{
 };
 
 // Import from current state - will be refactored when lower layers are implemented
-use crate::state::AppState;
+use crate::service_islands::layer1_infrastructure::AppState;
 // Import Layer 3 data communication service - proper architecture
 use crate::service_islands::layer3_communication::data_communication::CryptoDataService;
 // Import Layer 1 infrastructure services

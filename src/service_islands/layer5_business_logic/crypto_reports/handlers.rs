@@ -13,7 +13,7 @@ use std::{sync::Arc, error::Error as StdError, sync::atomic::Ordering, io::Write
 use flate2::{Compression, write::GzEncoder};
 
 // Import from current state - will be refactored when lower layers are implemented
-use crate::state::AppState;
+use crate::service_islands::layer1_infrastructure::AppState;
 
 // Import from our specialized components
 use super::report_creator::ReportCreator;

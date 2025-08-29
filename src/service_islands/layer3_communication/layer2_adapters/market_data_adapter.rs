@@ -215,7 +215,7 @@ impl MarketDataAdapter {
     /// 
     /// This method fetches from Layer 2 (cache-free) and returns raw data.
     /// Note: Streaming to Layer 1 will be implemented when AppState includes cache_system.
-    pub async fn fetch_and_stream_dashboard(&self, _state: &std::sync::Arc<crate::state::AppState>) -> Result<serde_json::Value> {
+    pub async fn fetch_and_stream_dashboard(&self, _state: &std::sync::Arc<crate::service_islands::layer1_infrastructure::AppState>) -> Result<serde_json::Value> {
         println!("🌊 [Layer 3] Fetch dashboard data (streaming to Layer 1 pending)...");
         
         // Step 1: Fetch from Layer 2 (cache-free)

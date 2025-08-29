@@ -11,9 +11,9 @@ pub mod layer4_observability;
 pub mod layer5_business_logic;
 
 use std::sync::Arc;
-use crate::state::AppState;
 
 use layer1_infrastructure::{
+    AppStateIsland,
     SharedComponentsIsland,
     CacheSystemIsland,
 };
@@ -36,10 +36,10 @@ use layer5_business_logic::{
 /// This struct holds references to all service islands and provides
 /// unified initialization and health checking capabilities.
 pub struct ServiceIslands {
-    // Global AppState with Tera engine for template rendering
-    pub app_state: Arc<AppState>,
-    
     // Layer 1: Infrastructure Islands
+    pub app_state: Arc<AppStateIsland>,
+    // Legacy AppState for backward compatibility (lazily initialized)
+    legacy_app_state: std::sync::OnceLock<Arc<layer1_infrastructure::AppState>>,
     pub shared_components: Arc<SharedComponentsIsland>,
     pub cache_system: Arc<CacheSystemIsland>,
     
@@ -61,15 +61,13 @@ impl ServiceIslands {
     /// Initialize all Service Islands
     /// 
     /// This method initializes all service islands in the proper dependency order.
-    /// Layer 2 (External Services) is initialized first, then Layer 4 (Observability), then Layer 3 (Communication), then Layer 5 (Business Logic).
+    /// Layer 1 (Infrastructure) first, then Layer 2 (External Services), then Layer 4 (Observability), then Layer 3 (Communication), then Layer 5 (Business Logic).
     pub async fn initialize() -> Result<Self, anyhow::Error> {
         println!("🏝️ Initializing Service Islands Architecture...");
         
-        // Initialize global AppState with Tera template engine and database
-        let app_state = Arc::new(AppState::new().await?);
-        
         // Initialize Layer 1: Infrastructure (foundation layer)
         println!("🏗️ Initializing Layer 1: Infrastructure Islands...");
+        let app_state = Arc::new(AppStateIsland::new().await?);
         let shared_components = Arc::new(SharedComponentsIsland::new().await?);
         let cache_system = Arc::new(CacheSystemIsland::new().await?);
         
@@ -125,16 +123,16 @@ impl ServiceIslands {
         println!("✅ Service Islands Architecture initialized with API caching!");
         
         println!("📊 Architecture Status:");
-        println!("  🏝️ Total Islands: 7/7 (100% complete)");
-        println!("  🏗️ Layer 1 - Infrastructure: 2/2 islands");
+        println!("  🏝️ Total Islands: 8/8 (100% complete)");
+        println!("  🏗️ Layer 1 - Infrastructure: 3/3 islands");
         println!("  🌐 Layer 2 - External Services: 1/1 islands");
-        println!("  � Layer 3 - Communication: 1/2 islands");
-        println!("  � Layer 4 - Observability: 1/1 islands");
+        println!("  📡 Layer 3 - Communication: 1/2 islands");
+        println!("  🔍 Layer 4 - Observability: 1/1 islands");
         println!("  � Layer 5 - Business Logic: 2/2 islands");
-        println!("  📱 Layer 5 - Business Logic: 2/2 islands");
         
         Ok(Self {
             app_state,
+            legacy_app_state: std::sync::OnceLock::new(),
             shared_components,
             cache_system,
             external_apis,
@@ -156,6 +154,7 @@ impl ServiceIslands {
         self.websocket_service.start_streaming_with_service_islands(
             Arc::new(ServiceIslands {
                 app_state: self.app_state.clone(),
+                legacy_app_state: std::sync::OnceLock::new(),
                 shared_components: self.shared_components.clone(),
                 cache_system: self.cache_system.clone(),
                 external_apis: self.external_apis.clone(),
@@ -194,6 +193,7 @@ impl ServiceIslands {
         println!("🔍 Performing Service Islands health check...");
         
         let shared_components_healthy = self.shared_components.health_check().await;
+        let app_state_healthy = self.app_state.health_check().await;
         let cache_system_healthy = self.cache_system.health_check().await;
         let external_apis_healthy = self.external_apis.health_check().await.is_ok();
         let websocket_service_healthy = self.websocket_service.health_check().await.is_ok();
@@ -201,13 +201,14 @@ impl ServiceIslands {
         let dashboard_healthy = self.dashboard.health_check().await;
         let crypto_reports_healthy = self.crypto_reports.health_check().await;
         
-        let all_healthy = shared_components_healthy && cache_system_healthy && external_apis_healthy && websocket_service_healthy && health_system_healthy && dashboard_healthy && crypto_reports_healthy;
+        let all_healthy = shared_components_healthy && app_state_healthy && cache_system_healthy && external_apis_healthy && websocket_service_healthy && health_system_healthy && dashboard_healthy && crypto_reports_healthy;
         
         if all_healthy {
             println!("✅ All Service Islands are healthy!");
         } else {
             println!("❌ Some Service Islands are unhealthy!");
             println!("   Shared Components Island: {}", if shared_components_healthy { "✅" } else { "❌" });
+            println!("   App State Island: {}", if app_state_healthy { "✅" } else { "❌" });
             println!("   Cache System Island: {}", if cache_system_healthy { "✅" } else { "❌" });
             println!("   External APIs Island: {}", if external_apis_healthy { "✅" } else { "❌" });
             println!("   WebSocket Service Island: {}", if websocket_service_healthy { "✅" } else { "❌" });
@@ -223,5 +224,15 @@ impl ServiceIslands {
     /// Direct access to Layer 1 SharedComponentsIsland
     pub fn get_chart_modules_content(&self) -> Arc<String> {
         self.shared_components.chart_modules_content.clone()
+    }
+    
+    /// Get legacy AppState for backward compatibility
+    /// 
+    /// This method creates a legacy AppState instance with cache system integration
+    /// for components that haven't been fully migrated to Service Islands.
+    pub fn get_legacy_app_state(&self) -> Arc<layer1_infrastructure::AppState> {
+        self.legacy_app_state.get_or_init(|| {
+            Arc::new(self.app_state.create_legacy_app_state(Some(self.cache_system.clone())))
+        }).clone()
     }
 }

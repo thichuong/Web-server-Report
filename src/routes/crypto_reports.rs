@@ -45,7 +45,7 @@ async fn crypto_index(
 
     // Use AppState with Tera engine from Service Islands - Full L1/L2 caching
     match service_islands.crypto_reports.handlers.crypto_index_with_tera(
-        &service_islands.app_state,
+        &service_islands.get_legacy_app_state(),
         Some(chart_modules_content) // Truyền pre-loaded chart modules
     ).await {
         Ok(compressed_data) => {
@@ -73,7 +73,7 @@ async fn crypto_reports_list(
     println!("📄 [Route] Requesting page: {}", page);
 
     // Use Service Islands architecture to get reports list
-    match service_islands.crypto_reports.handlers.crypto_reports_list_with_tera(&service_islands.app_state, page).await {
+    match service_islands.crypto_reports.handlers.crypto_reports_list_with_tera(&service_islands.get_legacy_app_state(), page).await {
         Ok(html) => {
             println!("✅ [Route] Reports list template rendered successfully from Layer 5");
             
@@ -135,7 +135,7 @@ async fn crypto_view_report(
 
     // Use Service Islands architecture to get specific report
     match service_islands.crypto_reports.handlers.crypto_report_by_id_with_tera(
-        &service_islands.app_state, 
+        &service_islands.get_legacy_app_state(), 
         report_id, 
         Some(chart_modules_content) // Truyền pre-loaded chart modules
     ).await {

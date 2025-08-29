@@ -2,7 +2,6 @@ use dotenvy::dotenv;
 use std::{env, net::SocketAddr, sync::Arc};
 
 mod service_islands;
-mod state;
 mod performance;
 mod routes;
 

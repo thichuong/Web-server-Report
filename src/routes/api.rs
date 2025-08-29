@@ -31,19 +31,17 @@ async fn api_dashboard_summary(
     println!("🚀 [API] Attempting stream-first dashboard summary fetch...");
     
     // Try cache manager first (primary storage)
-    let app_state = &service_islands.app_state;
-    if let Some(cache_system) = app_state.get_cache_system() {
-        match cache_system.cache_manager().get("latest_market_data").await {
-            Ok(Some(stream_data)) => {
-                println!("✅ [API] Dashboard summary served from cache (<1ms)");
-                return Json(stream_data);
-            }
-            Ok(None) => {
-                println!("⚠️ [API] No data in cache, falling back to Layer 5...");
-            }
-            Err(e) => {
-                println!("⚠️ [API] Cache read failed: {}, falling back to Layer 5...", e);
-            }
+    let cache_system = &service_islands.cache_system;
+    match cache_system.cache_manager().get("latest_market_data").await {
+        Ok(Some(stream_data)) => {
+            println!("✅ [API] Dashboard summary served from cache (<1ms)");
+            return Json(stream_data);
+        }
+        Ok(None) => {
+            println!("⚠️ [API] No data in cache, falling back to Layer 5...");
+        }
+        Err(e) => {
+            println!("⚠️ [API] Cache read failed: {}, falling back to Layer 5...", e);
         }
     }
     
@@ -53,18 +51,16 @@ async fn api_dashboard_summary(
             println!("✅ [API] Dashboard summary fetched via Layer 5 → Layer 3 → Layer 2");
             
             // Store in cache for future reads  
-            let app_state = &service_islands.app_state;
-            if let Some(cache_system) = app_state.get_cache_system() {
-                use crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy;
-                if let Err(e) = cache_system.cache_manager().set_with_strategy(
-                    "latest_market_data", 
-                    market_data.clone(), 
-                    CacheStrategy::ShortTerm
-                ).await {
-                    println!("⚠️ [API] Failed to store in cache: {}", e);
-                } else {
-                    println!("💾 [API] Data stored to cache for future reads");
-                }
+            let cache_system = &service_islands.cache_system;
+            use crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy;
+            if let Err(e) = cache_system.cache_manager().set_with_strategy(
+                "latest_market_data", 
+                market_data.clone(), 
+                CacheStrategy::ShortTerm
+            ).await {
+                println!("⚠️ [API] Failed to store in cache: {}", e);
+            } else {
+                println!("💾 [API] Data stored to cache for future reads");
             }
             
             Json(market_data) // Return data in same format as WebSocket
@@ -154,7 +150,7 @@ async fn api_sandboxed_report(
 
     // Use Service Islands to serve sandboxed content
     match service_islands.crypto_reports.handlers.serve_sandboxed_report(
-        &service_islands.app_state,
+        &service_islands.get_legacy_app_state(),
         report_id,
         sandbox_token,
         initial_language,

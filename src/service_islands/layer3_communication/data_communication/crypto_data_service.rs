@@ -10,7 +10,7 @@ use std::sync::Arc;
 use rayon::prelude::*; // Add rayon for parallel processing
 
 // Import from current state - will be refactored when lower layers are implemented
-use crate::state::AppState;
+use crate::service_islands::layer1_infrastructure::AppState;
 
 /// Report model for data layer - matches business logic model
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
