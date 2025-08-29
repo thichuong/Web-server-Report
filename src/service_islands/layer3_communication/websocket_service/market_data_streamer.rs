@@ -75,7 +75,7 @@ impl MarketDataStreamer {
                     
                     // 🔧 FIX: Use same Layer 5 function as HTTP API and WebSocket initial message
                     // This ensures all three messages use identical Layer 2 access pattern
-                    match service_islands_clone.crypto_reports.fetch_realtime_market_data().await {
+                    match service_islands_clone.websocket_service.fetch_market_data_for_layer5().await {
                         Ok(dashboard_data) => {
                             // Reset consecutive failures on success
                             consecutive_failures = 0;
