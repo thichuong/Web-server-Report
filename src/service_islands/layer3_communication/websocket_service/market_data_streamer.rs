@@ -34,7 +34,7 @@ impl MarketDataStreamer {
         Self {
             external_apis: None,
             service_islands: None,
-            update_interval: Duration::from_secs(30), // 30 seconds for BTC price updates as requested
+            update_interval: Duration::from_secs(5), // 5 seconds for faster updates
             is_streaming: std::sync::atomic::AtomicBool::new(false),
         }
     }
@@ -82,10 +82,10 @@ impl MarketDataStreamer {
                             
                             // 🔍 DEBUG: Log detailed dashboard data values
                             println!("🔍 [DEBUG] Dashboard data fetched successfully:");
-                            if let Some(market_cap) = dashboard_data.get("market_cap") {
+                            if let Some(market_cap) = dashboard_data.get("market_cap_usd") {
                                 println!("  💰 Market Cap: ${:?}", market_cap);
                             }
-                            if let Some(volume) = dashboard_data.get("volume_24h") {
+                            if let Some(volume) = dashboard_data.get("volume_24h_usd") {
                                 println!("  📊 24h Volume: ${:?}", volume);
                             }
                             if let Some(btc_price) = dashboard_data.get("btc_price_usd") {
@@ -99,6 +99,12 @@ impl MarketDataStreamer {
                             }
                             if let Some(rsi) = dashboard_data.get("rsi_14") {
                                 println!("  📈 RSI 14: {:?}", rsi);
+                            }
+                            if let Some(btc_dom) = dashboard_data.get("btc_market_cap_percentage") {
+                                println!("  ₿ BTC Dominance: {:?}%", btc_dom);
+                            }
+                            if let Some(eth_dom) = dashboard_data.get("eth_market_cap_percentage") {
+                                println!("  Ξ ETH Dominance: {:?}%", eth_dom);
                             }
                             
                             // Create WebSocket message

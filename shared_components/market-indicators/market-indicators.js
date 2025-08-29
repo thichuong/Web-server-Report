@@ -146,7 +146,7 @@ class MarketIndicatorsDashboard {
     scheduleReconnect() {
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
-            this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000);
+            this.reconnectDelay = Math.min(this.reconnectDelay * 2, 5000);
             
             debugLog(`🔄 Scheduling reconnect... Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
             setTimeout(() => this.connectWebSocket(), this.reconnectDelay);
@@ -475,13 +475,13 @@ class MarketIndicatorsDashboard {
     }
 
     startDataRefresh() {
-        // Refresh data every 30 seconds as backup
+        // Refresh data every 5 seconds as backup
         setInterval(() => {
             if (!this.isConnected) {
                 // Connection status will be updated by WebSocket events
                 debugLog('⏰ Data refresh interval - not connected');
             }
-        }, 30000);
+        }, 5000);
     }
 
     // US Stock Indices Update Methods

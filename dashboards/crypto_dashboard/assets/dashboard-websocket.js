@@ -156,7 +156,7 @@ class DashboardWebSocket {
             if (this.socket && this.socket.readyState === WebSocket.OPEN) {
                 this.socket.send('ping');
             }
-        }, 30000); // Ping every 30 seconds
+        }, 5000); // Ping every 5 seconds
     }
 
     stopHeartbeat() {
