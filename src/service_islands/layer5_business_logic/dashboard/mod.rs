@@ -60,29 +60,6 @@ impl DashboardIsland {
         })
     }
     
-    /// Initialize the Dashboard Island (fallback method for backward compatibility)
-    /// 
-    /// Creates a new Dashboard Island with all its components properly initialized.
-    /// ⚠️  WARNING: This method doesn't have WebSocket dependency, use with_dependencies instead
-    pub async fn new() -> Result<Self, anyhow::Error> {
-        println!("🎯 Initializing Dashboard Island (fallback method)...");
-        
-        let handlers = handlers::DashboardHandlers::new();
-        let template_renderer = template_renderer::TemplateRenderer::new();
-        let report_manager = report_manager::ReportManager::new();
-        let ui_components = ui_components::UIComponents::new();
-        
-        println!("⚠️  Dashboard Island initialized without WebSocket dependency!");
-        
-        Ok(Self {
-            handlers,
-            template_renderer,
-            report_manager,
-            ui_components,
-            market_data_service: None, // No WebSocket dependency
-        })
-    }
-    
     /// Health check for Dashboard Island
     /// 
     /// Verifies that all components of the Dashboard Island are functioning properly.

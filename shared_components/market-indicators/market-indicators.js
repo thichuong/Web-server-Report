@@ -1,17 +1,7 @@
 /**
  * Market Indicators Dashboard JavaScript
  * Handles real-time market data display without charts
- * Integrates with WebSo            this.websocket.onclose = (event) => {
-                debugLog('🔌 Market Indicators WebSocket disconnected:', event.code, event.reason);
-                this.isConnected = false;
-                this.stopHeartbeat(); // Stop heartbeat when connection closes
-                this.websocket = null;
-                
-                if (event.code !== 1000) {
-                    this.updateConnectionStatus('disconnected');
-                    this.scheduleReconnect();
-                }
-            };ive updates
+ * Integrates with WebSocket for real-time updates
  */
 
 // Debug mode - set to true for debugging
@@ -40,7 +30,6 @@ class MarketIndicatorsDashboard {
         this.updateAnimationDuration = 300;
         this.heartbeatInterval = null;
         this.lastDataUpdate = Date.now(); // Track last data received
-        this.dataTimeoutInterval = null; // For checking data staleness
         
         // Data cache
         this.cachedData = {
