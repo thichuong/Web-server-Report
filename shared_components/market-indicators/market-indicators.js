@@ -35,10 +35,12 @@ class MarketIndicatorsDashboard {
         this.websocket = null;
         this.isConnected = false;
         this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 5;
-        this.reconnectDelay = 1000;
+        this.maxReconnectAttempts = 8; // Increased from 5 to 8 attempts
+        this.reconnectDelay = 500; // Faster initial reconnect (500ms instead of 1000ms)
         this.updateAnimationDuration = 300;
         this.heartbeatInterval = null;
+        this.lastDataUpdate = Date.now(); // Track last data received
+        this.dataTimeoutInterval = null; // For checking data staleness
         
         // Data cache
         this.cachedData = {
@@ -119,7 +121,7 @@ class MarketIndicatorsDashboard {
                 debugLog('✅ Market Indicators WebSocket connected');
                 this.isConnected = true;
                 this.reconnectAttempts = 0;
-                this.reconnectDelay = 1000;
+                this.reconnectDelay = 500; // Reset to faster initial delay
                 this.updateConnectionStatus('connected');
                 
                 // Start heartbeat to keep connection alive
@@ -160,9 +162,9 @@ class MarketIndicatorsDashboard {
     scheduleReconnect() {
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
-            this.reconnectDelay = Math.min(this.reconnectDelay * 2, 5000);
+            this.reconnectDelay = Math.min(this.reconnectDelay * 2, 3000); // Max 3s instead of 5s for faster reconnect
             
-            debugLog(`🔄 Scheduling reconnect... Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
+            debugLog(`🔄 Scheduling reconnect... Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} (delay: ${this.reconnectDelay}ms)`);
             setTimeout(() => this.connectWebSocket(), this.reconnectDelay);
         } else {
             debugLog('❌ Max reconnect attempts reached');
@@ -271,6 +273,9 @@ class MarketIndicatorsDashboard {
                 this.updateUSStockIndices(data.us_stock_indices);
             }
 
+            // Track last data update time for staleness checking
+            this.lastDataUpdate = Date.now();
+
             debugLog('✅ Market indicators update completed successfully');
         } catch (error) {
             debugError('❌ Error updating market data:', error);
@@ -289,6 +294,13 @@ class MarketIndicatorsDashboard {
 
             const price = parseFloat(data.price_usd || data.btc_price_usd) || 0;
             const change = parseFloat(data.change_24h || data.btc_change_24h) || 0;
+
+            // Check if data has actually changed
+            const cachedBtc = this.cachedData.btcPrice;
+            if (cachedBtc && cachedBtc.price === price && cachedBtc.change === change) {
+                debugLog('⏭️ BTC price unchanged, skipping update:', { price, change });
+                return;
+            }
 
             this.cachedData.btcPrice = { price, change };
 
@@ -318,6 +330,13 @@ class MarketIndicatorsDashboard {
         const value = parseFloat(data.value || data.total_market_cap || data.market_cap_usd) || 0;
         const change = parseFloat(data.change || data.market_cap_change_percentage_24h_usd) || 0;
 
+        // Check if data has actually changed
+        const cachedMarketCap = this.cachedData.marketCap;
+        if (cachedMarketCap && cachedMarketCap.value === value && cachedMarketCap.change === change) {
+            debugLog('⏭️ Market cap unchanged, skipping update:', { value, change });
+            return;
+        }
+
         this.cachedData.marketCap = { value, change };
 
         const changeClass = change >= 0 ? 'positive' : 'negative';
@@ -333,6 +352,7 @@ class MarketIndicatorsDashboard {
         `;
 
         this.animateUpdate(element);
+        debugLog('✅ Market cap updated:', { value, change });
     }
 
     updateVolume24h(data) {
@@ -341,6 +361,13 @@ class MarketIndicatorsDashboard {
 
         const value = parseFloat(data.value || data.total_volume_24h) || 0;
         const change = parseFloat(data.change || data.volume_change_24h) || 0;
+
+        // Check if data has actually changed
+        const cachedVolume = this.cachedData.volume24h;
+        if (cachedVolume && cachedVolume.value === value && cachedVolume.change === change) {
+            debugLog('⏭️ Volume 24h unchanged, skipping update:', { value, change });
+            return;
+        }
 
         this.cachedData.volume24h = { value, change };
 
@@ -357,6 +384,7 @@ class MarketIndicatorsDashboard {
         `;
 
         this.animateUpdate(element);
+        debugLog('✅ Volume 24h updated:', { value, change });
     }
 
     updateFearGreedIndex(value) {
@@ -364,6 +392,14 @@ class MarketIndicatorsDashboard {
         if (!element) return;
 
         const index = parseInt(value) || 0;
+        
+        // Check if data has actually changed
+        const cachedFearGreed = this.cachedData.fearGreedIndex;
+        if (cachedFearGreed === index) {
+            debugLog('⏭️ Fear & Greed Index unchanged, skipping update:', { index });
+            return;
+        }
+        
         this.cachedData.fearGreedIndex = index;
 
         let indexClass = 'neutral';
@@ -403,6 +439,7 @@ class MarketIndicatorsDashboard {
         this.updateTranslations(element);
         
         this.animateUpdate(element);
+        debugLog('✅ Fear & Greed Index updated:', { index, class: indexClass });
     }
 
     updateBtcDominance(value) {
@@ -410,6 +447,14 @@ class MarketIndicatorsDashboard {
         if (!element) return;
 
         const dominance = parseFloat(value) || 0;
+        
+        // Check if data has actually changed (with small tolerance for floating point comparison)
+        const cachedBtcDominance = this.cachedData.btcDominance;
+        if (cachedBtcDominance !== null && Math.abs(cachedBtcDominance - dominance) < 0.01) {
+            debugLog('⏭️ BTC dominance unchanged, skipping update:', { dominance });
+            return;
+        }
+        
         this.cachedData.btcDominance = dominance;
 
         element.innerHTML = `
@@ -420,6 +465,7 @@ class MarketIndicatorsDashboard {
         `;
 
         this.animateUpdate(element);
+        debugLog('✅ BTC dominance updated:', { dominance: dominance.toFixed(1) });
     }
 
     updateEthDominance(value) {
@@ -427,6 +473,14 @@ class MarketIndicatorsDashboard {
         if (!element) return;
 
         const dominance = parseFloat(value) || 0;
+        
+        // Check if data has actually changed (with small tolerance for floating point comparison)
+        const cachedEthDominance = this.cachedData.ethDominance;
+        if (cachedEthDominance !== null && Math.abs(cachedEthDominance - dominance) < 0.01) {
+            debugLog('⏭️ ETH dominance unchanged, skipping update:', { dominance });
+            return;
+        }
+        
         this.cachedData.ethDominance = dominance;
 
         element.innerHTML = `
@@ -437,6 +491,7 @@ class MarketIndicatorsDashboard {
         `;
 
         this.animateUpdate(element);
+        debugLog('✅ ETH dominance updated:', { dominance: dominance.toFixed(1) });
     }
 
     updateConnectionStatus(status) {
@@ -518,14 +573,26 @@ class MarketIndicatorsDashboard {
     }
 
     startDataRefresh() {
-        // WebSocket health check every 30 seconds
+        // WebSocket health check every 10 seconds (increased frequency)
         setInterval(() => {
+            const now = Date.now();
+            const timeSinceLastUpdate = now - this.lastDataUpdate;
+            
             debugLog('🔍 WebSocket Health Check:', {
                 connected: this.isConnected,
                 websocket: this.websocket !== null,
                 readyState: this.websocket ? this.websocket.readyState : 'null',
-                reconnectAttempts: this.reconnectAttempts
+                reconnectAttempts: this.reconnectAttempts,
+                timeSinceLastUpdate: `${Math.round(timeSinceLastUpdate / 1000)}s`
             });
+            
+            // If no data received for 60 seconds and connected, something may be wrong
+            if (this.isConnected && timeSinceLastUpdate > 60000) {
+                debugLog('⚠️ No data received for 60+ seconds, requesting fresh data');
+                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                    this.websocket.send('request_update'); // Request server to send fresh data
+                }
+            }
             
             if (this.websocket) {
                 const state = this.websocket.readyState;
@@ -542,7 +609,7 @@ class MarketIndicatorsDashboard {
                 debugLog('🔄 No WebSocket connection, attempting to connect');
                 this.connectWebSocket();
             }
-        }, 30000); // Every 30 seconds
+        }, 10000); // Every 10 seconds (faster monitoring)
     }
 
     // US Stock Indices Update Methods
@@ -593,6 +660,20 @@ class MarketIndicatorsDashboard {
         const change = parseFloat(indexData.change) || 0;
         const changePercent = parseFloat(indexData.change_percent) || 0;
         
+        // Check if data has actually changed for this specific stock index
+        const cacheKey = `${elementId}_stock_index`;
+        const cachedStock = this.cachedData[cacheKey];
+        if (cachedStock && 
+            cachedStock.price === price && 
+            cachedStock.change === change && 
+            cachedStock.changePercent === changePercent) {
+            debugLog(`⏭️ ${displayName} unchanged, skipping update:`, { price, change, changePercent });
+            return;
+        }
+        
+        // Cache the new data
+        this.cachedData[cacheKey] = { price, change, changePercent };
+        
         const changeClass = changePercent >= 0 ? 'positive' : 'negative';
         const changeIcon = changePercent >= 0 ? '📈' : '📉';
         const changeSign = change >= 0 ? '+' : '';
@@ -614,7 +695,7 @@ class MarketIndicatorsDashboard {
     }
 
     startHeartbeat() {
-        // Send ping every 30 seconds to keep connection alive
+        // Send ping every 15 seconds to keep connection alive (increased frequency)
         this.heartbeatInterval = setInterval(() => {
             if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
                 debugLog('🏓 Sending heartbeat ping');
@@ -622,7 +703,7 @@ class MarketIndicatorsDashboard {
             } else {
                 this.stopHeartbeat();
             }
-        }, 30000);
+        }, 5000); // Every 5 seconds (faster heartbeat)
     }
 
     stopHeartbeat() {
