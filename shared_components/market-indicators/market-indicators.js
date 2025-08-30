@@ -59,6 +59,10 @@ class MarketIndicatorsDashboard {
     init() {
         debugLog('🚀 Initializing Market Indicators Dashboard');
         this.initializeElements();
+        
+        // Request initial data immediately before establishing WebSocket
+        this.requestInitialData();
+        
         this.connectWebSocket();
         this.startDataRefresh();
     }
@@ -103,6 +107,65 @@ class MarketIndicatorsDashboard {
         });
     }
 
+    async requestInitialData() {
+        debugLog('🔄 Requesting initial market data...');
+        
+        try {
+            // Try to fetch initial data from the same server
+            const response = await fetch('/api/dashboard/data', {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                timeout: 10000 // 10 second timeout
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                debugLog('✅ Initial data received:', data);
+                
+                // Update dashboard with initial data
+                if (data) {
+                    this.updateMarketData(data);
+                    debugLog('✅ Dashboard updated with initial data');
+                }
+            } else {
+                debugLog('⚠️ Failed to fetch initial data:', response.status, response.statusText);
+            }
+        } catch (error) {
+            debugLog('⚠️ Initial data request failed, will rely on WebSocket:', error.message);
+            // Don't throw error - just continue with WebSocket initialization
+            // The WebSocket will provide data once connected
+        }
+    }
+
+    requestFreshData() {
+        if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+            debugLog('📤 Requesting fresh data via WebSocket...');
+            try {
+                // Send structured request for dashboard data
+                const request = {
+                    type: 'request_dashboard_data',
+                    timestamp: Date.now()
+                };
+                this.websocket.send(JSON.stringify(request));
+                debugLog('✅ Data request sent via WebSocket');
+            } catch (error) {
+                debugLog('❌ Failed to send data request via WebSocket:', error);
+                // Fallback to simple string request
+                try {
+                    this.websocket.send('request_update');
+                    debugLog('✅ Fallback data request sent');
+                } catch (fallbackError) {
+                    debugError('❌ Both WebSocket request methods failed:', fallbackError);
+                }
+            }
+        } else {
+            debugLog('⚠️ Cannot request fresh data - WebSocket not ready');
+        }
+    }
+
     connectWebSocket() {
         if (this.isConnected || this.websocket) {
             return;
@@ -123,6 +186,9 @@ class MarketIndicatorsDashboard {
                 this.reconnectAttempts = 0;
                 this.reconnectDelay = 500; // Reset to faster initial delay
                 this.updateConnectionStatus('connected');
+                
+                // Request fresh data immediately after WebSocket connects
+                this.requestFreshData();
                 
                 // Start heartbeat to keep connection alive
                 this.startHeartbeat();
@@ -589,9 +655,7 @@ class MarketIndicatorsDashboard {
             // If no data received for 60 seconds and connected, something may be wrong
             if (this.isConnected && timeSinceLastUpdate > 60000) {
                 debugLog('⚠️ No data received for 60+ seconds, requesting fresh data');
-                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-                    this.websocket.send('request_update'); // Request server to send fresh data
-                }
+                this.requestFreshData(); // Use the new method instead of direct send
             }
             
             if (this.websocket) {
