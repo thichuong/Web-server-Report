@@ -111,7 +111,7 @@ impl ServiceIslands {
         
         // Initialize Layer 5: Business Logic (depends on Layer 3 ONLY)
         println!("📊 Initializing Layer 5: Business Logic Islands...");
-        let dashboard = Arc::new(DashboardIsland::new().await?);
+        let dashboard = Arc::new(DashboardIsland::with_dependencies(websocket_service.clone()).await?);
         // ✅ STRICT: Layer 5 only depends on Layer 3 (no direct Layer 2 access)
         let crypto_reports = Arc::new(CryptoReportsIsland::with_dependencies(websocket_service.clone()).await?);
         

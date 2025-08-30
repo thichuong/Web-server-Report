@@ -1,11 +1,21 @@
 /**
  * Market Indicators Dashboard JavaScript
  * Handles real-time market data display without charts
- * Integrates with WebSocket for live updates
+ * Integrates with WebSo            this.websocket.onclose = (event) => {
+                debugLog('🔌 Market Indicators WebSocket disconnected:', event.code, event.reason);
+                this.isConnected = false;
+                this.stopHeartbeat(); // Stop heartbeat when connection closes
+                this.websocket = null;
+                
+                if (event.code !== 1000) {
+                    this.updateConnectionStatus('disconnected');
+                    this.scheduleReconnect();
+                }
+            };ive updates
  */
 
-// Debug mode - set to false for production
-const DEBUG_MODE = false;
+// Debug mode - set to true for debugging
+const DEBUG_MODE = true;
 
 // Debug logging wrapper
 function debugLog(...args) {
@@ -28,6 +38,7 @@ class MarketIndicatorsDashboard {
         this.maxReconnectAttempts = 5;
         this.reconnectDelay = 1000;
         this.updateAnimationDuration = 300;
+        this.heartbeatInterval = null;
         
         // Data cache
         this.cachedData = {
@@ -110,6 +121,9 @@ class MarketIndicatorsDashboard {
                 this.reconnectAttempts = 0;
                 this.reconnectDelay = 1000;
                 this.updateConnectionStatus('connected');
+                
+                // Start heartbeat to keep connection alive
+                this.startHeartbeat();
             };
 
             this.websocket.onmessage = (event) => {
@@ -160,112 +174,141 @@ class MarketIndicatorsDashboard {
         debugLog('📨 Received WebSocket message type:', message.type);
         debugLog('📨 Full message data:', message);
         
-        switch (message.type) {
-            case 'dashboard_data':
-            case 'dashboard_update':
-                if (message.data) {
-                    debugLog('📊 Received market data update:', message.data);
-                    this.updateMarketData(message.data);
-                }
-                break;
-                
-            case 'btc_price_update':
-                if (message.data) {
-                    debugLog('₿ Received BTC price update:', message.data);
-                    this.updateBtcPrice(message.data);
-                }
-                break;
-                
-            case 'market_update':
-                if (message.data) {
-                    debugLog('📈 Received market update:', message.data);
-                    this.updateMarketData(message.data);
-                }
-                break;
-                
-            default:
-                debugLog('❓ Unknown WebSocket message type:', message.type);
-                // Try to handle as generic market data if it has the expected fields
-                if (message.btc_price_usd || message.market_cap_usd || message.fng_value) {
-                    debugLog('🔄 Treating unknown message as market data:', message);
-                    this.updateMarketData(message);
-                }
-                break;
+        try {
+            switch (message.type) {
+                case 'dashboard_data':
+                case 'dashboard_update':
+                    if (message.data) {
+                        debugLog('📊 Received market data update:', message.data);
+                        this.updateMarketData(message.data);
+                    }
+                    break;
+                    
+                case 'btc_price_update':
+                    if (message.data) {
+                        debugLog('₿ Received BTC price update:', message.data);
+                        this.updateBtcPrice(message.data);
+                    }
+                    break;
+                    
+                case 'market_update':
+                    if (message.data) {
+                        debugLog('📈 Received market update:', message.data);
+                        this.updateMarketData(message.data);
+                    }
+                    break;
+                    
+                case 'connected':
+                    debugLog('✅ WebSocket connection confirmed');
+                    break;
+                    
+                case 'pong':
+                    debugLog('🏓 Pong received');
+                    break;
+                    
+                default:
+                    debugLog('❓ Unknown WebSocket message type:', message.type);
+                    // Try to handle as generic market data if it has the expected fields
+                    if (message.btc_price_usd || message.market_cap_usd || message.fng_value) {
+                        debugLog('🔄 Treating unknown message as market data:', message);
+                        this.updateMarketData(message);
+                    }
+                    break;
+            }
+        } catch (error) {
+            debugError('❌ Error handling WebSocket message:', error);
+            debugError('❌ Problematic message:', message);
+            // Don't let one bad message break the WebSocket connection
+            // Continue processing future messages
         }
     }
 
     updateMarketData(data) {
         debugLog('🔄 Updating market indicators with data:', data);
 
-        // Update BTC Price
-        if (data.btc_price_usd !== undefined) {
-            this.updateBtcPrice({
-                price_usd: data.btc_price_usd,
-                change_24h: data.btc_change_24h || 0
-            });
-        }
+        try {
+            // Update BTC Price
+            if (data.btc_price_usd !== undefined) {
+                this.updateBtcPrice({
+                    price_usd: data.btc_price_usd,
+                    change_24h: data.btc_change_24h || 0
+                });
+            }
 
-        // Update Market Cap - use market_cap_usd directly
-        if (data.market_cap_usd !== undefined) {
-            this.updateMarketCap({
-                value: data.market_cap_usd,
-                change: data.market_cap_change_percentage_24h_usd || 0
-            });
-        }
+            // Update Market Cap - use market_cap_usd directly
+            if (data.market_cap_usd !== undefined) {
+                this.updateMarketCap({
+                    value: data.market_cap_usd,
+                    change: data.market_cap_change_percentage_24h_usd || 0
+                });
+            }
 
-        // Update Volume 24h - use volume_24h_usd if available
-        if (data.volume_24h_usd !== undefined) {
-            this.updateVolume24h({
-                value: data.volume_24h_usd,
-                change: 0 // Volume change not available from current API
-            });
-        }
+            // Update Volume 24h - use volume_24h_usd if available
+            if (data.volume_24h_usd !== undefined) {
+                this.updateVolume24h({
+                    value: data.volume_24h_usd,
+                    change: 0 // Volume change not available from current API
+                });
+            }
 
-        // Update Fear & Greed Index - use fng_value
-        if (data.fng_value !== undefined) {
-            this.updateFearGreedIndex(data.fng_value);
-        }
+            // Update Fear & Greed Index - use fng_value
+            if (data.fng_value !== undefined) {
+                this.updateFearGreedIndex(data.fng_value);
+            }
 
-        // Update BTC Dominance - use btc_market_cap_percentage directly
-        if (data.btc_market_cap_percentage !== undefined) {
-            this.updateBtcDominance(data.btc_market_cap_percentage);
-        }
+            // Update BTC Dominance - use btc_market_cap_percentage directly
+            if (data.btc_market_cap_percentage !== undefined) {
+                this.updateBtcDominance(data.btc_market_cap_percentage);
+            }
 
-        // Update ETH Dominance - use eth_market_cap_percentage directly
-        if (data.eth_market_cap_percentage !== undefined) {
-            this.updateEthDominance(data.eth_market_cap_percentage);
-        }
+            // Update ETH Dominance - use eth_market_cap_percentage directly
+            if (data.eth_market_cap_percentage !== undefined) {
+                this.updateEthDominance(data.eth_market_cap_percentage);
+            }
 
+            // Update US Stock Indices
+            if (data.us_stock_indices) {
+                this.updateUSStockIndices(data.us_stock_indices);
+            }
 
-        
-        // Update US Stock Indices
-        if (data.us_stock_indices) {
-            this.updateUSStockIndices(data.us_stock_indices);
+            debugLog('✅ Market indicators update completed successfully');
+        } catch (error) {
+            debugError('❌ Error updating market data:', error);
+            debugError('❌ Problematic data:', data);
+            // Don't let update errors break the WebSocket connection
         }
     }
 
     updateBtcPrice(data) {
-        const element = this.elements.btcPrice;
-        if (!element) return;
+        try {
+            const element = this.elements.btcPrice;
+            if (!element) {
+                debugError('❌ BTC price element not found');
+                return;
+            }
 
-        const price = parseFloat(data.price_usd || data.btc_price_usd) || 0;
-        const change = parseFloat(data.change_24h || data.btc_change_24h) || 0;
+            const price = parseFloat(data.price_usd || data.btc_price_usd) || 0;
+            const change = parseFloat(data.change_24h || data.btc_change_24h) || 0;
 
-        this.cachedData.btcPrice = { price, change };
+            this.cachedData.btcPrice = { price, change };
 
-        const changeClass = change >= 0 ? 'positive' : 'negative';
-        const changeIcon = change >= 0 ? '📈' : '📉';
-        const changeSign = change >= 0 ? '+' : '';
+            const changeClass = change >= 0 ? 'positive' : 'negative';
+            const changeIcon = change >= 0 ? '📈' : '📉';
+            const changeSign = change >= 0 ? '+' : '';
 
-        element.innerHTML = `
-            <div class="market-value">$${price.toLocaleString('en-US')}</div>
-            <div class="market-change ${changeClass}">
-                <span class="change-icon">${changeIcon}</span>
-                ${changeSign}${change.toFixed(2)}% (24h)
-            </div>
-        `;
+            element.innerHTML = `
+                <div class="market-value">$${price.toLocaleString('en-US')}</div>
+                <div class="market-change ${changeClass}">
+                    <span class="change-icon">${changeIcon}</span>
+                    ${changeSign}${change.toFixed(2)}% (24h)
+                </div>
+            `;
 
-        this.animateUpdate(element);
+            this.animateUpdate(element);
+            debugLog('✅ BTC price updated:', { price, change });
+        } catch (error) {
+            debugError('❌ Error updating BTC price:', error);
+        }
     }
 
     updateMarketCap(data) {
@@ -475,13 +518,31 @@ class MarketIndicatorsDashboard {
     }
 
     startDataRefresh() {
-        // Refresh data every 5 seconds as backup
+        // WebSocket health check every 30 seconds
         setInterval(() => {
-            if (!this.isConnected) {
-                // Connection status will be updated by WebSocket events
-                debugLog('⏰ Data refresh interval - not connected');
+            debugLog('🔍 WebSocket Health Check:', {
+                connected: this.isConnected,
+                websocket: this.websocket !== null,
+                readyState: this.websocket ? this.websocket.readyState : 'null',
+                reconnectAttempts: this.reconnectAttempts
+            });
+            
+            if (this.websocket) {
+                const state = this.websocket.readyState;
+                const states = ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'];
+                debugLog(`🔍 WebSocket State: ${states[state]} (${state})`);
+                
+                // If WebSocket is in bad state, try to reconnect
+                if (state === WebSocket.CLOSED && this.isConnected) {
+                    debugLog('🔄 WebSocket closed unexpectedly, scheduling reconnect');
+                    this.isConnected = false;
+                    this.scheduleReconnect();
+                }
+            } else if (!this.isConnected) {
+                debugLog('🔄 No WebSocket connection, attempting to connect');
+                this.connectWebSocket();
             }
-        }, 5000);
+        }, 30000); // Every 30 seconds
     }
 
     // US Stock Indices Update Methods
@@ -552,7 +613,27 @@ class MarketIndicatorsDashboard {
         debugLog(`✅ Updated ${displayName}: $${price.toFixed(2)} (${percentSign}${changePercent.toFixed(2)}%)`);
     }
 
+    startHeartbeat() {
+        // Send ping every 30 seconds to keep connection alive
+        this.heartbeatInterval = setInterval(() => {
+            if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                debugLog('🏓 Sending heartbeat ping');
+                this.websocket.send('ping');
+            } else {
+                this.stopHeartbeat();
+            }
+        }, 30000);
+    }
+
+    stopHeartbeat() {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
+    }
+
     destroy() {
+        this.stopHeartbeat();
         if (this.websocket) {
             this.websocket.close();
             this.websocket = null;
