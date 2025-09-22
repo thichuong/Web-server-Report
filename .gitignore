@@ -30,3 +30,6 @@ Thumbs.db
 # Logs
 *.log
 rust_server.log
+
+# Redis dump file
+dump.rdb
