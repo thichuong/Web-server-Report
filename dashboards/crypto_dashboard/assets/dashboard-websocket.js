@@ -380,8 +380,8 @@ function updateDashboardFromData(data) {
             min: 0, max: 100,
             segments: [
                 { limit: 24, color: 'var(--fng-extreme-fear-color)', label: getTranslatedText('extreme-fear') },
-                { limit: 44, color: 'var(--fng-fear-color)', label: getTranslatedText('fear') },
-                { limit: 55, color: 'var(--fng-neutral-color)', label: getTranslatedText('neutral') },
+                { limit: 45, color: 'var(--fng-fear-color)', label: getTranslatedText('fear') },
+                { limit: 54, color: 'var(--fng-neutral-color)', label: getTranslatedText('neutral') },
                 { limit: 74, color: 'var(--fng-greed-color)', label: getTranslatedText('greed') },
                 { limit: 100, color: 'var(--fng-extreme-greed-color)', label: getTranslatedText('extreme-greed') }
             ]
