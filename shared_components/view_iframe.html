@@ -267,7 +267,8 @@
                 
                 console.log('📡 Iframe: Section position sent to parent');
                 
-            } catch (error) {
+            } 
+            catch (error) {
                 console.error('❌ Iframe: Error getting section position:', error);
                 
                 // Send error response to parent
@@ -742,9 +743,9 @@
             }
         }, 5000); // Reset every 5 seconds
         
-            // Monitor content changes for height updates with improved debouncing
-            let heightUpdateTimeout;
-            function scheduleHeightUpdate(reason = 'Content change') {
+        // Monitor content changes for height updates with improved debouncing
+        let heightUpdateTimeout;
+        function scheduleHeightUpdate(reason = 'Content change') {
                 clearTimeout(heightUpdateTimeout);
                 heightUpdateTimeout = setTimeout(() => {
                     reportHeightUpdate(reason);
