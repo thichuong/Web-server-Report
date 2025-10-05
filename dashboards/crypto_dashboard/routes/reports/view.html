@@ -284,7 +284,7 @@
                     {% if report.id %}
                         <iframe 
                             id="report-iframe"
-                            src="/api/crypto_reports/{{ report.id }}/sandboxed?token={{ sandbox_token }}&lang=vi&chart_modules=true"
+                            src=""
                             width="100%" 
                             height="400px"
                             frameborder="0"
@@ -698,6 +698,22 @@
             if (iframe) {
                 console.log('🚀 Parent: Initializing iframe for report loading...');
                 
+                // Set iframe src dynamically based on current language
+                function setIframeSrc() {
+                    const currentLang = (window.languageManager && window.languageManager.currentLanguage) || 'vi';
+                    const baseUrl = `/api/crypto_reports/{{ report.id }}/sandboxed`;
+                    const params = new URLSearchParams({
+                        token: '{{ sandbox_token }}',
+                        lang: currentLang,
+                        chart_modules: 'true'
+                    });
+                    iframe.src = `${baseUrl}?${params.toString()}`;
+                    console.log('🔗 Parent: Set iframe src with language:', currentLang);
+                }
+                
+                // Set initial src
+                setIframeSrc();
+                
                 // Configure iframe for auto-resize
                 iframe.style.overflow = 'hidden';
                 iframe.scrolling = 'no';
@@ -818,6 +834,18 @@
                     type: 'language-change',
                     language: event.detail.language
                 }, '*');
+            }
+            
+            // Update iframe src with new language
+            if (iframe) {
+                const baseUrl = `/api/crypto_reports/{{ report.id }}/sandboxed`;
+                const params = new URLSearchParams({
+                    token: '{{ sandbox_token }}',
+                    lang: event.detail.language,
+                    chart_modules: 'true'
+                });
+                iframe.src = `${baseUrl}?${params.toString()}`;
+                console.log('🔄 Parent: Updated iframe src for language change:', event.detail.language);
             }
             
             // Update sidebar navigation language
