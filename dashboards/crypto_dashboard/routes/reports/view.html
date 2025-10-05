@@ -341,6 +341,8 @@
                 handleSectionPositionResponse(event);
             } else if (event.data && event.data.type === 'request-current-scroll') {
                 handleCurrentScrollRequest(event);
+            } else if (event.data && event.data.type === 'get-current-theme') {
+                handleGetCurrentThemeRequest(event);
             }
         });
         
@@ -389,6 +391,28 @@
                     bottom: iframeRect.bottom
                 },
                 viewportHeight: winHeight
+            }, '*');
+        }
+        
+        // Handle get current theme request from iframe - NEW FUNCTION
+        function handleGetCurrentThemeRequest(event) {
+            console.log('🎨 Parent: Received request for current theme');
+            
+            const iframe = document.getElementById('report-iframe');
+            if (!iframe || !iframe.contentWindow) {
+                console.warn('⚠️ Parent: No iframe found for theme request');
+                return;
+            }
+            
+            // Get current theme from document element
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            
+            console.log('📤 Parent: Sending current theme to iframe:', currentTheme);
+            
+            // Send current theme to iframe
+            iframe.contentWindow.postMessage({
+                type: 'current-theme-response',
+                theme: currentTheme
             }, '*');
         }
         

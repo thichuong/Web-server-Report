@@ -174,6 +174,11 @@
                     applyTheme(event.data.theme);
                     break;
                     
+                case 'current-theme-response':
+                    console.log('🎨 Iframe: Received current theme from parent:', event.data.theme);
+                    applyTheme(event.data.theme);
+                    break;
+                    
                 case 'get-section-position':
                     console.log('📍 Iframe: Section position request for:', event.data.sectionId);
                     getSectionPositionForParent(event.data.sectionId);
@@ -597,9 +602,25 @@
             }, 200); // Reduced from 500ms to 200ms for faster Font Awesome check
             
             // Apply initial theme based on parent page
-            const parentTheme = '{{default_lang}}' === 'en' ? 'light' : 'light'; // Default to light
-            console.log('🎨 Iframe: Applying initial theme:', parentTheme);
-            applyTheme(parentTheme);
+            // Request current theme from parent window
+            if (window.parent && window.parent !== window) {
+                console.log('🎨 Iframe: Requesting current theme from parent');
+                window.parent.postMessage({
+                    type: 'get-current-theme'
+                }, '*');
+                
+                // Set a timeout to apply default theme if no response
+                setTimeout(() => {
+                    if (!document.documentElement.hasAttribute('data-theme')) {
+                        console.log('🎨 Iframe: No theme received from parent, applying default light theme');
+                        applyTheme('light');
+                    }
+                }, 500);
+            } else {
+                // Fallback for when there's no parent
+                console.log('🎨 Iframe: No parent window, applying default light theme');
+                applyTheme('light');
+            }
             
             setTimeout(() => {
                 if (currentLanguage === 'vi') {
@@ -646,17 +667,36 @@
                     return;
                 }
                 
-                const body = document.body;
-                const html = document.documentElement;
+                // Get the report container element instead of entire document
+                const reportContainer = document.getElementById('report-container');
+                let height;
                 
-                // Calculate accurate height including all content
-                const height = Math.max(
-                    body.scrollHeight,
-                    body.offsetHeight,
-                    html.clientHeight,
-                    html.scrollHeight,
-                    html.offsetHeight
-                );
+                if (!reportContainer) {
+                    console.warn('📏 Iframe: Report container not found, using document height as fallback');
+                    // Fallback to document height if container not found
+                    const body = document.body;
+                    const html = document.documentElement;
+                    height = Math.max(
+                        body.scrollHeight,
+                        body.offsetHeight,
+                        html.clientHeight,
+                        html.scrollHeight,
+                        html.offsetHeight
+                    );
+                } else {
+                    // Calculate height based on report-container
+                    const containerStyles = window.getComputedStyle(reportContainer);
+                    const marginTop = parseFloat(containerStyles.marginTop) || 0;
+                    const marginBottom = parseFloat(containerStyles.marginBottom) || 0;
+                    const paddingTop = parseFloat(containerStyles.paddingTop) || 0;
+                    const paddingBottom = parseFloat(containerStyles.paddingBottom) || 0;
+                    
+                    // Use scrollHeight to get the full content height including overflow
+                    const contentHeight = reportContainer.scrollHeight;
+                    height = contentHeight + marginTop + marginBottom + paddingTop + paddingBottom;
+                    
+                    console.log(`📏 Iframe: Report container height: ${contentHeight}px, total with margins: ${height}px`);
+                }
                 
                 // Prevent excessive height reports for minor changes
                 const heightDiff = Math.abs(height - lastReportedHeight);
