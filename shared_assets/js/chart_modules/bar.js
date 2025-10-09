@@ -41,7 +41,7 @@ function createBarChart(container, data, options = {}) {
     if (yAxisLabel) {
         yAxisUnit = `
             <text x="${-(pTop + chartAreaHeight / 2)}" y="15"
-                  transform="rotate(-90)" text-anchor="middle" font-size="12px"
+                  transform="rotate(-90)" text-anchor="middle" font-size="2rem"
                   font-weight="500" fill="var(--text-secondary)">
                 ${yAxisLabel}
             </text>
@@ -131,7 +131,8 @@ function createBarChart(container, data, options = {}) {
 
         bar.addEventListener('mousemove', (e) => {
             const pos = getMousePosition(e);
-            tooltip.setAttribute('transform', `translate(${pos.x + 12}, ${pos.y - 30})`);
+            const tooltipWidth = parseFloat(tooltipBg.getAttribute('width')) || 0;
+            tooltip.setAttribute('transform', `translate(${pos.x - tooltipWidth / 2}, ${pos.y - 30})`);
         });
 
         bar.addEventListener('mouseout', () => {
