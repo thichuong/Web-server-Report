@@ -1,5 +1,5 @@
 //! Circuit Breaker Component
-//! 
+//!
 //! This component implements the circuit breaker pattern to handle failing external services gracefully.
 
 use std::collections::HashMap;
@@ -54,19 +54,6 @@ struct CircuitBreakerTracker {
 }
 
 impl CircuitBreakerTracker {
-    fn new(config: CircuitBreakerConfig) -> Self {
-        Self {
-            state: CircuitState::Closed,
-            config,
-            failure_count: 0,
-            success_count: 0,
-            last_failure_time: None,
-            last_success_time: None,
-            state_change_time: Instant::now(),
-            total_requests: 0,
-            total_failures: 0,
-        }
-    }
 }
 
 /// Circuit Breaker
@@ -81,75 +68,4 @@ pub struct CircuitBreaker {
 }
 
 impl CircuitBreaker {
-    /// Create a new CircuitBreaker
-    pub fn new() -> Self {
-        println!("⚡ Initializing Circuit Breaker...");
-        
-        let mut breakers = HashMap::new();
-        
-        // Configure circuit breakers for different services
-        breakers.insert(
-            "global".to_string(),
-            CircuitBreakerTracker::new(CircuitBreakerConfig {
-                failure_threshold: 5,
-                success_threshold: 3,
-                timeout_seconds: 60,
-                reset_timeout_seconds: 300,
-            })
-        );
-        
-        breakers.insert(
-            "btc".to_string(),
-            CircuitBreakerTracker::new(CircuitBreakerConfig {
-                failure_threshold: 3,     // More sensitive for BTC (critical data)
-                success_threshold: 2,     // Faster recovery
-                timeout_seconds: 30,      // Shorter timeout
-                reset_timeout_seconds: 180,
-            })
-        );
-        
-        breakers.insert(
-            "fear_greed".to_string(),
-            CircuitBreakerTracker::new(CircuitBreakerConfig {
-                failure_threshold: 8,     // Less sensitive (non-critical)
-                success_threshold: 4,     
-                timeout_seconds: 120,     // Longer timeout
-                reset_timeout_seconds: 600,
-            })
-        );
-        
-        breakers.insert(
-            "rsi".to_string(),
-            CircuitBreakerTracker::new(CircuitBreakerConfig {
-                failure_threshold: 6,
-                success_threshold: 3,
-                timeout_seconds: 90,
-                reset_timeout_seconds: 300,
-            })
-        );
-        
-        Self {
-            breakers: Arc::new(RwLock::new(breakers)),
-            total_blocked: Arc::new(AtomicU64::new(0)),
-            total_opened: Arc::new(AtomicU64::new(0)),
-            start_time: Instant::now(),
-        }
-    }
-    
-    /// Health check for Circuit Breaker
-    pub async fn health_check(&self) -> bool {
-        let breakers = self.breakers.read().await;
-        let total_services = breakers.len();
-        let open_breakers = breakers.values()
-            .filter(|b| b.state == CircuitState::Open)
-            .count();
-        
-        if open_breakers == 0 {
-            println!("  ✅ Circuit Breaker: All {} services healthy", total_services);
-            true
-        } else {
-            println!("  ⚠️ Circuit Breaker: {}/{} services have open circuits", open_breakers, total_services);
-            true // Circuit breaker itself is healthy, even if some services are not
-        }
-    }
 }

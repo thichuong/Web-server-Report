@@ -28,25 +28,6 @@ pub struct ExternalApisIsland {
 }
 
 impl ExternalApisIsland {
-    /// Create a new ExternalApisIsland
-    pub async fn new(taapi_secret: String) -> Result<Self> {
-        Self::with_cmc_key(taapi_secret, None).await
-    }
-
-    /// Create a new ExternalApisIsland with CoinMarketCap support
-    pub async fn with_cmc_key(taapi_secret: String, cmc_api_key: Option<String>) -> Result<Self> {
-        Self::with_all_keys(taapi_secret, cmc_api_key, None).await
-    }
-
-    /// Create a new ExternalApisIsland with all API keys
-    pub async fn with_all_keys(
-        taapi_secret: String,
-        cmc_api_key: Option<String>,
-        finnhub_api_key: Option<String>
-    ) -> Result<Self> {
-        Self::with_cache_and_all_keys(taapi_secret, cmc_api_key, finnhub_api_key, None).await
-    }
-
     /// Create a new ExternalApisIsland with cache system
     pub async fn with_cache_and_all_keys(
         taapi_secret: String,

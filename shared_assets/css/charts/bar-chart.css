@@ -77,11 +77,11 @@
 .bar-chart-tooltip .tooltip-bg {
     fill: var(--card-bg);
     stroke: var(--border-color);
-    stroke-width: 1px;
+    stroke-width: 2rem;
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
 }
 .bar-chart-tooltip .tooltip-text {
-    font-size: 12px;
+    font-size: 2rem;
     font-weight: 500;
     fill: var(--text-primary);
 }

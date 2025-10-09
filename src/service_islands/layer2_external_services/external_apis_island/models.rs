@@ -2,33 +2,8 @@
 //
 // This module contains all data structures used by the market data API.
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::collections::HashMap;
-
-/// Dashboard Summary - comprehensive market data structure
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct DashboardSummary {
-    pub market_cap: f64,
-    pub volume_24h: f64,
-    pub market_cap_change_percentage_24h_usd: f64,
-    pub btc_price_usd: f64,
-    pub btc_change_24h: f64,
-    pub btc_market_cap_percentage: f64,
-    pub eth_market_cap_percentage: f64,
-    pub eth_price_usd: f64,
-    pub eth_change_24h: f64,
-    pub sol_price_usd: f64,
-    pub sol_change_24h: f64,
-    pub xrp_price_usd: f64,
-    pub xrp_change_24h: f64,
-    pub ada_price_usd: f64,
-    pub ada_change_24h: f64,
-    pub link_price_usd: f64,
-    pub link_change_24h: f64,
-    pub fng_value: u32,
-    pub rsi_14: f64,
-    pub last_updated: chrono::DateTime<chrono::Utc>,
-}
 
 // CoinGecko response structures
 #[derive(Debug, Deserialize)]

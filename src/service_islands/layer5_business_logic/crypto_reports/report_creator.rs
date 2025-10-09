@@ -46,21 +46,6 @@ pub struct SandboxedReport {
     pub complete_html_document: String, // Complete HTML document ready for iframe
 }
 
-/// Report summary for listing - from archive_old_code/models.rs
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct ReportSummary {
-    pub id: i32,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-}
-
-/// Report list item with formatted dates - from archive_old_code/models.rs
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ReportListItem {
-    pub id: i32,
-    pub created_date: String,
-    pub created_time: String,
-}
-
 /// Report Creator
 /// 
 /// Manages report creation business logic with market analysis capabilities.
