@@ -85,6 +85,7 @@ impl MarketDataAdapter {
         let xrp_price = raw_data.get("xrp_price_usd").cloned().unwrap_or(serde_json::Value::Null);
         let ada_price = raw_data.get("ada_price_usd").cloned().unwrap_or(serde_json::Value::Null);
         let link_price = raw_data.get("link_price_usd").cloned().unwrap_or(serde_json::Value::Null);
+        let bnb_price = raw_data.get("bnb_price_usd").cloned().unwrap_or(serde_json::Value::Null);
         let market_cap = raw_data.get("market_cap_usd").cloned().unwrap_or(serde_json::Value::Null);
         let volume_24h = raw_data.get("volume_24h_usd").cloned().unwrap_or(serde_json::Value::Null);
         let btc_change_24h = raw_data.get("btc_change_24h").cloned().unwrap_or(serde_json::Value::Null);
@@ -93,6 +94,7 @@ impl MarketDataAdapter {
         let xrp_change_24h = raw_data.get("xrp_change_24h").cloned().unwrap_or(serde_json::Value::Null);
         let ada_change_24h = raw_data.get("ada_change_24h").cloned().unwrap_or(serde_json::Value::Null);
         let link_change_24h = raw_data.get("link_change_24h").cloned().unwrap_or(serde_json::Value::Null);
+        let bnb_change_24h = raw_data.get("bnb_change_24h").cloned().unwrap_or(serde_json::Value::Null);
         let market_cap_change_24h = raw_data.get("market_cap_change_percentage_24h_usd").cloned().unwrap_or(serde_json::Value::Number(serde_json::Number::from(0)));
         let btc_dominance = raw_data.get("btc_market_cap_percentage").cloned().unwrap_or(serde_json::Value::Number(serde_json::Number::from(0)));
         let eth_dominance = raw_data.get("eth_market_cap_percentage").cloned().unwrap_or(serde_json::Value::Number(serde_json::Number::from(0)));
@@ -111,6 +113,7 @@ impl MarketDataAdapter {
         println!("  🔍 [Layer 5 via Layer 3] XRP Price received: ${:?}", xrp_price);
         println!("  🔍 [Layer 5 via Layer 3] ADA Price received: ${:?}", ada_price);
         println!("  🔍 [Layer 5 via Layer 3] LINK Price received: ${:?}", link_price);
+        println!("  🔍 [Layer 5 via Layer 3] BNB Price received: ${:?}", bnb_price);
         println!("  🔍 [Layer 5 via Layer 3] Market Cap received: ${:?}", market_cap);
         println!("  🔍 [Layer 5 via Layer 3] Market Cap Change 24h: {:?}%", market_cap_change_24h);
         println!("  🔍 [Layer 5 via Layer 3] BTC Dominance: {:?}%", btc_dominance);
@@ -131,6 +134,8 @@ impl MarketDataAdapter {
             "ada_change_24h": ada_change_24h,
             "link_price_usd": link_price,
             "link_change_24h": link_change_24h,
+            "bnb_price_usd": bnb_price,
+            "bnb_change_24h": bnb_change_24h,
             "market_cap_usd": market_cap,
             "volume_24h_usd": volume_24h,
             "market_cap_change_percentage_24h_usd": market_cap_change_24h,

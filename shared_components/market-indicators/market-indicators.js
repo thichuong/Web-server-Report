@@ -72,7 +72,8 @@ class MarketIndicatorsDashboard {
             binanceSOL: document.getElementById('binance-sol-price'),
             binanceXRP: document.getElementById('binance-xrp-price'),
             binanceADA: document.getElementById('binance-ada-price'),
-            binanceLINK: document.getElementById('binance-link-price')
+            binanceLINK: document.getElementById('binance-link-price'),
+            binanceBNB: document.getElementById('binance-bnb-price')
         };
 
         // Debug: Log which elements were found
@@ -285,7 +286,7 @@ class MarketIndicatorsDashboard {
         
         // Debug: Check for crypto prices in received data
         debugLog('🔍 Checking for crypto prices in data:');
-        ['btc_price_usd', 'eth_price_usd', 'sol_price_usd', 'xrp_price_usd', 'ada_price_usd', 'link_price_usd'].forEach(key => {
+        ['btc_price_usd', 'eth_price_usd', 'sol_price_usd', 'xrp_price_usd', 'ada_price_usd', 'link_price_usd', 'bnb_price_usd'].forEach(key => {
             if (data[key] !== undefined) {
                 debugLog(`  ✅ ${key}: ${data[key]}`);
             } else {
@@ -348,6 +349,9 @@ class MarketIndicatorsDashboard {
             }
             if (data.link_price_usd !== undefined) {
                 this.updateCryptoPrice('LINKUSDT', data.link_price_usd, data.link_change_24h);
+            }
+            if (data.bnb_price_usd !== undefined) {
+                this.updateCryptoPrice('BNBUSDT', data.bnb_price_usd, data.bnb_change_24h);
             }
 
             // Track last data update time for staleness checking
@@ -795,6 +799,10 @@ class MarketIndicatorsDashboard {
                 elementId = 'binance-link-price';
                 coinName = 'LINK';
                 break;
+            case 'BNBUSDT':
+                elementId = 'binance-bnb-price';
+                coinName = 'BNB';
+                break;
             default:
                 return;
         }
@@ -912,6 +920,8 @@ window.testMarketIndicators = function() {
         ada_price_usd: 0.8058,
         link_change_24h: -1.632,
         link_price_usd: 21.7,
+        bnb_change_24h: -2.1,
+        bnb_price_usd: 680.5,
         fng_value: 48,
         market_cap_usd: 3872941106289.462,
         rsi_14: 38.4490332215743,

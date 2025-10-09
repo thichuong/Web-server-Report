@@ -136,6 +136,12 @@ impl MarketDataStreamer {
                             if let Some(link_change) = dashboard_data.get("link_change_24h") {
                                 println!("  📈 LINK 24h Change: {:?}%", link_change);
                             }
+                            if let Some(bnb_price) = dashboard_data.get("bnb_price_usd") {
+                                println!("  🪙 BNB Price: ${:?}", bnb_price);
+                            }
+                            if let Some(bnb_change) = dashboard_data.get("bnb_change_24h") {
+                                println!("  📈 BNB 24h Change: {:?}%", bnb_change);
+                            }
 
                             if let Some(us_indices) = dashboard_data.get("us_stock_indices") {
                                 println!("  📈 US Stock Indices: {:?}", us_indices);

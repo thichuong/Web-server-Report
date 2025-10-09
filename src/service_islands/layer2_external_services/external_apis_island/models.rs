@@ -25,6 +25,11 @@ pub(crate) struct CoinGeckoBtcPrice {
 }
 
 #[derive(Debug, Deserialize)]
+pub(crate) struct CoinGeckoBnbPrice {
+    pub binancecoin: BtcPriceData,
+}
+
+#[derive(Debug, Deserialize)]
 pub(crate) struct BtcPriceData {
     pub usd: f64,
     pub usd_24h_change: f64,

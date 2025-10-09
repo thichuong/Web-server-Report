@@ -24,13 +24,14 @@ impl ApiAggregator {
         let xrp_future = timeout(Duration::from_secs(8), self.fetch_xrp_with_cache());
         let ada_future = timeout(Duration::from_secs(8), self.fetch_ada_with_cache());
         let link_future = timeout(Duration::from_secs(8), self.fetch_link_with_cache());
+        let bnb_future = timeout(Duration::from_secs(8), self.fetch_bnb_with_cache());
         let global_future = timeout(Duration::from_secs(8), self.fetch_global_with_cache());
         let fng_future = timeout(Duration::from_secs(8), self.fetch_fng_with_cache());
         let rsi_future = timeout(Duration::from_secs(8), self.fetch_rsi_with_cache());
         let us_indices_future = timeout(Duration::from_secs(8), self.fetch_us_indices_with_cache());
 
-        let (btc_result, eth_result, sol_result, xrp_result, ada_result, link_result, global_result, fng_result, rsi_result, us_indices_result) = tokio::join!(
-            btc_future, eth_future, sol_future, xrp_future, ada_future, link_future,
+        let (btc_result, eth_result, sol_result, xrp_result, ada_result, link_result, bnb_result, global_result, fng_result, rsi_result, us_indices_result) = tokio::join!(
+            btc_future, eth_future, sol_future, xrp_future, ada_future, link_future, bnb_future,
             global_future, fng_future, rsi_future, us_indices_future
         );
 
@@ -108,6 +109,18 @@ impl ApiAggregator {
             }
         };
 
+        // Process BNB data
+        let (bnb_price, bnb_change) = match bnb_result {
+            Ok(Ok(bnb_data)) => (
+                bnb_data["price_usd"].as_f64().unwrap_or(0.0),
+                bnb_data["change_24h"].as_f64().unwrap_or(0.0)
+            ),
+            _ => {
+                partial_failure = true;
+                (0.0, 0.0)
+            }
+        };
+
         // Process global data
         let (market_cap, volume_24h, market_cap_change, btc_dominance, eth_dominance) = match global_result {
             Ok(Ok(global_data)) => (
@@ -175,6 +188,8 @@ impl ApiAggregator {
             "ada_change_24h": ada_change,
             "link_price_usd": link_price,
             "link_change_24h": link_change,
+            "bnb_price_usd": bnb_price,
+            "bnb_change_24h": bnb_change,
             "market_cap_usd": market_cap,
             "volume_24h_usd": volume_24h,
             "market_cap_change_percentage_24h_usd": market_cap_change,

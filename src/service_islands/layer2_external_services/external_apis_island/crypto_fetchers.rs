@@ -267,6 +267,150 @@ impl MarketDataApi {
         Ok(result)
     }
 
+    /// Fetch Binance Coin price with fallback chain
+    pub async fn fetch_bnb_price(&self) -> Result<serde_json::Value> {
+        self.record_api_call();
+
+        // Try Binance first
+        match self.fetch_bnb_price_binance().await {
+            Ok(data) => {
+                self.record_success();
+                Ok(data)
+            }
+            Err(e) => {
+                println!("⚠️ Binance BNB price failed: {}, trying CoinGecko...", e);
+                // Fallback to CoinGecko
+                match self.fetch_bnb_price_coingecko().await {
+                    Ok(data) => {
+                        self.record_success();
+                        Ok(data)
+                    }
+                    Err(cg_err) => {
+                        println!("⚠️ CoinGecko BNB price also failed: {}, trying CoinMarketCap...", cg_err);
+                        // Final fallback to CoinMarketCap
+                        match self.fetch_bnb_price_cmc().await {
+                            Ok(data) => {
+                                self.record_success();
+                                Ok(data)
+                            }
+                            Err(cmc_err) => {
+                                self.record_failure();
+                                println!("❌ All three APIs failed for BNB price");
+                                Err(anyhow::anyhow!("Primary error: {}. CoinGecko error: {}. CoinMarketCap error: {}", e, cg_err, cmc_err))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Fetch Binance Coin price from Binance
+    async fn fetch_bnb_price_binance(&self) -> Result<serde_json::Value> {
+        let result = self.fetch_with_retry(BINANCE_BNB_PRICE_URL, |response_data: BinanceBtcPrice| {
+            // Parse price and change from strings
+            let price_usd: f64 = response_data.last_price.parse().unwrap_or(0.0);
+            let change_24h: f64 = response_data.price_change_percent.parse().unwrap_or(0.0);
+
+            serde_json::json!({
+                "price_usd": price_usd,
+                "change_24h": change_24h,
+                "source": "binance",
+                "last_updated": chrono::Utc::now().to_rfc3339()
+            })
+        }).await?;
+
+        // Post-processing validation: check if we got meaningful data
+        let price_usd = result.get("price_usd").and_then(|v| v.as_f64()).unwrap_or(0.0);
+
+        // Critical validation: BNB price must be positive and reasonable
+        if price_usd <= 0.0 || price_usd > 10_000.0 { // Basic sanity check
+            return Err(anyhow::anyhow!(
+                "Binance BNB price validation failed: price_usd={}",
+                price_usd
+            ));
+        }
+
+        Ok(result)
+    }
+
+    /// Fetch Binance Coin price from CoinGecko
+    async fn fetch_bnb_price_coingecko(&self) -> Result<serde_json::Value> {
+        let result = self.fetch_with_retry(BASE_BNB_PRICE_URL, |response_data: CoinGeckoBnbPrice| {
+            serde_json::json!({
+                "price_usd": response_data.binancecoin.usd,
+                "change_24h": response_data.binancecoin.usd_24h_change,
+                "source": "coingecko",
+                "last_updated": chrono::Utc::now().to_rfc3339()
+            })
+        }).await?;
+
+        // Post-processing validation: check if we got meaningful data
+        let price_usd = result.get("price_usd").and_then(|v| v.as_f64()).unwrap_or(0.0);
+
+        // Critical validation: BNB price must be positive and reasonable
+        if price_usd <= 0.0 || price_usd > 10_000.0 { // Basic sanity check
+            return Err(anyhow::anyhow!(
+                "CoinGecko BNB price validation failed: price_usd={}",
+                price_usd
+            ));
+        }
+
+        Ok(result)
+    }
+
+    /// Fetch Binance Coin price from CoinMarketCap
+    async fn fetch_bnb_price_cmc(&self) -> Result<serde_json::Value> {
+        let cmc_key = self.cmc_api_key.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("CoinMarketCap API key not provided"))?;
+
+        let mut attempts = 0;
+        let max_attempts = 3;
+
+        while attempts < max_attempts {
+            let response = self.client
+                .get(CMC_BNB_PRICE_URL)
+                .header("X-CMC_PRO_API_KEY", cmc_key)
+                .header("Accept", "application/json")
+                .send()
+                .await?;
+
+            match response.status() {
+                status if status.is_success() => {
+                    let cmc_data: CmcBtcResponse = response.json().await?;
+
+                    if let Some(bnb_data) = cmc_data.data.get("BNB").and_then(|v| v.first()) {
+                        if let Some(usd_quote) = bnb_data.quote.get("USD") {
+                            return Ok(serde_json::json!({
+                                "price_usd": usd_quote.price,
+                                "change_24h": usd_quote.percent_change_24h,
+                                "source": "coinmarketcap",
+                                "last_updated": chrono::Utc::now().to_rfc3339()
+                            }));
+                        }
+                    }
+                    return Err(anyhow::anyhow!("Invalid CoinMarketCap BNB response structure"));
+                }
+                status if status == 429 => {
+                    attempts += 1;
+                    if attempts >= max_attempts {
+                        return Err(anyhow::anyhow!("CoinMarketCap rate limit exceeded after {} attempts", max_attempts));
+                    }
+
+                    let delay = std::time::Duration::from_millis(1000 * (2_u64.pow(attempts)));
+                    println!("⚠️ CoinMarketCap rate limit (429), retrying in {:?} (attempt {}/{})", delay, attempts, max_attempts);
+                    tokio::time::sleep(delay).await;
+                    continue;
+                }
+                status => {
+                    return Err(anyhow::anyhow!("CoinMarketCap BNB API returned status: {}", status));
+                }
+            }
+        }
+
+        Err(anyhow::anyhow!("CoinMarketCap BNB API max retry attempts reached"))
+    }
+
     /// Generic fetch with retry logic and exponential backoff
     pub async fn fetch_with_retry<T, F>(&self, url: &str, transformer: F) -> Result<serde_json::Value>
     where

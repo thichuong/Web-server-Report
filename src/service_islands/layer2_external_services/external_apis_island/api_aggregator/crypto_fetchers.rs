@@ -161,4 +161,30 @@ impl ApiAggregator {
             Err(e) => Err(e)
         }
     }
+
+    /// Fetch BNB data with generic caching strategy
+    pub async fn fetch_bnb_with_cache(&self) -> Result<serde_json::Value> {
+        let cache_key = "bnb_price_30s";
+
+        // Try cache first
+        if let Some(ref cache) = self.cache_system {
+            if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
+                return Ok(cached_data);
+            }
+        }
+
+        // Fetch from API
+        match self.market_api.fetch_bnb_price().await {
+            Ok(data) => {
+                // Cache using generic RealTime strategy (30 seconds)
+                if let Some(ref cache) = self.cache_system {
+                    let _ = cache.cache_manager.set_with_strategy(cache_key, data.clone(),
+                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::RealTime).await;
+                    println!("💾 BNB price cached for 30 seconds (real-time strategy)");
+                }
+                Ok(data)
+            }
+            Err(e) => Err(e)
+        }
+    }
 }

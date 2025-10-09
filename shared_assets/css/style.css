@@ -274,4 +274,86 @@ header p {
     #disclaimer strong[data-i18n="disclaimer-title"] { font-size: 0.95rem; }
 }
 
+/* Enhanced disclaimer styling for dark mode */
+@media (prefers-color-scheme: dark) {
+    #disclaimer .bg-gradient-to-r {
+        background: linear-gradient(90deg, #451a03 0%, #7c2d12 100%);
+        border-color: #f59e0b;
+        box-shadow: 0 10px 25px rgba(245, 158, 11, 0.3);
+    }
+
+    #disclaimer .text-yellow-800 {
+        color: #fbbf24;
+    }
+
+    #disclaimer .text-gray-800 {
+        color: #f3f4f6;
+    }
+
+    #disclaimer .bg-blue-50 {
+        background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+        border-color: #3b82f6;
+    }
+
+    #disclaimer .text-blue-800 {
+        color: #93c5fd;
+    }
+}
+
+/* Dynamic dark mode support */
+[data-theme="dark"] #disclaimer .bg-gradient-to-r {
+    background: linear-gradient(90deg, #451a03 0%, #7c2d12 100%);
+    border-color: #f59e0b;
+    box-shadow: 0 10px 25px rgba(245, 158, 11, 0.3);
+}
+
+[data-theme="dark"] #disclaimer .text-yellow-800 {
+    color: #fbbf24;
+}
+
+[data-theme="dark"] #disclaimer .text-gray-800 {
+    color: #f3f4f6;
+}
+
+[data-theme="dark"] #disclaimer .bg-blue-50 {
+    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+    border-color: #3b82f6;
+}
+
+[data-theme="dark"] #disclaimer .text-blue-800 {
+    color: #93c5fd;
+}
+
+/* Enhanced animations for better visibility */
+#disclaimer {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Pulse effect for robot icon in dark mode */
+[data-theme="dark"] #disclaimer .animate-pulse {
+    animation: darkPulse 2s infinite;
+}
+
+@keyframes darkPulse {
+    0%, 100% {
+        opacity: 1;
+        filter: drop-shadow(0 0 8px #3b82f6);
+    }
+    50% {
+        opacity: 0.7;
+        filter: drop-shadow(0 0 12px #3b82f6);
+    }
+}
+
 
