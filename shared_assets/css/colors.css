@@ -103,6 +103,17 @@
     --icon-color-doge: #C3A634;
     --icon-color-ada: #0033AD;
     --icon-color-trx: #EF0027;
+    
+    /* -- Disclaimer Colors -- */
+    --disclaimer-bg-gradient-start: #fef3c7;
+    --disclaimer-bg-gradient-end: #fed7aa;
+    --disclaimer-border-color: #f59e0b;
+    --disclaimer-text-primary: #1f2937;
+    --disclaimer-text-secondary: #f3f4f6;
+    --disclaimer-ai-bg: #eff6ff;
+    --disclaimer-ai-border: #3b82f6;
+    --disclaimer-ai-text: #1e40af;
+    --disclaimer-shadow: 0 10px 25px rgba(245, 158, 11, 0.3);
 }
 
 /* --- Bảng màu cho Dark Mode --- */
@@ -188,4 +199,15 @@
     --gauge-needle-pivot-color: #ffffff;    /* White for needle pivot in dark mode */
     
     /* Icon colors are generally kept the same for brand recognition, so no overrides needed unless desired */
+    
+    /* -- Disclaimer Colors (Dark Mode) -- */
+    --disclaimer-bg-gradient-start: #451a03;
+    --disclaimer-bg-gradient-end: #7c2d12;
+    --disclaimer-border-color: #f59e0b;
+    --disclaimer-text-primary: #fbbf24;
+    --disclaimer-text-secondary: #f3f4f6;
+    --disclaimer-ai-bg: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+    --disclaimer-ai-border: #3b82f6;
+    --disclaimer-ai-text: #93c5fd;
+    --disclaimer-shadow: 0 10px 25px rgba(245, 158, 11, 0.3);
 }
