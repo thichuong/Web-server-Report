@@ -93,7 +93,7 @@ impl ServiceIslands {
             taapi_secret,
             cmc_api_key,
             finnhub_api_key,
-            cache_system.clone()
+            Some(cache_system.clone())
         ).await?);
         
         // Initialize Layer 4: Observability
@@ -195,7 +195,7 @@ impl ServiceIslands {
         let shared_components_healthy = self.shared_components.health_check().await;
         let app_state_healthy = self.app_state.health_check().await;
         let cache_system_healthy = self.cache_system.health_check().await;
-        let external_apis_healthy = self.external_apis.health_check().await.is_ok();
+        let external_apis_healthy = self.external_apis.health_check().await.unwrap_or(false);
         let websocket_service_healthy = self.websocket_service.health_check().await.is_ok();
         let health_system_healthy = self.health_system.health_check().await;
         let dashboard_healthy = self.dashboard.health_check().await;

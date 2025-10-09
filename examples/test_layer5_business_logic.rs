@@ -40,7 +40,7 @@ async fn main() -> anyhow::Result<()> {
         taapi_secret,
         cmc_api_key,
         finnhub_api_key,
-        cache_system.clone()
+        Some(cache_system.clone())
     ).await?;
     
     // Initialize Layer 3 WebSocket Service

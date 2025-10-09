@@ -136,8 +136,10 @@ impl MarketDataStreamer {
                             if let Some(link_change) = dashboard_data.get("link_change_24h") {
                                 println!("  📈 LINK 24h Change: {:?}%", link_change);
                             }
-                            
-                            // Create WebSocket message
+
+                            if let Some(us_indices) = dashboard_data.get("us_stock_indices") {
+                                println!("  📈 US Stock Indices: {:?}", us_indices);
+                            }
                             let ws_message = serde_json::json!({
                                 "type": "dashboard_update",
                                 "data": dashboard_data,

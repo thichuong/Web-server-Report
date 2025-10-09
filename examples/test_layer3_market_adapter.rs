@@ -32,7 +32,7 @@ async fn main() -> anyhow::Result<()> {
         taapi_secret,
         cmc_api_key,
         finnhub_api_key,
-        cache_system
+        Some(cache_system)
     ).await?;
     
     // Initialize Layer 3 Market Data Adapter
