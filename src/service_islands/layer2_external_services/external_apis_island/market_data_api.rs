@@ -13,6 +13,11 @@ use futures;
 // API URLs - extracted from existing data_service.rs with cache-friendly grouping
 // Binance APIs (Primary)
 const BINANCE_BTC_PRICE_URL: &str = "https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT"; // 30 sec cache
+const BINANCE_ETH_PRICE_URL: &str = "https://api.binance.com/api/v3/ticker/24hr?symbol=ETHUSDT"; // 30 sec cache
+const BINANCE_SOL_PRICE_URL: &str = "https://api.binance.com/api/v3/ticker/24hr?symbol=SOLUSDT"; // 30 sec cache
+const BINANCE_XRP_PRICE_URL: &str = "https://api.binance.com/api/v3/ticker/24hr?symbol=XRPUSDT"; // 30 sec cache
+const BINANCE_ADA_PRICE_URL: &str = "https://api.binance.com/api/v3/ticker/24hr?symbol=ADAUSDT"; // 30 sec cache
+const BINANCE_LINK_PRICE_URL: &str = "https://api.binance.com/api/v3/ticker/24hr?symbol=LINKUSDT"; // 30 sec cache
 
 // CoinGecko APIs (Fallback)
 const BASE_GLOBAL_URL: &str = "https://api.coingecko.com/api/v3/global"; // 30 sec cache
@@ -35,6 +40,16 @@ pub struct DashboardSummary {
     pub btc_change_24h: f64,
     pub btc_market_cap_percentage: f64,
     pub eth_market_cap_percentage: f64,
+    pub eth_price_usd: f64,
+    pub eth_change_24h: f64,
+    pub sol_price_usd: f64,
+    pub sol_change_24h: f64,
+    pub xrp_price_usd: f64,
+    pub xrp_change_24h: f64,
+    pub ada_price_usd: f64,
+    pub ada_change_24h: f64,
+    pub link_price_usd: f64,
+    pub link_change_24h: f64,
     pub fng_value: u32,
     pub rsi_14: f64,
     pub last_updated: chrono::DateTime<chrono::Utc>,
@@ -384,6 +399,126 @@ impl MarketDataApi {
         }
         
         Err(anyhow::anyhow!("CoinMarketCap BTC API max retry attempts reached"))
+    }
+
+    /// Fetch Ethereum price from Binance
+    pub async fn fetch_eth_price(&self) -> Result<serde_json::Value> {
+        self.record_api_call();
+
+        let result = self.fetch_with_retry(BINANCE_ETH_PRICE_URL, |response_data: BinanceBtcPrice| {
+            let price_usd: f64 = response_data.last_price.parse().unwrap_or(0.0);
+            let change_24h: f64 = response_data.price_change_percent.parse().unwrap_or(0.0);
+
+            serde_json::json!({
+                "price_usd": price_usd,
+                "change_24h": change_24h,
+                "source": "binance",
+                "last_updated": chrono::Utc::now().to_rfc3339()
+            })
+        }).await?;
+
+        let price_usd = result.get("price_usd").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        if price_usd <= 0.0 || price_usd > 100_000.0 {
+            return Err(anyhow::anyhow!("Binance Ethereum price validation failed: price_usd={}", price_usd));
+        }
+
+        Ok(result)
+    }
+
+    /// Fetch Solana price from Binance
+    pub async fn fetch_sol_price(&self) -> Result<serde_json::Value> {
+        self.record_api_call();
+
+        let result = self.fetch_with_retry(BINANCE_SOL_PRICE_URL, |response_data: BinanceBtcPrice| {
+            let price_usd: f64 = response_data.last_price.parse().unwrap_or(0.0);
+            let change_24h: f64 = response_data.price_change_percent.parse().unwrap_or(0.0);
+
+            serde_json::json!({
+                "price_usd": price_usd,
+                "change_24h": change_24h,
+                "source": "binance",
+                "last_updated": chrono::Utc::now().to_rfc3339()
+            })
+        }).await?;
+
+        let price_usd = result.get("price_usd").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        if price_usd <= 0.0 || price_usd > 10_000.0 {
+            return Err(anyhow::anyhow!("Binance Solana price validation failed: price_usd={}", price_usd));
+        }
+
+        Ok(result)
+    }
+
+    /// Fetch XRP price from Binance
+    pub async fn fetch_xrp_price(&self) -> Result<serde_json::Value> {
+        self.record_api_call();
+
+        let result = self.fetch_with_retry(BINANCE_XRP_PRICE_URL, |response_data: BinanceBtcPrice| {
+            let price_usd: f64 = response_data.last_price.parse().unwrap_or(0.0);
+            let change_24h: f64 = response_data.price_change_percent.parse().unwrap_or(0.0);
+
+            serde_json::json!({
+                "price_usd": price_usd,
+                "change_24h": change_24h,
+                "source": "binance",
+                "last_updated": chrono::Utc::now().to_rfc3339()
+            })
+        }).await?;
+
+        let price_usd = result.get("price_usd").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        if price_usd <= 0.0 || price_usd > 100.0 {
+            return Err(anyhow::anyhow!("Binance XRP price validation failed: price_usd={}", price_usd));
+        }
+
+        Ok(result)
+    }
+
+    /// Fetch Cardano price from Binance
+    pub async fn fetch_ada_price(&self) -> Result<serde_json::Value> {
+        self.record_api_call();
+
+        let result = self.fetch_with_retry(BINANCE_ADA_PRICE_URL, |response_data: BinanceBtcPrice| {
+            let price_usd: f64 = response_data.last_price.parse().unwrap_or(0.0);
+            let change_24h: f64 = response_data.price_change_percent.parse().unwrap_or(0.0);
+
+            serde_json::json!({
+                "price_usd": price_usd,
+                "change_24h": change_24h,
+                "source": "binance",
+                "last_updated": chrono::Utc::now().to_rfc3339()
+            })
+        }).await?;
+
+        let price_usd = result.get("price_usd").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        if price_usd <= 0.0 || price_usd > 100.0 {
+            return Err(anyhow::anyhow!("Binance Cardano price validation failed: price_usd={}", price_usd));
+        }
+
+        Ok(result)
+    }
+
+    /// Fetch Chainlink price from Binance
+    pub async fn fetch_link_price(&self) -> Result<serde_json::Value> {
+        self.record_api_call();
+
+        let result = self.fetch_with_retry(BINANCE_LINK_PRICE_URL, |response_data: BinanceBtcPrice| {
+            let price_usd: f64 = response_data.last_price.parse().unwrap_or(0.0);
+            let change_24h: f64 = response_data.price_change_percent.parse().unwrap_or(0.0);
+
+            serde_json::json!({
+                "price_usd": price_usd,
+                "change_24h": change_24h,
+                "source": "binance",
+                "last_updated": chrono::Utc::now().to_rfc3339()
+            })
+        }).await?;
+
+        let price_usd = result.get("price_usd").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        if price_usd <= 0.0 || price_usd > 1_000.0 {
+            return Err(anyhow::anyhow!("Binance Chainlink price validation failed: price_usd={}", price_usd));
+        }
+
+        Ok(result)
     }
     
     /// Generic fetch with retry logic for rate limiting

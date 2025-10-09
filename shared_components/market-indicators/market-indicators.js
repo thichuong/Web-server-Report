@@ -54,8 +54,7 @@ class MarketIndicatorsDashboard {
         this.connectWebSocket();
         this.startDataRefresh();
         
-        // Fetch Binance prices on initialization
-        this.fetchBinancePrices();
+        // Crypto prices now come from server via WebSocket
     }
 
     initializeElements() {
@@ -283,6 +282,16 @@ class MarketIndicatorsDashboard {
 
     updateMarketData(data) {
         debugLog('🔄 Updating market indicators with data:', data);
+        
+        // Debug: Check for crypto prices in received data
+        debugLog('🔍 Checking for crypto prices in data:');
+        ['btc_price_usd', 'eth_price_usd', 'sol_price_usd', 'xrp_price_usd', 'ada_price_usd', 'link_price_usd'].forEach(key => {
+            if (data[key] !== undefined) {
+                debugLog(`  ✅ ${key}: ${data[key]}`);
+            } else {
+                debugLog(`  ❌ ${key}: missing`);
+            }
+        });
 
         try {
             // Update Market Cap - use market_cap_usd directly
@@ -319,6 +328,26 @@ class MarketIndicatorsDashboard {
             // Update US Stock Indices
             if (data.us_stock_indices) {
                 this.updateUSStockIndices(data.us_stock_indices);
+            }
+
+            // Update Crypto Prices from Server
+            if (data.btc_price_usd !== undefined) {
+                this.updateCryptoPrice('BTCUSDT', data.btc_price_usd, data.btc_change_24h);
+            }
+            if (data.eth_price_usd !== undefined) {
+                this.updateCryptoPrice('ETHUSDT', data.eth_price_usd, data.eth_change_24h);
+            }
+            if (data.sol_price_usd !== undefined) {
+                this.updateCryptoPrice('SOLUSDT', data.sol_price_usd, data.sol_change_24h);
+            }
+            if (data.xrp_price_usd !== undefined) {
+                this.updateCryptoPrice('XRPUSDT', data.xrp_price_usd, data.xrp_change_24h);
+            }
+            if (data.ada_price_usd !== undefined) {
+                this.updateCryptoPrice('ADAUSDT', data.ada_price_usd, data.ada_change_24h);
+            }
+            if (data.link_price_usd !== undefined) {
+                this.updateCryptoPrice('LINKUSDT', data.link_price_usd, data.link_change_24h);
             }
 
             // Track last data update time for staleness checking
@@ -623,10 +652,7 @@ class MarketIndicatorsDashboard {
                 this.connectWebSocket();
             }
             
-            // Refresh Binance prices every 5 seconds
-            if (now % 5000 < 10000) { // Check if it's time for Binance refresh (every 5s)
-                this.fetchBinancePrices();
-            }
+            // Crypto prices now come from server via WebSocket
         }, 10000); // Every 10 seconds (faster monitoring)
     }
 
@@ -737,52 +763,9 @@ class MarketIndicatorsDashboard {
         this.isConnected = false;
     }
 
-    // Binance Price Fetching
-    async fetchBinancePrices() {
-        const symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'LINKUSDT'];
-        
-        try {
-            debugLog('📈 Fetching prices from Binance API...');
-            
-            // Fetch all symbols at once using Promise.all
-            const promises = symbols.map(async (symbol) => {
-                try {
-                    const response = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`);
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}`);
-                    }
-                    const data = await response.json();
-                    return { symbol, data };
-                } catch (error) {
-                    debugError(`❌ Failed to fetch ${symbol}:`, error);
-                    return { symbol, error: true };
-                }
-            });
-            
-            const results = await Promise.all(promises);
-            
-            // Update UI for each symbol
-            results.forEach(({ symbol, data, error }) => {
-                if (error) {
-                    this.updateBinancePrice(symbol, null, 'Error');
-                } else {
-                    const price = parseFloat(data.lastPrice);
-                    const changePercent = parseFloat(data.priceChangePercent);
-                    this.updateBinancePrice(symbol, price, changePercent);
-                }
-            });
-            
-            debugLog('✅ Binance prices updated successfully');
-        } catch (error) {
-            debugError('❌ Failed to fetch Binance prices:', error);
-            // Set error state for all symbols
-            symbols.forEach(symbol => {
-                this.updateBinancePrice(symbol, null, 'Error');
-            });
-        }
-    }
+    // Crypto prices now come from server via WebSocket
 
-    updateBinancePrice(symbol, price, changePercent) {
+    updateCryptoPrice(symbol, price, changePercent) {
         let elementId;
         let coinName;
         
@@ -893,6 +876,22 @@ window.debugMarketIndicators = function() {
         console.log('🔍 Elements status:', window.marketIndicatorsDashboard.elements);
         console.log('💾 Cached data:', window.marketIndicatorsDashboard.cachedData);
         console.log('🔗 WebSocket connected:', window.marketIndicatorsDashboard.isConnected);
+        console.log('🔗 WebSocket readyState:', window.marketIndicatorsDashboard.websocket ? window.marketIndicatorsDashboard.websocket.readyState : 'null');
+    } else {
+        console.log('❌ No dashboard instance found');
+    }
+};
+
+// Manual WebSocket data request (only active in DEBUG_MODE)
+window.requestMarketData = function() {
+    if (!DEBUG_MODE) {
+        console.log('Debug mode is disabled. Set DEBUG_MODE = true to enable debugging.');
+        return;
+    }
+    
+    if (window.marketIndicatorsDashboard) {
+        console.log('📤 Manually requesting fresh market data via WebSocket...');
+        window.marketIndicatorsDashboard.requestFreshData();
     } else {
         console.log('❌ No dashboard instance found');
     }
@@ -903,6 +902,16 @@ window.testMarketIndicators = function() {
     const sampleData = {
         btc_change_24h: -1.1761369473535623,
         btc_price_usd: 110349,
+        eth_change_24h: -3.174,
+        eth_price_usd: 4340.56,
+        sol_change_24h: -0.455,
+        sol_price_usd: 221.01,
+        xrp_change_24h: -2.609,
+        xrp_price_usd: 2.7962,
+        ada_change_24h: -1.923,
+        ada_price_usd: 0.8058,
+        link_change_24h: -1.632,
+        link_price_usd: 21.7,
         fng_value: 48,
         market_cap_usd: 3872941106289.462,
         rsi_14: 38.4490332215743,
@@ -931,5 +940,5 @@ window.testMarketIndicators = function() {
         }
     };
     
-        debugLog('🧪 Testing with sample data (including US stock indices):', sampleData);
+        debugLog('🧪 Testing with sample data (including all crypto prices):', sampleData);
     }

@@ -80,9 +80,19 @@ impl MarketDataAdapter {
         
         // Extract and normalize key metrics including new fields
         let btc_price = raw_data.get("btc_price_usd").cloned().unwrap_or(serde_json::Value::Null);
+        let eth_price = raw_data.get("eth_price_usd").cloned().unwrap_or(serde_json::Value::Null);
+        let sol_price = raw_data.get("sol_price_usd").cloned().unwrap_or(serde_json::Value::Null);
+        let xrp_price = raw_data.get("xrp_price_usd").cloned().unwrap_or(serde_json::Value::Null);
+        let ada_price = raw_data.get("ada_price_usd").cloned().unwrap_or(serde_json::Value::Null);
+        let link_price = raw_data.get("link_price_usd").cloned().unwrap_or(serde_json::Value::Null);
         let market_cap = raw_data.get("market_cap_usd").cloned().unwrap_or(serde_json::Value::Null);
         let volume_24h = raw_data.get("volume_24h_usd").cloned().unwrap_or(serde_json::Value::Null);
         let btc_change_24h = raw_data.get("btc_change_24h").cloned().unwrap_or(serde_json::Value::Null);
+        let eth_change_24h = raw_data.get("eth_change_24h").cloned().unwrap_or(serde_json::Value::Null);
+        let sol_change_24h = raw_data.get("sol_change_24h").cloned().unwrap_or(serde_json::Value::Null);
+        let xrp_change_24h = raw_data.get("xrp_change_24h").cloned().unwrap_or(serde_json::Value::Null);
+        let ada_change_24h = raw_data.get("ada_change_24h").cloned().unwrap_or(serde_json::Value::Null);
+        let link_change_24h = raw_data.get("link_change_24h").cloned().unwrap_or(serde_json::Value::Null);
         let market_cap_change_24h = raw_data.get("market_cap_change_percentage_24h_usd").cloned().unwrap_or(serde_json::Value::Number(serde_json::Number::from(0)));
         let btc_dominance = raw_data.get("btc_market_cap_percentage").cloned().unwrap_or(serde_json::Value::Number(serde_json::Number::from(0)));
         let eth_dominance = raw_data.get("eth_market_cap_percentage").cloned().unwrap_or(serde_json::Value::Number(serde_json::Number::from(0)));
@@ -96,6 +106,11 @@ impl MarketDataAdapter {
         let fetch_duration_ms = raw_data.get("fetch_duration_ms").cloned().unwrap_or(serde_json::Value::Number(serde_json::Number::from(0)));
         
         println!("  🔍 [Layer 5 via Layer 3] BTC Price received: ${:?}", btc_price);
+        println!("  🔍 [Layer 5 via Layer 3] ETH Price received: ${:?}", eth_price);
+        println!("  🔍 [Layer 5 via Layer 3] SOL Price received: ${:?}", sol_price);
+        println!("  🔍 [Layer 5 via Layer 3] XRP Price received: ${:?}", xrp_price);
+        println!("  🔍 [Layer 5 via Layer 3] ADA Price received: ${:?}", ada_price);
+        println!("  🔍 [Layer 5 via Layer 3] LINK Price received: ${:?}", link_price);
         println!("  🔍 [Layer 5 via Layer 3] Market Cap received: ${:?}", market_cap);
         println!("  🔍 [Layer 5 via Layer 3] Market Cap Change 24h: {:?}%", market_cap_change_24h);
         println!("  🔍 [Layer 5 via Layer 3] BTC Dominance: {:?}%", btc_dominance);
@@ -105,9 +120,19 @@ impl MarketDataAdapter {
         
         let normalized_data = serde_json::json!({
             "btc_price_usd": btc_price,
+            "btc_change_24h": btc_change_24h,
+            "eth_price_usd": eth_price,
+            "eth_change_24h": eth_change_24h,
+            "sol_price_usd": sol_price,
+            "sol_change_24h": sol_change_24h,
+            "xrp_price_usd": xrp_price,
+            "xrp_change_24h": xrp_change_24h,
+            "ada_price_usd": ada_price,
+            "ada_change_24h": ada_change_24h,
+            "link_price_usd": link_price,
+            "link_change_24h": link_change_24h,
             "market_cap_usd": market_cap,
             "volume_24h_usd": volume_24h,
-            "btc_change_24h": btc_change_24h,
             "market_cap_change_percentage_24h_usd": market_cap_change_24h,
             "btc_market_cap_percentage": btc_dominance,
             "eth_market_cap_percentage": eth_dominance,

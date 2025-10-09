@@ -55,29 +55,29 @@ pub async fn fetch_realtime_market_data(
         Ok(market_data) => {
             println!("✅ Layer 5 standalone function received market data via Layer 3 → Layer 2 successfully");
             
-            // 🔍 DEBUG: Log market data received by Layer 5
-            if let Some(btc_price) = market_data.get("btc_price_usd") {
-                println!("  🔍 [Layer 5 standalone] BTC Price received: ${:?}", btc_price);
-            }
-            if let Some(market_cap) = market_data.get("market_cap_usd") {
-                println!("  🔍 [Layer 5 standalone] Market Cap received: ${:?}", market_cap);
-            }
-            if let Some(mc_change) = market_data.get("market_cap_change_percentage_24h_usd") {
-                println!("  🔍 [Layer 5 standalone] Market Cap Change 24h received: {:?}%", mc_change);
-            }
-            if let Some(btc_dom) = market_data.get("btc_market_cap_percentage") {
-                println!("  🔍 [Layer 5 standalone] BTC Dominance received: {:?}%", btc_dom);
-            }
-            if let Some(eth_dom) = market_data.get("eth_market_cap_percentage") {
-                println!("  🔍 [Layer 5 standalone] ETH Dominance received: {:?}%", eth_dom);
-            }
-            if let Some(fng) = market_data.get("fng_value") {
-                println!("  🔍 [Layer 5 standalone] Fear & Greed received: {:?}", fng);
-            }
-            if let Some(us_indices) = market_data.get("us_stock_indices") {
-                println!("  🔍 [Layer 5 standalone] US Stock Indices received: {:?} symbols", 
-                    us_indices.as_object().map_or(0, |obj| obj.len()));
-            }
+            // // 🔍 DEBUG: Log market data received by Layer 5
+            // if let Some(btc_price) = market_data.get("btc_price_usd") {
+            //     println!("  🔍 [Layer 5 standalone] BTC Price received: ${:?}", btc_price);
+            // }
+            // if let Some(market_cap) = market_data.get("market_cap_usd") {
+            //     println!("  🔍 [Layer 5 standalone] Market Cap received: ${:?}", market_cap);
+            // }
+            // if let Some(mc_change) = market_data.get("market_cap_change_percentage_24h_usd") {
+            //     println!("  🔍 [Layer 5 standalone] Market Cap Change 24h received: {:?}%", mc_change);
+            // }
+            // if let Some(btc_dom) = market_data.get("btc_market_cap_percentage") {
+            //     println!("  🔍 [Layer 5 standalone] BTC Dominance received: {:?}%", btc_dom);
+            // }
+            // if let Some(eth_dom) = market_data.get("eth_market_cap_percentage") {
+            //     println!("  🔍 [Layer 5 standalone] ETH Dominance received: {:?}%", eth_dom);
+            // }
+            // if let Some(fng) = market_data.get("fng_value") {
+            //     println!("  🔍 [Layer 5 standalone] Fear & Greed received: {:?}", fng);
+            // }
+            // if let Some(us_indices) = market_data.get("us_stock_indices") {
+            //     println!("  🔍 [Layer 5 standalone] US Stock Indices received: {:?} symbols", 
+            //         us_indices.as_object().map_or(0, |obj| obj.len()));
+            // }
             
             // ✅ DIRECT USE: Return Layer 3 normalized data directly (no redundant normalization)
             println!("🔧 [Layer 5 standalone] Using Layer 3 normalized data directly for better architecture");

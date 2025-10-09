@@ -141,17 +141,19 @@ impl ApiAggregator {
         
         // Fetch data from multiple sources concurrently with timeouts and individual caching
         let btc_future = timeout(Duration::from_secs(10), self.fetch_btc_with_cache());
+        let eth_future = timeout(Duration::from_secs(10), self.fetch_eth_with_cache());
+        let sol_future = timeout(Duration::from_secs(10), self.fetch_sol_with_cache());
+        let xrp_future = timeout(Duration::from_secs(10), self.fetch_xrp_with_cache());
+        let ada_future = timeout(Duration::from_secs(10), self.fetch_ada_with_cache());
+        let link_future = timeout(Duration::from_secs(10), self.fetch_link_with_cache());
         let global_future = timeout(Duration::from_secs(10), self.fetch_global_with_cache());
         let fng_future = timeout(Duration::from_secs(10), self.fetch_fng_with_cache());
         let rsi_future = timeout(Duration::from_secs(10), self.fetch_rsi_with_cache());
         let us_indices_future = timeout(Duration::from_secs(10), self.fetch_us_indices_with_cache());
         
-        let (btc_result, global_result, fng_result, rsi_result, us_indices_result) = tokio::join!(
-            btc_future,
-            global_future,
-            fng_future,
-            rsi_future,
-            us_indices_future
+        let (btc_result, eth_result, sol_result, xrp_result, ada_result, link_result, global_result, fng_result, rsi_result, us_indices_result) = tokio::join!(
+            btc_future, eth_future, sol_future, xrp_future, ada_future, link_future,
+            global_future, fng_future, rsi_future, us_indices_future
         );
         
         let mut data_sources = HashMap::new();
@@ -175,6 +177,121 @@ impl ApiAggregator {
             Err(_) => {
                 eprintln!("⚠️ BTC data fetch timeout");
                 data_sources.insert("btc_price".to_string(), "timeout".to_string());
+                partial_failure = true;
+                (0.0, 0.0) // Keep 0.0 to show loading state on client
+            }
+        };
+        
+        // Process ETH data
+        let (eth_price, eth_change) = match eth_result {
+            Ok(Ok(eth_data)) => {
+                data_sources.insert("eth_price".to_string(), "binance".to_string());
+                (
+                    eth_data["price_usd"].as_f64().unwrap_or(0.0),
+                    eth_data["change_24h"].as_f64().unwrap_or(0.0)
+                )
+            }
+            Ok(Err(e)) => {
+                eprintln!("⚠️ ETH data fetch failed: {}", e);
+                data_sources.insert("eth_price".to_string(), "failed".to_string());
+                partial_failure = true;
+                (0.0, 0.0) // Keep 0.0 to show loading state on client
+            }
+            Err(_) => {
+                eprintln!("⚠️ ETH data fetch timeout");
+                data_sources.insert("eth_price".to_string(), "timeout".to_string());
+                partial_failure = true;
+                (0.0, 0.0) // Keep 0.0 to show loading state on client
+            }
+        };
+        
+        // Process SOL data
+        let (sol_price, sol_change) = match sol_result {
+            Ok(Ok(sol_data)) => {
+                data_sources.insert("sol_price".to_string(), "binance".to_string());
+                (
+                    sol_data["price_usd"].as_f64().unwrap_or(0.0),
+                    sol_data["change_24h"].as_f64().unwrap_or(0.0)
+                )
+            }
+            Ok(Err(e)) => {
+                eprintln!("⚠️ SOL data fetch failed: {}", e);
+                data_sources.insert("sol_price".to_string(), "failed".to_string());
+                partial_failure = true;
+                (0.0, 0.0) // Keep 0.0 to show loading state on client
+            }
+            Err(_) => {
+                eprintln!("⚠️ SOL data fetch timeout");
+                data_sources.insert("sol_price".to_string(), "timeout".to_string());
+                partial_failure = true;
+                (0.0, 0.0) // Keep 0.0 to show loading state on client
+            }
+        };
+        
+        // Process XRP data
+        let (xrp_price, xrp_change) = match xrp_result {
+            Ok(Ok(xrp_data)) => {
+                data_sources.insert("xrp_price".to_string(), "binance".to_string());
+                (
+                    xrp_data["price_usd"].as_f64().unwrap_or(0.0),
+                    xrp_data["change_24h"].as_f64().unwrap_or(0.0)
+                )
+            }
+            Ok(Err(e)) => {
+                eprintln!("⚠️ XRP data fetch failed: {}", e);
+                data_sources.insert("xrp_price".to_string(), "failed".to_string());
+                partial_failure = true;
+                (0.0, 0.0) // Keep 0.0 to show loading state on client
+            }
+            Err(_) => {
+                eprintln!("⚠️ XRP data fetch timeout");
+                data_sources.insert("xrp_price".to_string(), "timeout".to_string());
+                partial_failure = true;
+                (0.0, 0.0) // Keep 0.0 to show loading state on client
+            }
+        };
+        
+        // Process ADA data
+        let (ada_price, ada_change) = match ada_result {
+            Ok(Ok(ada_data)) => {
+                data_sources.insert("ada_price".to_string(), "binance".to_string());
+                (
+                    ada_data["price_usd"].as_f64().unwrap_or(0.0),
+                    ada_data["change_24h"].as_f64().unwrap_or(0.0)
+                )
+            }
+            Ok(Err(e)) => {
+                eprintln!("⚠️ ADA data fetch failed: {}", e);
+                data_sources.insert("ada_price".to_string(), "failed".to_string());
+                partial_failure = true;
+                (0.0, 0.0) // Keep 0.0 to show loading state on client
+            }
+            Err(_) => {
+                eprintln!("⚠️ ADA data fetch timeout");
+                data_sources.insert("ada_price".to_string(), "timeout".to_string());
+                partial_failure = true;
+                (0.0, 0.0) // Keep 0.0 to show loading state on client
+            }
+        };
+        
+        // Process LINK data
+        let (link_price, link_change) = match link_result {
+            Ok(Ok(link_data)) => {
+                data_sources.insert("link_price".to_string(), "binance".to_string());
+                (
+                    link_data["price_usd"].as_f64().unwrap_or(0.0),
+                    link_data["change_24h"].as_f64().unwrap_or(0.0)
+                )
+            }
+            Ok(Err(e)) => {
+                eprintln!("⚠️ LINK data fetch failed: {}", e);
+                data_sources.insert("link_price".to_string(), "failed".to_string());
+                partial_failure = true;
+                (0.0, 0.0) // Keep 0.0 to show loading state on client
+            }
+            Err(_) => {
+                eprintln!("⚠️ LINK data fetch timeout");
+                data_sources.insert("link_price".to_string(), "timeout".to_string());
                 partial_failure = true;
                 (0.0, 0.0) // Keep 0.0 to show loading state on client
             }
@@ -281,6 +398,16 @@ impl ApiAggregator {
         Ok(serde_json::json!({
             "btc_price_usd": btc_price,
             "btc_change_24h": btc_change,
+            "eth_price_usd": eth_price,
+            "eth_change_24h": eth_change,
+            "sol_price_usd": sol_price,
+            "sol_change_24h": sol_change,
+            "xrp_price_usd": xrp_price,
+            "xrp_change_24h": xrp_change,
+            "ada_price_usd": ada_price,
+            "ada_change_24h": ada_change,
+            "link_price_usd": link_price,
+            "link_change_24h": link_change,
             "market_cap_usd": market_cap,
             "volume_24h_usd": volume_24h,
             "market_cap_change_percentage_24h_usd": market_cap_change_24h,
@@ -316,6 +443,136 @@ impl ApiAggregator {
                     let _ = cache.cache_manager.set_with_strategy(cache_key, data.clone(), 
                         crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::RealTime).await;
                     println!("💾 BTC price cached for 30 seconds (real-time strategy)");
+                }
+                Ok(data)
+            }
+            Err(e) => Err(e)
+        }
+    }
+    
+    /// Fetch ETH data with generic caching strategy
+    async fn fetch_eth_with_cache(&self) -> Result<serde_json::Value> {
+        let cache_key = "eth_price_30s";
+        
+        // Try cache first
+        if let Some(ref cache) = self.cache_system {
+            if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
+                return Ok(cached_data);
+            }
+        }
+        
+        // Fetch from API
+        match self.market_api.fetch_eth_price().await {
+            Ok(data) => {
+                // Cache using generic RealTime strategy (30 seconds)
+                if let Some(ref cache) = self.cache_system {
+                    let _ = cache.cache_manager.set_with_strategy(cache_key, data.clone(), 
+                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::RealTime).await;
+                    println!("💾 ETH price cached for 30 seconds (real-time strategy)");
+                }
+                Ok(data)
+            }
+            Err(e) => Err(e)
+        }
+    }
+    
+    /// Fetch SOL data with generic caching strategy
+    async fn fetch_sol_with_cache(&self) -> Result<serde_json::Value> {
+        let cache_key = "sol_price_30s";
+        
+        // Try cache first
+        if let Some(ref cache) = self.cache_system {
+            if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
+                return Ok(cached_data);
+            }
+        }
+        
+        // Fetch from API
+        match self.market_api.fetch_sol_price().await {
+            Ok(data) => {
+                // Cache using generic RealTime strategy (30 seconds)
+                if let Some(ref cache) = self.cache_system {
+                    let _ = cache.cache_manager.set_with_strategy(cache_key, data.clone(), 
+                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::RealTime).await;
+                    println!("💾 SOL price cached for 30 seconds (real-time strategy)");
+                }
+                Ok(data)
+            }
+            Err(e) => Err(e)
+        }
+    }
+    
+    /// Fetch XRP data with generic caching strategy
+    async fn fetch_xrp_with_cache(&self) -> Result<serde_json::Value> {
+        let cache_key = "xrp_price_30s";
+        
+        // Try cache first
+        if let Some(ref cache) = self.cache_system {
+            if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
+                return Ok(cached_data);
+            }
+        }
+        
+        // Fetch from API
+        match self.market_api.fetch_xrp_price().await {
+            Ok(data) => {
+                // Cache using generic RealTime strategy (30 seconds)
+                if let Some(ref cache) = self.cache_system {
+                    let _ = cache.cache_manager.set_with_strategy(cache_key, data.clone(), 
+                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::RealTime).await;
+                    println!("💾 XRP price cached for 30 seconds (real-time strategy)");
+                }
+                Ok(data)
+            }
+            Err(e) => Err(e)
+        }
+    }
+    
+    /// Fetch ADA data with generic caching strategy
+    async fn fetch_ada_with_cache(&self) -> Result<serde_json::Value> {
+        let cache_key = "ada_price_30s";
+        
+        // Try cache first
+        if let Some(ref cache) = self.cache_system {
+            if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
+                return Ok(cached_data);
+            }
+        }
+        
+        // Fetch from API
+        match self.market_api.fetch_ada_price().await {
+            Ok(data) => {
+                // Cache using generic RealTime strategy (30 seconds)
+                if let Some(ref cache) = self.cache_system {
+                    let _ = cache.cache_manager.set_with_strategy(cache_key, data.clone(), 
+                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::RealTime).await;
+                    println!("💾 ADA price cached for 30 seconds (real-time strategy)");
+                }
+                Ok(data)
+            }
+            Err(e) => Err(e)
+        }
+    }
+    
+    /// Fetch LINK data with generic caching strategy
+    async fn fetch_link_with_cache(&self) -> Result<serde_json::Value> {
+        let cache_key = "link_price_30s";
+        
+        // Try cache first
+        if let Some(ref cache) = self.cache_system {
+            if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
+                return Ok(cached_data);
+            }
+        }
+        
+        // Fetch from API
+        match self.market_api.fetch_link_price().await {
+            Ok(data) => {
+                // Cache using generic RealTime strategy (30 seconds)
+                if let Some(ref cache) = self.cache_system {
+                    let _ = cache.cache_manager.set_with_strategy(cache_key, data.clone(), 
+                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::RealTime).await;
+                    println!("💾 LINK price cached for 30 seconds (real-time strategy)");
                 }
                 Ok(data)
             }

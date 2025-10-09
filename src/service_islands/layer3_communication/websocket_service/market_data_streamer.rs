@@ -106,6 +106,36 @@ impl MarketDataStreamer {
                             if let Some(eth_dom) = dashboard_data.get("eth_market_cap_percentage") {
                                 println!("  Ξ ETH Dominance: {:?}%", eth_dom);
                             }
+                            if let Some(eth_price) = dashboard_data.get("eth_price_usd") {
+                                println!("  Ξ ETH Price: ${:?}", eth_price);
+                            }
+                            if let Some(eth_change) = dashboard_data.get("eth_change_24h") {
+                                println!("  📈 ETH 24h Change: {:?}%", eth_change);
+                            }
+                            if let Some(sol_price) = dashboard_data.get("sol_price_usd") {
+                                println!("  ◎ SOL Price: ${:?}", sol_price);
+                            }
+                            if let Some(sol_change) = dashboard_data.get("sol_change_24h") {
+                                println!("  📈 SOL 24h Change: {:?}%", sol_change);
+                            }
+                            if let Some(xrp_price) = dashboard_data.get("xrp_price_usd") {
+                                println!("  💧 XRP Price: ${:?}", xrp_price);
+                            }
+                            if let Some(xrp_change) = dashboard_data.get("xrp_change_24h") {
+                                println!("  📈 XRP 24h Change: {:?}%", xrp_change);
+                            }
+                            if let Some(ada_price) = dashboard_data.get("ada_price_usd") {
+                                println!("  🃏 ADA Price: ${:?}", ada_price);
+                            }
+                            if let Some(ada_change) = dashboard_data.get("ada_change_24h") {
+                                println!("  📈 ADA 24h Change: {:?}%", ada_change);
+                            }
+                            if let Some(link_price) = dashboard_data.get("link_price_usd") {
+                                println!("  🔗 LINK Price: ${:?}", link_price);
+                            }
+                            if let Some(link_change) = dashboard_data.get("link_change_24h") {
+                                println!("  📈 LINK 24h Change: {:?}%", link_change);
+                            }
                             
                             // Create WebSocket message
                             let ws_message = serde_json::json!({
