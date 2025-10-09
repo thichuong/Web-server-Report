@@ -3,7 +3,7 @@
 .market-indicators-container {
     max-width: 100%;
     margin: 0;
-    padding: 1.5rem;
+    padding: 1rem;
     background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
     border-radius: 16px;
     box-shadow: var(--card-shadow);
@@ -46,6 +46,16 @@
 
 .market-card:hover::before {
     opacity: 1;
+}
+
+/* Compact card variant for smaller stats */
+.market-card.compact {
+    padding: 1rem;
+    border-radius: 8px;
+}
+
+.market-card.compact:hover {
+    transform: translateY(-2px);
 }
 
 .market-mini-card {
@@ -116,9 +126,9 @@
 }
 
 .market-change {
-    font-size: 0.875rem;
+    font-size: 0.9rem;
     font-weight: 600;
-    margin-top: 0.25rem;
+    margin-top: 0;
     display: flex;
     align-items: center;
 }
@@ -202,14 +212,12 @@
 
 /* Index Display Styles */
 .index-display {
-    text-align: center;
-    padding: 1rem;
+    padding: 0.5rem;
 }
 
 .index-value {
-    font-size: 2.5rem;
+    font-size: 2rem;
     font-weight: 800;
-    margin-bottom: 0.5rem;
 }
 
 .index-value.fear {
@@ -297,11 +305,11 @@
     }
     
     .market-value {
-        font-size: 1.5rem;
+        font-size: 1.75rem;
     }
     
     .index-value {
-        font-size: 2rem;
+        font-size: 1.5rem;
     }
     
     .market-mini-card {
@@ -311,11 +319,11 @@
 
 @media (max-width: 640px) {
     .market-value {
-        font-size: 1.25rem;
+        font-size: 1.5rem;
     }
     
     .index-value {
-        font-size: 1.75rem;
+        font-size: 2.5rem;
     }
 }
 
@@ -360,6 +368,7 @@
 .us-stock-card {
     background: linear-gradient(135deg, var(--card-bg) 0%, var(--background-light) 100%);
     border-left: 4px solid var(--primary-blue);
+    padding: 1rem 1.5rem;
 }
 
 .us-stock-card:hover {
@@ -367,21 +376,80 @@
     background: linear-gradient(135deg, var(--background-light) 0%, var(--card-hover) 100%);
 }
 
+/* Horizontal layout for stock cards */
+.us-stock-card > div {
+    width: 100%;
+}
+
+.us-stock-card .flex.items-center:first-child {
+    flex: 1;
+    min-width: 0;
+}
+
+.us-stock-card .stock-value-container {
+    flex-shrink: 0;
+    margin-left: 1rem;
+    text-align: right;
+}
+
+/* Responsive Grid Adjustments */
+@media (max-width: 768px) {
+    .market-indicators-container {
+        padding: 1rem;
+        max-height: 85vh;
+    }
+
+    .market-card {
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+    }
+
+    .market-value {
+        font-size: 1.5rem;
+    }
+
+    .us-stock-card {
+        padding: 1.25rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .us-stock-card h4 {
+        font-size: 1rem;
+    }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+    .market-card {
+        padding: 1.25rem;
+    }
+
+    .market-value {
+        font-size: 1.75rem;
+    }
+}
+
 .stock-value-container {
-    margin-bottom: 0.75rem;
+    margin-bottom: 0;
+    text-align: right;
+    min-width: 120px;
 }
 
 .stock-value {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     font-weight: 700;
     color: var(--text-primary);
     line-height: 1.2;
+    margin-bottom: 0.125rem;
 }
 
 .stock-change {
-    font-size: 0.875rem;
+    font-size: 0.75rem;
     font-weight: 600;
-    margin-top: 0.25rem;
+    margin-top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    line-height: 1.2;
 }
 
 .stock-change.positive {
@@ -401,35 +469,67 @@
     font-size: 1.1rem;
     font-weight: 600;
     color: var(--text-secondary);
+    margin-bottom: 0.125rem;
 }
 
 .us-stock-card .text-xs {
     color: var(--text-muted);
+    font-size: 0.75rem;
+    line-height: 1.2;
+}
+
+/* Responsive adjustments for horizontal layout */
+@media (max-width: 768px) {
+    .us-stock-card {
+        padding: 0.875rem 1rem;
+    }
+
+    .us-stock-card .stock-value-container {
+        margin-left: 0.5rem;
+        min-width: 100px;
+    }
+
+    .us-stock-card h4 {
+        font-size: 1rem;
+    }
+
+    .us-stock-card .text-xs {
+        font-size: 0.7rem;
+    }
+
+    .stock-value {
+        font-size: 1.125rem;
+    }
+
+    .stock-change {
+        font-size: 0.7rem;
+    }
+
+    .stock-status {
+        font-size: 0.65rem;
+        padding: 0.1rem 0.3rem;
+    }
 }
 
 /* Status indicators for stock data */
 .stock-status {
     display: inline-flex;
     align-items: center;
-    font-size: 0.75rem;
-    padding: 0.25rem 0.5rem;
+    font-size: 0.7rem;
+    padding: 0.125rem 0.375rem;
     border-radius: 4px;
-    margin-top: 0.5rem;
+    margin-top: 0.125rem;
+    font-weight: 500;
 }
 
 .stock-status.success {
-    background-color: var(--success-bg);
-    color: var(--success-text);
+    background: rgba(34, 197, 94, 0.1);
+    color: var(--positive-color);
 }
 
 .stock-status.error {
-    background-color: var(--error-bg);
-    color: var(--error-text);
-}
-
-.stock-status.loading {
-    background-color: var(--warning-bg);
-    color: var(--warning-text);
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--negative-color);
 }
 
 /* Enhanced Grid Layout */
@@ -498,4 +598,135 @@
 
 .market-indicators-container::-webkit-scrollbar-thumb:hover {
     background: var(--text-muted);
+}
+
+/* Enhanced spacing for better visual hierarchy */
+.market-indicators-container > div.mb-8 {
+    margin-bottom: 2rem;
+}
+
+.market-indicators-container > div.mb-8:last-child {
+    margin-bottom: 1.5rem;
+}
+
+/* Improved card spacing for 2-column crypto layout */
+.market-indicators-container .grid.grid-cols-1.md\\:grid-cols-2 .market-card {
+    margin-bottom: 1.5rem;
+}
+
+/* Single column stock layout optimization */
+.market-indicators-container .grid.grid-cols-1 .us-stock-card {
+    width: 100%;
+    max-width: 100%;
+}
+
+/* Binance Prices Section */
+.binance-prices-section {
+    margin-top: 1.5rem;
+    grid-column: 1 / -1;
+}
+
+.binance-prices-section h4 {
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+    position: relative;
+    padding-left: 0.75rem;
+    font-size: 1.125rem;
+}
+
+.binance-prices-section h4::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 1em;
+    background: linear-gradient(135deg, #F7931A, #FF6B35);
+    border-radius: 2px;
+}
+
+.binance-prices-container {
+    border-radius: 12px;
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    background: var(--card-bg);
+    padding: 1rem;
+}
+
+.binance-price-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.binance-price-card {
+    background: var(--background-light);
+    border-radius: 8px;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.binance-price-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-color: var(--accent-color);
+}
+
+.binance-coin-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+.binance-price-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-align: center;
+}
+
+.binance-price-change {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-top: 0.25rem;
+    text-align: center;
+}
+
+.binance-price-change.positive {
+    color: var(--positive-color);
+}
+
+.binance-price-change.negative {
+    color: var(--negative-color);
+}
+
+/* Responsive adjustments for Binance prices */
+@media (max-width: 768px) {
+    .binance-price-grid {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 0.75rem;
+    }
+
+    .binance-price-card {
+        padding: 0.5rem;
+    }
+
+    .binance-coin-header {
+        font-size: 0.8rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .binance-price-value {
+        font-size: 1.25rem;
+    }
+
+    .binance-price-change {
+        font-size: 0.9rem;
+    }
 }

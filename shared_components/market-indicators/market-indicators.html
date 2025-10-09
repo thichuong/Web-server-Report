@@ -1,138 +1,210 @@
 <!-- Market Indicators Dashboard Component -->
 <div id="market-indicators-dashboard" class="market-indicators-container">
-    <h2 class="text-2xl font-bold mb-6 text-center">
+    <h2 class="text-2xl font-bold mb-4 text-center">
         <i class="fas fa-chart-line text-blue-600 mr-2"></i>
         <span data-i18n="market-indicators-title">Chỉ Số Thị Trường</span>
     </h2>
     
     <!-- Crypto Market Stats Grid -->
-    <div class="mb-8">
-        <h3 class="text-xl font-bold mb-4 text-center">
+    <div class="mb-4">
+        <h3 class="text-lg font-bold mb-3 text-center">
             <i class="fas fa-coins text-green-600 mr-2"></i>
             <span data-i18n="crypto-market-stats">Thống Kê Thị Trường Crypto</span>
         </h3>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        <!-- BTC Price Card -->
-        <div class="market-card">
-            <div class="flex items-center mb-3">
-                <i class="fab fa-bitcoin text-yellow-500 text-2xl mr-3"></i>
-                <h3 class="text-lg font-semibold text-gray-700" data-i18n="btc-price">Giá BTC</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <!-- Market Cap Card -->
+            <div class="market-card compact">
+                <div class="flex items-center mb-2">
+                    <i class="fas fa-globe-americas text-blue-500 text-lg mr-2"></i>
+                    <h3 class="text-sm font-semibold text-gray-700" data-i18n="market-cap">Tổng Vốn Hóa</h3>
+                </div>
+                <div id="market-cap-indicator" class="market-value-container">
+                    <div class="skeleton-loader"></div>
+                </div>
             </div>
-            <div id="btc-price-indicator" class="market-value-container">
-                <div class="skeleton-loader"></div>
+
+            <!-- Volume 24h Card -->
+            <div class="market-card compact">
+                <div class="flex items-center mb-2">
+                    <i class="fas fa-chart-bar text-green-500 text-lg mr-2"></i>
+                    <h3 class="text-sm font-semibold text-gray-700" data-i18n="volume-24h">Khối Lượng 24h</h3>
+                </div>
+                <div id="volume-24h-indicator" class="market-value-container">
+                    <div class="skeleton-loader"></div>
+                </div>
+            </div>
+
+            <!-- Fear & Greed Index -->
+            <div class="market-card compact">
+                <div class="flex items-center mb-2">
+                    <i class="fas fa-thermometer-half text-purple-500 text-lg mr-2"></i>
+                    <h3 class="text-sm font-semibold text-gray-700" data-i18n="fear-greed-index">Chỉ Số Sợ Hãi & Tham Lam</h3>
+                </div>
+                <div id="fear-greed-indicator" class="market-value-container">
+                    <div class="skeleton-loader h-12"></div>
+                </div>
+            </div>
+
+            <!-- Bitcoin Dominance -->
+            <div class="market-card compact">
+                <div class="flex items-center mb-2">
+                    <i class="fab fa-bitcoin text-orange-500 text-lg mr-2"></i>
+                    <h3 class="text-sm font-semibold text-gray-700" data-i18n="btc-dominance">Độ Thống Trị BTC</h3>
+                </div>
+                <div id="btc-dominance-indicator" class="market-value-container">
+                    <div class="skeleton-loader h-12"></div>
+                </div>
+            </div>
+
+            <!-- Ethereum Dominance -->
+            <div class="market-card compact">
+                <div class="flex items-center mb-2">
+                    <i class="fab fa-ethereum text-blue-500 text-lg mr-2"></i>
+                    <h3 class="text-sm font-semibold text-gray-700" data-i18n="eth-dominance">Độ Thống Trị ETH</h3>
+                </div>
+                <div id="eth-dominance-indicator" class="market-value-container">
+                    <div class="skeleton-loader h-12"></div>
+                </div>
             </div>
         </div>
 
-        <!-- Market Cap Card -->
-        <div class="market-card">
-            <div class="flex items-center mb-3">
-                <i class="fas fa-globe-americas text-blue-500 text-2xl mr-3"></i>
-                <h3 class="text-lg font-semibold text-gray-700" data-i18n="market-cap">Tổng Vốn Hóa</h3>
-            </div>
-            <div id="market-cap-indicator" class="market-value-container">
-                <div class="skeleton-loader"></div>
-            </div>
-        </div>
+        <!-- Binance Price Display -->
+        <div class="binance-prices-section mt-3">
+            <h4 class="text-lg font-bold mb-3 text-center">
+                <i class="fas fa-exchange-alt text-orange-500 mr-2"></i>
+                <span data-i18n="binance-prices-title">Giá Crypto từ Binance</span>
+            </h4>
+            <div class="binance-prices-container">
+                <div class="binance-price-grid">
+                    <!-- BTC Price -->
+                    <div class="binance-price-card">
+                        <div class="binance-coin-header">
+                            <i class="fab fa-bitcoin text-yellow-500 mr-2"></i>
+                            <span>BTC</span>
+                        </div>
+                        <div id="binance-btc-price" class="binance-price-value">
+                            <div class="skeleton-loader"></div>
+                        </div>
+                    </div>
 
-        <!-- Volume 24h Card -->
-        <div class="market-card">
-            <div class="flex items-center mb-3">
-                <i class="fas fa-chart-bar text-green-500 text-2xl mr-3"></i>
-                <h3 class="text-lg font-semibold text-gray-700" data-i18n="volume-24h">Khối Lượng 24h</h3>
-            </div>
-            <div id="volume-24h-indicator" class="market-value-container">
-                <div class="skeleton-loader"></div>
-            </div>
-        </div>
+                    <!-- ETH Price -->
+                    <div class="binance-price-card">
+                        <div class="binance-coin-header">
+                            <i class="fab fa-ethereum text-blue-500 mr-2"></i>
+                            <span>ETH</span>
+                        </div>
+                        <div id="binance-eth-price" class="binance-price-value">
+                            <div class="skeleton-loader"></div>
+                        </div>
+                    </div>
 
-        <!-- Fear & Greed Index -->
-        <div class="market-card">
-            <div class="flex items-center mb-3">
-                <i class="fas fa-thermometer-half text-purple-500 text-2xl mr-3"></i>
-                <h3 class="text-lg font-semibold text-gray-700" data-i18n="fear-greed-index">Chỉ Số Sợ Hãi & Tham Lam</h3>
-            </div>
-            <div id="fear-greed-indicator" class="market-value-container">
-                <div class="skeleton-loader h-16"></div>
-            </div>
-        </div>
+                    <!-- SOL Price -->
+                    <div class="binance-price-card">
+                        <div class="binance-coin-header">
+                            <i class="fas fa-sun text-purple-500 mr-2"></i>
+                            <span>SOL</span>
+                        </div>
+                        <div id="binance-sol-price" class="binance-price-value">
+                            <div class="skeleton-loader"></div>
+                        </div>
+                    </div>
 
-        <!-- Bitcoin Dominance -->
-        <div class="market-card">
-            <div class="flex items-center mb-3">
-                <i class="fab fa-bitcoin text-orange-500 text-2xl mr-3"></i>
-                <h3 class="text-lg font-semibold text-gray-700" data-i18n="btc-dominance">Độ Thống Trị BTC</h3>
-            </div>
-            <div id="btc-dominance-indicator" class="market-value-container">
-                <div class="skeleton-loader h-16"></div>
-            </div>
-        </div>
+                    <!-- XRP Price -->
+                    <div class="binance-price-card">
+                        <div class="binance-coin-header">
+                            <i class="fas fa-water text-blue-400 mr-2"></i>
+                            <span>XRP</span>
+                        </div>
+                        <div id="binance-xrp-price" class="binance-price-value">
+                            <div class="skeleton-loader"></div>
+                        </div>
+                    </div>
 
-        <!-- Ethereum Dominance -->
-        <div class="market-card">
-            <div class="flex items-center mb-3">
-                <i class="fab fa-ethereum text-blue-500 text-2xl mr-3"></i>
-                <h3 class="text-lg font-semibold text-gray-700" data-i18n="eth-dominance">Độ Thống Trị ETH</h3>
-            </div>
-            <div id="eth-dominance-indicator" class="market-value-container">
-                <div class="skeleton-loader h-16"></div>
+                    <!-- ADA Price -->
+                    <div class="binance-price-card">
+                        <div class="binance-coin-header">
+                            <i class="fas fa-gem text-blue-600 mr-2"></i>
+                            <span>ADA</span>
+                        </div>
+                        <div id="binance-ada-price" class="binance-price-value">
+                            <div class="skeleton-loader"></div>
+                        </div>
+                    </div>
+
+                    <!-- LINK Price -->
+                    <div class="binance-price-card">
+                        <div class="binance-coin-header">
+                            <i class="fas fa-link text-blue-700 mr-2"></i>
+                            <span>LINK</span>
+                        </div>
+                        <div id="binance-link-price" class="binance-price-value">
+                            <div class="skeleton-loader"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
     </div>
 
     <!-- US Stock Market Indices -->
-    <div class="mb-8">
-        <h3 class="text-xl font-bold mb-4 text-center">
+    <div class="mb-4">
+        <h3 class="text-lg font-bold mb-3 text-center">
             <i class="fas fa-chart-line text-red-600 mr-2"></i>
             <span data-i18n="us-stock-indices">Chỉ Số Chứng Khoán Mỹ</span>
         </h3>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 gap-3">
             <!-- DJIA (DIA ETF) -->
-            <div class="market-card us-stock-card">
-                <div class="flex items-center mb-3">
-                    <i class="fas fa-building text-blue-600 text-2xl mr-3"></i>
-                    <div>
-                        <h4 class="text-lg font-semibold text-gray-700">DJIA</h4>
-                        <p class="text-xs text-gray-500" data-i18n="dia-description">Dow Jones Industrial Average</p>
+            <div class="market-card us-stock-card compact">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <i class="fas fa-building text-blue-600 text-lg mr-2"></i>
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-700">DJIA</h4>
+                            <p class="text-xs text-gray-500" data-i18n="dia-description">Dow Jones Industrial Average</p>
+                        </div>
                     </div>
-                </div>
-                <div id="dia-indicator" class="stock-value-container">
-                    <div class="skeleton-loader"></div>
+                    <div id="dia-indicator" class="stock-value-container">
+                        <div class="skeleton-loader"></div>
+                    </div>
                 </div>
             </div>
 
             <!-- S&P 500 (SPY ETF) -->
-            <div class="market-card us-stock-card">
-                <div class="flex items-center mb-3">
-                    <i class="fas fa-chart-area text-green-600 text-2xl mr-3"></i>
-                    <div>
-                        <h4 class="text-lg font-semibold text-gray-700">S&P 500</h4>
-                        <p class="text-xs text-gray-500" data-i18n="spy-description">SPDR S&P 500 ETF Trust</p>
+            <div class="market-card us-stock-card compact">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <i class="fas fa-chart-area text-green-600 text-lg mr-2"></i>
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-700">S&P 500</h4>
+                            <p class="text-xs text-gray-500" data-i18n="spy-description">SPDR S&P 500 ETF Trust</p>
+                        </div>
                     </div>
-                </div>
-                <div id="spy-indicator" class="stock-value-container">
-                    <div class="skeleton-loader"></div>
+                    <div id="spy-indicator" class="stock-value-container">
+                        <div class="skeleton-loader"></div>
+                    </div>
                 </div>
             </div>
 
             <!-- Nasdaq 100 (QQQM ETF) -->
-            <div class="market-card us-stock-card">
-                <div class="flex items-center mb-3">
-                    <i class="fas fa-laptop-code text-purple-600 text-2xl mr-3"></i>
-                    <div>
-                        <h4 class="text-lg font-semibold text-gray-700">Nasdaq 100</h4>
-                        <p class="text-xs text-gray-500" data-i18n="qqq-description">INVESCO NASDAQ 100 ETF</p>
+            <div class="market-card us-stock-card compact">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <i class="fas fa-laptop-code text-purple-600 text-lg mr-2"></i>
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-700">Nasdaq 100</h4>
+                            <p class="text-xs text-gray-500" data-i18n="qqq-description">INVESCO NASDAQ 100 ETF</p>
+                        </div>
                     </div>
-                </div>
-                <div id="qqq-indicator" class="stock-value-container">
-                    <div class="skeleton-loader"></div>
+                    <div id="qqq-indicator" class="stock-value-container">
+                        <div class="skeleton-loader"></div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Status Bar -->
-    <div class="market-status-bar">
+    <div class="market-status-bar mt-2">
         <div class="flex items-center justify-between">
             <div class="flex items-center">
                 <div id="connection-status" class="connection-indicator offline">

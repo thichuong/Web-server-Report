@@ -33,7 +33,6 @@ class MarketIndicatorsDashboard {
         
         // Data cache
         this.cachedData = {
-            btcPrice: null,
             marketCap: null,
             volume24h: null,
             fearGreedIndex: null,
@@ -54,18 +53,27 @@ class MarketIndicatorsDashboard {
         
         this.connectWebSocket();
         this.startDataRefresh();
+        
+        // Fetch Binance prices on initialization
+        this.fetchBinancePrices();
     }
 
     initializeElements() {
         // Get all indicator elements
         this.elements = {
-            btcPrice: document.getElementById('btc-price-indicator'),
             marketCap: document.getElementById('market-cap-indicator'),
             volume24h: document.getElementById('volume-24h-indicator'),
             fearGreed: document.getElementById('fear-greed-indicator'),
             btcDominance: document.getElementById('btc-dominance-indicator'),
             ethDominance: document.getElementById('eth-dominance-indicator'),
-            connectionStatus: document.getElementById('connection-status')
+            connectionStatus: document.getElementById('connection-status'),
+            // Binance price elements
+            binanceBTC: document.getElementById('binance-btc-price'),
+            binanceETH: document.getElementById('binance-eth-price'),
+            binanceSOL: document.getElementById('binance-sol-price'),
+            binanceXRP: document.getElementById('binance-xrp-price'),
+            binanceADA: document.getElementById('binance-ada-price'),
+            binanceLINK: document.getElementById('binance-link-price')
         };
 
         // Debug: Log which elements were found
@@ -88,7 +96,7 @@ class MarketIndicatorsDashboard {
         Object.values(this.elements).forEach(element => {
             if (element) {
                 const skeleton = element.querySelector('.skeleton-loader');
-                if (skeleton && !this.cachedData.btcPrice) {
+                if (skeleton) {
                     // Only remove skeleton if we don't have data yet
                     skeleton.style.display = 'none';
                 }
@@ -241,13 +249,6 @@ class MarketIndicatorsDashboard {
                     }
                     break;
                     
-                case 'btc_price_update':
-                    if (message.data) {
-                        debugLog('₿ Received BTC price update:', message.data);
-                        this.updateBtcPrice(message.data);
-                    }
-                    break;
-                    
                 case 'market_update':
                     if (message.data) {
                         debugLog('📈 Received market update:', message.data);
@@ -284,14 +285,6 @@ class MarketIndicatorsDashboard {
         debugLog('🔄 Updating market indicators with data:', data);
 
         try {
-            // Update BTC Price
-            if (data.btc_price_usd !== undefined) {
-                this.updateBtcPrice({
-                    price_usd: data.btc_price_usd,
-                    change_24h: data.btc_change_24h || 0
-                });
-            }
-
             // Update Market Cap - use market_cap_usd directly
             if (data.market_cap_usd !== undefined) {
                 this.updateMarketCap({
@@ -339,45 +332,6 @@ class MarketIndicatorsDashboard {
         }
     }
 
-    updateBtcPrice(data) {
-        try {
-            const element = this.elements.btcPrice;
-            if (!element) {
-                debugError('❌ BTC price element not found');
-                return;
-            }
-
-            const price = parseFloat(data.price_usd || data.btc_price_usd) || 0;
-            const change = parseFloat(data.change_24h || data.btc_change_24h) || 0;
-
-            // Check if data has actually changed
-            const cachedBtc = this.cachedData.btcPrice;
-            if (cachedBtc && cachedBtc.price === price && cachedBtc.change === change) {
-                debugLog('⏭️ BTC price unchanged, skipping update:', { price, change });
-                return;
-            }
-
-            this.cachedData.btcPrice = { price, change };
-
-            const changeClass = change >= 0 ? 'positive' : 'negative';
-            const changeIcon = change >= 0 ? '📈' : '📉';
-            const changeSign = change >= 0 ? '+' : '';
-
-            element.innerHTML = `
-                <div class="market-value">$${price.toLocaleString('en-US')}</div>
-                <div class="market-change ${changeClass}">
-                    <span class="change-icon">${changeIcon}</span>
-                    ${changeSign}${change.toFixed(2)}% (24h)
-                </div>
-            `;
-
-            this.animateUpdate(element);
-            debugLog('✅ BTC price updated:', { price, change });
-        } catch (error) {
-            debugError('❌ Error updating BTC price:', error);
-        }
-    }
-
     updateMarketCap(data) {
         const element = this.elements.marketCap;
         if (!element) return;
@@ -399,10 +353,12 @@ class MarketIndicatorsDashboard {
         const changeSign = change >= 0 ? '+' : '';
 
         element.innerHTML = `
-            <div class="market-value">$${this.formatLargeNumber(value)}</div>
-            <div class="market-change ${changeClass}">
-                <span class="change-icon">${changeIcon}</span>
-                ${changeSign}${change.toFixed(2)}% (24h)
+            <div class="flex items-center justify-between">
+                <div class="market-value">$${this.formatLargeNumber(value)}</div>
+                <div class="market-change ${changeClass}">
+                    <span class="change-icon">${changeIcon}</span>
+                    ${changeSign}${change.toFixed(2)}% (24h)
+                </div>
             </div>
         `;
 
@@ -431,10 +387,12 @@ class MarketIndicatorsDashboard {
         const changeSign = change >= 0 ? '+' : '';
 
         element.innerHTML = `
-            <div class="market-value">$${this.formatLargeNumber(value)}</div>
-            <div class="market-change ${changeClass}">
-                <span class="change-icon">${changeIcon}</span>
-                ${changeSign}${change.toFixed(2)}% (24h)
+            <div class="flex items-center justify-between">
+                <div class="market-value">$${this.formatLargeNumber(value)}</div>
+                <div class="market-change ${changeClass}">
+                    <span class="change-icon">${changeIcon}</span>
+                    ${changeSign}${change.toFixed(2)}% (24h)
+                </div>
             </div>
         `;
 
@@ -483,10 +441,12 @@ class MarketIndicatorsDashboard {
         }
 
         element.innerHTML = `
-            <div class="index-display">
+            <div class="index-display flex items-center justify-between">
                 <div class="index-value ${indexClass}">${index}</div>
-                <div class="index-label" data-i18n="${indexLabelKey}">Loading...</div>
-                <div class="index-description" data-i18n="${indexDescriptionKey}">Loading...</div>
+                <div class="text-right">
+                    <div class="index-label" data-i18n="${indexLabelKey}">Loading...</div>
+                    <div class="index-description text-xs" data-i18n="${indexDescriptionKey}">Loading...</div>
+                </div>
             </div>
         `;
 
@@ -513,7 +473,7 @@ class MarketIndicatorsDashboard {
         this.cachedData.btcDominance = dominance;
 
         element.innerHTML = `
-            <div class="index-display">
+            <div class="index-display flex items-center justify-between">
                 <div class="index-value">${dominance.toFixed(1)}%</div>
                 <div class="index-label" data-i18n="btc-market-share">Thị phần BTC</div>
             </div>
@@ -539,7 +499,7 @@ class MarketIndicatorsDashboard {
         this.cachedData.ethDominance = dominance;
 
         element.innerHTML = `
-            <div class="index-display">
+            <div class="index-display flex items-center justify-between">
                 <div class="index-value">${dominance.toFixed(1)}%</div>
                 <div class="index-label" data-i18n="eth-market-share">Thị phần ETH</div>
             </div>
@@ -662,6 +622,11 @@ class MarketIndicatorsDashboard {
                 debugLog('🔄 No WebSocket connection, attempting to connect');
                 this.connectWebSocket();
             }
+            
+            // Refresh Binance prices every 5 seconds
+            if (now % 5000 < 10000) { // Check if it's time for Binance refresh (every 5s)
+                this.fetchBinancePrices();
+            }
         }, 10000); // Every 10 seconds (faster monitoring)
     }
 
@@ -738,9 +703,6 @@ class MarketIndicatorsDashboard {
                 <span class="change-icon">${changeIcon}</span>
                 ${changeSign}$${Math.abs(change).toFixed(2)} (${percentSign}${changePercent.toFixed(2)}%)
             </div>
-            <div class="stock-status success">
-                ✅ Live
-            </div>
         `;
         
         this.animateUpdate(element);
@@ -773,6 +735,113 @@ class MarketIndicatorsDashboard {
             this.websocket = null;
         }
         this.isConnected = false;
+    }
+
+    // Binance Price Fetching
+    async fetchBinancePrices() {
+        const symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'LINKUSDT'];
+        
+        try {
+            debugLog('📈 Fetching prices from Binance API...');
+            
+            // Fetch all symbols at once using Promise.all
+            const promises = symbols.map(async (symbol) => {
+                try {
+                    const response = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    const data = await response.json();
+                    return { symbol, data };
+                } catch (error) {
+                    debugError(`❌ Failed to fetch ${symbol}:`, error);
+                    return { symbol, error: true };
+                }
+            });
+            
+            const results = await Promise.all(promises);
+            
+            // Update UI for each symbol
+            results.forEach(({ symbol, data, error }) => {
+                if (error) {
+                    this.updateBinancePrice(symbol, null, 'Error');
+                } else {
+                    const price = parseFloat(data.lastPrice);
+                    const changePercent = parseFloat(data.priceChangePercent);
+                    this.updateBinancePrice(symbol, price, changePercent);
+                }
+            });
+            
+            debugLog('✅ Binance prices updated successfully');
+        } catch (error) {
+            debugError('❌ Failed to fetch Binance prices:', error);
+            // Set error state for all symbols
+            symbols.forEach(symbol => {
+                this.updateBinancePrice(symbol, null, 'Error');
+            });
+        }
+    }
+
+    updateBinancePrice(symbol, price, changePercent) {
+        let elementId;
+        let coinName;
+        
+        // Map symbol to element ID and coin name
+        switch (symbol) {
+            case 'BTCUSDT':
+                elementId = 'binance-btc-price';
+                coinName = 'BTC';
+                break;
+            case 'ETHUSDT':
+                elementId = 'binance-eth-price';
+                coinName = 'ETH';
+                break;
+            case 'SOLUSDT':
+                elementId = 'binance-sol-price';
+                coinName = 'SOL';
+                break;
+            case 'XRPUSDT':
+                elementId = 'binance-xrp-price';
+                coinName = 'XRP';
+                break;
+            case 'ADAUSDT':
+                elementId = 'binance-ada-price';
+                coinName = 'ADA';
+                break;
+            case 'LINKUSDT':
+                elementId = 'binance-link-price';
+                coinName = 'LINK';
+                break;
+            default:
+                return;
+        }
+        
+        const element = document.getElementById(elementId);
+        if (!element) {
+            debugError(`❌ Element not found: ${elementId}`);
+            return;
+        }
+        
+        if (price === null || changePercent === 'Error') {
+            element.innerHTML = `
+                <div class="binance-price-value">--</div>
+                <div class="binance-price-change neutral">N/A</div>
+            `;
+            return;
+        }
+        
+        const changeClass = changePercent >= 0 ? 'positive' : 'negative';
+        const changeSign = changePercent >= 0 ? '+' : '';
+        
+        element.innerHTML = `
+            <div class="binance-price-value">$${price.toFixed(price >= 1 ? 2 : 6)}</div>
+            <div class="binance-price-change ${changeClass}">
+                ${changeSign}${changePercent.toFixed(2)}%
+            </div>
+        `;
+        
+        this.animateUpdate(element);
+        debugLog(`✅ Updated ${coinName}: $${price.toFixed(price >= 1 ? 2 : 6)} (${changeSign}${changePercent.toFixed(2)}%)`);
     }
 }
 
@@ -862,10 +931,5 @@ window.testMarketIndicators = function() {
         }
     };
     
-    debugLog('🧪 Testing with sample data (including US stock indices):', sampleData);
-    if (window.updateMarketIndicators) {
-        window.updateMarketIndicators(sampleData);
-    } else {
-        debugLog('❌ updateMarketIndicators function not available');
+        debugLog('🧪 Testing with sample data (including US stock indices):', sampleData);
     }
-};

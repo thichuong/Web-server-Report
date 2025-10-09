@@ -92,6 +92,9 @@ function get_translations_data()
     'market-cap-change': { vi: 'Thay Đổi Vốn Hóa', en: 'Market Cap Change' },
     'last-updated': { vi: 'Cập Nhật Lần Cuối', en: 'Last Updated' },
     
+    // Binance Widget
+    'binance-prices-title': { vi: 'Giá Crypto từ Binance', en: 'Crypto Prices from Binance' },
+    
     // Fear & Greed Index classifications
     'extreme-fear': { vi: 'Sợ hãi tột độ', en: 'Extreme Fear' },
     'fear': { vi: 'Sợ hãi', en: 'Fear' },
