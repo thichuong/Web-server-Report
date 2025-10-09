@@ -1,6 +1,6 @@
 /* Định dạng nhãn giá trị cho bar chart */
 .bar-value-label.h3 {
-    font-size: 11px;
+    font-size: 2rem;
     font-weight: 600;
     font-family: inherit;
     fill: var(--text-primary);
@@ -9,7 +9,7 @@
 
 @media (max-width: 580px) {
     .bar-value-label.h3 {
-        font-size: 9px;
+        font-size: 2rem;
     }
 }
 /* static/css/bar-chart.css */
