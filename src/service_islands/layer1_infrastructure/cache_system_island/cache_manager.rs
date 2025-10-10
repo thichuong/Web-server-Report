@@ -18,7 +18,7 @@ use super::l2_cache::L2Cache;
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum CacheStrategy {
-    /// Real-time data - 30 seconds TTL
+    /// Real-time data - 10 seconds TTL
     RealTime,
     /// Short-term data - 5 minutes TTL  
     ShortTerm,

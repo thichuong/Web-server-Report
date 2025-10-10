@@ -225,7 +225,7 @@ impl MarketDataAdapter {
             // STEP 3: Store in Layer 3 cache for future requests
             if let Some(cache_system) = &self.cache_system {
                 match cache_system.cache_manager().set_with_strategy("latest_market_data", layer2_data.clone(), CacheStrategy::RealTime).await {
-                    Ok(_) => println!("💾 [Layer 3] Stored latest_market_data in cache (RealTime strategy - 30s TTL)"),
+                    Ok(_) => println!("💾 [Layer 3] Stored latest_market_data in cache (RealTime strategy - 10s TTL)"),
                     Err(e) => println!("⚠️ [Layer 3] Failed to cache latest_market_data: {}", e),
                 }
             }

@@ -34,7 +34,7 @@ impl MarketDataStreamer {
         Self {
             external_apis: None,
             service_islands: None,
-            update_interval: Duration::from_secs(5), // 5 seconds for faster updates
+            update_interval: Duration::from_secs(2), // 2 seconds for faster updates
             is_streaming: std::sync::atomic::AtomicBool::new(false),
         }
     }
