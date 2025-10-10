@@ -384,10 +384,12 @@ class MarketIndicatorsDashboard {
         const changeClass = change >= 0 ? 'positive' : 'negative';
         const changeIcon = change >= 0 ? '📈' : '📉';
         const changeSign = change >= 0 ? '+' : '';
+        const formatted = this.formatLargeNumber(value);
+        const unitHtml = formatted.unitKey ? `<span class="unit" data-i18n="${formatted.unitKey}">${formatted.unitText}</span>` : '';
 
         element.innerHTML = `
             <div class="flex items-center justify-between">
-                <div class="market-value">$${this.formatLargeNumber(value)}</div>
+                <div class="market-value">$${formatted.number}${unitHtml}</div>
                 <div class="market-change ${changeClass}">
                     <span class="change-icon">${changeIcon}</span>
                     ${changeSign}${change.toFixed(2)}% (24h)
@@ -396,6 +398,7 @@ class MarketIndicatorsDashboard {
         `;
 
         this.animateUpdate(element);
+        this.updateTranslations(element);
         debugLog('✅ Market cap updated:', { value, change });
     }
 
@@ -418,10 +421,12 @@ class MarketIndicatorsDashboard {
         const changeClass = change >= 0 ? 'positive' : 'negative';
         const changeIcon = change >= 0 ? '📈' : '📉';
         const changeSign = change >= 0 ? '+' : '';
+        const formatted = this.formatLargeNumber(value);
+        const unitHtml = formatted.unitKey ? `<span class="unit" data-i18n="${formatted.unitKey}">${formatted.unitText}</span>` : '';
 
         element.innerHTML = `
             <div class="flex items-center justify-between">
-                <div class="market-value">$${this.formatLargeNumber(value)}</div>
+                <div class="market-value">$${formatted.number}${unitHtml}</div>
                 <div class="market-change ${changeClass}">
                     <span class="change-icon">${changeIcon}</span>
                     ${changeSign}${change.toFixed(2)}% (24h)
@@ -430,6 +435,7 @@ class MarketIndicatorsDashboard {
         `;
 
         this.animateUpdate(element);
+        this.updateTranslations(element);
         debugLog('✅ Volume 24h updated:', { value, change });
     }
 
@@ -605,19 +611,35 @@ class MarketIndicatorsDashboard {
     }
 
     formatLargeNumber(num) {
+        const lang = window.current_language || 'vi';
+        const isVietnamese = lang === 'vi';
+        
         if (num >= 1e12) {
-            return (num / 1e12).toFixed(2) + 'T';
+            return {
+                number: (num / 1e12).toFixed(2),
+                unitKey: isVietnamese ? 'unit-trillion' : 'unit-trillion-en',
+                unitText: isVietnamese ? ' Nghìn Tỷ' : ' T'
+            };
         }
         if (num >= 1e9) {
-            return (num / 1e9).toFixed(2) + 'B';
+            return {
+                number: (num / 1e9).toFixed(2),
+                unitKey: isVietnamese ? 'unit-billion' : 'unit-billion-en',
+                unitText: isVietnamese ? ' Tỷ' : ' B'
+            };
         }
         if (num >= 1e6) {
-            return (num / 1e6).toFixed(2) + 'M';
+            return {
+                number: (num / 1e6).toFixed(2),
+                unitKey: isVietnamese ? 'unit-million' : 'unit-million-en',
+                unitText: isVietnamese ? ' Triệu' : ' M'
+            };
         }
-        if (num >= 1e3) {
-            return (num / 1e3).toFixed(2) + 'K';
-        }
-        return num.toLocaleString('en-US');
+        return {
+            number: num.toLocaleString(lang === 'vi' ? 'vi-VN' : 'en-US'),
+            unitKey: null,
+            unitText: ''
+        };
     }
 
     startDataRefresh() {
@@ -823,16 +845,24 @@ class MarketIndicatorsDashboard {
         
         const changeClass = changePercent >= 0 ? 'positive' : 'negative';
         const changeSign = changePercent >= 0 ? '+' : '';
+        const lang = window.current_language || 'vi';
+        const locale = 'en-US';
+        
+        // Format price with commas and appropriate decimal places
+        const formattedPrice = price.toLocaleString(locale, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: price >= 1 ? 2 : 6
+        });
         
         element.innerHTML = `
-            <div class="binance-price-value">$${price.toFixed(price >= 1 ? 2 : 6)}</div>
+            <div class="binance-price-value">$${formattedPrice}</div>
             <div class="binance-price-change ${changeClass}">
                 ${changeSign}${changePercent.toFixed(2)}%
             </div>
         `;
         
         this.animateUpdate(element);
-        debugLog(`✅ Updated ${coinName}: $${price.toFixed(price >= 1 ? 2 : 6)} (${changeSign}${changePercent.toFixed(2)}%)`);
+        debugLog(`✅ Updated ${coinName}: $${formattedPrice} (${changeSign}${changePercent.toFixed(2)}%)`);
     }
 }
 

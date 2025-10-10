@@ -110,7 +110,14 @@ function get_translations_data()
     'greed-desc': { vi: 'Thị trường có xu hướng tăng mạnh', en: 'Market tends to rise strongly' },
     'extreme-greed-desc': { vi: 'Thị trường đang trong trạng thái tham lam tột độ', en: 'Market is in extreme greed state' },
     
-    'powered-by': { vi: 'Được cung cấp bởi', en: 'Powered by' }
+    'powered-by': { vi: 'Được cung cấp bởi', en: 'Powered by' },
+    'websocket-api': { vi: 'API WebSocket', en: 'WebSocket API' },
+    'us-stock-indices': { vi: 'Chỉ Số Chứng Khoán Mỹ', en: 'US Stock Indices' },
+    
+    // Unit translations for large numbers
+    'unit-trillion': { vi: ' Nghìn Tỷ', en: ' T' },
+    'unit-billion': { vi: ' Tỷ', en: ' B' },
+    'unit-million': { vi: ' Triệu', en: ' M' }
     };
     return translations_data;
 }
