@@ -236,6 +236,19 @@
     color: var(--warning-color);
 }
 
+/* RSI Indicator Styles */
+.index-value.oversold {
+    color: var(--rsi-oversold-color, #ef4444);
+}
+
+.index-value.neutral {
+    color: var(--rsi-neutral-color, #f59e0b);
+}
+
+.index-value.overbought {
+    color: var(--rsi-overbought-color, #10b981);
+}
+
 .index-label {
     font-size: 1rem;
     font-weight: 600;

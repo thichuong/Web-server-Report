@@ -99,7 +99,7 @@ impl MarketDataAdapter {
         let btc_dominance = raw_data.get("btc_market_cap_percentage").cloned().unwrap_or(serde_json::Value::Number(serde_json::Number::from(0)));
         let eth_dominance = raw_data.get("eth_market_cap_percentage").cloned().unwrap_or(serde_json::Value::Number(serde_json::Number::from(0)));
         let fear_greed = raw_data.get("fng_value").cloned().unwrap_or(serde_json::Value::Number(serde_json::Number::from(50)));
-        let rsi_14 = raw_data.get("rsi_14").cloned().unwrap_or(serde_json::Value::Number(serde_json::Number::from(50)));
+        let btc_rsi_14 = raw_data.get("btc_rsi_14").cloned().unwrap_or(serde_json::Value::Number(serde_json::Number::from(50)));
         
         // Extract US stock indices data from Layer 2
         let us_stock_indices = raw_data.get("us_stock_indices").cloned().unwrap_or(serde_json::json!({}));
@@ -143,7 +143,7 @@ impl MarketDataAdapter {
             "eth_market_cap_percentage": eth_dominance,
             "fear_greed_index": fear_greed,
             "fng_value": fear_greed,
-            "rsi_14": rsi_14,
+            "btc_rsi_14": btc_rsi_14,
             "us_stock_indices": us_stock_indices,
             "data_sources": data_sources,
             "partial_failure": partial_failure,

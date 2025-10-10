@@ -38,6 +38,7 @@ class MarketIndicatorsDashboard {
             fearGreedIndex: null,
             btcDominance: null,
             ethDominance: null,
+            btcRsi14: null,
             usStockIndices: null
         };
         
@@ -65,6 +66,7 @@ class MarketIndicatorsDashboard {
             fearGreed: document.getElementById('fear-greed-indicator'),
             btcDominance: document.getElementById('btc-dominance-indicator'),
             ethDominance: document.getElementById('eth-dominance-indicator'),
+            btcRsi14: document.getElementById('btc-rsi-14-indicator'),
             connectionStatus: document.getElementById('connection-status'),
             // Binance price elements
             binanceBTC: document.getElementById('binance-btc-price'),
@@ -326,6 +328,11 @@ class MarketIndicatorsDashboard {
                 this.updateEthDominance(data.eth_market_cap_percentage);
             }
 
+            // Update BTC RSI 14 - use btc_rsi_14 directly
+            if (data.btc_rsi_14 !== undefined) {
+                this.updateBtcRsi14(data.btc_rsi_14);
+            }
+
             // Update US Stock Indices
             if (data.us_stock_indices) {
                 this.updateUSStockIndices(data.us_stock_indices);
@@ -546,6 +553,49 @@ class MarketIndicatorsDashboard {
 
         this.animateUpdate(element);
         debugLog('✅ ETH dominance updated:', { dominance: dominance.toFixed(1) });
+    }
+
+    updateBtcRsi14(value) {
+        const element = this.elements.btcRsi14;
+        if (!element) return;
+
+        const rsi = parseFloat(value) || 0;
+        
+        // Check if data has actually changed (with small tolerance for floating point comparison)
+        const cachedBtcRsi14 = this.cachedData.btcRsi14;
+        if (cachedBtcRsi14 !== null && Math.abs(cachedBtcRsi14 - rsi) < 0.01) {
+            debugLog('⏭️ BTC RSI 14 unchanged, skipping update:', { rsi });
+            return;
+        }
+        
+        this.cachedData.btcRsi14 = rsi;
+
+        let rsiClass = 'neutral';
+        let rsiLabelKey;
+        
+        if (rsi <= 30) {
+            rsiClass = 'oversold';
+            rsiLabelKey = 'rsi-oversold';
+        } else if (rsi <= 70) {
+            rsiClass = 'neutral';
+            rsiLabelKey = 'rsi-neutral';
+        } else {
+            rsiClass = 'overbought';
+            rsiLabelKey = 'rsi-overbought';
+        }
+
+        element.innerHTML = `
+            <div class="index-display flex items-center justify-between">
+                <div class="index-value ${rsiClass}">${rsi.toFixed(1)}</div>
+                <div class="index-label" data-i18n="${rsiLabelKey}">RSI 14</div>
+            </div>
+        `;
+
+        // Trigger translation update if available
+        this.updateTranslations(element);
+        
+        this.animateUpdate(element);
+        debugLog('✅ BTC RSI 14 updated:', { rsi: rsi.toFixed(1), class: rsiClass });
     }
 
     updateConnectionStatus(status) {
@@ -954,7 +1004,7 @@ window.testMarketIndicators = function() {
         bnb_price_usd: 680.5,
         fng_value: 48,
         market_cap_usd: 3872941106289.462,
-        rsi_14: 38.4490332215743,
+        btc_rsi_14: 38.4490332215743,
         us_stock_indices: {
             DIA: {
                 name: "SPDR Dow Jones Industrial Average ETF",

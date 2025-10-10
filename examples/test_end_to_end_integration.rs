@@ -31,7 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "btc_market_cap_percentage",
                 "eth_market_cap_percentage",
                 "fng_value",
-                "rsi_14"
+                "btc_rsi_14"
             ];
             
             println!("\n📋 Checking frontend integration fields:");

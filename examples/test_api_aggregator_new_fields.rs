@@ -48,7 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             
             // Technical indicators
             println!("  😨 Fear & Greed Index: {}", data["fng_value"].as_u64().unwrap_or(50));
-            println!("  📈 RSI (14): {:.2}", data["rsi_14"].as_f64().unwrap_or(50.0));
+            println!("  📈 RSI (14): {:.2}", data["btc_rsi_14"].as_f64().unwrap_or(50.0));
             
             // Metadata
             if let Some(duration) = data["fetch_duration_ms"].as_u64() {

@@ -318,7 +318,7 @@ function updateDashboardFromData(data) {
         btc_price_usd: typeof data.btc_price_usd,
         btc_change_24h: typeof data.btc_change_24h,
         fng_value: typeof data.fng_value,
-        rsi_14: typeof data.rsi_14
+        btc_rsi_14: typeof data.btc_rsi_14
     });
     
     // Cập nhật Vốn hóa thị trường
@@ -395,8 +395,8 @@ function updateDashboardFromData(data) {
 
     // Cập nhật chỉ số RSI
     const rsiContainer = selectDashboardElementByLang('rsi-container');
-    const rsiValue = parseFloat(data.rsi_14);
-    console.log('🔍 [DEBUG] RSI Value parsed:', rsiValue, 'from:', data.rsi_14);
+    const rsiValue = parseFloat(data.btc_rsi_14);
+    console.log('🔍 [DEBUG] RSI Value parsed:', rsiValue, 'from:', data.btc_rsi_14);
     if (rsiValue !== null && rsiValue !== undefined && !isNaN(rsiValue) && rsiContainer) {
         const rsiConfig = {
             min: 0, max: 100,
@@ -594,7 +594,7 @@ function renderDashboardFromCache(lang) {
 
     // RSI
     const rsiContainer = selectDashboardElementByLang('rsi-container', lang);
-    const rsiVal = rsiContainer ? Number(rsiContainer.dataset.value || data.rsi_14) : null;
+    const rsiVal = rsiContainer ? Number(rsiContainer.dataset.value || data.btc_rsi_14) : null;
     if (rsiContainer && rsiVal !== null && !isNaN(rsiVal)) {
         const rsiConfig = {
             min: 0, max: 100,

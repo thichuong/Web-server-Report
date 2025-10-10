@@ -46,7 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "btc_market_cap_percentage",
                 "eth_market_cap_percentage",
                 "fng_value",
-                "rsi_14"
+                "btc_rsi_14"
             ];
             
             println!("\n📋 Layer 3 Normalization Results:");
@@ -93,7 +93,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ("eth_market_cap_percentage", "ETH Dominance for updateEthDominance()"),
                 ("fng_value", "Fear & Greed for updateFearGreedIndex()"),
                 ("volume_24h_usd", "Volume for updateVolume24h()"),
-                ("rsi_14", "RSI for technical analysis")
+                ("btc_rsi_14", "RSI for technical analysis")
             ];
             
             let mut all_compatible = true;

@@ -27,12 +27,12 @@ impl ApiAggregator {
         let bnb_future = timeout(Duration::from_secs(8), self.fetch_bnb_with_cache());
         let global_future = timeout(Duration::from_secs(8), self.fetch_global_with_cache());
         let fng_future = timeout(Duration::from_secs(8), self.fetch_fng_with_cache());
-        let rsi_future = timeout(Duration::from_secs(8), self.fetch_rsi_with_cache());
+        let btc_rsi_14_future = timeout(Duration::from_secs(8), self.fetch_btc_rsi_14_with_cache());
         let us_indices_future = timeout(Duration::from_secs(8), self.fetch_us_indices_with_cache());
 
-        let (btc_result, eth_result, sol_result, xrp_result, ada_result, link_result, bnb_result, global_result, fng_result, rsi_result, us_indices_result) = tokio::join!(
+        let (btc_result, eth_result, sol_result, xrp_result, ada_result, link_result, bnb_result, global_result, fng_result, btc_rsi_14_result, us_indices_result) = tokio::join!(
             btc_future, eth_future, sol_future, xrp_future, ada_future, link_future, bnb_future,
-            global_future, fng_future, rsi_future, us_indices_future
+            global_future, fng_future, btc_rsi_14_future, us_indices_future
         );
 
         let mut partial_failure = false;
@@ -146,8 +146,8 @@ impl ApiAggregator {
         };
 
         // Process RSI data
-        let rsi_value = match rsi_result {
-            Ok(Ok(rsi_data)) => rsi_data["value"].as_f64().unwrap_or(50.0),
+        let btc_rsi_14_value = match btc_rsi_14_result {
+            Ok(Ok(btc_rsi_14_data)) => btc_rsi_14_data["value"].as_f64().unwrap_or(50.0),
             _ => {
                 partial_failure = true;
                 50.0
@@ -196,7 +196,7 @@ impl ApiAggregator {
             "btc_market_cap_percentage": btc_dominance,
             "eth_market_cap_percentage": eth_dominance,
             "fng_value": fng_value,
-            "rsi_14": rsi_value,
+            "btc_rsi_14": btc_rsi_14_value,
             "us_stock_indices": us_indices,
             "fetch_duration_ms": duration.as_millis() as u64,
             "partial_failure": partial_failure,

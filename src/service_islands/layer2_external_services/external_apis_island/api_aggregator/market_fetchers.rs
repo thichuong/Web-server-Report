@@ -60,8 +60,8 @@ impl ApiAggregator {
     }
 
     /// Fetch RSI with generic caching strategy
-    pub async fn fetch_rsi_with_cache(&self) -> Result<serde_json::Value> {
-        let cache_key = "rsi_taapi_3h";
+    pub async fn fetch_btc_rsi_14_with_cache(&self) -> Result<serde_json::Value> {
+        let cache_key = "btc_rsi_14_taapi_3h";
 
         // Try cache first
         if let Some(ref cache) = self.cache_system {
@@ -71,7 +71,7 @@ impl ApiAggregator {
         }
 
         // Fetch from API
-        match self.market_api.fetch_rsi().await {
+        match self.market_api.fetch_btc_rsi_14().await {
             Ok(data) => {
                 // Cache using generic LongTerm strategy (3 hours)
                 if let Some(ref cache) = self.cache_system {

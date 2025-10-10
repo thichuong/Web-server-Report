@@ -155,10 +155,10 @@ impl MarketDataApi {
     }
 
     /// Fetch RSI data
-    pub async fn fetch_rsi(&self) -> Result<serde_json::Value> {
+    pub async fn fetch_btc_rsi_14(&self) -> Result<serde_json::Value> {
         self.record_api_call();
 
-        match self.fetch_rsi_internal().await {
+        match self.fetch_btc_rsi_14_internal().await {
             Ok(data) => {
                 self.record_success();
                 Ok(data)
@@ -171,7 +171,7 @@ impl MarketDataApi {
     }
 
     /// Internal RSI fetching
-    async fn fetch_rsi_internal(&self) -> Result<serde_json::Value> {
+    async fn fetch_btc_rsi_14_internal(&self) -> Result<serde_json::Value> {
         let url = BASE_RSI_URL_TEMPLATE.replace("{secret}", &self.taapi_secret);
 
         // RSI uses a different approach because URL is dynamic
@@ -186,9 +186,9 @@ impl MarketDataApi {
 
             match response.status() {
                 status if status.is_success() => {
-                    let rsi_data: TaapiRsiResponse = response.json().await?;
+                    let btc_rsi_14_data: TaapiRsiResponse = response.json().await?;
                     return Ok(serde_json::json!({
-                        "value": rsi_data.value,
+                        "value": btc_rsi_14_data.value,
                         "period": "14",
                         "last_updated": chrono::Utc::now().to_rfc3339()
                     }));

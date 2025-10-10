@@ -97,8 +97,8 @@ impl MarketDataStreamer {
                             if let Some(fng) = dashboard_data.get("fng_value") {
                                 println!("  😨 Fear & Greed Index: {:?}", fng);
                             }
-                            if let Some(rsi) = dashboard_data.get("rsi_14") {
-                                println!("  📈 RSI 14: {:?}", rsi);
+                            if let Some(btc_rsi_14) = dashboard_data.get("btc_rsi_14") {
+                                println!("  📈 RSI 14: {:?}", btc_rsi_14);
                             }
                             if let Some(btc_dom) = dashboard_data.get("btc_market_cap_percentage") {
                                 println!("  ₿ BTC Dominance: {:?}%", btc_dom);
