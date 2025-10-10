@@ -29,6 +29,8 @@ class MarketIndicatorsDashboard {
         this.reconnectDelay = 500; // Faster initial reconnect (500ms instead of 1000ms)
         this.updateAnimationDuration = 300;
         this.heartbeatInterval = null;
+        // Heartbeat interval in ms (configurable). Default 15s to avoid excessive pings.
+        this.heartbeatMs = 15000;
         this.lastDataUpdate = Date.now(); // Track last data received
         
         // Data cache
@@ -264,6 +266,8 @@ class MarketIndicatorsDashboard {
                     
                 case 'pong':
                     debugLog('🏓 Pong received');
+                    // Treat pong as activity to prevent false staleness detection
+                    this.lastDataUpdate = Date.now();
                     break;
                     
                 default:
@@ -812,20 +816,31 @@ class MarketIndicatorsDashboard {
     }
 
     startHeartbeat() {
-        // Send ping every 15 seconds to keep connection alive (increased frequency)
+        // Start heartbeat to keep connection alive. Uses application-level ping JSON.
+        // Configurable via this.heartbeatMs (default 15000ms).
+        // Ensure we don't create duplicate intervals.
+        this.stopHeartbeat();
         this.heartbeatInterval = setInterval(() => {
             if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
                 debugLog('🏓 Sending heartbeat ping');
-                this.websocket.send('ping');
+                try {
+                    this.websocket.send(JSON.stringify({ type: 'ping', ts: Date.now() }));
+                } catch (err) {
+                    debugError('❌ Failed to send heartbeat ping:', err);
+                }
             } else {
                 this.stopHeartbeat();
             }
-        }, 5000); // Every 5 seconds (faster heartbeat)
+        }, this.heartbeatMs);
     }
 
     stopHeartbeat() {
         if (this.heartbeatInterval) {
-            clearInterval(this.heartbeatInterval);
+            try {
+                clearInterval(this.heartbeatInterval);
+            } catch (err) {
+                debugError('❌ Error clearing heartbeat interval:', err);
+            }
             this.heartbeatInterval = null;
         }
     }
