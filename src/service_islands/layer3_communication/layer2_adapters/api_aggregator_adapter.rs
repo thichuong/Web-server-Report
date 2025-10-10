@@ -42,7 +42,7 @@ impl ApiAggregatorAdapter {
         if let Some(external_apis) = &self.external_apis {
             println!("🔄 [Layer 3 → Layer 2] Fetching aggregated market statistics...");
             // This would call a market statistics aggregation method
-            external_apis.fetch_dashboard_summary_v2().await
+            external_apis.fetch_dashboard_summary_v2(false).await
         } else {
             Err(anyhow::anyhow!("Layer 2 External APIs not configured in ApiAggregatorAdapter"))
         }

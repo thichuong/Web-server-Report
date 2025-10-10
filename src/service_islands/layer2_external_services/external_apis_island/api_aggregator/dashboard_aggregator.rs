@@ -11,20 +11,22 @@ use super::aggregator_core::ApiAggregator;
 impl ApiAggregator {
     /// Fetch dashboard summary v2 - Main method for Layer 2 dashboard data
     /// Returns a focused summary with essential market data
-    pub async fn fetch_dashboard_summary_v2(&self) -> Result<serde_json::Value> {
+    /// 
+    /// force_realtime_refresh: If true, forces refresh of RealTime cached data (crypto prices)
+    pub async fn fetch_dashboard_summary_v2(&self, force_realtime_refresh: bool) -> Result<serde_json::Value> {
         let start_time = std::time::Instant::now();
         self.total_aggregations.fetch_add(1, Ordering::Relaxed);
 
         println!("🔄 Starting dashboard summary v2 aggregation...");
 
         // Fetch essential data concurrently with shorter timeouts for summary
-        let btc_future = timeout(Duration::from_secs(8), self.fetch_btc_with_cache());
-        let eth_future = timeout(Duration::from_secs(8), self.fetch_eth_with_cache());
-        let sol_future = timeout(Duration::from_secs(8), self.fetch_sol_with_cache());
-        let xrp_future = timeout(Duration::from_secs(8), self.fetch_xrp_with_cache());
-        let ada_future = timeout(Duration::from_secs(8), self.fetch_ada_with_cache());
-        let link_future = timeout(Duration::from_secs(8), self.fetch_link_with_cache());
-        let bnb_future = timeout(Duration::from_secs(8), self.fetch_bnb_with_cache());
+        let btc_future = timeout(Duration::from_secs(8), self.fetch_btc_with_cache(force_realtime_refresh));
+        let eth_future = timeout(Duration::from_secs(8), self.fetch_eth_with_cache(force_realtime_refresh));
+        let sol_future = timeout(Duration::from_secs(8), self.fetch_sol_with_cache(force_realtime_refresh));
+        let xrp_future = timeout(Duration::from_secs(8), self.fetch_xrp_with_cache(force_realtime_refresh));
+        let ada_future = timeout(Duration::from_secs(8), self.fetch_ada_with_cache(force_realtime_refresh));
+        let link_future = timeout(Duration::from_secs(8), self.fetch_link_with_cache(force_realtime_refresh));
+        let bnb_future = timeout(Duration::from_secs(8), self.fetch_bnb_with_cache(force_realtime_refresh));
         let global_future = timeout(Duration::from_secs(8), self.fetch_global_with_cache());
         let fng_future = timeout(Duration::from_secs(8), self.fetch_fng_with_cache());
         let btc_rsi_14_future = timeout(Duration::from_secs(8), self.fetch_btc_rsi_14_with_cache());

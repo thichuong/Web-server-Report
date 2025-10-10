@@ -136,11 +136,13 @@ impl WebSocketServiceIsland {
     /// This method allows Layer 5 to request market data through Layer 3,
     /// maintaining proper Service Islands Architecture dependency flow:
     /// Layer 5 → Layer 3 → Layer 2
-    pub async fn fetch_market_data(&self) -> Result<serde_json::Value> {
-        println!("🔄 Layer 3 WebSocketService handling Layer 5 market data request...");
+    /// 
+    /// force_realtime_refresh: If true, forces refresh of RealTime cached data (for streaming)
+    pub async fn fetch_market_data(&self, force_realtime_refresh: bool) -> Result<serde_json::Value> {
+        println!("🔄 Layer 3 WebSocketService handling Layer 5 market data request (force_realtime_refresh: {})...", force_realtime_refresh);
         
         // Use Layer 2 adapters for clean API access
-        self.layer2_adapters.market_data.fetch_normalized_market_data().await
+        self.layer2_adapters.market_data.fetch_normalized_market_data(force_realtime_refresh).await
     }
 
     /// Start streaming with Service Islands access

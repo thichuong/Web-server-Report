@@ -20,7 +20,7 @@ async fn main() -> Result<(), anyhow::Error> {
     
     // Initialize unified streaming for consistent data access
     println!("🔄 Initializing unified streaming...");
-    service_islands.initialize_unified_streaming().await?;
+    service_islands.initialize_unified_streaming().await?; 
     
     // Phase 3: Initialize Redis Streams integration for real-time updates
     println!("🚀 Phase 3: Initializing Redis Streams integration...");

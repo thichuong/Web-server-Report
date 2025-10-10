@@ -51,7 +51,7 @@ pub async fn fetch_realtime_market_data(
 ) -> Result<serde_json::Value, anyhow::Error> {
     println!("🔄 Layer 5 standalone function requesting market data via Layer 3 (strict architecture)...");
     
-    match websocket_service.fetch_market_data().await {
+    match websocket_service.fetch_market_data(false).await {
         Ok(market_data) => {
             println!("✅ Layer 5 standalone function received market data via Layer 3 → Layer 2 successfully");
             

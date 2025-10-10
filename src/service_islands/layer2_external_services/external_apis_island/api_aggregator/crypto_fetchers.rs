@@ -7,13 +7,17 @@ use super::aggregator_core::ApiAggregator;
 
 impl ApiAggregator {
     /// Fetch BTC data with generic caching strategy
-    pub async fn fetch_btc_with_cache(&self) -> Result<serde_json::Value> {
+    /// 
+    /// force_refresh: If true, skips cache check and forces API fetch (for streaming)
+    pub async fn fetch_btc_with_cache(&self, force_refresh: bool) -> Result<serde_json::Value> {
         let cache_key = "btc_price_realtime";
 
-        // Try cache first
-        if let Some(ref cache) = self.cache_system {
-            if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
-                return Ok(cached_data);
+        // Try cache first (unless force refresh)
+        if !force_refresh {
+            if let Some(ref cache) = self.cache_system {
+                if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
+                    return Ok(cached_data);
+                }
             }
         }
 
@@ -33,13 +37,17 @@ impl ApiAggregator {
     }
 
     /// Fetch ETH data with generic caching strategy
-    pub async fn fetch_eth_with_cache(&self) -> Result<serde_json::Value> {
+    /// 
+    /// force_refresh: If true, skips cache check and forces API fetch (for streaming)
+    pub async fn fetch_eth_with_cache(&self, force_refresh: bool) -> Result<serde_json::Value> {
         let cache_key = "eth_price_realtime";
 
-        // Try cache first
-        if let Some(ref cache) = self.cache_system {
-            if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
-                return Ok(cached_data);
+        // Try cache first (unless force refresh)
+        if !force_refresh {
+            if let Some(ref cache) = self.cache_system {
+                if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
+                    return Ok(cached_data);
+                }
             }
         }
 
@@ -59,13 +67,17 @@ impl ApiAggregator {
     }
 
     /// Fetch SOL data with generic caching strategy
-    pub async fn fetch_sol_with_cache(&self) -> Result<serde_json::Value> {
+    /// 
+    /// force_refresh: If true, skips cache check and forces API fetch (for streaming)
+    pub async fn fetch_sol_with_cache(&self, force_refresh: bool) -> Result<serde_json::Value> {
         let cache_key = "sol_price_realtime";
 
-        // Try cache first
-        if let Some(ref cache) = self.cache_system {
-            if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
-                return Ok(cached_data);
+        // Try cache first (unless force refresh)
+        if !force_refresh {
+            if let Some(ref cache) = self.cache_system {
+                if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
+                    return Ok(cached_data);
+                }
             }
         }
 
@@ -85,13 +97,17 @@ impl ApiAggregator {
     }
 
     /// Fetch XRP data with generic caching strategy
-    pub async fn fetch_xrp_with_cache(&self) -> Result<serde_json::Value> {
+    /// 
+    /// force_refresh: If true, skips cache check and forces API fetch (for streaming)
+    pub async fn fetch_xrp_with_cache(&self, force_refresh: bool) -> Result<serde_json::Value> {
         let cache_key = "xrp_price_realtime";
 
-        // Try cache first
-        if let Some(ref cache) = self.cache_system {
-            if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
-                return Ok(cached_data);
+        // Try cache first (unless force refresh)
+        if !force_refresh {
+            if let Some(ref cache) = self.cache_system {
+                if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
+                    return Ok(cached_data);
+                }
             }
         }
 
@@ -111,13 +127,17 @@ impl ApiAggregator {
     }
 
     /// Fetch ADA data with generic caching strategy
-    pub async fn fetch_ada_with_cache(&self) -> Result<serde_json::Value> {
+    /// 
+    /// force_refresh: If true, skips cache check and forces API fetch (for streaming)
+    pub async fn fetch_ada_with_cache(&self, force_refresh: bool) -> Result<serde_json::Value> {
         let cache_key = "ada_price_realtime";
 
-        // Try cache first
-        if let Some(ref cache) = self.cache_system {
-            if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
-                return Ok(cached_data);
+        // Try cache first (unless force refresh)
+        if !force_refresh {
+            if let Some(ref cache) = self.cache_system {
+                if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
+                    return Ok(cached_data);
+                }
             }
         }
 
@@ -137,13 +157,17 @@ impl ApiAggregator {
     }
 
     /// Fetch LINK data with generic caching strategy
-    pub async fn fetch_link_with_cache(&self) -> Result<serde_json::Value> {
+    /// 
+    /// force_refresh: If true, skips cache check and forces API fetch (for streaming)
+    pub async fn fetch_link_with_cache(&self, force_refresh: bool) -> Result<serde_json::Value> {
         let cache_key = "link_price_realtime";
 
-        // Try cache first
-        if let Some(ref cache) = self.cache_system {
-            if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
-                return Ok(cached_data);
+        // Try cache first (unless force refresh)
+        if !force_refresh {
+            if let Some(ref cache) = self.cache_system {
+                if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
+                    return Ok(cached_data);
+                }
             }
         }
 
@@ -163,13 +187,17 @@ impl ApiAggregator {
     }
 
     /// Fetch BNB data with generic caching strategy
-    pub async fn fetch_bnb_with_cache(&self) -> Result<serde_json::Value> {
+    /// 
+    /// force_refresh: If true, skips cache check and forces API fetch (for streaming)
+    pub async fn fetch_bnb_with_cache(&self, force_refresh: bool) -> Result<serde_json::Value> {
         let cache_key = "bnb_price_realtime";
 
-        // Try cache first
-        if let Some(ref cache) = self.cache_system {
-            if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
-                return Ok(cached_data);
+        // Try cache first (unless force refresh)
+        if !force_refresh {
+            if let Some(ref cache) = self.cache_system {
+                if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
+                    return Ok(cached_data);
+                }
             }
         }
 

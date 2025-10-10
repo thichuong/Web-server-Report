@@ -50,18 +50,12 @@ impl MarketDataAdapter {
         self
     }
     
-    /// Fetch dashboard summary data from Layer 2
+    /// Fetch dashboard summary data from Layer 2 (v2 with force refresh support)
     /// 
     /// Main method for getting comprehensive market data for dashboards.
     /// Used by Layer 5 business logic via Layer 3.
-    pub async fn fetch_dashboard_summary(&self) -> Result<serde_json::Value> {
-        if let Some(external_apis) = &self.external_apis {
-            println!("🔄 [Layer 3 → Layer 2] Fetching dashboard summary...");
-            external_apis.fetch_dashboard_summary_v2().await
-        } else {
-            Err(anyhow::anyhow!("Layer 2 External APIs not configured in MarketDataAdapter"))
-        }
-    }
+    /// 
+    /// force_realtime_refresh: If true, forces refresh of RealTime cached data
     
     // DEPRECATED: Use fetch_normalized_market_data() instead for all market data
     // Individual methods removed to prevent redundant API calls
@@ -74,9 +68,11 @@ impl MarketDataAdapter {
     /// This is the PRIMARY method for getting market data.
     /// Uses cache-free Layer 2 v2 methods to avoid redundant API calls.
     /// Converts raw Layer 2 data into a format suitable for Layer 5 business logic.
-    pub async fn fetch_normalized_market_data(&self) -> Result<serde_json::Value> {
+    /// 
+    /// force_realtime_refresh: If true, forces refresh of RealTime cached data
+    pub async fn fetch_normalized_market_data(&self, force_realtime_refresh: bool) -> Result<serde_json::Value> {
         // Use cache-free v2 method to avoid redundant cache logic
-        let raw_data = self.fetch_dashboard_summary_v2().await?;
+        let raw_data = self.fetch_dashboard_summary_v2(force_realtime_refresh).await?;
         
         // Extract and normalize key metrics including new fields
         let btc_price = raw_data.get("btc_price_usd").cloned().unwrap_or(serde_json::Value::Null);
@@ -195,42 +191,53 @@ impl MarketDataAdapter {
     /// OPTIMIZATION: Checks latest_market_data cache in Layer 3 first before calling Layer 2.
     /// This prevents unnecessary round-trips to Layer 2 when fresh data is available.
     /// Layer 1 handles all caching and streaming after this call.
-    pub async fn fetch_dashboard_summary_v2(&self) -> Result<serde_json::Value> {
-        println!("🔄 [Layer 3 → Cache Check] Checking latest_market_data cache first...");
+    /// 
+    /// force_realtime_refresh: If true, skips Layer 3 cache check and forces Layer 2 refresh
+    pub async fn fetch_dashboard_summary_v2(&self, force_realtime_refresh: bool) -> Result<serde_json::Value> {
+        println!("🔄 [Layer 3 → Cache Check] Checking latest_market_data cache first (force_realtime_refresh: {})...", force_realtime_refresh);
         
         // STEP 1: Layer 3 Cache Check for latest_market_data (with Cache Stampede protection)
-        if let Some(cache_system) = &self.cache_system {
-            match cache_system.cache_manager().get("latest_market_data").await {
-                Ok(Some(cached_data)) => {
-                    println!("💨 [Layer 3] Cache HIT for latest_market_data - skipping Layer 2 call (Cache Stampede protected)");
-                    println!("  🚀 Performance: Avoided Layer 2 round-trip");
-                    return Ok(cached_data);
+        // Skip if force refresh
+        if !force_realtime_refresh {
+            if let Some(cache_system) = &self.cache_system {
+                match cache_system.cache_manager().get("latest_market_data").await {
+                    Ok(Some(cached_data)) => {
+                        println!("💨 [Layer 3] Cache HIT for latest_market_data - skipping Layer 2 call (Cache Stampede protected)");
+                        println!("  🚀 Performance: Avoided Layer 2 round-trip");
+                        return Ok(cached_data);
+                    }
+                    Ok(None) => {
+                        println!("🔍 [Layer 3] Cache MISS for latest_market_data - proceeding to Layer 2");
+                    }
+                    Err(e) => {
+                        println!("⚠️ [Layer 3] Cache system error, falling back to Layer 2: {}", e);
+                    }
                 }
-                Ok(None) => {
-                    println!("🔍 [Layer 3] Cache MISS for latest_market_data - proceeding to Layer 2");
-                }
-                Err(e) => {
-                    println!("⚠️ [Layer 3] Cache system error, falling back to Layer 2: {}", e);
-                }
+            } else {
+                println!("⚠️ [Layer 3] No cache system configured, calling Layer 2 directly");
             }
         } else {
-            println!("⚠️ [Layer 3] No cache system configured, calling Layer 2 directly");
+            println!("🔄 [Layer 3] Force refresh enabled - skipping Layer 3 cache check");
         }
         
-        // STEP 2: Call Layer 2 if no cache or cache miss
+        // STEP 2: Call Layer 2 if no cache or cache miss or force refresh
         if let Some(external_apis) = &self.external_apis {
-            println!("🔄 [Layer 3 → Layer 2 V2] Fetching dashboard summary (cache-free)...");
-            let layer2_data = external_apis.fetch_dashboard_summary_v2().await?;
+            println!("🔄 [Layer 3 → Layer 2 V2] Fetching dashboard summary (cache-free, force_realtime_refresh: {})...", force_realtime_refresh);
+            let layer2_data = external_apis.fetch_dashboard_summary_v2(force_realtime_refresh).await?;
             
-            // STEP 3: Store in Layer 3 cache for future requests
-            if let Some(cache_system) = &self.cache_system {
-                match cache_system.cache_manager().set_with_strategy("latest_market_data", layer2_data.clone(), CacheStrategy::RealTime).await {
-                    Ok(_) => println!("💾 [Layer 3] Stored latest_market_data in cache (RealTime strategy - 10s TTL)"),
-                    Err(e) => println!("⚠️ [Layer 3] Failed to cache latest_market_data: {}", e),
+            // STEP 3: Store in Layer 3 cache for future requests (unless force refresh)
+            if !force_realtime_refresh {
+                if let Some(cache_system) = &self.cache_system {
+                    match cache_system.cache_manager().set_with_strategy("latest_market_data", layer2_data.clone(), CacheStrategy::RealTime).await {
+                        Ok(_) => println!("💾 [Layer 3] Stored latest_market_data in cache (RealTime strategy - 10s TTL)"),
+                        Err(e) => println!("⚠️ [Layer 3] Failed to cache latest_market_data: {}", e),
+                    }
                 }
+            } else {
+                println!("🔄 [Layer 3] Force refresh - skipping Layer 3 cache storage");
             }
             
-            println!("✅ [Layer 3] Fresh data fetched from Layer 2 and cached");
+            println!("✅ [Layer 3] Fresh data fetched from Layer 2");
             Ok(layer2_data)
         } else {
             Err(anyhow::anyhow!("Layer 2 External APIs not configured in MarketDataAdapter"))
@@ -249,7 +256,7 @@ impl MarketDataAdapter {
         println!("🌊 [Layer 3] Fetch dashboard data (streaming to Layer 1 pending)...");
         
         // Step 1: Fetch from Layer 2 (cache-free)
-        let raw_data = self.fetch_dashboard_summary_v2().await?;
+        let raw_data = self.fetch_dashboard_summary_v2(false).await?;
         
         // TODO: Step 2 - Stream to Layer 1 when AppState includes cache_system
         // let cache_system = &state.cache_system;
