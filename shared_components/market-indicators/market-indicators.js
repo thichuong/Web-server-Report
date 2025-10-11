@@ -653,21 +653,9 @@ class MarketIndicatorsDashboard {
     }
 
     animateUpdate(element) {
-        if (!element) return;
-
-        // Remove any existing animation classes
-        element.classList.remove('pulse-update', 'fade-in');
-        
-        // Force reflow
-        element.offsetHeight;
-        
-        // Add animation class
-        element.classList.add('pulse-update');
-        
-        // Remove animation class after animation completes
-        setTimeout(() => {
-            element.classList.remove('pulse-update');
-        }, this.updateAnimationDuration);
+        // Disabled to avoid visual noise with 2-second updates
+        // Real-time data updates every 2s don't need animation
+        return;
     }
 
     formatLargeNumber(num) {
