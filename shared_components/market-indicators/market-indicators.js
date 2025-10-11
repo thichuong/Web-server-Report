@@ -186,6 +186,10 @@ class MarketIndicatorsDashboard {
                 this.reconnectDelay = 500; // Reset to faster initial delay
                 this.updateConnectionStatus('connected');
                 
+                // Send ping immediately on connection
+                this.websocket.send('ping');
+                debugLog('🏓 Sent initial ping on connection');
+                
                 // Request fresh data immediately after WebSocket connects
                 this.requestFreshData();
                 
@@ -238,15 +242,16 @@ class MarketIndicatorsDashboard {
     }
 
     handleWebSocketMessage(message) {
-        debugLog('📨 Received WebSocket message type:', message.type);
-        debugLog('📨 Full message data:', message);
+        // Compact logging with timestamp for broadcast tracking
+        const now = new Date().toLocaleTimeString();
+        debugLog(`📨 [${now}] WebSocket message type: ${message.type}`);
         
         try {
             switch (message.type) {
                 case 'dashboard_data':
                 case 'dashboard_update':
                     if (message.data) {
-                        debugLog('📊 Received market data update:', message.data);
+                        debugLog(`📊 [${now}] Market data update received - processing...`);
                         this.updateMarketData(message.data);
                     }
                     break;
@@ -284,17 +289,22 @@ class MarketIndicatorsDashboard {
     }
 
     updateMarketData(data) {
-        debugLog('🔄 Updating market indicators with data:', data);
+        // Compact logging: only show summary instead of verbose details
+        const cryptoPrices = ['btc_price_usd', 'eth_price_usd', 'sol_price_usd', 'xrp_price_usd', 'ada_price_usd', 'link_price_usd', 'bnb_price_usd'];
+        const availablePrices = cryptoPrices.filter(key => data[key] !== undefined);
+        const missingPrices = cryptoPrices.filter(key => data[key] === undefined);
         
-        // Debug: Check for crypto prices in received data
-        debugLog('🔍 Checking for crypto prices in data:');
-        ['btc_price_usd', 'eth_price_usd', 'sol_price_usd', 'xrp_price_usd', 'ada_price_usd', 'link_price_usd', 'bnb_price_usd'].forEach(key => {
-            if (data[key] !== undefined) {
-                debugLog(`  ✅ ${key}: ${data[key]}`);
-            } else {
-                debugLog(`  ❌ ${key}: missing`);
+        // Only log if there are issues or in verbose debug mode
+        if (missingPrices.length > 0) {
+            debugLog(`⚠️ Market data update: ${availablePrices.length}/${cryptoPrices.length} crypto prices available. Missing: ${missingPrices.join(', ')}`);
+        } else {
+            // Compact success log (only once every 10 updates to reduce noise)
+            if (!this._updateCounter) this._updateCounter = 0;
+            this._updateCounter++;
+            if (this._updateCounter % 10 === 1) {
+                debugLog(`✅ Market data update: All ${cryptoPrices.length} crypto prices received`);
             }
-        });
+        }
 
         try {
             // Update Market Cap - use market_cap_usd directly
@@ -693,7 +703,7 @@ class MarketIndicatorsDashboard {
     }
 
     startDataRefresh() {
-        // WebSocket health check every 10 seconds (increased frequency)
+        // WebSocket health check every 30 seconds (optimized frequency)
         setInterval(() => {
             const now = Date.now();
             const timeSinceLastUpdate = now - this.lastDataUpdate;
@@ -706,9 +716,9 @@ class MarketIndicatorsDashboard {
                 timeSinceLastUpdate: `${Math.round(timeSinceLastUpdate / 1000)}s`
             });
             
-            // If no data received for 60 seconds and connected, something may be wrong
-            if (this.isConnected && timeSinceLastUpdate > 60000) {
-                debugLog('⚠️ No data received for 60+ seconds, requesting fresh data');
+            // If no data received for 90 seconds and connected, something may be wrong
+            if (this.isConnected && timeSinceLastUpdate > 90000) {
+                debugLog('⚠️ No data received for 90+ seconds, requesting fresh data');
                 this.requestFreshData(); // Use the new method instead of direct send
             }
             
@@ -729,7 +739,7 @@ class MarketIndicatorsDashboard {
             }
             
             // Crypto prices now come from server via WebSocket
-        }, 10000); // Every 10 seconds (faster monitoring)
+        }, 30000); // Every 30 seconds (optimized monitoring - reduced unnecessary checks)
     }
 
     // US Stock Indices Update Methods
@@ -812,7 +822,7 @@ class MarketIndicatorsDashboard {
     }
 
     startHeartbeat() {
-        // Send ping every 15 seconds to keep connection alive (increased frequency)
+        // Send ping every 30 seconds to keep connection alive (optimized frequency)
         this.heartbeatInterval = setInterval(() => {
             if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
                 debugLog('🏓 Sending heartbeat ping');
@@ -820,7 +830,7 @@ class MarketIndicatorsDashboard {
             } else {
                 this.stopHeartbeat();
             }
-        }, 5000); // Every 5 seconds (faster heartbeat)
+        }, 30000); // Every 30 seconds (optimized heartbeat - reduced server load)
     }
 
     stopHeartbeat() {
@@ -885,7 +895,7 @@ class MarketIndicatorsDashboard {
             return;
         }
         
-        if (price === null || changePercent === 'Error') {
+        if (price === null || price === undefined || changePercent === 'Error') {
             element.innerHTML = `
                 <div class="binance-price-value">--</div>
                 <div class="binance-price-change neutral">N/A</div>
@@ -893,9 +903,12 @@ class MarketIndicatorsDashboard {
             return;
         }
         
+        // No caching - update every time for maximum precision
+        // Prices update every 2s and some coins have very small values (<0.00001)
+        // Need exact decimal precision for accurate display
+        
         const changeClass = changePercent >= 0 ? 'positive' : 'negative';
         const changeSign = changePercent >= 0 ? '+' : '';
-        const lang = window.current_language || 'vi';
         const locale = 'en-US';
         
         // Format price with commas and appropriate decimal places

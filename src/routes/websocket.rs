@@ -70,73 +70,88 @@ async fn websocket_connection_handler(
         }
     }
     
-    // ✅ Start Layer 3 real-time broadcast listener in background
-    let socket_clone = Arc::new(tokio::sync::Mutex::new(socket));
-    let socket_for_broadcast = socket_clone.clone();
+    // ✅ Handle both broadcast messages AND client messages in single loop
+    // This avoids mutex contention completely - no shared socket lock needed!
+    println!("🔄 Starting unified WebSocket message handler");
     
-    // Background task: Listen to Layer 3 broadcast updates
-    let broadcast_task = tokio::spawn(async move {
-        println!("🔄 Starting Layer 3 broadcast listener for WebSocket client");
-        
-        while let Ok(broadcast_message) = broadcast_rx.recv().await {
-            let mut socket_guard = socket_for_broadcast.lock().await;
-            
-            match socket_guard.send(axum::extract::ws::Message::Text(broadcast_message)).await {
-                Ok(_) => {
-                    // Success - continue listening
-                }
-                Err(_) => {
-                    println!("❌ WebSocket client disconnected - stopping broadcast listener");
-                    break;
-                }
-            }
-        }
-    });
-    
-    // Handle client messages (ping/pong, etc.)
-    let socket_for_client = socket_clone.clone();
     loop {
-        let message_result = {
-            let mut socket_guard = socket_for_client.lock().await;
-            socket_guard.recv().await
-        };
-        
-        match message_result {
-            Some(Ok(axum::extract::ws::Message::Text(text))) => {
-                println!("📨 Received from client: {}", text);
-                
-                if text == "ping" {
-                    let pong_response = json!({
-                        "type": "pong",
-                        "timestamp": chrono::Utc::now().to_rfc3339()
-                    });
-                    
-                    println!("🏓 Sending pong: {}", pong_response);
-                    let mut socket_guard = socket_for_client.lock().await;
-                    if let Err(_) = socket_guard.send(axum::extract::ws::Message::Text(pong_response.to_string())).await {
+        tokio::select! {
+            // Listen for broadcast messages from Layer 3
+            broadcast_result = broadcast_rx.recv() => {
+                match broadcast_result {
+                    Ok(broadcast_message) => {
+                        println!("� Received broadcast message, sending to client...");
+                        if let Err(e) = socket.send(axum::extract::ws::Message::Text(broadcast_message)).await {
+                            println!("❌ Failed to send broadcast message: {}", e);
+                            break;
+                        }
+                        println!("✅ Broadcast message sent to client successfully");
+                    }
+                    Err(e) => {
+                        println!("⚠️ Broadcast channel closed: {}", e);
                         break;
                     }
                 }
             }
-            Some(Ok(axum::extract::ws::Message::Close(_))) => {
-                println!("🔌 WebSocket client disconnected");
-                break;
-            }
-            Some(Err(e)) => {
-                println!("❌ WebSocket error: {}", e);
-                break;
-            }
-            None => {
-                println!("🔌 WebSocket stream ended");
-                break;
-            }
-            _ => {
-                // Ignore other message types (binary, pong, etc.)
+            
+            // Listen for messages from client
+            client_message = socket.recv() => {
+                match client_message {
+                    Some(Ok(axum::extract::ws::Message::Text(text))) => {
+                        println!("📨 Received from client: {}", text);
+                        
+                        // Handle ping/pong heartbeat
+                        if text == "ping" {
+                            let pong_response = json!({
+                                "type": "pong",
+                                "timestamp": chrono::Utc::now().to_rfc3339()
+                            });
+                            
+                            println!("🏓 Sending pong");
+                            if let Err(_) = socket.send(axum::extract::ws::Message::Text(pong_response.to_string())).await {
+                                break;
+                            }
+                        }
+                        // Handle data refresh requests
+                        else if text == "request_update" || text.contains("request_dashboard_data") {
+                            println!("📊 Client requested fresh dashboard data");
+                            
+                            // Fetch fresh data via Layer 5 Market Data Service
+                            if let Ok(dashboard_data) = fetch_realtime_market_data(&service_islands.websocket_service).await {
+                                let refresh_msg = json!({
+                                    "type": "dashboard_data",
+                                    "data": dashboard_data,
+                                    "timestamp": chrono::Utc::now().to_rfc3339(),
+                                    "source": "client_request"
+                                });
+                                
+                                if let Ok(_) = socket.send(axum::extract::ws::Message::Text(refresh_msg.to_string())).await {
+                                    println!("✅ Fresh dashboard data sent in response to client request");
+                                }
+                            } else {
+                                println!("⚠️ Failed to fetch fresh data for client request");
+                            }
+                        }
+                    }
+                    Some(Ok(axum::extract::ws::Message::Close(_))) => {
+                        println!("🔌 WebSocket client disconnected");
+                        break;
+                    }
+                    Some(Err(e)) => {
+                        println!("❌ WebSocket error: {}", e);
+                        break;
+                    }
+                    None => {
+                        println!("🔌 WebSocket stream ended");
+                        break;
+                    }
+                    _ => {
+                        // Ignore other message types (binary, pong, etc.)
+                    }
+                }
             }
         }
     }
     
-    // Cleanup: Cancel broadcast task when client disconnects
-    broadcast_task.abort();
-    println!("🔌 WebSocket connection handler finished - Layer 3 broadcast listener stopped");
+    println!("🔌 WebSocket connection handler finished");
 }
