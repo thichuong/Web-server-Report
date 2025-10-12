@@ -6,7 +6,7 @@ body {
     font-family: 'Inter', sans-serif;
     background: linear-gradient(180deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
     color: var(--text-secondary);
-    transition: background-color 0.3s ease, color 0.3s ease;
+    transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 /* --- Theme Toggle Button --- */
@@ -27,7 +27,7 @@ body {
     font-size: 1.25rem;
     z-index: 1000;
     box-shadow: var(--card-shadow);
-    transition: all 0.3s ease;
+    transition: all 0.15s ease;
 }
 .theme-toggle:hover {
     transform: scale(1.1);
@@ -56,7 +56,7 @@ body {
     font-size: 0.875rem;
     z-index: 1000;
     box-shadow: var(--card-shadow);
-    transition: all 0.3s ease;
+    transition: all 0.15s ease;
     flex-direction: column;
     gap: 0.125rem;
 }
@@ -90,7 +90,7 @@ header p {
     border: 1px solid var(--card-border);
     border-radius: 1rem;
     padding: 1.5rem;
-    transition: all 0.3s ease-in-out;
+    transition: all 0.15s ease-in-out;
     box-shadow: var(--card-shadow);
 }
 /* .card:hover {
@@ -128,7 +128,7 @@ header p {
     stroke-linecap: round;
     transform: rotate(-90deg);
     transform-origin: center;
-    transition: stroke-dashoffset 0.5s ease-in-out, stroke 0.5s ease-in-out;
+    transition: stroke-dashoffset 0.2s ease-out, stroke 0.2s ease-out;
 }
 
 .gauge__track {
@@ -182,7 +182,7 @@ header p {
     font-weight: 500;
     color: var(--text-secondary);
     border: 1px solid transparent; /* Border trong suốt để không bị giật layout khi hover */
-    transition: all 0.25s cubic-bezier(0.165, 0.84, 0.44, 1); /* Hiệu ứng chuyển động mượt mà */
+    transition: all 0.1s ease-out; /* Optimized for performance */
     position: relative; /* Cần cho hiệu ứng nâng lên */
 }
 
@@ -219,7 +219,7 @@ header p {
     display: none;
     align-items: center;
     box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
-    transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+    transition: all 0.15s ease-out;
     backdrop-filter: blur(8px);
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
@@ -230,7 +230,8 @@ header p {
 }
 
 #progress-log-indicator i {
-    animation: bounce 1.5s infinite;
+    display: inline-block; /* Prevent empty ruleset */
+    /* animation: bounce 1.5s infinite; */ /* Disabled for performance */
 }
 
 @keyframes bounce {

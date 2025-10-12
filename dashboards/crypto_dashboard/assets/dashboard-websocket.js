@@ -1,5 +1,8 @@
 // dashboard-websocket.js - Combined dashboard logic and WebSocket functionality
 
+// Reduce console noise for Firefox performance
+const WS_DEBUG = false;
+
 // ===== WEBSOCKET MANAGER =====
 
 /**
@@ -13,11 +16,13 @@ class DashboardWebSocket {
         this.reconnectDelay = 1000; // Start with 1 second
         this.isConnecting = false;
         this.heartbeatInterval = null;
+        this.pendingDOMUpdates = []; // Batch DOM updates
+        this.updateScheduled = false;
     }
 
     connect() {
         if (this.isConnecting || (this.socket && this.socket.readyState === WebSocket.CONNECTING)) {
-            console.log('🔍 [DEBUG] WebSocket already connecting, skipping...');
+            if (WS_DEBUG) console.log('🔍 [DEBUG] WebSocket already connecting, skipping...');
             return;
         }
 
@@ -25,10 +30,12 @@ class DashboardWebSocket {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/ws`;
 
-        console.log('🔍 [DEBUG] WebSocket connection details:');
-        console.log('  📍 Protocol:', protocol);
-        console.log('  🌐 Host:', window.location.host);
-        console.log('  🔗 Full URL:', wsUrl);
+        if (WS_DEBUG) {
+            console.log('🔍 [DEBUG] WebSocket connection details:');
+            console.log('  📍 Protocol:', protocol);
+            console.log('  🌐 Host:', window.location.host);
+            console.log('  🔗 Full URL:', wsUrl);
+        }
         console.log('🔌 Connecting to WebSocket:', wsUrl);
         updateWebSocketStatus('connecting', getTranslatedText('connecting') || 'Đang kết nối...');
 
@@ -58,7 +65,7 @@ class DashboardWebSocket {
             };
 
             this.socket.onclose = (event) => {
-                console.log('🔌 WebSocket disconnected:', event.code, event.reason);
+                if (WS_DEBUG) console.log('🔌 WebSocket disconnected:', event.code, event.reason);
                 this.isConnecting = false;
                 this.stopHeartbeat();
                 
@@ -93,42 +100,44 @@ class DashboardWebSocket {
     }
 
     handleMessage(message) {
-        console.log('📨 Received WebSocket message:', message.type);
+        if (WS_DEBUG) console.log('📨 Received WebSocket message:', message.type);
         
         switch (message.type) {
             case 'connected':
-                console.log('✅ WebSocket connection confirmed:', message.message);
+                if (WS_DEBUG) console.log('✅ WebSocket connection confirmed:', message.message);
                 break;
                 
             case 'pong':
-                console.log('🏓 Pong received at:', message.timestamp);
+                if (WS_DEBUG) console.log('🏓 Pong received at:', message.timestamp);
                 break;
                 
             case 'btc_price_update':
-                console.log('₿ BTC price update received:', message.data);
+                if (WS_DEBUG) console.log('₿ BTC price update received:', message.data);
                 if (message.data) {
-                    // Update BTC price container with real-time data
-                    updateBtcPriceFromWebSocket(message.data);
+                    // Batch update for better Firefox performance
+                    this.scheduleDOMUpdate(() => updateBtcPriceFromWebSocket(message.data));
                 }
                 break;
                 
             case 'dashboard_data':
-                console.log('📊 Dashboard data received:', message.data);
+                if (WS_DEBUG) console.log('📊 Dashboard data received:', message.data);
                 if (message.data) {
                     // Cache the data for language switching
                     window.dashboardSummaryCache = message.data;
                     
-                    // Update entire dashboard UI with real-time data
-                    updateDashboardFromData(message.data);
-                    console.log('✅ Dashboard updated from WebSocket data');
+                    // Batch update entire dashboard UI with real-time data
+                    this.scheduleDOMUpdate(() => {
+                        updateDashboardFromData(message.data);
+                        console.log('✅ Dashboard updated from WebSocket data');
+                    });
                 }
                 break;
                 
             case 'market_update':
-                console.log('📈 Market update received:', message.data);
+                if (WS_DEBUG) console.log('📈 Market update received:', message.data);
                 if (message.data) {
                     // Partial update for specific market data
-                    updateMarketDataFromWebSocket(message.data);
+                    this.scheduleDOMUpdate(() => updateMarketDataFromWebSocket(message.data));
                 }
                 break;
                 
@@ -138,23 +147,50 @@ class DashboardWebSocket {
                     window.dashboardSummaryCache = message.data;
                     
                     // Update dashboard UI
-                    updateDashboardFromData(message.data);
+                    this.scheduleDOMUpdate(() => updateDashboardFromData(message.data));
                 }
                 break;
                 
             case 'echo':
-                console.log('🔁 Echo received:', message.data, 'at:', message.timestamp);
+                if (WS_DEBUG) console.log('🔁 Echo received:', message.data, 'at:', message.timestamp);
                 break;
                 
             default:
-                console.log('❓ Unknown WebSocket message type:', message.type, message);
+                if (WS_DEBUG) console.log('❓ Unknown WebSocket message type:', message.type, message);
+        }
+    }
+
+    // Batch DOM updates using requestAnimationFrame for Firefox performance
+    scheduleDOMUpdate(updateFn) {
+        this.pendingDOMUpdates.push(updateFn);
+        
+        if (!this.updateScheduled) {
+            this.updateScheduled = true;
+            requestAnimationFrame(() => {
+                // Execute all pending updates in one batch
+                this.pendingDOMUpdates.forEach(fn => {
+                    try {
+                        fn();
+                    } catch (error) {
+                        console.error('❌ Error in batched DOM update:', error);
+                    }
+                });
+                this.pendingDOMUpdates = [];
+                this.updateScheduled = false;
+            });
         }
     }
 
     startHeartbeat() {
+        // Clear any existing heartbeat first
+        this.stopHeartbeat();
+        
         this.heartbeatInterval = setInterval(() => {
             if (this.socket && this.socket.readyState === WebSocket.OPEN) {
                 this.socket.send('ping');
+            } else {
+                if (WS_DEBUG) console.log('⚠️ Socket not open, stopping heartbeat');
+                this.stopHeartbeat();
             }
         }, 5000); // Ping every 5 seconds
     }
@@ -168,6 +204,11 @@ class DashboardWebSocket {
 
     disconnect() {
         this.stopHeartbeat();
+        
+        // Clear pending updates
+        this.pendingDOMUpdates = [];
+        this.updateScheduled = false;
+        
         if (this.socket) {
             this.socket.close(1000, 'Manual disconnect');
             this.socket = null;
@@ -179,7 +220,7 @@ class DashboardWebSocket {
 
 // Helper function để update BTC price từ WebSocket
 function updateBtcPriceFromWebSocket(btcData) {
-    console.log('🔄 Updating BTC price from WebSocket:', btcData);
+    if (WS_DEBUG) console.log('🔄 Updating BTC price from WebSocket:', btcData);
     
     const btcContainer = selectDashboardElementByLang('btc-price-container');
     
@@ -204,13 +245,13 @@ function updateBtcPriceFromWebSocket(btcData) {
             btcContainer.dataset.btcChange24h = String(change); 
         } catch(e){}
         
-        console.log('✅ BTC price container updated');
+        if (WS_DEBUG) console.log('✅ BTC price container updated');
     }
 }
 
 // Helper function để update market data từ WebSocket
 function updateMarketDataFromWebSocket(marketData) {
-    console.log('🔄 Updating market data from WebSocket:', marketData);
+    if (WS_DEBUG) console.log('🔄 Updating market data from WebSocket:', marketData);
     
     // Update Market Cap
     if (marketData.market_cap_usd) {
@@ -243,7 +284,7 @@ function updateMarketDataFromWebSocket(marketData) {
         }
     }
     
-    console.log('✅ Market data updated from WebSocket');
+    if (WS_DEBUG) console.log('✅ Market data updated from WebSocket');
 }
 
 // ===== DASHBOARD UTILITIES =====
@@ -310,23 +351,25 @@ function displayError(containerId, message) {
  * Update dashboard UI from data object (used by both HTTP API and WebSocket)
  */
 function updateDashboardFromData(data) {
-    // 🔍 DEBUG: Log the received data structure
-    console.log('🔍 [DEBUG] updateDashboardFromData received:', data);
-    console.log('🔍 [DEBUG] Data types:', {
-        market_cap_usd: typeof data.market_cap_usd,
-        volume_24h_usd: typeof data.volume_24h_usd,
-        btc_price_usd: typeof data.btc_price_usd,
-        btc_change_24h: typeof data.btc_change_24h,
-        fng_value: typeof data.fng_value,
-        btc_rsi_14: typeof data.btc_rsi_14
-    });
+    // 🔍 DEBUG: Log the received data structure (only in debug mode)
+    if (WS_DEBUG) {
+        console.log('🔍 [DEBUG] updateDashboardFromData received:', data);
+        console.log('🔍 [DEBUG] Data types:', {
+            market_cap_usd: typeof data.market_cap_usd,
+            volume_24h_usd: typeof data.volume_24h_usd,
+            btc_price_usd: typeof data.btc_price_usd,
+            btc_change_24h: typeof data.btc_change_24h,
+            fng_value: typeof data.fng_value,
+            btc_rsi_14: typeof data.btc_rsi_14
+        });
+    }
     
     // Cập nhật Vốn hóa thị trường
     const marketCapContainer = selectDashboardElementByLang('market-cap-container');
     if (marketCapContainer) {
         const marketCapValue = parseFloat(data.market_cap_usd || data.market_cap) || 0;
         const marketCapChange = parseFloat(data.market_cap_change_percentage_24h_usd) || 0;
-        console.log('🔍 [DEBUG] Market Cap parsed:', marketCapValue, 'Change:', marketCapChange);
+        if (WS_DEBUG) console.log('🔍 [DEBUG] Market Cap parsed:', marketCapValue, 'Change:', marketCapChange);
         
         const changeClass = marketCapChange >= 0 ? 'text-green-600' : 'text-red-600';
         const changeSign = marketCapChange >= 0 ? '+' : '';
@@ -344,7 +387,7 @@ function updateDashboardFromData(data) {
     const volumeContainer = selectDashboardElementByLang('volume-24h-container');
     if (volumeContainer) {
         const volumeValue = parseFloat(data.volume_24h_usd || data.volume_24h) || 0;
-        console.log('🔍 [DEBUG] Volume parsed:', volumeValue);
+        if (WS_DEBUG) console.log('🔍 [DEBUG] Volume parsed:', volumeValue);
         volumeContainer.innerHTML = `
             <p class="text-3xl font-bold text-gray-900">${'$' + formatNumber(volumeValue)}</p>
             <p class="text-sm text-gray-500">${getTranslatedText('whole-market')}</p>`;
@@ -359,7 +402,7 @@ function updateDashboardFromData(data) {
         
         const btcPrice = parseFloat(data.btc_price_usd) || 0;
         const change = parseFloat(data.btc_change_24h) || 0;
-        console.log('🔍 [DEBUG] BTC Price parsed:', btcPrice, 'Change:', change);
+        if (WS_DEBUG) console.log('🔍 [DEBUG] BTC Price parsed:', btcPrice, 'Change:', change);
         
         // Safely handle change value - could be undefined, null, or 0
         const safeChange = (change !== undefined && change !== null) ? change : 0;
@@ -374,7 +417,7 @@ function updateDashboardFromData(data) {
     // Cập nhật chỉ số Sợ hãi & Tham lam
     const fngContainer = selectDashboardElementByLang('fear-greed-container');
     const fngValue = parseInt(data.fng_value, 10);
-    console.log('🔍 [DEBUG] F&G Value parsed:', fngValue, 'from:', data.fng_value);
+    if (WS_DEBUG) console.log('🔍 [DEBUG] F&G Value parsed:', fngValue, 'from:', data.fng_value);
     if (!isNaN(fngValue) && fngContainer) {
         const fngConfig = {
             min: 0, max: 100,
@@ -389,14 +432,14 @@ function updateDashboardFromData(data) {
         createGauge(fngContainer, fngValue, fngConfig);
         try { fngContainer.dataset.value = String(fngValue); } catch(e){}
     } else {
-        console.log('❌ [DEBUG] F&G Value invalid or container not found');
+        if (WS_DEBUG) console.log('❌ [DEBUG] F&G Value invalid or container not found');
         displayError('fear-greed-container', 'Giá trị F&G không hợp lệ.');
     }
 
     // Cập nhật chỉ số RSI
     const rsiContainer = selectDashboardElementByLang('rsi-container');
     const rsiValue = parseFloat(data.btc_rsi_14);
-    console.log('🔍 [DEBUG] RSI Value parsed:', rsiValue, 'from:', data.btc_rsi_14);
+    if (WS_DEBUG) console.log('🔍 [DEBUG] RSI Value parsed:', rsiValue, 'from:', data.btc_rsi_14);
     if (rsiValue !== null && rsiValue !== undefined && !isNaN(rsiValue) && rsiContainer) {
         const rsiConfig = {
             min: 0, max: 100,
@@ -409,19 +452,19 @@ function updateDashboardFromData(data) {
         createGauge(rsiContainer, rsiValue, rsiConfig);
         try { rsiContainer.dataset.value = String(rsiValue); } catch(e){}
     } else {
-        console.log('❌ [DEBUG] RSI Value invalid or container not found');
+        if (WS_DEBUG) console.log('❌ [DEBUG] RSI Value invalid or container not found');
         displayError('rsi-container', 'Không nhận được giá trị RSI.');
     }
 
-    console.log('✅ Dashboard UI updated successfully');
+    if (WS_DEBUG) console.log('✅ Dashboard UI updated successfully');
     
     // Update dominance info if available
-    if (data.btc_market_cap_percentage) {
+    if (data.btc_market_cap_percentage && WS_DEBUG) {
         console.log('🔍 [DEBUG] BTC Dominance:', data.btc_market_cap_percentage);
         // You can add dominance display logic here if needed
     }
     
-    if (data.eth_market_cap_percentage) {
+    if (data.eth_market_cap_percentage && WS_DEBUG) {
         console.log('🔍 [DEBUG] ETH Dominance:', data.eth_market_cap_percentage);
         // You can add dominance display logic here if needed
     }
@@ -624,12 +667,12 @@ async function fetchDashboardSummary() {
         // Try WebSocket first for real-time data
         if (dashboardWebSocket && dashboardWebSocket.socket && 
             dashboardWebSocket.socket.readyState === WebSocket.OPEN) {
-            console.log('🔗 Using WebSocket for dashboard data');
+            if (WS_DEBUG) console.log('🔗 Using WebSocket for dashboard data');
             return; // WebSocket will handle updates
         }
 
         // Fallback to HTTP API
-        console.log('📡 Fetching dashboard data via HTTP API...');
+        if (WS_DEBUG) console.log('📡 Fetching dashboard data via HTTP API...');
         const response = await fetch('/api/crypto/dashboard-summary', {
             headers: {
                 'Accept': 'application/json',
@@ -700,7 +743,7 @@ async function fetchDashboardSummary() {
             // Hiển thị thông báo lỗi nhẹ nhàng nếu không có dữ liệu để hiển thị
             showErrorNotification(getTranslatedText('connection-issue'));
         } else {
-            console.log('ℹ️ Có cached data hoặc UI đã hiển thị, bỏ qua thông báo lỗi');
+            if (WS_DEBUG) console.log('ℹ️ Có cached data hoặc UI đã hiển thị, bỏ qua thông báo lỗi');
         }
     }
 }
@@ -956,7 +999,7 @@ function initDashboard() {
         document.getElementById('volume-24h-container') || 
         document.getElementById('btc-price-container')) {
         
-        console.log('🚀 Initializing dashboard...');
+        if (WS_DEBUG) console.log('🚀 Initializing dashboard...');
         
         // Nạp trước dữ liệu dashboard trước khi khởi tạo WebSocket
         fetchDashboardSummary();
@@ -971,17 +1014,19 @@ function initDashboard() {
         updateWebSocketStatus('connecting', getTranslatedText('connecting') || 'Đang kết nối...');
         
         // Initialize WebSocket connection for real-time updates
-        console.log('🔍 [DEBUG] Checking WebSocket initialization...');
-        console.log('  🔍 dashboardWebSocket exists:', !!dashboardWebSocket);
-        console.log('  🔍 DashboardWebSocket class exists:', typeof DashboardWebSocket !== 'undefined');
+        if (WS_DEBUG) {
+            console.log('🔍 [DEBUG] Checking WebSocket initialization...');
+            console.log('  🔍 dashboardWebSocket exists:', !!dashboardWebSocket);
+            console.log('  🔍 DashboardWebSocket class exists:', typeof DashboardWebSocket !== 'undefined');
+        }
         
         if (!dashboardWebSocket && typeof DashboardWebSocket !== 'undefined') {
-            console.log('🚀 [DEBUG] Creating new WebSocket connection...');
+            if (WS_DEBUG) console.log('🚀 [DEBUG] Creating new WebSocket connection...');
             dashboardWebSocket = new DashboardWebSocket();
             dashboardWebSocket.connect();
-            console.log('🚀 WebSocket connection initialized');
+            if (WS_DEBUG) console.log('🚀 WebSocket connection initialized');
         } else {
-            console.log('⚠️ [DEBUG] WebSocket initialization skipped:', {
+            if (WS_DEBUG) console.log('⚠️ [DEBUG] WebSocket initialization skipped:', {
                 dashboardWebSocketExists: !!dashboardWebSocket,
                 DashboardWebSocketClassExists: typeof DashboardWebSocket !== 'undefined'
             });
@@ -994,7 +1039,7 @@ function initDashboard() {
             if (!dashboardWebSocket || 
                 !dashboardWebSocket.socket || 
                 dashboardWebSocket.socket.readyState !== WebSocket.OPEN) {
-                console.log('📡 WebSocket unavailable, falling back to HTTP polling');
+                if (WS_DEBUG) console.log('📡 WebSocket unavailable, falling back to HTTP polling');
                 updateWebSocketStatus('connecting', getTranslatedText('reconnecting') || 'Đang kết nối lại...');
                 fetchDashboardSummary();
             }
@@ -1013,7 +1058,7 @@ function initDashboard() {
         window.addEventListener('beforeunload', () => {
             if (dashboardWebSocket) {
                 dashboardWebSocket.disconnect();
-                console.log('🔌 WebSocket disconnected on page unload');
+                if (WS_DEBUG) console.log('🔌 WebSocket disconnected on page unload');
             }
         });
     }

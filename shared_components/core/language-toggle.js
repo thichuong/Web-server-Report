@@ -1,6 +1,9 @@
 // language-toggle.js
 // Simple language toggle between Vietnamese (vi) and English (en)
 (function(){
+    // Debug mode - set to false for production (reduces Firefox lag)
+    const LANG_DEBUG = false;
+    
     const LANG_KEY = 'preferred_language';
     const BACKUP_KEY = 'language';
     const DEFAULT_LANG = 'vi';
@@ -30,7 +33,7 @@
                 return {};
             }
         } catch (error) {
-            console.warn('Could not get translations data:', error);
+            if (LANG_DEBUG) console.warn('Could not get translations data:', error);
             return {};
         }
     }
@@ -62,7 +65,7 @@
                 const event = new CustomEvent('languageToggleReady');
                 window.dispatchEvent(event);
             } catch (e) {
-                console.warn('Could not dispatch languageToggleReady event:', e);
+                if (LANG_DEBUG) console.warn('Could not dispatch languageToggleReady event:', e);
             }
         }, 50);
     } catch (e) {}
@@ -181,18 +184,18 @@
         // Re-initialize report visuals after language change (handled by iframe now)
         // Note: Visual functions are now called inside iframe, not from parent page
         if (document.getElementById('report-container')) {
-            console.log('🎨 Report container detected - iframe will handle visual initialization');
+            if (LANG_DEBUG) console.log('🎨 Report container detected - iframe will handle visual initialization');
             
             // Send language change message to iframe if it exists
             const iframe = document.querySelector('iframe[src*="/api/sandboxed"]');
             if (iframe && iframe.contentWindow) {
-                console.log('📨 Parent: Sending language change message to iframe:', lang);
+                if (LANG_DEBUG) console.log('📨 Parent: Sending language change message to iframe:', lang);
                 iframe.contentWindow.postMessage({
                     type: 'language-change',
                     language: lang
                 }, '*');
             } else {
-                console.log('📭 Parent: No sandboxed iframe found for language message');
+                if (LANG_DEBUG) console.log('📭 Parent: No sandboxed iframe found for language message');
             }
         }
     }
@@ -229,7 +232,7 @@
 
         // Check if the function exists
         if (typeof initFunction !== 'function') {
-            console.warn(`⚠️ ${functionName} function not found`);
+            if (LANG_DEBUG) console.warn(`⚠️ ${functionName} function not found`);
             return;
         }
 
@@ -237,13 +240,13 @@
         if (typeof createGauge !== 'function' || 
             typeof createDoughnutChart !== 'function' || 
             typeof createBarChart !== 'function') {
-            console.warn("⚠️ Chart libraries not loaded yet. Retrying...");
+            if (LANG_DEBUG) console.warn("⚠️ Chart libraries not loaded yet. Retrying...");
             setTimeout(callInitializeReportVisuals, 500);
             return;
         }
 
         try {
-            console.log(`🎨 Calling ${functionName}() from language-toggle.js`);
+            if (LANG_DEBUG) console.log(`🎨 Calling ${functionName}() from language-toggle.js`);
             initFunction();
         } catch (error) {
             console.error(`❌ Error calling ${functionName}:`, error);
@@ -258,7 +261,7 @@
         
         function attempt() {
             attempts++;
-            console.log(`🔄 Attempting to initialize report visuals (${attempts}/${maxRetries})`);
+            if (LANG_DEBUG) console.log(`🔄 Attempting to initialize report visuals (${attempts}/${maxRetries})`);
             
             const reportContainer = document.getElementById('report-container');
             if (!reportContainer) {
@@ -293,7 +296,7 @@
             if (attempts < maxRetries) {
                 setTimeout(attempt, delay);
             } else {
-                console.warn(`⚠️ Failed to initialize report visuals after max retries. Missing: ${!hasFunction ? functionName + ' function' : 'chart libraries'}`);
+                if (LANG_DEBUG) console.warn(`⚠️ Failed to initialize report visuals after max retries. Missing: ${!hasFunction ? functionName + ' function' : 'chart libraries'}`);
             }
         }
         

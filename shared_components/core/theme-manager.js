@@ -1,23 +1,26 @@
 // theme-manager.js - Quản lý theme switching cho toàn bộ ứng dụng
 
+// Debug mode - set to false for production (reduces Firefox lag)
+const THEME_DEBUG = false;
+
 /**
  * Hàm thông báo tất cả iframe về việc thay đổi theme
  */
 function notifyIframesThemeChange(theme) {
-    console.log('🎨 Parent: Broadcasting theme change to iframes:', theme);
+    if (THEME_DEBUG) console.log('🎨 Parent: Broadcasting theme change to iframes:', theme);
     
     // Target specifically sandboxed iframes first
     const sandboxedIframes = document.querySelectorAll('iframe[src*="/api/sandboxed"]');
     if (sandboxedIframes.length > 0) {
         sandboxedIframes.forEach(iframe => {
             try {
-                console.log('📨 Parent: Sending theme change message to sandboxed iframe:', theme);
+                if (THEME_DEBUG) console.log('📨 Parent: Sending theme change message to sandboxed iframe:', theme);
                 iframe.contentWindow.postMessage({
                     type: 'theme-change',
                     theme: theme
                 }, '*');
             } catch (e) {
-                console.warn('❌ Parent: Could not send theme message to sandboxed iframe:', e);
+                if (THEME_DEBUG) console.warn('❌ Parent: Could not send theme message to sandboxed iframe:', e);
             }
         });
     }
@@ -36,11 +39,11 @@ function notifyIframesThemeChange(theme) {
                 theme: theme
             }, '*');
         } catch (e) {
-            console.log('📭 Parent: Could not send theme message to regular iframe:', e);
+            if (THEME_DEBUG) console.log('📭 Parent: Could not send theme message to regular iframe:', e);
         }
     });
     
-    if (sandboxedIframes.length === 0 && allIframes.length === 0) {
+    if (THEME_DEBUG && sandboxedIframes.length === 0 && allIframes.length === 0) {
         console.log('📭 Parent: No iframes found for theme message');
     }
 }
@@ -56,11 +59,11 @@ function setupThemeSwitcher() {
     const currentTheme = localStorage.getItem('theme') || 'light';
     htmlElement.setAttribute('data-theme', currentTheme);
     
-    console.log('🎨 Parent: Initial theme loaded:', currentTheme);
+    if (THEME_DEBUG) console.log('🎨 Parent: Initial theme loaded:', currentTheme);
     
     // Wait a bit for iframes to load, then send initial theme
     setTimeout(() => {
-        console.log('🎨 Parent: Sending initial theme to iframes after delay:', currentTheme);
+        if (THEME_DEBUG) console.log('🎨 Parent: Sending initial theme to iframes after delay:', currentTheme);
         notifyIframesThemeChange(currentTheme);
     }, 1000);
 
@@ -70,7 +73,7 @@ function setupThemeSwitcher() {
             const currentTheme = htmlElement.getAttribute('data-theme');
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
             
-            console.log('🎨 Parent: Theme toggle clicked, switching from', currentTheme, 'to', newTheme);
+            if (THEME_DEBUG) console.log('🎨 Parent: Theme toggle clicked, switching from', currentTheme, 'to', newTheme);
             
             htmlElement.setAttribute('data-theme', newTheme);
             localStorage.setItem('theme', newTheme);
@@ -85,7 +88,7 @@ function setupThemeSwitcher() {
         mutations.forEach((mutation) => {
             if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
                 const newTheme = htmlElement.getAttribute('data-theme');
-                console.log('🎨 Parent: Theme changed externally to:', newTheme);
+                if (THEME_DEBUG) console.log('🎨 Parent: Theme changed externally to:', newTheme);
                 notifyIframesThemeChange(newTheme);
             }
         });

@@ -19,7 +19,7 @@ function get_translations_data()
     'view-report': { vi: 'Xem báo cáo mới nhất', en: 'View the latest report' },
     'print-report': { vi: 'In Báo cáo', en: 'Print Report' },
     'report-display': { vi: 'Hiển thị báo cáo', en: 'Displaying report' },
-    'site-title': { vi: 'Toàn Cảnh Thị Trường Tiền MÃ Hóa', en: 'Crypto Market Overview' },
+    'site-title': { vi: 'Toàn Cảnh Thị Trường Tiền Mã Hóa', en: 'Crypto Market Overview' },
     'created-at': { vi: 'Tạo lúc', en: 'Created at' },
     'analysis-summary': { vi: 'Bài phân tích và tổng hợp', en: 'Analysis and summary' },
     'close': { vi: 'Đóng', en: 'Close' },

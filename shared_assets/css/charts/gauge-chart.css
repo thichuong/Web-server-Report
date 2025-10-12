@@ -48,7 +48,7 @@
 .gauge-segment {
     fill: none;
     stroke-width: 32; /* Tăng từ 22 lên 32 để phù hợp với kích thước lớn hơn */
-    transition: stroke-width 0.3s ease, stroke 0.3s ease; /* Smooth transition for hover effect */
+    transition: stroke-width 0.15s ease, stroke 0.15s ease; /* Optimized for performance */
 }
 
 
@@ -99,8 +99,8 @@
 
 
 .gauge-needle-group {
-    /* Smooth transition for the rotation */
-    transition: transform 0.8s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+    /* Optimized for real-time updates - reduced from 0.8s to improve Firefox performance */
+    transition: transform 0.15s ease-out;
 }
 
 
@@ -136,7 +136,7 @@
 
 .gauge-text {
     text-anchor: middle;
-    transition: transform 0.3s ease, fill 0.3s ease;
+    transition: transform 0.1s ease, fill 0.1s ease;
     transform-origin: center; /* ADD THIS LINE */
 }
 

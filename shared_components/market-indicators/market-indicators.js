@@ -4,8 +4,8 @@
  * Integrates with WebSocket for real-time updates
  */
 
-// Debug mode - set to true for debugging
-const DEBUG_MODE = true;
+// Debug mode - set to false for production (reduces Firefox lag)
+const DEBUG_MODE = false;
 
 // Debug logging wrapper
 function debugLog(...args) {
@@ -30,6 +30,8 @@ class MarketIndicatorsDashboard {
         this.updateAnimationDuration = 300;
         this.heartbeatInterval = null;
         this.lastDataUpdate = Date.now(); // Track last data received
+        this.pendingUpdates = {}; // Batch updates for Firefox performance
+        this.updateTimer = null; // Throttle DOM updates
         
         // Data cache
         this.cachedData = {
@@ -252,14 +254,15 @@ class MarketIndicatorsDashboard {
                 case 'dashboard_update':
                     if (message.data) {
                         debugLog(`📊 [${now}] Market data update received - processing...`);
-                        this.updateMarketData(message.data);
+                        // Batch update to reduce Firefox reflow - use requestAnimationFrame
+                        this.scheduleUpdate(() => this.updateMarketData(message.data));
                     }
                     break;
                     
                 case 'market_update':
                     if (message.data) {
                         debugLog('📈 Received market update:', message.data);
-                        this.updateMarketData(message.data);
+                        this.scheduleUpdate(() => this.updateMarketData(message.data));
                     }
                     break;
                     
@@ -276,7 +279,7 @@ class MarketIndicatorsDashboard {
                     // Try to handle as generic market data if it has the expected fields
                     if (message.btc_price_usd || message.market_cap_usd || message.fng_value) {
                         debugLog('🔄 Treating unknown message as market data:', message);
-                        this.updateMarketData(message);
+                        this.scheduleUpdate(() => this.updateMarketData(message));
                     }
                     break;
             }
@@ -286,6 +289,20 @@ class MarketIndicatorsDashboard {
             // Don't let one bad message break the WebSocket connection
             // Continue processing future messages
         }
+    }
+
+    // Batch DOM updates using requestAnimationFrame for better Firefox performance
+    scheduleUpdate(updateFn) {
+        // Cancel previous scheduled update
+        if (this.updateTimer) {
+            cancelAnimationFrame(this.updateTimer);
+        }
+        
+        // Schedule update on next animation frame
+        this.updateTimer = requestAnimationFrame(() => {
+            updateFn();
+            this.updateTimer = null;
+        });
     }
 
     updateMarketData(data) {
@@ -648,7 +665,7 @@ class MarketIndicatorsDashboard {
                 });
             }
         } catch (error) {
-            console.log('Translation update not available:', error);
+            debugLog('Translation update not available:', error);
         }
     }
 
@@ -810,12 +827,16 @@ class MarketIndicatorsDashboard {
     }
 
     startHeartbeat() {
+        // Clear any existing heartbeat first
+        this.stopHeartbeat();
+        
         // Send ping every 30 seconds to keep connection alive (optimized frequency)
         this.heartbeatInterval = setInterval(() => {
             if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
                 debugLog('🏓 Sending heartbeat ping');
                 this.websocket.send('ping');
             } else {
+                debugLog('⚠️ WebSocket not open, stopping heartbeat');
                 this.stopHeartbeat();
             }
         }, 30000); // Every 30 seconds (optimized heartbeat - reduced server load)
@@ -825,11 +846,20 @@ class MarketIndicatorsDashboard {
         if (this.heartbeatInterval) {
             clearInterval(this.heartbeatInterval);
             this.heartbeatInterval = null;
+            debugLog('🛑 Heartbeat stopped');
         }
     }
 
     destroy() {
+        debugLog('🧹 Destroying Market Indicators Dashboard');
         this.stopHeartbeat();
+        
+        // Cancel any pending updates
+        if (this.updateTimer) {
+            cancelAnimationFrame(this.updateTimer);
+            this.updateTimer = null;
+        }
+        
         if (this.websocket) {
             this.websocket.close();
             this.websocket = null;

@@ -16,7 +16,7 @@
 
 /* --- CONTAINER CHUNG --- */
 .line-chart-container {
-    transition: background-color 0.3s ease;
+    transition: background-color 0.15s ease;
 }
 
 /* --- HIỆU ỨNG VẼ BAN ĐẦU --- */
@@ -25,7 +25,8 @@
 .line-path {
     stroke-dasharray: 1000;
     stroke-dashoffset: 1000;
-    animation: draw-path 1.2s 0.2s forwards cubic-bezier(0.45, 0.05, 0.55, 0.95);
+    /* animation: draw-path 1.2s 0.2s forwards cubic-bezier(0.45, 0.05, 0.55, 0.95); */ /* Disabled for performance */
+    animation: draw-path 0.3s forwards ease-out; /* Reduced duration */
 }
 
 @keyframes draw-path {
@@ -38,12 +39,13 @@
 .line-dot, .value-label {
     opacity: 0;
     transform: translateY(10px);
-    animation: fade-in-up 0.5s forwards cubic-bezier(0.34, 1.56, 0.64, 1);
+    /* animation: fade-in-up 0.5s forwards cubic-bezier(0.34, 1.56, 0.64, 1); */ /* Disabled for performance */
+    animation: fade-in-up 0.2s forwards ease-out; /* Reduced duration */
 }
 
 /* Thêm độ trễ cho nhãn để xuất hiện sau các điểm */
 .value-label {
-    animation-delay: 0.8s;
+    animation-delay: 0.3s; /* Reduced from 0.8s */
 }
 
 @keyframes fade-in-up {
@@ -57,7 +59,7 @@
 
 /* Thiết lập transition mượt mà cho các thành phần */
 .line-dot, .value-label, .line-point-group {
-    transition: all 0.25s ease-in-out;
+    transition: all 0.1s ease-in-out;
 }
 
 /* Tooltip cho line chart */
@@ -74,7 +76,7 @@
     z-index: 100;
     white-space: nowrap;
     opacity: 0;
-    transition: opacity 0.2s;
+    transition: opacity 0.1s;
 }
 /* Hiển thị tooltip */
 .line-chart-tooltip.active {

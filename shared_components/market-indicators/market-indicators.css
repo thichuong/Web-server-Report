@@ -20,30 +20,28 @@
     padding: 1.5rem;
     box-shadow: var(--card-shadow);
     border: 1px solid var(--card-border);
-    transition: all 0.3s ease;
+    transition: border-color 0.15s ease; /* Only border color transition */
     position: relative;
     overflow: hidden;
     backdrop-filter: blur(8px);
 }
 
 .market-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    /* Removed transform and box-shadow - only border color change */
     border-color: var(--accent-color);
 }
 
-.market-card::before {
+.realtime-indicator::before {
     content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, var(--accent-color), var(--positive-color));
-    opacity: 0;
-    transition: opacity 0.3s ease;
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--positive-color);
+    margin-right: 0.5rem;
+    /* animation: pulse-dot 2s infinite; */ /* Disabled for performance - real-time updates already indicate live data */
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
 }
-
 .market-card:hover::before {
     opacity: 1;
 }
@@ -54,9 +52,7 @@
     border-radius: 8px;
 }
 
-.market-card.compact:hover {
-    transform: translateY(-2px);
-}
+/* Compact hover inherits border-color change from .market-card:hover */
 
 .market-mini-card {
     background: var(--bg-secondary);
@@ -64,12 +60,12 @@
     padding: 1rem;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
     border: 1px solid var(--border-color);
-    transition: all 0.2s ease;
+    transition: border-color 0.1s ease; /* Only border color transition */
 }
 
 .market-mini-card:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    /* Removed transform and box-shadow - only border color change */
+    border-color: var(--accent-color);
 }
 
 /* Section Headings */
@@ -186,7 +182,7 @@
 .skeleton-loader {
     background: linear-gradient(90deg, var(--skeleton-base) 25%, var(--skeleton-highlight) 50%, var(--skeleton-base) 75%);
     background-size: 200% 100%;
-    animation: skeleton-loading 1.5s infinite;
+    /* animation: skeleton-loading 1.5s infinite; */ /* Disabled for performance - static shimmer sufficient */
     border-radius: 4px;
     height: 2rem;
     width: 70%;
@@ -679,12 +675,11 @@
     border-radius: 8px;
     padding: 0.5rem;
     border: 1px solid var(--border-color);
-    transition: all 0.3s ease;
+    transition: border-color 0.15s ease; /* Only border color transition */
 }
 
 .binance-price-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    /* Removed transform and box-shadow - only border color change */
     border-color: var(--accent-color);
 }
 
