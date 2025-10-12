@@ -20,108 +20,50 @@ impl ApiAggregator {
         println!("🔄 Starting dashboard summary v2 aggregation...");
 
         // Fetch essential data concurrently with shorter timeouts for summary
-        let btc_future = timeout(Duration::from_secs(8), self.fetch_btc_with_cache(force_realtime_refresh));
-        let eth_future = timeout(Duration::from_secs(8), self.fetch_eth_with_cache(force_realtime_refresh));
-        let sol_future = timeout(Duration::from_secs(8), self.fetch_sol_with_cache(force_realtime_refresh));
-        let xrp_future = timeout(Duration::from_secs(8), self.fetch_xrp_with_cache(force_realtime_refresh));
-        let ada_future = timeout(Duration::from_secs(8), self.fetch_ada_with_cache(force_realtime_refresh));
-        let link_future = timeout(Duration::from_secs(8), self.fetch_link_with_cache(force_realtime_refresh));
-        let bnb_future = timeout(Duration::from_secs(8), self.fetch_bnb_with_cache(force_realtime_refresh));
+        // OPTIMIZED: Single multi-crypto API call instead of 7 individual calls
+        let multi_crypto_future = timeout(Duration::from_secs(8), self.fetch_all_crypto_prices_with_cache(force_realtime_refresh));
         let global_future = timeout(Duration::from_secs(8), self.fetch_global_with_cache());
         let fng_future = timeout(Duration::from_secs(8), self.fetch_fng_with_cache());
         let btc_rsi_14_future = timeout(Duration::from_secs(8), self.fetch_btc_rsi_14_with_cache());
         let us_indices_future = timeout(Duration::from_secs(8), self.fetch_us_indices_with_cache());
 
-        let (btc_result, eth_result, sol_result, xrp_result, ada_result, link_result, bnb_result, global_result, fng_result, btc_rsi_14_result, us_indices_result) = tokio::join!(
-            btc_future, eth_future, sol_future, xrp_future, ada_future, link_future, bnb_future,
+        let (multi_crypto_result, global_result, fng_result, btc_rsi_14_result, us_indices_result) = tokio::join!(
+            multi_crypto_future,
             global_future, fng_future, btc_rsi_14_future, us_indices_future
         );
 
         let mut partial_failure = false;
 
-        // Process BTC data
-        let (btc_price, btc_change) = match btc_result {
-            Ok(Ok(btc_data)) => (
-                btc_data["price_usd"].as_f64().unwrap_or(0.0),
-                btc_data["change_24h"].as_f64().unwrap_or(0.0)
-            ),
+        // Process multi-crypto data (all 7 coins in one result)
+        let mut crypto_prices = std::collections::HashMap::new();
+        match multi_crypto_result {
+            Ok(Ok(prices_map)) => {
+                crypto_prices = prices_map;
+            }
             _ => {
                 partial_failure = true;
-                (0.0, 0.0)
+                println!("⚠️ Multi-crypto prices fetch failed");
             }
+        }
+
+        // Helper function to extract price data
+        let get_price_data = |symbol: &str| -> (f64, f64) {
+            crypto_prices.get(symbol)
+                .map(|data| (
+                    data["price_usd"].as_f64().unwrap_or(0.0),
+                    data["change_24h"].as_f64().unwrap_or(0.0)
+                ))
+                .unwrap_or((0.0, 0.0))
         };
 
-        // Process ETH data
-        let (eth_price, eth_change) = match eth_result {
-            Ok(Ok(eth_data)) => (
-                eth_data["price_usd"].as_f64().unwrap_or(0.0),
-                eth_data["change_24h"].as_f64().unwrap_or(0.0)
-            ),
-            _ => {
-                partial_failure = true;
-                (0.0, 0.0)
-            }
-        };
-
-        // Process SOL data
-        let (sol_price, sol_change) = match sol_result {
-            Ok(Ok(sol_data)) => (
-                sol_data["price_usd"].as_f64().unwrap_or(0.0),
-                sol_data["change_24h"].as_f64().unwrap_or(0.0)
-            ),
-            _ => {
-                partial_failure = true;
-                (0.0, 0.0)
-            }
-        };
-
-        // Process XRP data
-        let (xrp_price, xrp_change) = match xrp_result {
-            Ok(Ok(xrp_data)) => (
-                xrp_data["price_usd"].as_f64().unwrap_or(0.0),
-                xrp_data["change_24h"].as_f64().unwrap_or(0.0)
-            ),
-            _ => {
-                partial_failure = true;
-                (0.0, 0.0)
-            }
-        };
-
-        // Process ADA data
-        let (ada_price, ada_change) = match ada_result {
-            Ok(Ok(ada_data)) => (
-                ada_data["price_usd"].as_f64().unwrap_or(0.0),
-                ada_data["change_24h"].as_f64().unwrap_or(0.0)
-            ),
-            _ => {
-                partial_failure = true;
-                (0.0, 0.0)
-            }
-        };
-
-        // Process LINK data
-        let (link_price, link_change) = match link_result {
-            Ok(Ok(link_data)) => (
-                link_data["price_usd"].as_f64().unwrap_or(0.0),
-                link_data["change_24h"].as_f64().unwrap_or(0.0)
-            ),
-            _ => {
-                partial_failure = true;
-                (0.0, 0.0)
-            }
-        };
-
-        // Process BNB data
-        let (bnb_price, bnb_change) = match bnb_result {
-            Ok(Ok(bnb_data)) => (
-                bnb_data["price_usd"].as_f64().unwrap_or(0.0),
-                bnb_data["change_24h"].as_f64().unwrap_or(0.0)
-            ),
-            _ => {
-                partial_failure = true;
-                (0.0, 0.0)
-            }
-        };
+        // Extract individual coin data
+        let (btc_price, btc_change) = get_price_data("BTC");
+        let (eth_price, eth_change) = get_price_data("ETH");
+        let (sol_price, sol_change) = get_price_data("SOL");
+        let (xrp_price, xrp_change) = get_price_data("XRP");
+        let (ada_price, ada_change) = get_price_data("ADA");
+        let (link_price, link_change) = get_price_data("LINK");
+        let (bnb_price, bnb_change) = get_price_data("BNB");
 
         // Process global data
         let (market_cap, volume_24h, market_cap_change, btc_dominance, eth_dominance) = match global_result {

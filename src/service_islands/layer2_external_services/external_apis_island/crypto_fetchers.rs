@@ -3,6 +3,81 @@
 // This module contains all cryptocurrency price fetching methods with fallback logic.
 
 impl MarketDataApi {
+    /// Fetch multiple crypto prices in a single Binance API call (OPTIMIZED)
+    /// 
+    /// Fetches BTC, ETH, SOL, XRP, ADA, LINK, BNB prices in one request
+    /// Returns HashMap<Symbol, (price_usd, change_24h)>
+    pub async fn fetch_multi_crypto_prices(&self) -> Result<HashMap<String, (f64, f64)>> {
+        self.record_api_call();
+
+        // Try Binance multi-ticker endpoint
+        match self.fetch_multi_crypto_prices_binance().await {
+            Ok(data) => {
+                self.record_success();
+                Ok(data)
+            }
+            Err(e) => {
+                self.record_failure();
+                println!("❌ Binance multi-ticker failed: {}", e);
+                Err(e)
+            }
+        }
+    }
+
+    /// Fetch multiple crypto prices from Binance using multi-symbol endpoint
+    async fn fetch_multi_crypto_prices_binance(&self) -> Result<HashMap<String, (f64, f64)>> {
+        let response_json = self.fetch_with_retry(
+            BINANCE_MULTI_PRICE_URL,
+            |response_data: BinanceMultiTickerResponse| {
+                // Just convert the vec to JSON
+                serde_json::to_value(&response_data).unwrap_or(serde_json::json!([]))
+            }
+        ).await?;
+
+        // Parse the JSON array into our HashMap
+        let tickers: BinanceMultiTickerResponse = serde_json::from_value(response_json)?;
+        let mut prices = HashMap::new();
+        
+        for ticker in tickers {
+            let price_usd: f64 = ticker.last_price.parse().unwrap_or(0.0);
+            let change_24h: f64 = ticker.price_change_percent.parse().unwrap_or(0.0);
+            
+            // Map symbol to coin name
+            let coin_name = match ticker.symbol.as_str() {
+                "BTCUSDT" => "BTC",
+                "ETHUSDT" => "ETH",
+                "SOLUSDT" => "SOL",
+                "XRPUSDT" => "XRP",
+                "ADAUSDT" => "ADA",
+                "LINKUSDT" => "LINK",
+                "BNBUSDT" => "BNB",
+                _ => continue, // Skip unknown symbols
+            };
+            
+            prices.insert(coin_name.to_string(), (price_usd, change_24h));
+        }
+
+        // Validate we got all 7 coins
+        if prices.len() != 7 {
+            return Err(anyhow::anyhow!(
+                "Binance multi-ticker validation failed: expected 7 coins, got {}",
+                prices.len()
+            ));
+        }
+
+        // Validate each price is reasonable
+        for (coin, (price, _)) in &prices {
+            if *price <= 0.0 {
+                return Err(anyhow::anyhow!(
+                    "Binance {} price validation failed: price={}",
+                    coin, price
+                ));
+            }
+        }
+
+        Ok(prices)
+    }
+
     /// Fetch Bitcoin price with fallback chain
     pub async fn fetch_btc_price(&self) -> Result<serde_json::Value> {
         self.record_api_call();

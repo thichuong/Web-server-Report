@@ -5,6 +5,10 @@
 /// API URLs - extracted from existing data_service.rs with cache-friendly grouping
 
 // Binance APIs (Primary)
+// Multi-symbol endpoint - fetches all crypto prices in a single request (OPTIMIZED)
+pub const BINANCE_MULTI_PRICE_URL: &str = r#"https://api.binance.com/api/v3/ticker/24hr?symbols=["BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT","ADAUSDT","LINKUSDT","BNBUSDT"]"#; // 10 sec cache (RealTime)
+
+// Individual symbol endpoints (DEPRECATED - kept for backward compatibility)
 pub const BINANCE_BTC_PRICE_URL: &str = "https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT"; // 30 sec cache
 pub const BINANCE_ETH_PRICE_URL: &str = "https://api.binance.com/api/v3/ticker/24hr?symbol=ETHUSDT"; // 30 sec cache
 pub const BINANCE_SOL_PRICE_URL: &str = "https://api.binance.com/api/v3/ticker/24hr?symbol=SOLUSDT"; // 30 sec cache

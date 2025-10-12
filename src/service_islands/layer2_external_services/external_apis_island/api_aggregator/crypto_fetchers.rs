@@ -3,214 +3,54 @@
 //! This module contains all the cryptocurrency price fetching methods with caching.
 
 use anyhow::Result;
+use std::collections::HashMap;
 use super::aggregator_core::ApiAggregator;
 
 impl ApiAggregator {
-    /// Fetch BTC data with generic caching strategy
+    /// Fetch all crypto prices with a single API call (OPTIMIZED)
+    /// 
+    /// Returns HashMap with coin symbols as keys: BTC, ETH, SOL, XRP, ADA, LINK, BNB
+    /// Each value is a JSON object with price_usd and change_24h
     /// 
     /// force_refresh: If true, skips cache check and forces API fetch (for streaming)
-    pub async fn fetch_btc_with_cache(&self, force_refresh: bool) -> Result<serde_json::Value> {
-        let cache_key = "btc_price_realtime";
+    pub async fn fetch_all_crypto_prices_with_cache(&self, force_refresh: bool) -> Result<HashMap<String, serde_json::Value>> {
+        let cache_key = "multi_crypto_prices_realtime";
 
         // Try cache first (unless force refresh)
         if !force_refresh {
             if let Some(ref cache) = self.cache_system {
                 if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
-                    return Ok(cached_data);
+                    // Deserialize from JSON to HashMap
+                    if let Ok(prices) = serde_json::from_value::<HashMap<String, serde_json::Value>>(cached_data) {
+                        println!("💾 Retrieved all crypto prices from cache");
+                        return Ok(prices);
+                    }
                 }
             }
         }
 
         // Fetch from API
-        match self.market_api.fetch_btc_price().await {
-            Ok(data) => {
+        match self.market_api.fetch_multi_crypto_prices().await {
+            Ok(raw_data) => {
+                // Convert HashMap<String, (f64, f64)> to HashMap<String, serde_json::Value>
+                let mut result = HashMap::new();
+                for (coin, (price_usd, change_24h)) in raw_data {
+                    result.insert(coin.clone(), serde_json::json!({
+                        "price_usd": price_usd,
+                        "change_24h": change_24h,
+                        "source": "binance",
+                        "last_updated": chrono::Utc::now().to_rfc3339()
+                    }));
+                }
+
                 // Cache using RealTime strategy - 10s TTL
                 if let Some(ref cache) = self.cache_system {
-                    let _ = cache.cache_manager.set_with_strategy(cache_key, data.clone(),
+                    let cache_value = serde_json::to_value(&result).unwrap_or(serde_json::json!({}));
+                    let _ = cache.cache_manager.set_with_strategy(cache_key, cache_value,
                         crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::RealTime).await;
-                    println!("💾 BTC price cached (RealTime strategy - 10s TTL)");
+                    println!("💾 All crypto prices cached (RealTime strategy - 10s TTL)");
                 }
-                Ok(data)
-            }
-            Err(e) => Err(e)
-        }
-    }
-
-    /// Fetch ETH data with generic caching strategy
-    /// 
-    /// force_refresh: If true, skips cache check and forces API fetch (for streaming)
-    pub async fn fetch_eth_with_cache(&self, force_refresh: bool) -> Result<serde_json::Value> {
-        let cache_key = "eth_price_realtime";
-
-        // Try cache first (unless force refresh)
-        if !force_refresh {
-            if let Some(ref cache) = self.cache_system {
-                if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
-                    return Ok(cached_data);
-                }
-            }
-        }
-
-        // Fetch from API
-        match self.market_api.fetch_eth_price().await {
-            Ok(data) => {
-                // Cache using RealTime strategy - 10s TTL
-                if let Some(ref cache) = self.cache_system {
-                    let _ = cache.cache_manager.set_with_strategy(cache_key, data.clone(),
-                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::RealTime).await;
-                    println!("💾 ETH price cached (RealTime strategy - 10s TTL)");
-                }
-                Ok(data)
-            }
-            Err(e) => Err(e)
-        }
-    }
-
-    /// Fetch SOL data with generic caching strategy
-    /// 
-    /// force_refresh: If true, skips cache check and forces API fetch (for streaming)
-    pub async fn fetch_sol_with_cache(&self, force_refresh: bool) -> Result<serde_json::Value> {
-        let cache_key = "sol_price_realtime";
-
-        // Try cache first (unless force refresh)
-        if !force_refresh {
-            if let Some(ref cache) = self.cache_system {
-                if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
-                    return Ok(cached_data);
-                }
-            }
-        }
-
-        // Fetch from API
-        match self.market_api.fetch_sol_price().await {
-            Ok(data) => {
-                // Cache using RealTime strategy - 10s TTL
-                if let Some(ref cache) = self.cache_system {
-                    let _ = cache.cache_manager.set_with_strategy(cache_key, data.clone(),
-                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::RealTime).await;
-                    println!("💾 SOL price cached (RealTime strategy - 10s TTL)");
-                }
-                Ok(data)
-            }
-            Err(e) => Err(e)
-        }
-    }
-
-    /// Fetch XRP data with generic caching strategy
-    /// 
-    /// force_refresh: If true, skips cache check and forces API fetch (for streaming)
-    pub async fn fetch_xrp_with_cache(&self, force_refresh: bool) -> Result<serde_json::Value> {
-        let cache_key = "xrp_price_realtime";
-
-        // Try cache first (unless force refresh)
-        if !force_refresh {
-            if let Some(ref cache) = self.cache_system {
-                if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
-                    return Ok(cached_data);
-                }
-            }
-        }
-
-        // Fetch from API
-        match self.market_api.fetch_xrp_price().await {
-            Ok(data) => {
-                // Cache using RealTime strategy - 10s TTL
-                if let Some(ref cache) = self.cache_system {
-                    let _ = cache.cache_manager.set_with_strategy(cache_key, data.clone(),
-                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::RealTime).await;
-                    println!("💾 XRP price cached (RealTime strategy - 10s TTL)");
-                }
-                Ok(data)
-            }
-            Err(e) => Err(e)
-        }
-    }
-
-    /// Fetch ADA data with generic caching strategy
-    /// 
-    /// force_refresh: If true, skips cache check and forces API fetch (for streaming)
-    pub async fn fetch_ada_with_cache(&self, force_refresh: bool) -> Result<serde_json::Value> {
-        let cache_key = "ada_price_realtime";
-
-        // Try cache first (unless force refresh)
-        if !force_refresh {
-            if let Some(ref cache) = self.cache_system {
-                if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
-                    return Ok(cached_data);
-                }
-            }
-        }
-
-        // Fetch from API
-        match self.market_api.fetch_ada_price().await {
-            Ok(data) => {
-                // Cache using RealTime strategy - 10s TTL
-                if let Some(ref cache) = self.cache_system {
-                    let _ = cache.cache_manager.set_with_strategy(cache_key, data.clone(),
-                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::RealTime).await;
-                    println!("💾 ADA price cached (RealTime strategy - 10s TTL)");
-                }
-                Ok(data)
-            }
-            Err(e) => Err(e)
-        }
-    }
-
-    /// Fetch LINK data with generic caching strategy
-    /// 
-    /// force_refresh: If true, skips cache check and forces API fetch (for streaming)
-    pub async fn fetch_link_with_cache(&self, force_refresh: bool) -> Result<serde_json::Value> {
-        let cache_key = "link_price_realtime";
-
-        // Try cache first (unless force refresh)
-        if !force_refresh {
-            if let Some(ref cache) = self.cache_system {
-                if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
-                    return Ok(cached_data);
-                }
-            }
-        }
-
-        // Fetch from API
-        match self.market_api.fetch_link_price().await {
-            Ok(data) => {
-                // Cache using RealTime strategy - 10s TTL
-                if let Some(ref cache) = self.cache_system {
-                    let _ = cache.cache_manager.set_with_strategy(cache_key, data.clone(),
-                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::RealTime).await;
-                    println!("💾 LINK price cached (RealTime strategy - 10s TTL)");
-                }
-                Ok(data)
-            }
-            Err(e) => Err(e)
-        }
-    }
-
-    /// Fetch BNB data with generic caching strategy
-    /// 
-    /// force_refresh: If true, skips cache check and forces API fetch (for streaming)
-    pub async fn fetch_bnb_with_cache(&self, force_refresh: bool) -> Result<serde_json::Value> {
-        let cache_key = "bnb_price_realtime";
-
-        // Try cache first (unless force refresh)
-        if !force_refresh {
-            if let Some(ref cache) = self.cache_system {
-                if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
-                    return Ok(cached_data);
-                }
-            }
-        }
-
-        // Fetch from API
-        match self.market_api.fetch_bnb_price().await {
-            Ok(data) => {
-                // Cache using RealTime strategy - 10s TTL
-                if let Some(ref cache) = self.cache_system {
-                    let _ = cache.cache_manager.set_with_strategy(cache_key, data.clone(),
-                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::RealTime).await;
-                    println!("💾 BNB price cached (RealTime strategy - 10s TTL)");
-                }
-                Ok(data)
+                Ok(result)
             }
             Err(e) => Err(e)
         }

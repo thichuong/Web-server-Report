@@ -36,7 +36,7 @@ pub(crate) struct BtcPriceData {
 }
 
 // Binance response structures
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, serde::Serialize)]
 pub(crate) struct BinanceBtcPrice {
     #[allow(dead_code)]
     pub symbol: String,
@@ -45,6 +45,9 @@ pub(crate) struct BinanceBtcPrice {
     #[serde(rename = "priceChangePercent")]
     pub price_change_percent: String,
 }
+
+// Binance Multi-Ticker response (array of tickers)
+pub(crate) type BinanceMultiTickerResponse = Vec<BinanceBtcPrice>;
 
 // Fear & Greed Index response structures
 #[derive(Debug, Deserialize)]
