@@ -278,7 +278,12 @@ impl MarketDataApi {
                 Ok(data)
             }
             Err(e) => {
-                println!("⚠️ Binance BNB price failed: {}, trying CoinGecko...", e);
+                let error_msg = e.to_string();
+                if error_msg.contains("418") {
+                    println!("⚠️ Binance BNB price failed: API returned status: 418 I'm a teapot for URL: https://api.binance.com/api/v3/ticker/24hr?symbol=BNBUSDT, trying CoinGecko...");
+                } else {
+                    println!("⚠️ Binance BNB price failed: {}, trying CoinGecko...", e);
+                }
                 // Fallback to CoinGecko
                 match self.fetch_bnb_price_coingecko().await {
                     Ok(data) => {
@@ -423,6 +428,7 @@ impl MarketDataApi {
         while attempts < max_attempts {
             let response = self.client
                 .get(url)
+                .header("Accept", "application/json")
                 .send()
                 .await?;
 
@@ -430,6 +436,18 @@ impl MarketDataApi {
                 status if status.is_success() => {
                     let data: T = response.json().await?;
                     return Ok(transformer(data));
+                }
+                status if status == 418 => {
+                    // 418 I'm a teapot - Binance uses this for rate limiting/blocking
+                    attempts += 1;
+                    if attempts >= max_attempts {
+                        return Err(anyhow::anyhow!("Binance blocked request (418 I'm a teapot) after {} attempts for URL: {}. This usually means rate limiting or IP blocking.", max_attempts, url));
+                    }
+
+                    let delay = std::time::Duration::from_millis(2000 * (2_u64.pow(attempts)));
+                    println!("⚠️ Binance blocking (418) for {}, retrying in {:?} (attempt {}/{})", url, delay, attempts, max_attempts);
+                    tokio::time::sleep(delay).await;
+                    continue;
                 }
                 status if status == 429 => {
                     // Rate limiting - implement exponential backoff
