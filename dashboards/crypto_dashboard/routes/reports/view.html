@@ -10,187 +10,29 @@
     <link rel="stylesheet" href="/shared_assets/css/colors.css">
     <link rel="stylesheet" href="/shared_assets/css/style.css">
     <link rel="stylesheet" href="/shared_assets/css/chart.css">
+    <link rel="stylesheet" href="/crypto_dashboard/assets/report-view.css">
 
     <!-- Report-specific CSS is now sandboxed inside iframe for security and isolation -->
-    <style>
-        /* Auto-loading enhancements */
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(255, 255, 255, 0.9);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            z-index: 9999;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
-        }
-        
-        .loading-overlay.show {
-            opacity: 1;
-            visibility: visible;
-        }
-        
-        .pulse-animation {
-            animation: pulse 2s infinite;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        
-        .card {
-            transition: all 0.3s ease;
-        }
-        
-        .card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-        
-        .skeleton {
-            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-            background-size: 200% 100%;
-            animation: loading 1.5s infinite;
-        }
-        
-        .positive-change { color: green; }
-        .negative-change { color: red; }
-        
-        .real-time-data {
-            position: relative;
-        }
-        
-        .real-time-data::after {
-            content: "🔴";
-            position: absolute;
-            top: -2px;
-            right: -15px;
-            font-size: 8px;
-            animation: blink 1s infinite;
-        }
-        
-        @keyframes blink {
-            0%, 50% { opacity: 1; }
-            51%, 100% { opacity: 0.3; }
-        }
-        
-        /* Navigation Sidebar Styles - Left positioned within container */
-        #navigation-sidebar {
-            position: sticky;
-            top: 20px;
-            height: fit-content;
-            max-height: calc(100vh - 40px);
-            background: var(--card-bg, #ffffff);
-            border: 1px solid var(--border-color, #e5e7eb);
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-            transition: all 0.3s ease;
-            word-wrap: break-word;
-            min-width: 280px;
-            max-width: 320px;
-        }
-        
-        #navigation-sidebar.dark-theme {
-            background: var(--dark-card-bg, #1f2937);
-            border-color: var(--dark-border-color, #374151);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-        
-        .nav-header {
-            padding: 1rem;
-            border-bottom: 1px solid var(--border-color, #e5e7eb);
-        }
-        
-        .nav-title {
-            color: var(--text-primary, #1f2937);
-            font-weight: 600;
-            font-size: 1rem;
-            margin: 0;
-        }
-        
-        .nav-content {
-            max-height: calc(100vh - 120px);
-            overflow-y: auto;
-            overflow-x: hidden;
-        }
-        
-        .nav-links {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-            word-wrap: break-word;
-        }
-        
-        .nav-links li {
-            margin: 0;
-        }
-        
-        .nav-links a {
-            display: block;
-            padding: 0.75rem 1rem;
-            color: var(--text-secondary, #6b7280);
-            text-decoration: none;
-            border-left: 3px solid transparent;
-            transition: all 0.3s ease;
-            font-size: 0.9rem;
-            font-weight: 500;
-            line-height: 1.4;
-            word-wrap: break-word;
-            white-space: normal;
-            overflow-wrap: break-word;
-            hyphens: auto;
-            max-width: 100%;
-            box-sizing: border-box;
-        }
-        
-        .nav-links a:hover {
-            background-color: var(--bg-secondary, #f9fafb);
-            color: var(--text-primary, #1f2937);
-            border-left-color: var(--accent-color, #3b82f6);
-            transform: translateX(2px);
-        }
-        
-        .nav-links a.active {
-            background-color: #3b82f6;
-            color: white;
-            font-weight: 600;
-            border-left-color: #1e40af;
-            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.25);
-        }
-        
-        .nav-links .nav-more span {
-            display: block;
-            padding: 0.5rem 1rem;
-            color: var(--text-muted, #9ca3af);
-            font-style: italic;
-            font-size: 0.8rem;
-        }
-        
-        /* Mobile responsive - hide navigation on mobile */
-        @media (max-width: 1024px) {
-            #navigation-sidebar {
-                display: none !important;
-            }
-            
-            .flex.gap-6 {
-                display: block;
-            }
-        }
-    </style>
 </head>
 <body class="antialiased">
-    {% include "crypto/components/theme_toggle.html" %}
-    {% include "crypto/components/language_toggle.html" %}
 
-    <div class="container mx-auto p-4 md:p-8">
+    <!-- Fixed bottom navigation panel -->
+    <div class="fixed bottom-0 left-0 right-0 z-50 shadow-lg border-t" style="background-color: var(--bg-secondary); border-color: var(--border-color); box-shadow: var(--card-shadow);">
+        <div class="px-4 sm:px-6 lg:px-8 py-3">
+            <div class="flex items-center justify-start">
+                <div class="flex items-center space-x-4">
+                    <a href="/" class="inline-block bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 text-sm"><span data-i18n="home">Trang chủ</span></a>
+                    <a href="/crypto_reports_list" class="inline-block bg-gray-700 text-white font-bold py-2 px-4 rounded-lg text-sm"><span data-i18n="view-report-history">Lịch sử báo cáo</span></a>
+                </div>
+                <div class="flex items-center space-x-3 ml-auto">
+                    {% include "crypto/components/theme_toggle.html" %}
+                    {% include "crypto/components/language_toggle.html" %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container mx-auto p-4 md:p-8 pt-20">
         <header class="text-center mb-12">
             <h1 class="text-4xl md:text-5xl font-extrabold mb-2">
                 <span data-i18n="site-title">Toàn Cảnh Thị Trường Tiền Mã Hóa</span>
@@ -201,13 +43,6 @@
             <p class="text-base text-gray-500 max-w-3xl mx-auto mt-2">
                 <span data-i18n="created-at">tạo lúc</span>: <span id="report-created-at" data-created-at="{{ report.created_at }}" class="ml-1 font-medium">{{ report.created_at }}</span>
             </p>
-            <div class="mt-6 flex items-center justify-center space-x-4">
-                <a href="/" class="inline-block bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700"><span data-i18n="home">Trang chủ</span></a>
-                <!-- <a href="{{ pdf_url }}" target="_blank" class="inline-block bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-green-700 transition-colors duration-300">
-                    <i class="fas fa-print mr-2"></i> <span data-i18n="print-report">In Báo cáo</span>
-                </a> -->
-                <a href="/crypto_reports_list" class="inline-block bg-gray-700 text-white font-bold py-3 px-6 rounded-lg"><span data-i18n="view-report-history">Lịch sử báo cáo</span></a>
-            </div>
         </header>
 
         <div class="space-y-6 mb-12">
