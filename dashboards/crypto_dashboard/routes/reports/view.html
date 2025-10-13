@@ -17,14 +17,14 @@
 <body class="antialiased">
 
     <!-- Fixed bottom navigation panel -->
-    <div class="fixed bottom-0 left-0 right-0 z-50 shadow-lg border-t" style="background-color: var(--bg-secondary); border-color: var(--border-color); box-shadow: var(--card-shadow);">
-        <div class="px-4 sm:px-6 lg:px-8 py-3">
-            <div class="flex items-center justify-start">
+    <div class="fixed bottom-0 left-0 right-0 z-50" style="background-color: var(--bg-secondary); border-top: 1px solid var(--border-color); backdrop-filter: blur(10px);">
+        <div class="px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
                 <div class="flex items-center space-x-4">
                     <a href="/" class="inline-block bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 text-sm"><span data-i18n="home">Trang chủ</span></a>
                     <a href="/crypto_reports_list" class="inline-block bg-gray-700 text-white font-bold py-2 px-4 rounded-lg text-sm"><span data-i18n="view-report-history">Lịch sử báo cáo</span></a>
                 </div>
-                <div class="flex items-center space-x-3 ml-auto">
+                <div class="flex items-center space-x-4">
                     {% include "crypto/components/theme_toggle.html" %}
                     {% include "crypto/components/language_toggle.html" %}
                 </div>
