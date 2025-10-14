@@ -19,22 +19,6 @@ pub(crate) struct CoinGeckoGlobalData {
     pub market_cap_percentage: HashMap<String, f64>,
 }
 
-#[derive(Debug, Deserialize)]
-pub(crate) struct CoinGeckoBtcPrice {
-    pub bitcoin: BtcPriceData,
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct CoinGeckoBnbPrice {
-    pub binancecoin: BtcPriceData,
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct BtcPriceData {
-    pub usd: f64,
-    pub usd_24h_change: f64,
-}
-
 // Binance response structures
 #[derive(Debug, Deserialize, serde::Serialize)]
 pub(crate) struct BinanceBtcPrice {
@@ -84,22 +68,6 @@ pub(crate) struct CmcGlobalQuote {
     pub market_cap_change_percentage_24h: f64,
     pub btc_dominance: f64,
     pub eth_dominance: f64,
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct CmcBtcResponse {
-    pub data: HashMap<String, Vec<CmcBtcData>>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct CmcBtcData {
-    pub quote: HashMap<String, CmcBtcQuote>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct CmcBtcQuote {
-    pub price: f64,
-    pub percent_change_24h: f64,
 }
 
 // Finnhub response structures

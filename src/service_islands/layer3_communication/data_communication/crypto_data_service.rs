@@ -172,23 +172,6 @@ impl CryptoDataService {
         Ok(report)
     }
 
-    /// Get rendered report HTML (cached)
-    #[allow(dead_code)]
-    pub async fn get_rendered_report_html(&self, state: &Arc<AppState>, report_id: &str) -> Result<Option<String>, anyhow::Error> {
-        if let Some(ref cache_system) = state.cache_system {
-            let cache_key = format!("rendered_html_report_{}", report_id);
-            // Chỉ cần lấy dưới dạng String, không cần deserialize
-            if let Ok(Some(cached_value)) = cache_system.cache_manager.get(&cache_key).await {
-                if let Some(html_string) = cached_value.as_str() {
-                    let report_type = if report_id == "-1" { "latest report" } else { &format!("report #{}", report_id) };
-                    println!("🔥 Layer 3: Cache HIT cho HTML đã render của {}", report_type);
-                    return Ok(Some(html_string.to_string()));
-                }
-            }
-        }
-        Ok(None)
-    }
-
     /// Lấy nội dung compressed data của một report từ cache.
     pub async fn get_rendered_report_compressed(&self, state: &Arc<AppState>, report_id: i32) -> Result<Option<Vec<u8>>, anyhow::Error> {
         if let Some(ref cache_system) = state.cache_system {
@@ -204,21 +187,7 @@ impl CryptoDataService {
         Ok(None)
     }
 
-    /// Lưu nội dung HTML đã render của một report vào cache.
-    #[allow(dead_code)]
-    pub async fn cache_rendered_report_html(&self, state: &Arc<AppState>, report_id: i32, html_content: String) -> Result<(), anyhow::Error> {
-        if let Some(ref cache_system) = state.cache_system {
-            let cache_key = format!("rendered_html_report_{}", report_id);
-            // Sử dụng chiến lược cache ShortTerm (5 phút) cho HTML đã render
-            let strategy = crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm;
-            cache_system.cache_manager.set_with_strategy(&cache_key, serde_json::json!(html_content), strategy).await?;
-            let report_type = if report_id == -1 { "latest report" } else { &format!("report #{}", report_id) };
-            println!("💾 Layer 3: Đã cache HTML đã render cho {}", report_type);
-        }
-        Ok(())
-    }
-
-    /// Lưu nội dung compressed data của một report vào cache.
+    /// Fetch paginated crypto reports list with caching
     pub async fn cache_rendered_report_compressed(&self, state: &Arc<AppState>, report_id: i32, compressed_data: Vec<u8>) -> Result<(), anyhow::Error> {
         if let Some(ref cache_system) = state.cache_system {
             let cache_key = format!("compressed_report_{}", report_id);
