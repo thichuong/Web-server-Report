@@ -1,6 +1,6 @@
 /* Định dạng nhãn giá trị cho bar chart */
 .bar-value-label.h3 {
-    font-size: 2rem;
+    font-size: 1rem;
     font-weight: 600;
     font-family: inherit;
     fill: var(--text-primary);
@@ -9,7 +9,7 @@
 
 @media (max-width: 580px) {
     .bar-value-label.h3 {
-        font-size: 2rem;
+        font-size: 1rem;
     }
 }
 /* static/css/bar-chart.css */
@@ -78,11 +78,11 @@
 .bar-chart-tooltip .tooltip-bg {
     fill: var(--card-bg);
     stroke: var(--border-color);
-    stroke-width: 2rem;
+    stroke-width: 1.5rem;
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
 }
 .bar-chart-tooltip .tooltip-text {
-    font-size: 2rem;
+    font-size: 1.5rem;
     font-weight: 500;
     fill: var(--text-primary);
 }

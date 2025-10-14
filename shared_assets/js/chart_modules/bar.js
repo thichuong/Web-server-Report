@@ -67,7 +67,7 @@ function createBarChart(container, data, options = {}) {
                       fill="${d.color || 'var(--accent-color)'}" rx="3" class="bar-rect"
                       style="animation-delay: ${i * 100}ms;" />
             <text x="${barWidth / 2}" y="${labelY}" text-anchor="middle" font-weight="600"
-                fill="var(--text-primary)" class="bar-value-label h3">${valuePrefix}${d.value}${valueSuffix}</text>
+                fill="var(--text-primary)" class="bar-value-label h3">${valuePrefix}${d.value.toFixed(3)}${valueSuffix}</text>
             </g>
         `;
 
@@ -119,7 +119,7 @@ function createBarChart(container, data, options = {}) {
         bar.addEventListener('mouseover', (e) => {
             const index = parseInt(bar.dataset.index);
             const d = data[index];
-            const content = `${d.label}: ${valuePrefix}${d.value}${valueSuffix}`;
+            const content = `${d.label}: ${valuePrefix}${d.value.toFixed(3)}${valueSuffix}`;
             
             tooltipText.textContent = content;
             tooltip.style.visibility = 'visible';
