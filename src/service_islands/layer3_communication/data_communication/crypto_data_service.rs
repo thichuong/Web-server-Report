@@ -236,21 +236,29 @@ impl CryptoDataService {
     /// Fetch paginated crypto reports list with caching
     /// 
     /// Layer 3 method for fetching reports list with L1/L2 cache integration
+    /// Returns compressed data (Vec<u8>) for optimal transfer speed
     pub async fn fetch_reports_list_with_cache(
         &self,
         state: &Arc<AppState>,
         page: i64,
         per_page: i64,
-    ) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
-        let cache_key = format!("crypto_reports_list_page_{}", page);
+    ) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
+        let cache_key = format!("crypto_reports_list_page_{}_compressed", page);
         
-        // BƯỚC 1: Kiểm tra cache trước (L1 cache)
+        // BƯỚC 1: Kiểm tra cache trước (L1 cache) - tìm compressed data
         if let Some(ref cache_system) = state.cache_system {
             match cache_system.cache_manager.get(&cache_key).await {
                 Ok(Some(cached_value)) => {
-                    if let Some(html_string) = cached_value.as_str() {
-                        println!("🔥 Layer 3: Cache HIT cho reports list page {}", page);
-                        return Ok(Some(html_string.to_string()));
+                    // Try to get as bytes array
+                    if let Some(cached_bytes) = cached_value.as_array() {
+                        let bytes: Vec<u8> = cached_bytes.iter()
+                            .filter_map(|v| v.as_u64().map(|n| n as u8))
+                            .collect();
+                        if !bytes.is_empty() {
+                            let size_kb = bytes.len() / 1024;
+                            println!("🔥 Layer 3: Cache HIT cho compressed reports list page {} ({}KB)", page, size_kb);
+                            return Ok(Some(bytes));
+                        }
                     }
                 }
                 Ok(None) => {
@@ -400,17 +408,50 @@ impl CryptoDataService {
             Ok(Ok(html)) => {
                 println!("✅ Layer 3: Reports list template rendered successfully - {} items, page {} of {}", items.len(), page, pages);
                 
-                // BƯỚC 7: Cache rendered HTML
+                // BƯỚC 7: Compress HTML với gzip
+                use flate2::{Compression, write::GzEncoder};
+                use std::io::Write;
+                
+                let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+                if let Err(e) = encoder.write_all(html.as_bytes()) {
+                    println!("❌ Layer 3: Compression write error for reports list page {}: {}", page, e);
+                    return Err(format!("Compression error: {}", e).into());
+                }
+                
+                let compressed_data = match encoder.finish() {
+                    Ok(data) => data,
+                    Err(e) => {
+                        println!("❌ Layer 3: Compression finish error for reports list page {}: {}", page, e);
+                        return Err(format!("Compression error: {}", e).into());
+                    }
+                };
+                
+                let original_size = html.len();
+                let compressed_size = compressed_data.len();
+                let compression_ratio = (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0;
+                
+                println!("🗜️  Layer 3: Reports list compressed - Original: {}KB, Compressed: {}KB, Ratio: {:.1}%", 
+                         original_size / 1024, 
+                         compressed_size / 1024, 
+                         compression_ratio);
+                
+                // BƯỚC 8: Cache compressed data
                 if let Some(ref cache_system) = state.cache_system {
+                    // Convert Vec<u8> to JSON array for cache storage
+                    let bytes_array: Vec<serde_json::Value> = compressed_data.iter()
+                        .map(|&b| serde_json::json!(b))
+                        .collect();
+                    
                     let strategy = crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm;
-                    if let Err(e) = cache_system.cache_manager.set_with_strategy(&cache_key, serde_json::json!(html), strategy).await {
-                        println!("⚠️ Layer 3: Failed to cache reports list page {}: {}", page, e);
+                    if let Err(e) = cache_system.cache_manager.set_with_strategy(&cache_key, serde_json::json!(bytes_array), strategy).await {
+                        println!("⚠️ Layer 3: Failed to cache compressed reports list page {}: {}", page, e);
                     } else {
-                        println!("💾 Layer 3: Cached reports list page {} for 5 minutes", page);
+                        let size_kb = compressed_data.len() / 1024;
+                        println!("💾 Layer 3: Cached compressed reports list page {} ({}KB) for 5 minutes", page, size_kb);
                     }
                 }
                 
-                Ok(Some(html))
+                Ok(Some(compressed_data))
             }
             Ok(Err(e)) => {
                 println!("❌ Layer 3: Reports list template render error: {:#?}", e);

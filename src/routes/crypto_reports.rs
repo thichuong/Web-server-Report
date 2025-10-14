@@ -72,18 +72,20 @@ async fn crypto_reports_list(
     let page: i64 = params.get("page").and_then(|p| p.parse().ok()).unwrap_or(1);
     println!("📄 [Route] Requesting page: {}", page);
 
-    // Use Service Islands architecture to get reports list
+    // Use Service Islands architecture to get reports list (compressed)
     match service_islands.crypto_reports.handlers.crypto_reports_list_with_tera(&service_islands.get_legacy_app_state(), page).await {
-        Ok(html) => {
-            println!("✅ [Route] Reports list template rendered successfully from Layer 5");
+        Ok(compressed_data) => {
+            let size_kb = compressed_data.len() / 1024;
+            println!("✅ [Route] Reports list template rendered successfully from Layer 5 - compressed ({}KB)", size_kb);
             
-            // Create cached response like archive_old_code with proper headers
+            // Create compressed response with proper headers
             Response::builder()
                 .status(StatusCode::OK)
                 .header("cache-control", "public, max-age=60")
                 .header("content-type", "text/html; charset=utf-8")
-                .header("x-cache", "Layer5-Generated")
-                .body(html)
+                .header("content-encoding", "gzip")
+                .header("x-cache", "Layer5-Compressed")
+                .body(Body::from(compressed_data))
                 .unwrap()
                 .into_response()
         }

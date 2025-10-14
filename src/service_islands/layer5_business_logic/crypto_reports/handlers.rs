@@ -289,12 +289,13 @@ impl CryptoHandlers {
     /// Crypto Reports List handler - Paginated list of all reports
     /// 
     /// Delegated to Layer 3 with cache integration - similar to crypto_index_with_tera pattern
+    /// Returns compressed data (Vec<u8>) for optimal transfer speed
     pub async fn crypto_reports_list_with_tera(
         &self, 
         state: &Arc<AppState>,
         page: i64
-    ) -> Result<String, Box<dyn StdError + Send + Sync>> {
-        println!("� Layer 5: Nhận yêu cầu cho crypto reports list page {}", page);
+    ) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
+        println!("📋 Layer 5: Nhận yêu cầu cho crypto reports list page {}", page);
         
         // Increment request counter to monitor performance
         let request_count = state.request_counter.fetch_add(1, Ordering::Relaxed);
@@ -304,14 +305,15 @@ impl CryptoHandlers {
             println!("Processed {} requests to crypto_reports_list", request_count);
         }
 
-        // BƯỚC 1: ỦY QUYỀN CHO LAYER 3 ĐỂ XỬ LÝ CACHE VÀ DATABASE
+        // BƯỚC 1: ỦY QUYỀN CHO LAYER 3 ĐỂ XỬ LÝ CACHE VÀ DATABASE (returns compressed data)
         let data_service = &self.report_creator.data_service; // Truy cập data_service
         let per_page: i64 = 10;
         
         match data_service.fetch_reports_list_with_cache(state, page, per_page).await {
-            Ok(Some(html)) => {
-                println!("✅ Layer 5: Nhận HTML từ Layer 3 cho reports list page {}", page);
-                Ok(html)
+            Ok(Some(compressed_data)) => {
+                let size_kb = compressed_data.len() / 1024;
+                println!("✅ Layer 5: Nhận compressed data từ Layer 3 cho reports list page {} ({}KB)", page, size_kb);
+                Ok(compressed_data)
             }
             Ok(None) => {
                 println!("⚠️ Layer 5: Layer 3 trả về None cho reports list page {}", page);
