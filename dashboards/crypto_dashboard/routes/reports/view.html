@@ -58,7 +58,7 @@
         <!-- Market Overview Cards - Horizontal Scroll Layout -->
         <div class="mb-12 relative">
             <!-- Scroll Container -->
-            <div class="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400" style="scroll-behavior: smooth; -webkit-overflow-scrolling: touch;">
+            <div class="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory custom-scrollbar" style="scroll-behavior: smooth; -webkit-overflow-scrolling: touch;">
                 
                 <!-- Card 1: BTC Price -->
                 <div class="card flex-shrink-0 w-64 snap-center min-h-[180px] flex flex-col">
@@ -121,7 +121,9 @@
             </div>
             
             <!-- Scroll Hint - Hidden on desktop when all cards fit -->
-            <div class="absolute right-0 top-0 bottom-4 w-12 bg-gradient-to-l from-white to-transparent pointer-events-none lg:hidden" aria-hidden="true"></div>
+            <div class="absolute right-0 top-0 bottom-4 w-12 pointer-events-none lg:hidden" 
+                 style="background: linear-gradient(to left, var(--scroll-hint-from), var(--scroll-hint-to));" 
+                 aria-hidden="true"></div>
         </div>
 
         <!-- Tuyên bố miễn trừ trách nhiệm: chỉ mang tính chất tham khảo (i18n) -->

@@ -3,18 +3,18 @@
 /* --- Bảng màu cho Light Mode (Mặc định) --- */
 :root {
     /* -- Core Palette -- */
-    --bg-primary: #f3f4f6;
-    --bg-secondary: #ffffff;
-    --bg-gradient-start: #f3f4f6;
-    --bg-gradient-end: #eef2ff;
+    --bg-primary: #faf7f2;  /* warmer beige-cream, very easy on eyes */
+    --bg-secondary: #fffdf7;  /* warm ivory for cards */
+    --bg-gradient-start: #faf7f2;
+    --bg-gradient-end: #f3f0eb;  /* warm beige gradient */
     --text-primary: #1f2937;
     --text-secondary: #4b5563;
     --text-accent: #4338ca;
     --border-color: #e5e7eb;
-    --card-bg: rgba(255, 255, 255, 0.7);
-    --card-border: rgba(229, 231, 235, 0.8);
-    --card-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.07);
-    --nav-link-bg-active: #eef2ff;
+    --card-bg: rgba(255, 253, 247, 0.95);  /* warm ivory with high opacity */
+    --card-border: rgba(229, 231, 235, 1);  /* fully opaque for better definition */
+    --card-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.1);  /* increased from 0.07 to 0.1 */
+    --nav-link-bg-active: #f3f4f6;  /* neutral gray instead of blue */
     --accent-color: #6366f1;
     --positive-color: #16a34a;
     --negative-color: #dc2626;
@@ -27,12 +27,12 @@
     
     /* -- Additional UI Variables -- */
     --text-muted: #9ca3af;
-    --background-light: #f8fafc;
+    --background-light: #faf7f2;  /* warm beige background */
     --primary-blue: #3b82f6;
     --primary-blue-dark: #1d4ed8;
-    --card-hover: #e2e8f0;
-    --skeleton-base: #f0f0f0;
-    --skeleton-highlight: #e0e0e0;
+    --card-hover: #f0ebe4;  /* warm beige on hover */
+    --skeleton-base: #f3f0eb;  /* warm beige skeleton */
+    --skeleton-highlight: #e9e5df;  /* warm highlight */
     --success-bg: #dcfce7;
     --success-text: #166534;
     --error-bg: #fef2f2;
@@ -114,23 +114,33 @@
     --disclaimer-ai-border: #3b82f6;
     --disclaimer-ai-text: #1e40af;
     --disclaimer-shadow: 0 10px 25px rgba(245, 158, 11, 0.3);
+    
+    /* -- Scrollbar Colors (Light Mode) -- */
+    --scrollbar-track-bg: #f3f0eb;  /* warm beige track */
+    --scrollbar-thumb-bg: #d1d5db;
+    --scrollbar-thumb-hover-bg: #9ca3af;
+    --scrollbar-width: thin;
+    
+    /* -- Scroll Hint Gradient (Light Mode) -- */
+    --scroll-hint-from: rgba(250, 247, 242, 1);  /* warm beige-cream - matches bg-primary */
+    --scroll-hint-to: rgba(250, 247, 242, 0);
 }
 
 /* --- Bảng màu cho Dark Mode --- */
 [data-theme="dark"] {
     /* -- Core Palette -- */
-    --bg-primary: #0d1117;
+    --bg-primary: #0a0d12;  /* darker for higher contrast */
     --bg-secondary: #161b22;
-    --bg-gradient-start: #0d1117;
-    --bg-gradient-end: #1f2937;
+    --bg-gradient-start: #0a0d12;
+    --bg-gradient-end: #1a1f26;  /* reduced blue, more neutral */
     --text-primary: #e5e7eb;
     --text-secondary: #9ca3af;
     --text-accent: #818cf8;
     --border-color: #30363d;
-    --card-bg: rgba(22, 27, 34, 0.7);
-    --card-border: rgba(48, 54, 61, 0.8);
-    --card-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.2);
-    --nav-link-bg-active: #312e81;
+    --card-bg: rgba(22, 27, 34, 0.95);  /* increased opacity from 0.7 to 0.95 */
+    --card-border: rgba(48, 54, 61, 1);  /* fully opaque for better definition */
+    --card-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.4);  /* increased from 0.2 to 0.4 */
+    --nav-link-bg-active: #1f2937;  /* darker gray, less blue */
     --accent-color: #818cf8;
     --positive-color: #22c55e;
     --negative-color: #ef4444;
@@ -210,4 +220,14 @@
     --disclaimer-ai-border: #3b82f6;
     --disclaimer-ai-text: #93c5fd;
     --disclaimer-shadow: 0 10px 25px rgba(245, 158, 11, 0.3);
+    
+    /* -- Scrollbar Colors (Dark Mode) -- */
+    --scrollbar-track-bg: #374151;  /* Gray-700 - darker but visible */
+    --scrollbar-thumb-bg: #6b7280;  /* Gray-500 - medium gray */
+    --scrollbar-thumb-hover-bg: #9ca3af;  /* Gray-400 - lighter on hover */
+    --scrollbar-width: thin;
+    
+    /* -- Scroll Hint Gradient (Dark Mode) -- */
+    --scroll-hint-from: rgba(10, 13, 18, 1);  /* #0a0d12 - matches updated bg-primary */
+    --scroll-hint-to: rgba(10, 13, 18, 0);
 }
