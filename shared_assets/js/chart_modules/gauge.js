@@ -107,12 +107,12 @@ function createGauge(container, value, config) {
 
     // Tính toán viewBox với padding để đảm bảo căn giữa hoàn hảo
     const SVG_WIDTH = 300; // Tăng từ 200 lên 300
-    const SVG_HEIGHT = 210; // Tăng từ 140 lên 210
+    const SVG_HEIGHT = 160; // Giảm từ 180 xuống 160 để gauge nằm cao hơn nữa
     const PADDING = 15; // Tăng padding từ 10 lên 15
     
     // Tạo SVG element chính với viewBox tối ưu cho responsive và căn giữa
     const svg = createSvgElement('svg', {
-        viewBox: `${-PADDING} ${-PADDING} ${SVG_WIDTH + 2*PADDING} ${SVG_HEIGHT + 2*PADDING}`,
+        viewBox: `${-PADDING} ${-PADDING + 40} ${SVG_WIDTH + 2*PADDING} ${SVG_HEIGHT + 2*PADDING}`,
         preserveAspectRatio: "xMidYMid meet",
         class: 'gauge-svg'
     });
@@ -171,7 +171,7 @@ function createGauge(container, value, config) {
     
     const valueText = createSvgElement('text', {
         x: centerX,
-        y: centerY + 30, // Điều chỉnh vị trí text theo tỷ lệ mới
+        y: centerY * 1.167, // Dùng tỉ lệ nhân: 150 * 1.167 = 175 (centerY + 25)
         class: 'gauge-text gauge-value-text',
         'text-anchor': 'middle',
         'dominant-baseline': 'central'
@@ -180,7 +180,7 @@ function createGauge(container, value, config) {
 
     const labelText = createSvgElement('text', {
         x: centerX,
-        y: centerY + 70, // Điều chỉnh vị trí label theo tỷ lệ mới
+        y: centerY * 1.5, // Dùng tỉ lệ nhân: 150 * 1.367 = 205 (centerY + 55)
         fill: valueColor, // Color được đặt trực tiếp vì nó là dữ liệu động
         class: 'gauge-text gauge-label-text',
         'text-anchor': 'middle',

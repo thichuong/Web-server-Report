@@ -55,54 +55,73 @@
             </p>
         </header>
 
-        <div class="space-y-6 mb-12">
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div class="card">
-                    <div class="flex items-center mb-2">
-                        <i class="fab fa-bitcoin text-yellow-500 text-3xl mr-3"></i>
-                        <h3 class="text-lg font-semibold text-gray-700" data-i18n="btc-price">Giá BTC</h3>
+        <!-- Market Overview Cards - Horizontal Scroll Layout -->
+        <div class="mb-12 relative">
+            <!-- Scroll Container -->
+            <div class="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400" style="scroll-behavior: smooth; -webkit-overflow-scrolling: touch;">
+                
+                <!-- Card 1: BTC Price -->
+                <div class="card flex-shrink-0 w-64 snap-center min-h-[180px] flex flex-col">
+                    <div class="flex items-center mb-3">
+                        <i class="fab fa-bitcoin text-yellow-500 text-2xl mr-2"></i>
+                        <h3 class="text-sm font-semibold text-gray-700" data-i18n="btc-price">Giá BTC</h3>
                     </div>
-                    <div id="btc-price-container">
-                        <p class="text-3xl font-bold text-gray-900" data-btc-price>$--</p>
-                        <p class="text-sm font-semibold text-gray-600" data-btc-change>--</p>
-                    </div>
-                </div>
-                <div class="card">
-                    <div class="flex items-center mb-2">
-                        <i class="fas fa-globe-americas text-blue-500 text-3xl mr-3"></i>
-                        <h3 class="text-lg font-semibold text-gray-700" data-i18n="market-cap">Tổng Vốn Hóa</h3>
-                    </div>
-                    <div id="market-cap-container">
-                        <div class="skeleton h-9 w-3/4 mb-2"></div>
-                        <div class="skeleton h-5 w-1/2"></div>
+                    <div id="btc-price-container" class="flex-1 flex flex-col justify-center">
+                        <p class="text-2xl font-bold text-gray-900" data-btc-price>$--</p>
+                        <p class="text-xs font-semibold text-gray-600 mt-1" data-btc-change>--</p>
                     </div>
                 </div>
-                <div class="card">
-                    <div class="flex items-center mb-2">
-                        <i class="fas fa-chart-line text-green-500 text-3xl mr-3"></i>
-                        <h3 class="text-lg font-semibold text-gray-700" data-i18n="volume-24h">Khối Lượng Giao Dịch 24h</h3>
+                
+                <!-- Card 2: Market Cap -->
+                <div class="card flex-shrink-0 w-64 snap-center min-h-[180px] flex flex-col">
+                    <div class="flex items-center mb-3">
+                        <i class="fas fa-globe-americas text-blue-500 text-2xl mr-2"></i>
+                        <h3 class="text-sm font-semibold text-gray-700" data-i18n="market-cap">Tổng Vốn Hóa</h3>
                     </div>
-                     <div id="volume-24h-container">
-                        <div class="skeleton h-9 w-3/4 mb-2"></div>
-                        <div class="skeleton h-5 w-1/2"></div>
+                    <div id="market-cap-container" class="flex-1 flex flex-col justify-center">
+                        <div class="skeleton h-8 w-3/4 mb-2"></div>
+                        <div class="skeleton h-4 w-1/2"></div>
                     </div>
                 </div>
+                
+                <!-- Card 3: Volume 24h -->
+                <div class="card flex-shrink-0 w-64 snap-center min-h-[180px] flex flex-col">
+                    <div class="flex items-center mb-3">
+                        <i class="fas fa-chart-line text-green-500 text-2xl mr-2"></i>
+                        <h3 class="text-sm font-semibold text-gray-700" data-i18n="volume-24h">Khối Lượng GD 24h</h3>
+                    </div>
+                    <div id="volume-24h-container" class="flex-1 flex flex-col justify-center">
+                        <div class="skeleton h-8 w-3/4 mb-2"></div>
+                        <div class="skeleton h-4 w-1/2"></div>
+                    </div>
+                </div>
+                
+                <!-- Card 4: Fear & Greed Index -->
+                <div class="card flex-shrink-0 w-64 snap-center min-h-[180px] flex flex-col">
+                    <div class="flex items-center mb-3">
+                        <i class="fas fa-thermometer-half text-purple-500 text-2xl mr-2"></i>
+                        <h3 class="text-sm font-semibold text-gray-700" data-i18n="fear-greed-title">Sợ hãi & Tham lam</h3>
+                    </div>
+                    <div id="fear-greed-container" class="flex-1 flex items-center justify-center">
+                        <div class="skeleton h-32 w-32 rounded-full"></div>
+                    </div>
+                </div>
+                
+                <!-- Card 5: RSI -->
+                <div class="card flex-shrink-0 w-64 snap-center min-h-[180px] flex flex-col">
+                    <div class="flex items-center mb-3">
+                        <i class="fas fa-chart-area text-indigo-500 text-2xl mr-2"></i>
+                        <h3 class="text-sm font-semibold text-gray-700" data-i18n="rsi-btc-title">RSI (14) - BTC</h3>
+                    </div>
+                    <div id="rsi-container" class="flex-1 flex items-center justify-center">
+                        <div class="skeleton h-32 w-32 rounded-full"></div>
+                    </div>
+                </div>
+                
             </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="card">
-                    <h3 class="text-lg font-semibold text-gray-700 mb-4 text-center" data-i18n="fear-greed-title">Chỉ số Sợ hãi & Tham lam</h3>
-                    <div id="fear-greed-container" class="w-full max-w-sm mx-auto">
-                        <div class="skeleton h-48 w-full rounded-full"></div>
-                    </div>
-                </div>
-                <div class="card">
-                    <h3 class="text-lg font-semibold text-gray-700 mb-4 text-center" data-i18n="rsi-btc-title">Chỉ số Sức mạnh Tương đối (RSI 14) - BTC</h3>
-                    <div id="rsi-container" class="w-full max-w-sm mx-auto">
-                        <div class="skeleton h-48 w-full rounded-full"></div>
-                    </div>
-                </div>
-            </div>
+            
+            <!-- Scroll Hint - Hidden on desktop when all cards fit -->
+            <div class="absolute right-0 top-0 bottom-4 w-12 bg-gradient-to-l from-white to-transparent pointer-events-none lg:hidden" aria-hidden="true"></div>
         </div>
 
         <!-- Tuyên bố miễn trừ trách nhiệm: chỉ mang tính chất tham khảo (i18n) -->

@@ -14,8 +14,8 @@
     max-height: 600px; /* Tăng chiều cao tối đa từ 400px lên 600px */
     display: flex;
     justify-content: center;
-    align-items: center;
-    margin: 0 auto; /* Căn giữa trong container */
+    align-items: flex-start; /* Thay đổi từ center sang flex-start để đẩy lên cao */
+    margin: -15px auto 0 auto; /* Giảm margin âm từ -20px xuống -15px */
     position: relative; /* Để có thể căn giữa tuyệt đối nếu cần */
     box-sizing: border-box; /* Đảm bảo padding/border không ảnh hưởng sizing */
 }
@@ -28,7 +28,8 @@
     max-height: 100%;
     overflow: visible; /* Allows elements like the needle to not be clipped */
     display: block; /* Loại bỏ khoảng trắng dưới inline element */
-    margin: 0 auto; /* Căn giữa SVG trong container */
+    margin: -5px auto 0 auto; /* Giảm margin âm từ -10px xuống -5px */
+    transform: translateY(-5px); /* Giảm transform từ -10px xuống -5px */
 }
 
 
@@ -142,12 +143,12 @@
 
 .gauge-value-text {
     fill: var(--gauge-value-text-color); /* Use dedicated text color */
-    font-size: 50px; /* Cập nhật để khớp với rule trên */
+    font-size: 4rem; /* Tăng từ 2.5rem (40px) lên 3rem (48px) */
     font-weight: 800;
 }
 
 .gauge-label-text {
-    font-size: 20px; /* Cập nhật để khớp với rule trên */
+    font-size: 1.5rem; /* Tăng từ 1rem (16px) lên 1.125rem (18px) */
     font-weight: 600;
     /* The fill color is set dynamically via JavaScript */
 }
@@ -159,62 +160,15 @@
     cursor: pointer;         /* Changes the cursor to a pointer */
 }
 
-/* --- RESPONSIVE DESIGN --- */
-/* Điều chỉnh kích thước cho màn hình nhỏ - TĂNG kích thước text cho mobile */
-@media (max-width: 768px) {
-    .gauge-container {
-        max-width: 350px; /* Tăng kích thước container từ 260px lên 350px */
-        max-height: 250px; /* Tăng từ 180px lên 250px */
-    }
-    
-    .gauge-value-text {
-        font-size: 46px; /* Tăng từ 36px lên 46px cho dễ đọc hơn */
-    }
-    
-    .gauge-label-text {
-        font-size: 22px; /* Tăng từ 18px lên 22px cho dễ đọc hơn */
-    }
-}
 
-/* Điều chỉnh kích thước cho màn hình rất nhỏ - GIỮ kích thước text lớn hơn */
-@media (max-width: 480px) {
-    .gauge-container {
-        max-width: 300px; /* Tăng từ 220px lên 300px */
-        max-height: 200px; /* Tăng từ 150px lên 200px */
-    }
-    
-    .gauge-value-text {
-        font-size: 40px; /* Tăng từ 32px lên 40px cho dễ đọc */
-    }
-    
-    .gauge-label-text {
-        font-size: 20px; /* Tăng từ 16px lên 20px cho dễ đọc */
-    }
-}
-
-/* Tối ưu cho màn hình điện thoại nhỏ (320px trở xuống) */
-@media (max-width: 320px) {
-    .gauge-container {
-        max-width: 200px;
-        max-height: 140px;
-    }
-    
-    .gauge-value-text {
-        font-size: 32px; /* Tăng từ 24px lên 32px cho dễ đọc */
-        font-weight: 900; /* Tăng độ đậm để nổi bật hơn */
-    }
-    
-    .gauge-label-text {
-        font-size: 16px; /* Tăng từ 12px lên 16px cho label */
-        font-weight: 700; /* Tăng độ đậm */
-    }
-}
 
 /* Adaptive sizing dựa trên kích thước container cha */
 .card .gauge-container,
 .report-card .gauge-container {
-    max-width: min(400px, 90%); /* Tăng từ 280px lên 400px - không quá 90% chiều rộng card */
-    max-height: min(300px, 60%); /* Tăng từ 200px lên 300px - không quá 60% chiều cao card */
+    max-width: min(240px, 95%); /* Tăng từ 400px xuống 240px để vừa card 256px - chiếm 95% width */
+    max-height: min(200px, 100%); /* Điều chỉnh height tương ứng - chiếm 100% height có thể */
+    margin-top: -25px; /* Giảm margin âm từ -30px xuống -25px để không đẩy quá cao */
+    padding-top: 5px; /* Giảm padding từ 10px xuống 5px */
 }
 
 /* Đảm bảo gauge căn giữa trong mọi layout */

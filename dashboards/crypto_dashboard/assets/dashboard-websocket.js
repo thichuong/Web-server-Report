@@ -192,7 +192,7 @@ class DashboardWebSocket {
                 if (WS_DEBUG) console.log('⚠️ Socket not open, stopping heartbeat');
                 this.stopHeartbeat();
             }
-        }, 5000); // Ping every 5 seconds
+        }, 15000); // Ping every 5 seconds
     }
 
     stopHeartbeat() {
