@@ -487,16 +487,15 @@ class MarketIndicatorsDashboard {
         const index = parseInt(value) || 0;
         
         // Check if data has actually changed
-        const cachedFearGreed = this.cachedData.fearGreedIndex;
-        if (cachedFearGreed === index) {
-            debugLog('⏭️ Fear & Greed Index unchanged, skipping update:', { index });
+        const cachedFearGreedIndex = this.cachedData.fearGreedIndex;
+        if (cachedFearGreedIndex !== null && cachedFearGreedIndex === index) {
+            debugLog('⏭️ Fear & Greed index unchanged, skipping update:', { index });
             return;
         }
         
         this.cachedData.fearGreedIndex = index;
 
-        let indexClass = 'neutral';
-        let indexLabelKey, indexDescriptionKey;
+        let indexClass, indexLabelKey, indexDescriptionKey;
         
         if (index <= 24) {
             indexClass = 'fear';
@@ -534,6 +533,10 @@ class MarketIndicatorsDashboard {
         this.updateTranslations(element);
         
         this.animateUpdate(element);
+        
+        // Render gauge chart
+        this.renderGaugeChart('fear-greed', index);
+        
         debugLog('✅ Fear & Greed Index updated:', { index, class: indexClass });
     }
 
@@ -633,19 +636,19 @@ class MarketIndicatorsDashboard {
         
         if (rsi <= 30) {
             rsiClass = 'oversold';
-            rsiLabelKey = 'rsi-oversold';
+            rsiLabelKey = 'oversold';
         } else if (rsi <= 70) {
             rsiClass = 'neutral';
-            rsiLabelKey = 'rsi-neutral';
+            rsiLabelKey = 'neutral';
         } else {
             rsiClass = 'overbought';
-            rsiLabelKey = 'rsi-overbought';
+            rsiLabelKey = 'overbought';
         }
 
         element.innerHTML = `
             <div class="index-display flex items-center justify-between">
                 <div class="index-value ${rsiClass}">${rsi.toFixed(1)}</div>
-                <div class="index-label" data-i18n="${rsiLabelKey}">RSI 14</div>
+                <div class="index-label text-right" data-i18n="${rsiLabelKey}">RSI 14</div>
             </div>
         `;
 
@@ -653,6 +656,10 @@ class MarketIndicatorsDashboard {
         this.updateTranslations(element);
         
         this.animateUpdate(element);
+        
+        // Render gauge chart
+        this.renderGaugeChart('btc-rsi', rsi);
+        
         debugLog('✅ BTC RSI 14 updated:', { rsi: rsi.toFixed(1), class: rsiClass });
     }
 
@@ -1180,6 +1187,163 @@ class MarketIndicatorsDashboard {
         }
 
         debugLog(`📊 Rendered ${type.toUpperCase()} dominance large pie chart: ${value.toFixed(1)}%`);
+    }
+
+    /**
+     * Chuyển đổi tọa độ cực sang Descartes cho gauge chart
+     */
+    polarToCartesian(centerX, centerY, radius, angleInDegrees) {
+        const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180.0;
+        return {
+            x: centerX + radius * Math.cos(angleInRadians),
+            y: centerY + radius * Math.sin(angleInRadians)
+        };
+    }
+
+    /**
+     * Tạo chuỗi path data cho cung tròn SVG
+     */
+    describeArc(x, y, radius, startAngle, endAngle) {
+        const startPoint = this.polarToCartesian(x, y, radius, startAngle);
+        const endPoint = this.polarToCartesian(x, y, radius, endAngle);
+        const largeArcFlag = endAngle - startAngle <= 180 ? '0' : '1';
+        
+        const d = [
+            'M', startPoint.x, startPoint.y,
+            'A', radius, radius, 0, largeArcFlag, '1', endPoint.x, endPoint.y
+        ].join(' ');
+        
+        return d;
+    }
+
+    /**
+     * Render gauge chart cho Fear & Greed hoặc RSI
+     */
+    renderGaugeChart(type, value) {
+        const svgId = type === 'fear-greed' ? 'fear-greed-gauge-svg' : 'btc-rsi-gauge-svg';
+        const svg = document.getElementById(svgId);
+        if (!svg) {
+            debugLog(`⚠️ Gauge SVG not found for ${type}`);
+            return;
+        }
+
+        // Cấu hình gauge
+        const GAUGE_START_ANGLE = -120;
+        const GAUGE_END_ANGLE = 120;
+        const ANGLE_SPAN = GAUGE_END_ANGLE - GAUGE_START_ANGLE;
+        
+        const centerX = 60;
+        const centerY = 60;
+        const radius = 45;
+        const strokeWidth = 10;
+
+        // Xác định điểm màu cho gradient
+        let colorStops;
+        if (type === 'fear-greed') {
+            // Fear & Greed: Đỏ -> Cam -> Vàng -> Xanh lá nhạt -> Xanh lá
+            colorStops = [
+                { value: 0, color: '#ef4444' },    // Red (Extreme Fear)
+                { value: 25, color: '#f97316' },   // Orange
+                { value: 40, color: '#fb923c' },   // Light Orange
+                { value: 50, color: '#fbbf24' },   // Yellow (Neutral)
+                { value: 60, color: '#a3e635' },   // Yellow-Green
+                { value: 75, color: '#84cc16' },   // Lime
+                { value: 100, color: '#22c55e' }   // Green (Extreme Greed)
+            ];
+        } else {
+            // RSI: Xanh lá -> Xanh nhạt -> Vàng -> Cam -> Đỏ
+            colorStops = [
+                { value: 0, color: '#22c55e' },    // Green (Oversold)
+                { value: 25, color: '#84cc16' },   // Lime
+                { value: 40, color: '#a3e635' },   // Yellow-Green
+                { value: 50, color: '#fbbf24' },   // Yellow (Neutral)
+                { value: 60, color: '#fb923c' },   // Light Orange
+                { value: 75, color: '#f97316' },   // Orange
+                { value: 100, color: '#ef4444' }   // Red (Overbought)
+            ];
+        }
+
+        // Tính toán góc cho giá trị hiện tại
+        const min = 0;
+        const max = 100;
+        const clampedValue = Math.max(min, Math.min(max, value));
+        const percentage = (clampedValue - min) / (max - min);
+        const valueAngle = GAUGE_START_ANGLE + (percentage * ANGLE_SPAN);
+
+        // Clear SVG
+        svg.innerHTML = '';
+
+        // Tạo gradient mượt dọc theo cung
+        const gradientId = `${type}-gauge-gradient`;
+        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+        gradient.setAttribute('id', gradientId);
+        gradient.setAttribute('gradientUnits', 'userSpaceOnUse');
+
+        const startPoint = this.polarToCartesian(centerX, centerY, radius, GAUGE_START_ANGLE);
+        const endPoint = this.polarToCartesian(centerX, centerY, radius, GAUGE_END_ANGLE);
+        gradient.setAttribute('x1', startPoint.x);
+        gradient.setAttribute('y1', startPoint.y);
+        gradient.setAttribute('x2', endPoint.x);
+        gradient.setAttribute('y2', endPoint.y);
+
+        const gradientStops = colorStops.map(stop => ({
+            offset: (stop.value - min) / (max - min),
+            color: stop.color
+        }));
+
+        // Ensure offset boundaries are valid
+        gradientStops.forEach(stop => {
+            const stopElement = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+            const offset = Math.max(0, Math.min(1, stop.offset));
+            stopElement.setAttribute('offset', `${(offset * 100).toFixed(1)}%`);
+            stopElement.setAttribute('stop-color', stop.color);
+            gradient.appendChild(stopElement);
+        });
+
+        defs.appendChild(gradient);
+        svg.appendChild(defs);
+
+        // 1. Vẽ track nền (cung tròn hoàn chỉnh)
+        const trackPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        trackPath.setAttribute('d', this.describeArc(centerX, centerY, radius, GAUGE_START_ANGLE, GAUGE_END_ANGLE));
+        trackPath.setAttribute('fill', 'none');
+        trackPath.setAttribute('stroke', 'rgba(200, 200, 200, 0.2)');
+        trackPath.setAttribute('stroke-width', strokeWidth);
+        trackPath.setAttribute('stroke-linecap', 'round');
+        svg.appendChild(trackPath);
+
+        // 2. Vẽ cung màu gradient
+        const gradientPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        gradientPath.setAttribute('d', this.describeArc(centerX, centerY, radius, GAUGE_START_ANGLE, GAUGE_END_ANGLE));
+        gradientPath.setAttribute('fill', 'none');
+        gradientPath.setAttribute('stroke', `url(#${gradientId})`);
+        gradientPath.setAttribute('stroke-width', strokeWidth);
+        gradientPath.setAttribute('stroke-linecap', 'round');
+        svg.appendChild(gradientPath);
+
+        // 3. Vẽ kim chỉ
+        const needleGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        needleGroup.setAttribute('transform', `rotate(${valueAngle} ${centerX} ${centerY})`);
+        
+        // Kim chỉ (hình tam giác nhỏ gọn)
+        const needlePointer = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        const needlePath = `M ${centerX} ${centerY - radius + 5} L ${centerX - 3} ${centerY} L ${centerX + 3} ${centerY} Z`;
+        needlePointer.setAttribute('d', needlePath);
+        needlePointer.setAttribute('fill', '#1f2937');
+        needleGroup.appendChild(needlePointer);
+        
+        // Pivot (điểm tâm)
+        const needlePivot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        needlePivot.setAttribute('cx', centerX);
+        needlePivot.setAttribute('cy', centerY);
+        needlePivot.setAttribute('r', '4');
+        needlePivot.setAttribute('fill', '#1f2937');
+        needleGroup.appendChild(needlePivot);
+        
+        svg.appendChild(needleGroup);
+
+        debugLog(`📊 Rendered ${type} gauge chart: ${value.toFixed(1)}`);
     }
 }
 

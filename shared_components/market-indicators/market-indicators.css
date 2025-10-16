@@ -744,6 +744,58 @@
     position: relative;
 }
 
+/* Gauge Card Layout */
+.gauge-card-layout {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: nowrap; /* Không cho xuống hàng */
+}
+
+.gauge-info {
+    flex: 0 0 55%; /* Chiếm 55% chiều rộng */
+    min-width: 0;
+}
+
+.gauge-info .flex.items-center {
+    margin-bottom: 0.25rem;
+}
+
+.gauge-chart-wrapper {
+    flex: 0 0 40%; /* Chiếm 40% chiều rộng */
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.gauge-chart-large {
+    width: 100%; /* Chiếm toàn bộ wrapper */
+    height: auto;
+    display: block;
+}
+
+/* Responsive adjustments for gauge cards */
+@media (max-width: 768px) {
+    .gauge-info {
+        flex: 0 0 50%; /* 50% trên tablet */
+    }
+    
+    .gauge-chart-wrapper {
+        flex: 0 0 45%; /* 45% trên tablet */
+    }
+}
+
+@media (max-width: 480px) {
+    .gauge-info {
+        flex: 0 0 52%; /* 52% trên mobile */
+    }
+    
+    .gauge-chart-wrapper {
+        flex: 0 0 43%; /* 43% trên mobile */
+    }
+}
+
 .dominance-card-layout {
     display: flex;
     gap: 0.75rem;

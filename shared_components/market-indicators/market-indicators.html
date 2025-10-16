@@ -35,24 +35,42 @@
             </div>
 
             <!-- Fear & Greed Index -->
-            <div class="market-card compact">
-                <div class="flex items-center mb-2">
-                    <i class="fas fa-thermometer-half text-purple-500 text-lg mr-2"></i>
-                    <span class="text-sm font-semibold text-gray-700" data-i18n="fear-greed-index">Chỉ Số Sợ Hãi & Tham Lam</span>
-                </div>
-                <div id="fear-greed-indicator" class="market-value-container">
-                    <div class="skeleton-loader h-12"></div>
+            <div class="market-card compact gauge-card">
+                <div class="gauge-card-layout">
+                    <div class="gauge-info">
+                        <div class="flex items-center mb-2">
+                            <i class="fas fa-thermometer-half text-purple-500 text-lg mr-2"></i>
+                            <span class="text-sm font-semibold text-gray-700" data-i18n="fear-greed-index">Chỉ Số Sợ Hãi & Tham Lam</span>
+                        </div>
+                        <div id="fear-greed-indicator" class="market-value-container">
+                            <div class="skeleton-loader h-12"></div>
+                        </div>
+                    </div>
+                    <div class="gauge-chart-wrapper">
+                        <svg id="fear-greed-gauge-svg" class="gauge-chart-large" viewBox="0 0 120 80" preserveAspectRatio="xMidYMid meet">
+                            <!-- Gauge chart will be rendered here -->
+                        </svg>
+                    </div>
                 </div>
             </div>
             
             <!-- BTC RSI 14 -->
-            <div class="market-card compact">
-                <div class="flex items-center mb-2">
-                    <i class="fas fa-chart-line text-green-600 text-lg mr-2"></i>
-                    <span class="text-sm font-semibold text-gray-700" data-i18n="btc-rsi-14">BTC RSI 14</span>
-                </div>
-                <div id="btc-rsi-14-indicator" class="market-value-container">
-                    <div class="skeleton-loader h-12"></div>
+            <div class="market-card compact gauge-card">
+                <div class="gauge-card-layout">
+                    <div class="gauge-info">
+                        <div class="flex items-center mb-2">
+                            <i class="fas fa-chart-line text-green-600 text-lg mr-2"></i>
+                            <span class="text-sm font-semibold text-gray-700" data-i18n="btc-rsi-14">BTC RSI 14</span>
+                        </div>
+                        <div id="btc-rsi-14-indicator" class="market-value-container">
+                            <div class="skeleton-loader h-12"></div>
+                        </div>
+                    </div>
+                    <div class="gauge-chart-wrapper">
+                        <svg id="btc-rsi-gauge-svg" class="gauge-chart-large" viewBox="0 0 120 80" preserveAspectRatio="xMidYMid meet">
+                            <!-- Gauge chart will be rendered here -->
+                        </svg>
+                    </div>
                 </div>
             </div>
             
