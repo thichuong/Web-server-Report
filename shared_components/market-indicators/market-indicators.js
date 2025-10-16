@@ -44,6 +44,13 @@ class MarketIndicatorsDashboard {
             usStockIndices: null
         };
         
+        // Dominance history for charts (last 20 data points)
+        this.dominanceHistory = {
+            btc: [],
+            eth: []
+        };
+        this.maxHistoryPoints = 20;
+        
         this.init();
     }
 
@@ -545,14 +552,26 @@ class MarketIndicatorsDashboard {
         
         this.cachedData.btcDominance = dominance;
 
+        // Add to history
+        this.dominanceHistory.btc.push({
+            value: dominance,
+            timestamp: Date.now()
+        });
+        
+        // Keep only last N points
+        if (this.dominanceHistory.btc.length > this.maxHistoryPoints) {
+            this.dominanceHistory.btc.shift();
+        }
+
         element.innerHTML = `
-            <div class="index-display flex items-center justify-between">
-                <div class="index-value">${dominance.toFixed(1)}%</div>
-                <div class="index-label" data-i18n="btc-market-share">Thị phần BTC</div>
-            </div>
+            <div class="index-value">${dominance.toFixed(1)}%</div>
         `;
 
         this.animateUpdate(element);
+        
+        // Render chart
+        this.renderDominanceChart('btc', dominance);
+        
         debugLog('✅ BTC dominance updated:', { dominance: dominance.toFixed(1) });
     }
 
@@ -571,14 +590,26 @@ class MarketIndicatorsDashboard {
         
         this.cachedData.ethDominance = dominance;
 
+        // Add to history
+        this.dominanceHistory.eth.push({
+            value: dominance,
+            timestamp: Date.now()
+        });
+        
+        // Keep only last N points
+        if (this.dominanceHistory.eth.length > this.maxHistoryPoints) {
+            this.dominanceHistory.eth.shift();
+        }
+
         element.innerHTML = `
-            <div class="index-display flex items-center justify-between">
-                <div class="index-value">${dominance.toFixed(1)}%</div>
-                <div class="index-label" data-i18n="eth-market-share">Thị phần ETH</div>
-            </div>
+            <div class="index-value">${dominance.toFixed(1)}%</div>
         `;
 
         this.animateUpdate(element);
+        
+        // Render chart
+        this.renderDominanceChart('eth', dominance);
+        
         debugLog('✅ ETH dominance updated:', { dominance: dominance.toFixed(1) });
     }
 
@@ -961,6 +992,194 @@ class MarketIndicatorsDashboard {
         }
         
         debugLog(`✅ Updated ${coinName}: $${formattedPrice} (${changeSign}${changePercent.toFixed(2)}%)`);
+    }
+
+    /**
+     * Render dominance chart using SVG
+     * @param {string} type - 'btc' or 'eth'
+     * @param {number} currentValue - Current dominance percentage
+     */
+    renderDominanceChart(type, currentValue) {
+        const svgId = type === 'btc' ? 'btc-dominance-svg' : 'eth-dominance-svg';
+        const svg = document.getElementById(svgId);
+        
+        if (!svg) {
+            debugLog(`❌ SVG element not found: ${svgId}`);
+            return;
+        }
+
+        const history = this.dominanceHistory[type];
+        
+        // If we don't have enough history yet, show a simple pie chart
+        if (history.length < 2) {
+            this.renderDominancePieChart(svg, type, currentValue);
+            return;
+        }
+
+        // Larger chart dimensions
+        const width = 120;
+        const height = 80;
+        const padding = { top: 8, right: 8, bottom: 8, left: 8 };
+        const chartWidth = width - padding.left - padding.right;
+        const chartHeight = height - padding.top - padding.bottom;
+
+        // Get min/max for scaling
+        const values = history.map(h => h.value);
+        const minValue = Math.max(0, Math.min(...values) - 2);
+        const maxValue = Math.min(100, Math.max(...values) + 2);
+        const valueRange = maxValue - minValue;
+
+        // Scale functions
+        const scaleX = (index) => padding.left + (index / (history.length - 1)) * chartWidth;
+        const scaleY = (value) => padding.top + chartHeight - ((value - minValue) / valueRange) * chartHeight;
+
+        // Color scheme
+        const color = type === 'btc' ? '#f7931a' : '#627eea';
+        const gradientId = type === 'btc' ? 'btc-gradient-large' : 'eth-gradient-large';
+
+        // Clear SVG
+        svg.innerHTML = '';
+
+        // Create gradient definition
+        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+        gradient.setAttribute('id', gradientId);
+        gradient.setAttribute('x1', '0%');
+        gradient.setAttribute('y1', '0%');
+        gradient.setAttribute('x2', '0%');
+        gradient.setAttribute('y2', '100%');
+        
+        const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+        stop1.setAttribute('offset', '0%');
+        stop1.setAttribute('style', `stop-color:${color};stop-opacity:0.6`);
+        
+        const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+        stop2.setAttribute('offset', '100%');
+        stop2.setAttribute('style', `stop-color:${color};stop-opacity:0.1`);
+        
+        gradient.appendChild(stop1);
+        gradient.appendChild(stop2);
+        defs.appendChild(gradient);
+        svg.appendChild(defs);
+
+        // Create line path
+        let pathData = '';
+        let areaPath = '';
+        
+        history.forEach((point, index) => {
+            const x = scaleX(index);
+            const y = scaleY(point.value);
+            
+            if (index === 0) {
+                pathData += `M ${x} ${y}`;
+                areaPath += `M ${x} ${height - padding.bottom}`;
+                areaPath += ` L ${x} ${y}`;
+            } else {
+                pathData += ` L ${x} ${y}`;
+                areaPath += ` L ${x} ${y}`;
+            }
+        });
+
+        // Close area path
+        const lastXPos = scaleX(history.length - 1);
+        areaPath += ` L ${lastXPos} ${height - padding.bottom} Z`;
+
+        // Draw area fill
+        const area = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        area.setAttribute('fill', `url(#${gradientId})`);
+        area.setAttribute('d', areaPath);
+        svg.appendChild(area);
+
+        // Draw line
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        line.setAttribute('stroke', color);
+        line.setAttribute('stroke-width', '2');
+        line.setAttribute('fill', 'none');
+        line.setAttribute('d', pathData);
+        svg.appendChild(line);
+
+        // Draw points - all points
+        history.forEach((point, index) => {
+            const x = scaleX(index);
+            const y = scaleY(point.value);
+            
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('fill', color);
+            circle.setAttribute('cx', x);
+            circle.setAttribute('cy', y);
+            circle.setAttribute('r', index === history.length - 1 ? '3' : '1.5');
+            svg.appendChild(circle);
+        });
+
+        debugLog(`📊 Rendered ${type.toUpperCase()} dominance large chart with ${history.length} points`);
+    }
+
+    /**
+     * Render a simple pie chart for dominance when we don't have history
+     * @param {SVGElement} svg - SVG element
+     * @param {string} type - 'btc' or 'eth'
+     * @param {number} value - Dominance percentage
+     */
+    renderDominancePieChart(svg, type, value) {
+        const width = 120;
+        const height = 80;
+        const centerX = width / 2;
+        const centerY = height / 2;
+        const radius = 28;
+
+        const color = type === 'btc' ? '#f7931a' : '#627eea';
+        const othersColor = 'rgba(128, 128, 128, 0.3)';
+
+        // Clear SVG
+        svg.innerHTML = '';
+
+        // Calculate angles
+        const angle = (value / 100) * 2 * Math.PI;
+        const startAngle = -Math.PI / 2; // Start from top
+
+        // Draw "Others" slice (full circle background)
+        const othersCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        othersCircle.setAttribute('cx', centerX);
+        othersCircle.setAttribute('cy', centerY);
+        othersCircle.setAttribute('r', radius);
+        othersCircle.setAttribute('fill', othersColor);
+        svg.appendChild(othersCircle);
+
+        // Draw dominance slice
+        if (value > 0 && value < 100) {
+            const endAngle = startAngle + angle;
+            
+            const x1 = centerX + radius * Math.cos(startAngle);
+            const y1 = centerY + radius * Math.sin(startAngle);
+            const x2 = centerX + radius * Math.cos(endAngle);
+            const y2 = centerY + radius * Math.sin(endAngle);
+            
+            const largeArc = angle > Math.PI ? 1 : 0;
+            
+            const pathData = [
+                `M ${centerX} ${centerY}`,
+                `L ${x1} ${y1}`,
+                `A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`,
+                'Z'
+            ].join(' ');
+            
+            const slice = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            slice.setAttribute('d', pathData);
+            slice.setAttribute('fill', color);
+            slice.setAttribute('opacity', '0.8');
+            svg.appendChild(slice);
+        } else if (value >= 100) {
+            // Full circle
+            const fullCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            fullCircle.setAttribute('cx', centerX);
+            fullCircle.setAttribute('cy', centerY);
+            fullCircle.setAttribute('r', radius);
+            fullCircle.setAttribute('fill', color);
+            fullCircle.setAttribute('opacity', '0.8');
+            svg.appendChild(fullCircle);
+        }
+
+        debugLog(`📊 Rendered ${type.toUpperCase()} dominance large pie chart: ${value.toFixed(1)}%`);
     }
 }
 

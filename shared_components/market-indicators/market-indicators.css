@@ -738,3 +738,186 @@
         font-size: 0.9rem;
     }
 }
+
+/* Dominance Chart Styles */
+.dominance-card {
+    position: relative;
+}
+
+.dominance-card-layout {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: nowrap; /* Không cho xuống hàng */
+}
+
+.dominance-info {
+    flex: 0 0 55%; /* Chiếm 55% chiều rộng */
+    min-width: 0;
+}
+
+.dominance-info .flex.items-center {
+    margin-bottom: 0.25rem;
+}
+
+.dominance-chart-wrapper {
+    flex: 0 0 40%; /* Chiếm 40% chiều rộng */
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.dominance-chart-large {
+    width: 100%; /* Chiếm toàn bộ wrapper */
+    height: auto;
+    display: block;
+}
+
+.dominance-chart-inline {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 1rem;
+}
+
+.dominance-chart-compact {
+    width: 100px;
+    height: 40px;
+    display: block;
+}
+
+.dominance-chart-container {
+    margin-top: 1rem;
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dominance-chart {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* Responsive adjustments for dominance cards */
+@media (max-width: 768px) {
+    .dominance-info {
+        flex: 0 0 50%; /* 50% trên tablet */
+    }
+    
+    .dominance-chart-wrapper {
+        flex: 0 0 45%; /* 45% trên tablet */
+    }
+}
+
+@media (max-width: 480px) {
+    .dominance-info {
+        flex: 0 0 52%; /* 52% trên mobile */
+    }
+    
+    .dominance-chart-wrapper {
+        flex: 0 0 43%; /* 43% trên mobile */
+    }
+}
+
+/* SVG Chart Styles */
+.dominance-chart .chart-bg {
+    fill: rgba(255, 255, 255, 0.02);
+}
+
+.dominance-chart .grid-line {
+    stroke: rgba(255, 255, 255, 0.1);
+    stroke-width: 0.5;
+    stroke-dasharray: 2, 2;
+}
+
+.dominance-chart .axis-line {
+    stroke: rgba(255, 255, 255, 0.2);
+    stroke-width: 1;
+}
+
+.dominance-chart .axis-label {
+    font-size: 8px;
+    fill: var(--text-secondary);
+    font-family: system-ui, -apple-system, sans-serif;
+}
+
+.dominance-chart .chart-title {
+    font-size: 10px;
+    fill: var(--text-primary);
+    font-weight: 600;
+    font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Bitcoin dominance specific */
+#btc-dominance-svg .dominance-fill {
+    fill: url(#btc-gradient);
+    opacity: 0.3;
+}
+
+#btc-dominance-svg .dominance-line {
+    stroke: #f7931a;
+    stroke-width: 2;
+    fill: none;
+}
+
+#btc-dominance-svg .dominance-point {
+    fill: #f7931a;
+}
+
+/* Ethereum dominance specific */
+#eth-dominance-svg .dominance-fill {
+    fill: url(#eth-gradient);
+    opacity: 0.3;
+}
+
+#eth-dominance-svg .dominance-line {
+    stroke: #627eea;
+    stroke-width: 2;
+    fill: none;
+}
+
+#eth-dominance-svg .dominance-point {
+    fill: #627eea;
+}
+
+.dominance-chart .others-fill {
+    fill: rgba(128, 128, 128, 0.2);
+}
+
+.dominance-chart .others-line {
+    stroke: rgba(128, 128, 128, 0.5);
+    stroke-width: 1;
+    stroke-dasharray: 3, 3;
+    fill: none;
+}
+
+.dominance-chart .value-label {
+    font-size: 10px;
+    font-weight: 600;
+    fill: var(--text-primary);
+    font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Animation for chart updates */
+@keyframes chart-draw {
+    from {
+        stroke-dashoffset: 1000;
+    }
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+.dominance-chart .dominance-line.animated {
+    stroke-dasharray: 1000;
+    animation: chart-draw 1s ease-out forwards;
+}
+
+/* Responsive chart adjustments */
+@media (max-width: 768px) {
+    .dominance-chart-container {
+        padding: 0.25rem;
+    }
+}

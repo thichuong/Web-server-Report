@@ -44,29 +44,7 @@
                     <div class="skeleton-loader h-12"></div>
                 </div>
             </div>
-
-            <!-- Bitcoin Dominance -->
-            <div class="market-card compact">
-                <div class="flex items-center mb-2">
-                    <i class="fab fa-bitcoin text-orange-500 text-lg mr-2"></i>
-                    <span class="text-sm font-semibold text-gray-700" data-i18n="btc-dominance">Độ Thống Trị BTC</span>
-                </div>
-                <div id="btc-dominance-indicator" class="market-value-container">
-                    <div class="skeleton-loader h-12"></div>
-                </div>
-            </div>
-
-            <!-- Ethereum Dominance -->
-            <div class="market-card compact">
-                <div class="flex items-center mb-2">
-                    <i class="fab fa-ethereum text-blue-500 text-lg mr-2"></i>
-                    <span class="text-sm font-semibold text-gray-700" data-i18n="eth-dominance">Độ Thống Trị ETH</span>
-                </div>
-                <div id="eth-dominance-indicator" class="market-value-container">
-                    <div class="skeleton-loader h-12"></div>
-                </div>
-            </div>
-
+            
             <!-- BTC RSI 14 -->
             <div class="market-card compact">
                 <div class="flex items-center mb-2">
@@ -77,6 +55,48 @@
                     <div class="skeleton-loader h-12"></div>
                 </div>
             </div>
+            
+            <!-- Bitcoin Dominance -->
+            <div class="market-card compact dominance-card">
+                <div class="dominance-card-layout">
+                    <div class="dominance-info">
+                        <div class="flex items-center mb-2">
+                            <i class="fab fa-bitcoin text-orange-500 text-lg mr-2"></i>
+                            <span class="text-sm font-semibold text-gray-700" data-i18n="btc-dominance">Độ Thống Trị BTC</span>
+                        </div>
+                        <div id="btc-dominance-indicator" class="market-value-container">
+                            <div class="skeleton-loader h-12"></div>
+                        </div>
+                    </div>
+                    <div class="dominance-chart-wrapper">
+                        <svg id="btc-dominance-svg" class="dominance-chart-large" viewBox="0 0 120 80" preserveAspectRatio="xMidYMid meet">
+                            <!-- Chart will be rendered here -->
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ethereum Dominance -->
+            <div class="market-card compact dominance-card">
+                <div class="dominance-card-layout">
+                    <div class="dominance-info">
+                        <div class="flex items-center mb-2">
+                            <i class="fab fa-ethereum text-blue-500 text-lg mr-2"></i>
+                            <span class="text-sm font-semibold text-gray-700" data-i18n="eth-dominance">Độ Thống Trị ETH</span>
+                        </div>
+                        <div id="eth-dominance-indicator" class="market-value-container">
+                            <div class="skeleton-loader h-12"></div>
+                        </div>
+                    </div>
+                    <div class="dominance-chart-wrapper">
+                        <svg id="eth-dominance-svg" class="dominance-chart-large" viewBox="0 0 120 80" preserveAspectRatio="xMidYMid meet">
+                            <!-- Chart will be rendered here -->
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+
         </div>
 
         <!-- Binance Price Display -->
