@@ -787,13 +787,40 @@ class MarketIndicatorsDashboard {
 
     // US Stock Indices Update Methods
     updateUSStockIndices(indices) {
-        debugLog('📊 Updating US Stock Indices:', indices);
-        
         if (!indices || typeof indices !== 'object') {
             debugError('❌ Invalid US stock indices data:', indices);
             return;
         }
         
+        // Check if data has actually changed
+        const cachedIndices = this.cachedData.usStockIndices;
+        if (cachedIndices) {
+            let hasChanged = false;
+            
+            // Check each index for changes
+            ['DIA', 'SPY', 'QQQM'].forEach(key => {
+                if (indices[key] && cachedIndices[key]) {
+                    const current = indices[key];
+                    const cached = cachedIndices[key];
+                    
+                    if (current.price !== cached.price || 
+                        current.change !== cached.change || 
+                        current.change_percent !== cached.change_percent ||
+                        current.status !== cached.status) {
+                        hasChanged = true;
+                    }
+                } else if (indices[key] !== cachedIndices[key]) {
+                    hasChanged = true;
+                }
+            });
+            
+            if (!hasChanged) {
+                debugLog('⏭️ US Stock Indices unchanged, skipping update');
+                return;
+            }
+        }
+        
+        debugLog('📊 Updating US Stock Indices:', indices);
         this.cachedData.usStockIndices = indices;
         
         // Update individual indices
@@ -1139,10 +1166,8 @@ class MarketIndicatorsDashboard {
 
         // Clear SVG
         svg.innerHTML = '';
-
-        // Calculate angles
-        const angle = (value / 100) * 2 * Math.PI;
-        const startAngle = -Math.PI / 2; // Start from top
+        svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+        svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
         // Draw "Others" slice (full circle background)
         const othersCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -1152,8 +1177,13 @@ class MarketIndicatorsDashboard {
         othersCircle.setAttribute('fill', othersColor);
         svg.appendChild(othersCircle);
 
-        // Draw dominance slice
-        if (value > 0 && value < 100) {
+        // Clamp value between 0 and 100
+        const clampedValue = Math.max(0, Math.min(100, value));
+
+        // Draw dominance slice only if value is meaningful (> 0.5%)
+        if (clampedValue >= 0.5 && clampedValue < 100) {
+            const angle = (clampedValue / 100) * 2 * Math.PI;
+            const startAngle = -Math.PI / 2; // Start from top
             const endAngle = startAngle + angle;
             
             const x1 = centerX + radius * Math.cos(startAngle);
@@ -1175,7 +1205,7 @@ class MarketIndicatorsDashboard {
             slice.setAttribute('fill', color);
             slice.setAttribute('opacity', '0.8');
             svg.appendChild(slice);
-        } else if (value >= 100) {
+        } else if (clampedValue >= 100) {
             // Full circle
             const fullCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
             fullCircle.setAttribute('cx', centerX);
@@ -1185,8 +1215,9 @@ class MarketIndicatorsDashboard {
             fullCircle.setAttribute('opacity', '0.8');
             svg.appendChild(fullCircle);
         }
+        // If value < 0.5%, only show the background circle (no slice drawn)
 
-        debugLog(`📊 Rendered ${type.toUpperCase()} dominance large pie chart: ${value.toFixed(1)}%`);
+        debugLog(`📊 Rendered ${type.toUpperCase()} dominance large pie chart: ${clampedValue.toFixed(1)}%`);
     }
 
     /**
