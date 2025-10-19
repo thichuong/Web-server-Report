@@ -49,8 +49,10 @@ impl Layer2AdaptersHub {
     pub fn with_external_apis(mut self, external_apis: Arc<ExternalApisIsland>) -> Self {
         println!("🔗 Connecting Layer 2 Adapters Hub to External APIs...");
         
-        self.market_data = self.market_data.with_external_apis(external_apis.clone());
-        self.api_aggregator = self.api_aggregator.with_external_apis(external_apis.clone());
+        // Note: Arc::clone is cheap (~5-10ns) - just increments reference counter
+        // Both adapters need shared access to external_apis
+        self.market_data = self.market_data.with_external_apis(Arc::clone(&external_apis));
+        self.api_aggregator = self.api_aggregator.with_external_apis(Arc::clone(&external_apis));
         
         println!("✅ Layer 2 Adapters Hub connected to External APIs");
         
@@ -64,8 +66,11 @@ impl Layer2AdaptersHub {
     pub fn with_cache_system(mut self, cache_system: Arc<crate::service_islands::layer1_infrastructure::cache_system_island::CacheSystemIsland>) -> Self {
         println!("🔗 Connecting Layer 2 Adapters Hub to Cache System (Layer 3 optimization)...");
         
-        self.market_data = self.market_data.with_cache_system(cache_system.clone());
+        // Note: Arc::clone retained for future extensibility
+        // Additional adapters may need cache_system access (see comment below)
+        self.market_data = self.market_data.with_cache_system(Arc::clone(&cache_system));
         // Additional adapters can be connected to cache system here in the future
+        // e.g., self.api_aggregator = self.api_aggregator.with_cache_system(Arc::clone(&cache_system));
         
         println!("✅ Layer 2 Adapters Hub connected to Cache System - Layer 3 cache optimization enabled");
         

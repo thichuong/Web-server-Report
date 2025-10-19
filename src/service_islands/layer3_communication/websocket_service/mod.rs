@@ -57,10 +57,11 @@ impl WebSocketServiceIsland {
         println!("🔧 Initializing WebSocket Service Island with Layer 2 and Cache Optimization...");
         
         // Initialize Layer 2 adapters with BOTH External APIs and Cache System
+        // Note: Arc::clone maintains ownership for potential reuse in future code
         let layer2_adapters = Arc::new(
             Layer2AdaptersHub::new()
-                .with_external_apis(external_apis.clone())
-                .with_cache_system(cache_system.clone()) // 🚀 Enable Layer 3 cache optimization
+                .with_external_apis(Arc::clone(&external_apis))
+                .with_cache_system(Arc::clone(&cache_system)) // 🚀 Enable Layer 3 cache optimization
         );
         
         // Initialize components
@@ -127,8 +128,11 @@ impl WebSocketServiceIsland {
     /// Get broadcast transmitter
     /// 
     /// Returns the broadcast transmitter for sending real-time updates.
+    /// 
+    /// Note: broadcast::Sender is designed for cheap cloning (~5-10ns).
+    /// Internally uses Arc, so cloning only increments a reference counter.
     pub fn get_broadcast_tx(&self) -> broadcast::Sender<String> {
-        self.broadcast_tx.clone()
+        self.broadcast_tx.clone() // Required: cannot return reference due to lifetime constraints
     }
     
     /// Fetch market data via Layer 3 → Layer 2 (proper architecture flow)
@@ -160,6 +164,7 @@ impl WebSocketServiceIsland {
         
         // Replace the existing streamer (this is a design pattern for runtime updates)
         // In a production system, you might want to handle this more gracefully
+        // Note: Clone broadcast_tx to pass ownership to async task
         updated_streamer.start_streaming(self.broadcast_tx.clone()).await?;
         
         Ok(())
@@ -172,8 +177,10 @@ impl WebSocketServiceIsland {
     pub async fn start_stream_consumer(&self, cache_system: Arc<crate::service_islands::layer1_infrastructure::cache_system_island::CacheSystemIsland>) -> Result<()> {
         println!("🔄 Starting background tasks for WebSocket broadcasting...");
         
+        // Clone Arc pointers to move into spawned task (tokio::spawn requires 'static lifetime)
+        // These are cheap operations (~5-10ns each) - only increment reference counters
         let broadcast_tx = self.broadcast_tx.clone();
-        let cache_system_clone = cache_system.clone();
+        let cache_system_clone = Arc::clone(&cache_system);
         // Note: Stream manager removed in new cache system - using simple cache-based updates
         
         // Spawn background task for periodic cache checks

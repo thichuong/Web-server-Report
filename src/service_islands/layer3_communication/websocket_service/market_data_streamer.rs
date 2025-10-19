@@ -55,11 +55,13 @@ impl MarketDataStreamer {
             
             self.is_streaming.store(true, std::sync::atomic::Ordering::Relaxed);
             
-            let service_islands_clone = service_islands.clone();
-            let broadcast_tx_clone = broadcast_tx.clone();
+            // Clone Arc pointers to move into spawned task (tokio::spawn requires 'static lifetime)
+            // These are cheap operations (~5-10ns each) - only increment reference counters
+            let service_islands_clone = Arc::clone(&service_islands);
+            let broadcast_tx_clone = broadcast_tx.clone(); // broadcast::Sender internally uses Arc
             let update_interval = self.update_interval;
             
-            // Spawn background task for streaming
+            // Spawn background task for streaming (runs independently for application lifetime)
             tokio::spawn(async move {
                 let mut interval_timer = interval(update_interval);
                 let mut consecutive_failures = 0;

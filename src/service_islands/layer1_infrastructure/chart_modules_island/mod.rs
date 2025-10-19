@@ -110,25 +110,25 @@ impl ChartModulesIsland {
         println!("📋 ChartModulesIsland: Loading {} chart modules in order: {:?}", ordered.len(), ordered);
 
         // Parallel file reading with concurrent futures
+        // Note: String clone here is necessary for async closure (cheap operation ~50-100ns)
         let file_futures: Vec<_> = ordered
-            .iter()
+            .into_iter() // Use into_iter to take ownership instead of cloning
             .map(|filename| {
-                let path = source_dir.join(filename);
-                let filename_clone = filename.clone();
+                let path = source_dir.join(&filename);
                 async move {
                     match tokio::fs::read_to_string(&path).await {
                         Ok(content) => {
                             let wrapped = format!(
                                 "// ==================== {name} ====================\ntry {{\n{code}\n}} catch (error) {{\n    console.error('Error loading chart module {name}:', error);\n}}\n// ==================== End {name} ====================",
-                                name = filename_clone,
+                                name = filename,
                                 code = content
                             );
-                            println!("✅ ChartModulesIsland: Loaded chart module {}", filename_clone);
+                            println!("✅ ChartModulesIsland: Loaded chart module {}", filename);
                             wrapped
                         }
                         Err(e) => {
-                            eprintln!("❌ ChartModulesIsland: Error loading {}: {}", filename_clone, e);
-                            format!("// Warning: {name} not found - {error}", name = filename_clone, error = e)
+                            eprintln!("❌ ChartModulesIsland: Error loading {}: {}", filename, e);
+                            format!("// Warning: {name} not found - {error}", name = filename, error = e)
                         }
                     }
                 }

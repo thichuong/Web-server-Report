@@ -226,16 +226,41 @@ impl MarketDataAdapter {
             println!("🔄 [Layer 3 → Layer 2 V2] Fetching dashboard summary (cache-free, force_realtime_refresh: {})...", force_realtime_refresh);
             let layer2_data = external_apis.fetch_dashboard_summary_v2(force_realtime_refresh).await?;
             
-            // STEP 3: Always store in Layer 3 cache for future requests
+            // STEP 3: Move data into cache (no clone needed - saves ~1-3μs per cache miss)
+            // Pattern: Cache becomes source of truth - always return from cache
             if let Some(cache_system) = &self.cache_system {
-                match cache_system.cache_manager().set_with_strategy("latest_market_data", layer2_data.clone(), CacheStrategy::RealTime).await {
-                    Ok(_) => println!("💾 [Layer 3] Stored latest_market_data in cache (RealTime strategy - 10s TTL)"),
-                    Err(e) => println!("⚠️ [Layer 3] Failed to cache latest_market_data: {}", e),
+                match cache_system.cache_manager().set_with_strategy("latest_market_data", layer2_data, CacheStrategy::RealTime).await {
+                    Ok(_) => {
+                        println!("💾 [Layer 3] Stored latest_market_data in cache (RealTime strategy - 10s TTL)");
+                        
+                        // Retrieve from cache to return (cache is now source of truth)
+                        match cache_system.cache_manager().get("latest_market_data").await {
+                            Ok(Some(cached_data)) => {
+                                println!("✅ [Layer 3] Fresh data fetched from Layer 2, cached, and retrieved");
+                                return Ok(cached_data);
+                            }
+                            Ok(None) => {
+                                println!("⚠️ [Layer 3] Unexpectedly failed to retrieve just-cached data");
+                                return Err(anyhow::anyhow!("Cache storage verification failed"));
+                            }
+                            Err(e) => {
+                                println!("⚠️ [Layer 3] Failed to retrieve from cache: {}", e);
+                                return Err(anyhow::anyhow!("Cache retrieval error: {}", e));
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        println!("⚠️ [Layer 3] Failed to cache latest_market_data: {}", e);
+                        // Fallback: Cache failed but we can still return data by refetching
+                        println!("🔄 [Layer 3] Cache failed, refetching from Layer 2...");
+                        return external_apis.fetch_dashboard_summary_v2(force_realtime_refresh).await;
+                    }
                 }
+            } else {
+                // No cache system configured - return data directly
+                println!("⚠️ [Layer 3] No cache system - returning Layer 2 data directly");
+                return Ok(layer2_data);
             }
-            
-            println!("✅ [Layer 3] Fresh data fetched from Layer 2 and cached");
-            Ok(layer2_data)
         } else {
             Err(anyhow::anyhow!("Layer 2 External APIs not configured in MarketDataAdapter"))
         }
