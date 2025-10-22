@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background gradient -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e3a8a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="cardGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2563eb;stop-opacity:0.9" />
+      <stop offset="100%" style="stop-color:#60a5fa;stop-opacity:0.9" />
+    </linearGradient>
+    
+    <!-- Glow effect -->
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bgGradient)"/>
+  
+  <!-- Decorative grid pattern -->
+  <g opacity="0.1">
+    <line x1="0" y1="157.5" x2="1200" y2="157.5" stroke="white" stroke-width="1"/>
+    <line x1="0" y1="315" x2="1200" y2="315" stroke="white" stroke-width="1"/>
+    <line x1="0" y1="472.5" x2="1200" y2="472.5" stroke="white" stroke-width="1"/>
+    <line x1="300" y1="0" x2="300" y2="630" stroke="white" stroke-width="1"/>
+    <line x1="600" y1="0" x2="600" y2="630" stroke="white" stroke-width="1"/>
+    <line x1="900" y1="0" x2="900" y2="630" stroke="white" stroke-width="1"/>
+  </g>
+  
+  <!-- Dashboard cards container -->
+  <g transform="translate(100, 80)">
+    <!-- Card 1: Line Chart -->
+    <g filter="url(#glow)">
+      <rect x="0" y="0" width="280" height="200" rx="15" fill="url(#cardGradient)" opacity="0.95"/>
+      <text x="20" y="35" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="white">Market Data</text>
+      <!-- Line chart -->
+      <polyline points="20,150 60,120 100,140 140,100 180,110 220,80 260,90" 
+                stroke="#93c5fd" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <polyline points="20,150 60,120 100,140 140,100 180,110 220,80 260,90 260,170 20,170" 
+                fill="#93c5fd" opacity="0.2"/>
+      <!-- Data points -->
+      <circle cx="60" cy="120" r="4" fill="#fbbf24"/>
+      <circle cx="100" cy="140" r="4" fill="#fbbf24"/>
+      <circle cx="140" cy="100" r="4" fill="#fbbf24"/>
+      <circle cx="180" cy="110" r="4" fill="#fbbf24"/>
+      <circle cx="220" cy="80" r="4" fill="#fbbf24"/>
+    </g>
+    
+    <!-- Card 2: Bar Chart -->
+    <g filter="url(#glow)" transform="translate(320, 0)">
+      <rect x="0" y="0" width="280" height="200" rx="15" fill="url(#cardGradient)" opacity="0.95"/>
+      <text x="20" y="35" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="white">Analytics</text>
+      <!-- Bar chart -->
+      <rect x="30" y="120" width="35" height="50" rx="4" fill="#60a5fa"/>
+      <rect x="75" y="100" width="35" height="70" rx="4" fill="#60a5fa"/>
+      <rect x="120" y="90" width="35" height="80" rx="4" fill="#60a5fa"/>
+      <rect x="165" y="110" width="35" height="60" rx="4" fill="#60a5fa"/>
+      <rect x="210" y="80" width="35" height="90" rx="4" fill="#60a5fa"/>
+    </g>
+    
+    <!-- Card 3: Pie Chart -->
+    <g filter="url(#glow)" transform="translate(640, 0)">
+      <rect x="0" y="0" width="280" height="200" rx="15" fill="url(#cardGradient)" opacity="0.95"/>
+      <text x="20" y="35" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="white">Portfolio</text>
+      <!-- Pie chart -->
+      <circle cx="140" cy="120" r="60" fill="#1e40af"/>
+      <path d="M 140 120 L 140 60 A 60 60 0 0 1 192.426 85 Z" fill="#3b82f6"/>
+      <path d="M 140 120 L 192.426 85 A 60 60 0 0 1 192.426 155 Z" fill="#60a5fa"/>
+      <path d="M 140 120 L 192.426 155 A 60 60 0 0 1 140 180 Z" fill="#93c5fd"/>
+      <circle cx="140" cy="120" r="35" fill="#1e3a8a"/>
+    </g>
+    
+    <!-- Card 4: Metrics -->
+    <g filter="url(#glow)" transform="translate(0, 240)">
+      <rect x="0" y="0" width="280" height="200" rx="15" fill="url(#cardGradient)" opacity="0.95"/>
+      <text x="20" y="35" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="white">Real-Time</text>
+      <!-- Metric display -->
+      <text x="140" y="100" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="#fbbf24" text-anchor="middle">42K</text>
+      <text x="140" y="130" font-family="Arial, sans-serif" font-size="16" fill="#93c5fd" text-anchor="middle">Active Users</text>
+      <!-- Trend arrow -->
+      <polygon points="220,150 230,160 220,170" fill="#10b981"/>
+      <text x="235" y="165" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#10b981">+12%</text>
+    </g>
+    
+    <!-- Card 5: Status -->
+    <g filter="url(#glow)" transform="translate(320, 240)">
+      <rect x="0" y="0" width="280" height="200" rx="15" fill="url(#cardGradient)" opacity="0.95"/>
+      <text x="20" y="35" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="white">System Status</text>
+      <!-- Status indicators -->
+      <circle cx="40" cy="90" r="8" fill="#10b981"/>
+      <text x="60" y="96" font-family="Arial, sans-serif" font-size="16" fill="white">API Service</text>
+      
+      <circle cx="40" cy="120" r="8" fill="#10b981"/>
+      <text x="60" y="126" font-family="Arial, sans-serif" font-size="16" fill="white">Database</text>
+      
+      <circle cx="40" cy="150" r="8" fill="#10b981"/>
+      <text x="60" y="156" font-family="Arial, sans-serif" font-size="16" fill="white">WebSocket</text>
+    </g>
+    
+    <!-- Card 6: Activity -->
+    <g filter="url(#glow)" transform="translate(640, 240)">
+      <rect x="0" y="0" width="280" height="200" rx="15" fill="url(#cardGradient)" opacity="0.95"/>
+      <text x="20" y="35" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="white">Activity</text>
+      <!-- Activity waves -->
+      <path d="M 20 120 Q 45 100, 70 120 T 120 120 T 170 120 T 220 120 T 260 120" 
+            stroke="#60a5fa" stroke-width="3" fill="none" opacity="0.7"/>
+      <path d="M 20 140 Q 45 120, 70 140 T 120 140 T 170 140 T 220 140 T 260 140" 
+            stroke="#93c5fd" stroke-width="3" fill="none" opacity="0.5"/>
+      <path d="M 20 160 Q 45 140, 70 160 T 120 160 T 170 160 T 220 160 T 260 160" 
+            stroke="#bfdbfe" stroke-width="3" fill="none" opacity="0.3"/>
+    </g>
+  </g>
+  
+  <!-- Main title -->
+  <text x="600" y="560" font-family="Arial, sans-serif" font-size="48" font-weight="bold" 
+        fill="white" text-anchor="middle" filter="url(#glow)">Web Server Dashboard</text>
+  
+  <!-- Subtitle -->
+  <text x="600" y="595" font-family="Arial, sans-serif" font-size="24" 
+        fill="#93c5fd" text-anchor="middle">Real-Time Market Data & Analytics</text>
+</svg>
