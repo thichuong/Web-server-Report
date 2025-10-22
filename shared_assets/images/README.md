@@ -46,6 +46,29 @@ Nội dung gợi ý cho `image.jpg`:
      `https://web-server-report-production.up.railway.app/shared_assets/images/image.jpg`
    - Nếu bạn muốn test local, dùng đường dẫn tương đối: `/shared_assets/images/image.jpg`
 
+   ### Facebook App ID (fb:app_id)
+
+   Các trang hiện có một placeholder meta tag cho Facebook App ID:
+
+         <meta property="fb:app_id" content="2216301062195294" />
+
+   Bạn nên thay `YOUR_FB_APP_ID` bằng App ID thực tế từ Facebook for Developers để xóa cảnh báo "Missing Properties: fb:app_id" trong Facebook Debugger.
+
+   Bạn có thể lấy App ID từ:
+
+   - https://developers.facebook.com/apps/ (tạo/app hoặc dùng app hiện có)
+
+   Sau khi có App ID, cập nhật các file:
+
+   - `dashboards/home.html`
+   - `dashboards/crypto_dashboard/routes/reports/list.html`
+   - `dashboards/crypto_dashboard/routes/reports/view.html`
+
+   Ví dụ:
+
+      <meta property="fb:app_id" content="123456789012345" />
+
+
 ### Test Open Graph Tags:
 
 1. **Facebook Sharing Debugger**: 
