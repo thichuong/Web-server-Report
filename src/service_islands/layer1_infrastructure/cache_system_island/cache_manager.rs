@@ -14,6 +14,19 @@ use tokio::sync::Mutex;
 use super::l1_cache::L1Cache;
 use super::l2_cache::L2Cache;
 
+/// RAII cleanup guard for in-flight request tracking
+/// Ensures that entries are removed from DashMap even on early return or panic
+struct CleanupGuard<'a> {
+    map: &'a DashMap<String, Arc<Mutex<()>>>,
+    key: String,
+}
+
+impl<'a> Drop for CleanupGuard<'a> {
+    fn drop(&mut self) {
+        self.map.remove(&self.key);
+    }
+}
+
 /// Cache strategies for different data types
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
@@ -102,19 +115,25 @@ impl CacheManager {
         }
         
         // L1 miss - implement Cache Stampede protection for L2 lookup
+        let key_owned = key.to_string();
         let lock_guard = self.in_flight_requests
-            .entry(key.to_string())
+            .entry(key_owned.clone())
             .or_insert_with(|| Arc::new(Mutex::new(())))
             .clone();
         
         let _guard = lock_guard.lock().await;
         
+        // RAII cleanup guard - ensures entry is removed even on early return or panic
+        let cleanup_guard = CleanupGuard {
+            map: &self.in_flight_requests,
+            key: key_owned.clone(),
+        };
+        
         // Double-check L1 cache after acquiring lock
         // (Another concurrent request might have populated it while we were waiting)
         if let Some(value) = self.l1_cache.get(key).await {
             self.l1_hits.fetch_add(1, Ordering::Relaxed);
-            // Clean up tracking since we found the data
-            self.in_flight_requests.remove(key);
+            // cleanup_guard will auto-remove entry on drop
             return Ok(Some(value));
         }
         
@@ -131,16 +150,15 @@ impl CacheManager {
                 println!("⬆️ Promoted '{}' from L2 to L1 (via get)", key);
             }
             
-            // Clean up tracking
-            self.in_flight_requests.remove(key);
+            // cleanup_guard will auto-remove entry on drop
             return Ok(Some(value));
         }
         
         // Both L1 and L2 miss
         self.misses.fetch_add(1, Ordering::Relaxed);
         
-        // Clean up tracking
-        self.in_flight_requests.remove(key);
+        // cleanup_guard will auto-remove entry on drop
+        drop(cleanup_guard);
         
         Ok(None)
     }
@@ -250,17 +268,25 @@ impl CacheManager {
         }
         
         // 2. L1 miss - try L2 with Cache Stampede protection
+        let key_owned = key.to_string();
         let lock_guard = self.in_flight_requests
-            .entry(key.to_string())
+            .entry(key_owned.clone())
             .or_insert_with(|| Arc::new(Mutex::new(())))
             .clone();
         
         let _guard = lock_guard.lock().await;
         
+        // RAII cleanup guard - ensures entry is removed even on early return or panic
+        let _cleanup_guard = CleanupGuard {
+            map: &self.in_flight_requests,
+            key: key_owned,
+        };
+        
         // 3. Double-check L1 cache after acquiring lock
         // (Another request might have populated it while we were waiting)
         if let Some(value) = self.l1_cache.get(key).await {
             self.l1_hits.fetch_add(1, Ordering::Relaxed);
+            // _cleanup_guard will auto-remove entry on drop
             return Ok(value);
         }
         
@@ -277,6 +303,7 @@ impl CacheManager {
                 println!("⬆️ Promoted '{}' from L2 to L1", key);
             }
             
+            // _cleanup_guard will auto-remove entry on drop
             return Ok(value);
         }
         
@@ -289,8 +316,7 @@ impl CacheManager {
             eprintln!("⚠️ Failed to cache computed data for key '{}': {}", key, e);
         }
         
-        // 7. Clean up in-flight request tracking
-        self.in_flight_requests.remove(key);
+        // 7. _cleanup_guard will auto-remove entry on drop
         
         Ok(fresh_data)
     }

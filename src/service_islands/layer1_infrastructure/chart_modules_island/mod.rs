@@ -110,19 +110,27 @@ impl ChartModulesIsland {
         println!("📋 ChartModulesIsland: Loading {} chart modules in order: {:?}", ordered.len(), ordered);
 
         // Parallel file reading with concurrent futures
-        // Note: String clone here is necessary for async closure (cheap operation ~50-100ns)
+        // Use into_iter to take ownership and avoid clones
         let file_futures: Vec<_> = ordered
-            .into_iter() // Use into_iter to take ownership instead of cloning
+            .into_iter()
             .map(|filename| {
                 let path = source_dir.join(&filename);
                 async move {
                     match tokio::fs::read_to_string(&path).await {
                         Ok(content) => {
-                            let wrapped = format!(
-                                "// ==================== {name} ====================\ntry {{\n{code}\n}} catch (error) {{\n    console.error('Error loading chart module {name}:', error);\n}}\n// ==================== End {name} ====================",
-                                name = filename,
-                                code = content
-                            );
+                            // Pre-allocate string capacity to avoid reallocations
+                            let capacity = 100 + filename.len() * 3 + content.len();
+                            let mut wrapped = String::with_capacity(capacity);
+                            wrapped.push_str("// ==================== ");
+                            wrapped.push_str(&filename);
+                            wrapped.push_str(" ====================\ntry {\n");
+                            wrapped.push_str(&content);
+                            wrapped.push_str("\n} catch (error) {\n    console.error('Error loading chart module ");
+                            wrapped.push_str(&filename);
+                            wrapped.push_str(":', error);\n}\n// ==================== End ");
+                            wrapped.push_str(&filename);
+                            wrapped.push_str(" ====================");
+                            
                             println!("✅ ChartModulesIsland: Loaded chart module {}", filename);
                             wrapped
                         }
@@ -217,5 +225,12 @@ impl ChartModulesIsland {
 impl Default for ChartModulesIsland {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Drop for ChartModulesIsland {
+    fn drop(&mut self) {
+        // Cleanup confirmation for debugging
+        println!("🧹 ChartModulesIsland: Cleanup completed (base_dir: {})", self.base_dir);
     }
 }
