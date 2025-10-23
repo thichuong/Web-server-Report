@@ -363,9 +363,9 @@ impl CryptoDataService {
             "display_end": display_end,
         });
 
-        // BƯỚC 6: Template rendering
-        let tera = state.tera.clone();
-        let reports_clone = reports.clone();
+        // BƯỚC 6: Template rendering - Clone Tera (Arc nên clone nhẹ)
+        let tera = state.tera.clone(); // Arc clone là nhẹ
+        let reports_clone = reports.clone(); // Cần clone vì spawn_blocking yêu cầu 'static
         
         let render_result = tokio::task::spawn_blocking(move || {
             let mut context = tera::Context::new();

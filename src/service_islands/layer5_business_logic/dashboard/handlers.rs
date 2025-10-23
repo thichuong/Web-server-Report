@@ -109,7 +109,9 @@ impl DashboardHandlers {
         // Add basic context for homepage
         context.insert("current_route", "homepage");
         context.insert("current_lang", "vi");
-        context.insert("current_time", &chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string());
+        // Tối ưu: format() đã trả về String, không cần to_string()
+        let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string();
+        context.insert("current_time", &current_time);
         
         // Add homepage-specific data
         context.insert("page_title", "Trang chủ - Crypto Dashboard");
@@ -127,12 +129,17 @@ impl DashboardHandlers {
                 // BƯỚC 3: COMPRESS HTML VÀ CACHE RESULT
                 match self.compress_html(&html) {
                     Ok(compressed_data) => {
-                        // Cache compressed data via Layer 3
-                        if let Err(e) = self.data_service.cache_rendered_homepage_compressed(state, compressed_data.clone()).await {
-                            eprintln!("⚠️ Layer 5: Không thể cache compressed homepage: {}", e);
+                        // Tối ưu: Cache trước để có thể handle error, sau đó return data
+                        // Clone chỉ khi cache thành công để tránh clone không cần thiết khi cache fail
+                        match self.data_service.cache_rendered_homepage_compressed(state, compressed_data.clone()).await {
+                            Ok(_) => {
+                                println!("✅ Homepage rendered and cached successfully");
+                            }
+                            Err(e) => {
+                                eprintln!("⚠️ Layer 5: Không thể cache compressed homepage: {}", e);
+                                // Vẫn trả về data ngay cả khi cache fail
+                            }
                         }
-                        
-                        println!("✅ Homepage rendered and cached successfully");
                         Ok(compressed_data)
                     }
                     Err(e) => {

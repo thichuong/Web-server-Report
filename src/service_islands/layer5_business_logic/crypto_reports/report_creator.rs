@@ -189,7 +189,7 @@ impl ReportCreator {
             js_content_en: report.js_content_en.as_ref().map(|js| self.sanitize_js_content(js)),
             created_at: report.created_at,
             sandbox_token: sandbox_token.clone(),
-            chart_modules_content: chart_modules_content.map(|s| s.to_string()),
+            chart_modules_content: chart_modules_content.map(String::from), // Sử dụng String::from thay vì to_string()
             complete_html_document: String::new(), // Will be populated below
         };
         
@@ -231,12 +231,31 @@ impl ReportCreator {
             r"on\w+\s*=", // Remove event handlers
         ];
         
+        // Tối ưu: chỉ clone 1 lần nếu cần thiết
+        let mut needs_sanitization = false;
+        
+        // Kiểm tra xem có cần sanitize không
+        for pattern in dangerous_patterns.iter() {
+            if let Ok(re) = regex::Regex::new(pattern) {
+                if re.is_match(html) {
+                    needs_sanitization = true;
+                    break;
+                }
+            }
+        }
+        
+        if !needs_sanitization {
+            // Không có gì nguy hiểm, trả về clone đơn giản
+            return html.to_string();
+        }
+        
+        // Cần sanitize - clone và xử lý
         let mut sanitized = html.to_string();
         for pattern in dangerous_patterns.iter() {
-            let re = regex::Regex::new(pattern).unwrap_or_else(|_| {
-                regex::Regex::new("").unwrap() // Fallback empty regex
-            });
-            sanitized = re.replace_all(&sanitized, "").to_string();
+            if let Ok(re) = regex::Regex::new(pattern) {
+                // Dùng into_owned() để tránh to_string() thêm
+                sanitized = re.replace_all(&sanitized, "").into_owned();
+            }
         }
         
         sanitized

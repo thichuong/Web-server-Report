@@ -43,14 +43,15 @@ async fn websocket_connection_handler(
     // ✅ Get Layer 3 broadcast receiver for real-time updates
     let mut broadcast_rx = service_islands.websocket_service.get_broadcast_tx().subscribe();
     
-    // Send initial welcome message
+    // Send initial welcome message - serialize 1 lần
     let welcome_msg = json!({
         "type": "connected",
         "message": "WebSocket connected to Service Islands Layer 3",
         "timestamp": chrono::Utc::now().to_rfc3339()
     });
+    let welcome_msg_str = welcome_msg.to_string(); // Serialize 1 lần
     
-    if let Err(_) = socket.send(axum::extract::ws::Message::Text(welcome_msg.to_string())).await {
+    if let Err(_) = socket.send(axum::extract::ws::Message::Text(welcome_msg_str)).await {
         println!("❌ Failed to send welcome message");
         return;
     }
@@ -64,8 +65,9 @@ async fn websocket_connection_handler(
             "timestamp": chrono::Utc::now().to_rfc3339(),
             "source": "layer5_market_data_service"  // Updated to reflect new service
         });
+        let initial_msg_str = initial_msg.to_string(); // Serialize 1 lần
         
-        if let Ok(_) = socket.send(axum::extract::ws::Message::Text(initial_msg.to_string())).await {
+        if let Ok(_) = socket.send(axum::extract::ws::Message::Text(initial_msg_str)).await {
             println!("📊 Initial dashboard data sent via Layer 5 Market Data Service (shared architecture)");
         }
     }
@@ -106,9 +108,10 @@ async fn websocket_connection_handler(
                                 "type": "pong",
                                 "timestamp": chrono::Utc::now().to_rfc3339()
                             });
+                            let pong_str = pong_response.to_string(); // Serialize 1 lần
                             
                             println!("🏓 Sending pong");
-                            if let Err(_) = socket.send(axum::extract::ws::Message::Text(pong_response.to_string())).await {
+                            if let Err(_) = socket.send(axum::extract::ws::Message::Text(pong_str)).await {
                                 break;
                             }
                         }
@@ -124,8 +127,9 @@ async fn websocket_connection_handler(
                                     "timestamp": chrono::Utc::now().to_rfc3339(),
                                     "source": "client_request"
                                 });
+                                let refresh_str = refresh_msg.to_string(); // Serialize 1 lần
                                 
-                                if let Ok(_) = socket.send(axum::extract::ws::Message::Text(refresh_msg.to_string())).await {
+                                if let Ok(_) = socket.send(axum::extract::ws::Message::Text(refresh_str)).await {
                                     println!("✅ Fresh dashboard data sent in response to client request");
                                 }
                             } else {

@@ -96,14 +96,13 @@ impl TemplateOrchestrator {
         
         // Generate sandbox token for iframe security
         let sandboxed_report = self.report_creator.create_sandboxed_report(report, Some(&chart_modules_content));
-        let sandbox_token = sandboxed_report.sandbox_token.clone();
         
         // Prepare basic context
         let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string();
         let pdf_url = format!("/crypto_report/{}/pdf", report.id);
         
         let mut context = TemplateContext {
-            report: report.clone(),
+            report: report.clone(), // Cần clone vì Report không implement Copy
             chart_modules_content,
             current_route: "dashboard".to_string(),
             current_lang: "vi".to_string(),
@@ -112,9 +111,9 @@ impl TemplateOrchestrator {
             additional_context,
         };
         
-        // Add sandbox token to additional context
+        // Add sandbox token to additional context - không clone string
         let mut extra_context = context.additional_context.unwrap_or_else(HashMap::new);
-        extra_context.insert("sandbox_token".to_string(), serde_json::Value::String(sandbox_token));
+        extra_context.insert("sandbox_token".to_string(), serde_json::Value::String(sandboxed_report.sandbox_token));
         context.additional_context = Some(extra_context);
         
         println!("✅ TemplateOrchestrator: Context prepared successfully with sandbox token");
@@ -132,10 +131,10 @@ impl TemplateOrchestrator {
     ) -> Result<String, Box<dyn StdError + Send + Sync>> {
         println!("🎨 TemplateOrchestrator: Rendering template: {}", template_path);
         
-        // Clone data for spawn_blocking
-        let tera_clone = tera.clone();
+        // Clone để đáp ứng yêu cầu 'static của spawn_blocking
+        let tera_clone = tera.clone(); // Tera là Arc nên clone nhẹ
         let template_str = template_path.to_string();
-        let context_clone = context.clone();
+        let context_clone = context.clone(); // Cần clone vì spawn_blocking yêu cầu 'static
         
         let render_result = tokio::task::spawn_blocking(move || {
             let mut tera_context = Context::new();

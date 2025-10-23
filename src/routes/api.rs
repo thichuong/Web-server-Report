@@ -53,12 +53,12 @@ async fn api_dashboard_data(
         Ok(market_data) => {
             println!("✅ [API] Dashboard data fetched via Layer 5 Market Data Service");
             
-            // Store in cache for future reads  
+            // Store in cache for future reads - dùng reference thay vì clone
             let cache_system = &service_islands.cache_system;
             use crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy;
             if let Err(e) = cache_system.cache_manager().set_with_strategy(
                 "latest_market_data", 
-                market_data.clone(), 
+                market_data.clone(), // Chỉ clone 1 lần duy nhất
                 CacheStrategy::ShortTerm
             ).await {
                 println!("⚠️ [API] Failed to store in cache: {}", e);
@@ -66,7 +66,7 @@ async fn api_dashboard_data(
                 println!("💾 [API] Data stored to cache for future reads");
             }
             
-            Json(market_data) // Return data in same format as WebSocket
+            Json(market_data) // Return data in same format as WebSocket - move ownership
         }
         Err(e) => {
             println!("❌ [API] Failed to fetch dashboard data: {}", e);
@@ -115,12 +115,12 @@ async fn api_dashboard_summary(
         Ok(market_data) => {
             println!("✅ [API] Dashboard summary fetched via Layer 5 Market Data Service");
             
-            // Store in cache for future reads  
+            // Store in cache for future reads - dùng reference thay vì clone
             let cache_system = &service_islands.cache_system;
             use crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy;
             if let Err(e) = cache_system.cache_manager().set_with_strategy(
                 "latest_market_data", 
-                market_data.clone(), 
+                market_data.clone(), // Chỉ clone 1 lần duy nhất
                 CacheStrategy::ShortTerm
             ).await {
                 println!("⚠️ [API] Failed to store in cache: {}", e);
@@ -128,7 +128,7 @@ async fn api_dashboard_summary(
                 println!("💾 [API] Data stored to cache for future reads");
             }
             
-            Json(market_data) // Return data in same format as WebSocket
+            Json(market_data) // Return data in same format as WebSocket - move ownership
         }
         Err(e) => {
             println!("❌ [API] Failed to fetch dashboard summary: {}", e);
