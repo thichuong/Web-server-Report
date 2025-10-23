@@ -11,6 +11,7 @@ pub mod layer4_observability;
 pub mod layer5_business_logic;
 
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
 
 use layer1_infrastructure::{
     AppStateIsland,
@@ -55,6 +56,9 @@ pub struct ServiceIslands {
     // Layer 5: Business Logic Islands
     pub dashboard: Arc<DashboardIsland>,
     pub crypto_reports: Arc<CryptoReportsIsland>,
+    
+    // WebSocket connection tracking
+    pub active_ws_connections: Arc<AtomicUsize>,
 }
 
 impl ServiceIslands {
@@ -140,6 +144,7 @@ impl ServiceIslands {
             health_system,
             dashboard,
             crypto_reports,
+            active_ws_connections: Arc::new(AtomicUsize::new(0)),
         })
     }
     
@@ -162,6 +167,7 @@ impl ServiceIslands {
                 health_system: self.health_system.clone(),
                 dashboard: self.dashboard.clone(),
                 crypto_reports: self.crypto_reports.clone(),
+                active_ws_connections: self.active_ws_connections.clone(),
             })
         ).await?;
         
@@ -234,5 +240,11 @@ impl ServiceIslands {
         self.legacy_app_state.get_or_init(|| {
             Arc::new(self.app_state.create_legacy_app_state(Some(self.cache_system.clone())))
         }).clone()
+    }
+    
+    /// Get number of active WebSocket connections
+    pub fn active_connections(&self) -> usize {
+        use std::sync::atomic::Ordering;
+        self.active_ws_connections.load(Ordering::SeqCst)
     }
 }

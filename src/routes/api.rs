@@ -23,6 +23,7 @@ pub fn configure_api_routes() -> Router<Arc<ServiceIslands>> {
         .route("/api/dashboard/data", get(api_dashboard_data))
         .route("/api/crypto_reports/:id/sandboxed", get(api_sandboxed_report))
         .route("/api/health", get(api_health))
+        .route("/api/websocket/stats", get(api_websocket_stats))
 }
 
 /// Dashboard data API endpoint - Enhanced with Redis Streams
@@ -230,4 +231,19 @@ async fn api_sandboxed_report(
             "Failed to serve sandboxed content".into_response()
         }
     }
+}
+
+/// WebSocket statistics API endpoint
+/// 
+/// Returns real-time statistics about WebSocket connections
+async fn api_websocket_stats(
+    State(service_islands): State<Arc<ServiceIslands>>
+) -> Json<serde_json::Value> {
+    let active_connections = service_islands.active_connections();
+    
+    Json(json!({
+        "active_connections": active_connections,
+        "status": "healthy",
+        "timestamp": chrono::Utc::now().to_rfc3339()
+    }))
 }
