@@ -192,7 +192,7 @@ class DashboardWebSocket {
                 if (WS_DEBUG) console.log('⚠️ Socket not open, stopping heartbeat');
                 this.stopHeartbeat();
             }
-        }, 15000); // Ping every 5 seconds
+        }, 30000); // Ping every 30 seconds (optimal for Cloudflare - keeps connection alive within 100s timeout)
     }
 
     stopHeartbeat() {

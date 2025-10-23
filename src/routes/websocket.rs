@@ -28,7 +28,9 @@ async fn websocket_handler(
 ) -> Response {
     println!("🔌 WebSocket upgrade request received - establishing real-time connection");
     
-    ws.on_upgrade(move |socket| websocket_connection_handler(socket, service_islands))
+    // Add Cloudflare compatibility logging
+    ws.protocols(["chat", "superchat"])  // Optional: specify supported protocols
+        .on_upgrade(move |socket| websocket_connection_handler(socket, service_islands))
 }
 
 /// Handle individual WebSocket connections with Service Islands integration
