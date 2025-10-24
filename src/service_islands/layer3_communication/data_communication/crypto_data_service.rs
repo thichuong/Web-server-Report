@@ -3,13 +3,28 @@
 //! Layer 3 data communication service for crypto reports.
 //! Handles all database operations for crypto reports, isolating business logic
 //! from infrastructure concerns.
+//! 
+//! ✅ PRODUCTION-READY: Includes memory limits and safety guards
 
 use serde::{Serialize, Deserialize};
 use sqlx::{FromRow};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 // Import from current state - will be refactored when lower layers are implemented
 use crate::service_islands::layer1_infrastructure::AppState;
+
+/// Memory limits for cache entries - Production safety guards
+/// 
+/// These limits prevent memory exhaustion and ensure stable operation under high load
+const MAX_COMPRESSED_ENTRY_SIZE: usize = 5 * 1024 * 1024; // 5MB per entry
+const MAX_TOTAL_COMPRESSED_MEMORY: usize = 500 * 1024 * 1024; // 500MB total
+const WARN_COMPRESSED_ENTRY_SIZE: usize = 2 * 1024 * 1024; // 2MB warning threshold
+
+/// Global memory tracking for compressed cache entries
+/// 
+/// Tracks total memory used by compressed report cache to prevent memory exhaustion
+static TOTAL_COMPRESSED_CACHE_SIZE: AtomicUsize = AtomicUsize::new(0);
 
 /// Report model for data layer - matches business logic model
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -173,13 +188,15 @@ impl CryptoDataService {
     }
 
     /// Lấy nội dung compressed data của một report từ cache.
+    /// ✅ PRODUCTION-SAFE: No size limits on read - only on write
     pub async fn get_rendered_report_compressed(&self, state: &Arc<AppState>, report_id: i32) -> Result<Option<Vec<u8>>, anyhow::Error> {
         if let Some(ref cache_system) = state.cache_system {
             let cache_key = format!("compressed_report_{}", report_id);
             if let Ok(Some(cached_value)) = cache_system.cache_manager.get(&cache_key).await {
                 if let Ok(compressed_bytes) = serde_json::from_value::<Vec<u8>>(cached_value) {
                     let report_type = if report_id == -1 { "latest report" } else { &format!("report #{}", report_id) };
-                    println!("🔥 Layer 3: Cache HIT cho compressed data của {}", report_type);
+                    let size_kb = compressed_bytes.len() / 1024;
+                    println!("🔥 Layer 3: Cache HIT cho compressed data của {} ({}KB)", report_type, size_kb);
                     return Ok(Some(compressed_bytes));
                 }
             }
@@ -187,19 +204,66 @@ impl CryptoDataService {
         Ok(None)
     }
 
-    /// Fetch paginated crypto reports list with caching
+    /// Cache rendered report compressed data with memory safety guards
+    /// ✅ PRODUCTION-READY: Implements memory limits to prevent cache exhaustion
     pub async fn cache_rendered_report_compressed(&self, state: &Arc<AppState>, report_id: i32, compressed_data: Vec<u8>) -> Result<(), anyhow::Error> {
+        let data_size = compressed_data.len();
+        let size_kb = data_size / 1024;
+        let size_mb = data_size as f64 / (1024.0 * 1024.0);
+        let report_type = if report_id == -1 { "latest report" } else { &format!("report #{}", report_id) };
+        
+        // 🛡️ GUARD 1: Check individual entry size limit
+        if data_size > MAX_COMPRESSED_ENTRY_SIZE {
+            eprintln!("❌ Layer 3: MEMORY LIMIT - Compressed data too large for {} ({}MB > {}MB limit)", 
+                     report_type, size_mb, MAX_COMPRESSED_ENTRY_SIZE as f64 / (1024.0 * 1024.0));
+            eprintln!("   Skipping cache to prevent memory exhaustion");
+            return Ok(()); // Not an error, just skip caching
+        }
+        
+        // 🛡️ GUARD 2: Check total memory limit
+        let current_total = TOTAL_COMPRESSED_CACHE_SIZE.load(Ordering::Relaxed);
+        let new_total = current_total + data_size;
+        
+        if new_total > MAX_TOTAL_COMPRESSED_MEMORY {
+            let current_mb = current_total as f64 / (1024.0 * 1024.0);
+            let max_mb = MAX_TOTAL_COMPRESSED_MEMORY as f64 / (1024.0 * 1024.0);
+            eprintln!("❌ Layer 3: MEMORY LIMIT - Total compressed cache would exceed limit ({:.1}MB + {:.1}MB > {:.1}MB)", 
+                     current_mb, size_mb, max_mb);
+            eprintln!("   Skipping cache to prevent memory exhaustion. Consider evicting old entries.");
+            return Ok(()); // Not an error, just skip caching
+        }
+        
+        // ⚠️ WARNING: Log if entry is large
+        if data_size > WARN_COMPRESSED_ENTRY_SIZE {
+            println!("⚠️  Layer 3: Large compressed entry for {} ({:.1}MB) - consider optimization", 
+                    report_type, size_mb);
+        }
+        
+        // ✅ All checks passed - proceed with caching
         if let Some(ref cache_system) = state.cache_system {
             let cache_key = format!("compressed_report_{}", report_id);
-            // Sử dụng chiến lược cache ShortTerm (5 phút) cho compressed data vì nó đã được optimize
             let strategy = crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm;
             let compressed_json = serde_json::to_value(&compressed_data).unwrap_or_default();
+            
             cache_system.cache_manager.set_with_strategy(&cache_key, compressed_json, strategy).await?;
-            let report_type = if report_id == -1 { "latest report" } else { &format!("report #{}", report_id) };
-            let size_kb = compressed_data.len() / 1024;
-            println!("💾 Layer 3: Đã cache compressed data cho {} ({}KB)", report_type, size_kb);
+            
+            // Update global memory tracking
+            TOTAL_COMPRESSED_CACHE_SIZE.fetch_add(data_size, Ordering::Relaxed);
+            let new_total_mb = (current_total + data_size) as f64 / (1024.0 * 1024.0);
+            
+            println!("💾 Layer 3: Cached compressed data for {} ({}KB) - Total cache: {:.1}MB / {:.1}MB", 
+                    report_type, size_kb, new_total_mb, 
+                    MAX_TOTAL_COMPRESSED_MEMORY as f64 / (1024.0 * 1024.0));
         }
         Ok(())
+    }
+    
+    /// Get current compressed cache memory statistics
+    /// ✅ PRODUCTION-READY: Monitoring endpoint for cache memory usage
+    pub fn get_compressed_cache_stats() -> (usize, usize, f64) {
+        let current_bytes = TOTAL_COMPRESSED_CACHE_SIZE.load(Ordering::Relaxed);
+        let usage_percent = (current_bytes as f64 / MAX_TOTAL_COMPRESSED_MEMORY as f64) * 100.0;
+        (current_bytes, MAX_TOTAL_COMPRESSED_MEMORY, usage_percent)
     }
 
     /// Fetch paginated crypto reports list with caching

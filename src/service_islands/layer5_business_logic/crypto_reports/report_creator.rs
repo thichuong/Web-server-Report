@@ -167,6 +167,7 @@ impl ReportCreator {
     /// 
     /// Creates a secure sandboxed version of the report for iframe delivery.
     /// This method sanitizes content, generates a security token, and creates the complete HTML document.
+    /// ✅ OPTIMIZED: Minimizes unnecessary clones and string allocations
     pub fn create_sandboxed_report(&self, report: &Report, chart_modules_content: Option<&str>) -> SandboxedReport {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
@@ -188,8 +189,8 @@ impl ReportCreator {
             html_content_en: report.html_content_en.as_ref().map(|html| self.sanitize_html_content(html)),
             js_content_en: report.js_content_en.as_ref().map(|js| self.sanitize_js_content(js)),
             created_at: report.created_at,
-            sandbox_token: sandbox_token.clone(),
-            chart_modules_content: chart_modules_content.map(String::from), // Sử dụng String::from thay vì to_string()
+            sandbox_token,  // ✅ Move instead of clone - no unnecessary allocation
+            chart_modules_content: chart_modules_content.map(str::to_owned),  // ✅ Necessary conversion from &str to String
             complete_html_document: String::new(), // Will be populated below
         };
         

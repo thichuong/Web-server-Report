@@ -4,7 +4,7 @@
 //! including context preparation, chart modules injection, and Tera integration.
 //! Follows Service Islands Architecture Layer 5 patterns.
 
-use std::{collections::HashMap, error::Error as StdError, io::Write};
+use std::{collections::HashMap, error::Error as StdError, io::Write, sync::Arc};
 use tera::Context;
 use flate2::{Compression, write::GzEncoder};
 
@@ -14,10 +14,11 @@ use super::report_creator::{Report, ReportCreator};
 /// Template Context Data
 /// 
 /// Structured container for all template rendering context data
+/// Optimized to use Arc for heavy data to avoid expensive clones
 #[derive(Debug, Clone)]
 pub struct TemplateContext {
-    pub report: Report,
-    pub chart_modules_content: String,
+    pub report: Arc<Report>,  // ✅ Use Arc to avoid cloning full Report data
+    pub chart_modules_content: Arc<String>,  // ✅ Use Arc to avoid string clones
     pub current_route: String,
     pub current_lang: String,
     pub current_time: String,
@@ -73,11 +74,12 @@ impl TemplateOrchestrator {
     /// Builds complete template context with all necessary data for rendering
     /// Enhanced to accept pre-loaded chart_modules_content for optimal performance
     /// Now includes sandbox token generation for iframe security
+    /// ✅ OPTIMIZED: Uses Arc to avoid expensive clones of Report and chart modules
     pub async fn prepare_crypto_report_context(
         &self,
         report: &Report,
         template_type: &str,
-        chart_modules_content: Option<String>, // THÊM THAM SỐ NÀY
+        chart_modules_content: Option<Arc<String>>,  // ✅ Changed to Arc<String>
         additional_context: Option<HashMap<String, serde_json::Value>>
     ) -> Result<TemplateContext, Box<dyn StdError + Send + Sync>> {
         println!("🎨 TemplateOrchestrator: Preparing context for template type: {}", template_type);
@@ -85,12 +87,12 @@ impl TemplateOrchestrator {
         // Sử dụng chart_modules_content được truyền vào, hoặc fetch từ ReportCreator nếu không có
         let chart_modules_content = match chart_modules_content {
             Some(content) => {
-                println!("✅ TemplateOrchestrator: Sử dụng chart modules đã được pre-load");
+                println!("✅ TemplateOrchestrator: Sử dụng chart modules đã được pre-load (Arc - zero clone)");
                 content
             }
             None => {
                 println!("🔄 TemplateOrchestrator: Fallback - đọc chart modules từ file");
-                self.report_creator.get_chart_modules_content().await
+                Arc::new(self.report_creator.get_chart_modules_content().await)
             }
         };
         
@@ -102,8 +104,8 @@ impl TemplateOrchestrator {
         let pdf_url = format!("/crypto_report/{}/pdf", report.id);
         
         let mut context = TemplateContext {
-            report: report.clone(), // Cần clone vì Report không implement Copy
-            chart_modules_content,
+            report: Arc::new(report.clone()),  // ✅ Clone once, then Arc for zero-cost sharing
+            chart_modules_content,  // ✅ Already Arc, no clone
             current_route: "dashboard".to_string(),
             current_lang: "vi".to_string(),
             current_time,
@@ -116,13 +118,14 @@ impl TemplateOrchestrator {
         extra_context.insert("sandbox_token".to_string(), serde_json::Value::String(sandboxed_report.sandbox_token));
         context.additional_context = Some(extra_context);
         
-        println!("✅ TemplateOrchestrator: Context prepared successfully with sandbox token");
+        println!("✅ TemplateOrchestrator: Context prepared successfully with sandbox token (memory optimized)");
         Ok(context)
     }
 
     /// Render crypto template with prepared context
     /// 
     /// Core template rendering method using Tera engine with proper error handling
+    /// ✅ OPTIMIZED: TemplateContext now uses Arc internally, so clone is lightweight
     pub async fn render_template(
         &self,
         tera: &tera::Tera,
@@ -132,16 +135,18 @@ impl TemplateOrchestrator {
         println!("🎨 TemplateOrchestrator: Rendering template: {}", template_path);
         
         // Clone để đáp ứng yêu cầu 'static của spawn_blocking
+        // ✅ Now lightweight: Tera is Arc, TemplateContext uses Arc internally
         let tera_clone = tera.clone(); // Tera là Arc nên clone nhẹ
         let template_str = template_path.to_string();
-        let context_clone = context.clone(); // Cần clone vì spawn_blocking yêu cầu 'static
+        let context_clone = context.clone(); // ✅ Now cheap: only Arc pointers cloned, not data
         
         let render_result = tokio::task::spawn_blocking(move || {
             let mut tera_context = Context::new();
             
             // Insert core template data
-            tera_context.insert("report", &context_clone.report);
-            tera_context.insert("chart_modules_content", &context_clone.chart_modules_content);
+            // ✅ Dereference Arc to get references for Tera
+            tera_context.insert("report", context_clone.report.as_ref());
+            tera_context.insert("chart_modules_content", context_clone.chart_modules_content.as_ref());
             tera_context.insert("current_route", &context_clone.current_route);
             tera_context.insert("current_lang", &context_clone.current_lang);
             tera_context.insert("current_time", &context_clone.current_time);
@@ -191,11 +196,12 @@ impl TemplateOrchestrator {
     /// Combines context preparation and template rendering for crypto report views
     /// Enhanced to accept pre-loaded chart_modules_content for optimal performance
     /// Now returns compressed HTML data for optimal file size and transfer speed
+    /// ✅ OPTIMIZED: Uses Arc to avoid cloning heavy Report and chart modules data
     pub async fn render_crypto_report_view(
         &self,
         tera: &tera::Tera,
         report: &Report,
-        chart_modules_content: Option<String>, // THÊM THAM SỐ NÀY
+        chart_modules_content: Option<Arc<String>>,  // ✅ Changed to Arc<String>
         additional_context: Option<HashMap<String, serde_json::Value>>
     ) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
         println!("🚀 TemplateOrchestrator: Rendering crypto report view with compression");
@@ -204,7 +210,7 @@ impl TemplateOrchestrator {
         let context = self.prepare_crypto_report_context(
             report,
             "view",
-            chart_modules_content, // TRUYỀN THAM SỐ
+            chart_modules_content, // ✅ Arc<String> passed directly
             additional_context
         ).await?;
         
@@ -255,7 +261,7 @@ impl TemplateOrchestrator {
             created_at: chrono::Utc::now(),
         };
         
-        // Prepare context
+        // Prepare context (will wrap in Arc internally)
         let context = self.prepare_crypto_report_context(
             &empty_report,
             "empty",
@@ -303,7 +309,7 @@ impl TemplateOrchestrator {
             created_at: chrono::Utc::now(),
         };
         
-        // Prepare context
+        // Prepare context (will wrap in Arc internally)
         let context = self.prepare_crypto_report_context(
             &not_found_report,
             "404",

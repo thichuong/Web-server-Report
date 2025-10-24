@@ -105,10 +105,11 @@ impl CryptoHandlers {
     /// Exactly like archive_old_code/handlers/crypto.rs::crypto_index - Complete L1/L2 caching
     /// Enhanced with pre-loaded chart modules and HTML caching for optimal performance
     /// Now returns compressed data for optimal transfer speed
+    /// ✅ OPTIMIZED: Uses Arc<String> to avoid cloning chart modules content
     pub async fn crypto_index_with_tera(
         &self, 
         state: &Arc<AppState>,
-        chart_modules_content: Option<Arc<String>>, // THÊM THAM SỐ NÀY
+        chart_modules_content: Option<Arc<String>>,  // ✅ Already Arc, no clone needed
     ) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
         println!("🚀 Layer 5: Nhận yêu cầu cho crypto_index (latest report)");
         
@@ -138,14 +139,12 @@ impl CryptoHandlers {
 
         match db_res {
             Ok(Some(report)) => {
-                // Chuẩn bị chart_modules_content cho template rendering
-                let chart_content = chart_modules_content.map(|arc| (*arc).clone());
-                
+                // ✅ Pass Arc directly - no clone needed
                 // Template rendering with TemplateOrchestrator
                 match self.template_orchestrator.render_crypto_report_view(
                     &state.tera,
                     &report,
-                    chart_content, // Truyền pre-loaded chart modules
+                    chart_modules_content,  // ✅ Arc<String> passed directly, zero clone
                     None
                 ).await {
                     Ok(compressed_data) => {
@@ -198,11 +197,12 @@ impl CryptoHandlers {
     /// Exactly like archive_old_code/handlers/crypto.rs pattern - Complete L1/L2 caching
     /// Enhanced with rendered HTML caching for optimal performance
     /// Now returns compressed data for optimal transfer speed
+    /// ✅ OPTIMIZED: Uses Arc<String> to avoid cloning chart modules content
     pub async fn crypto_report_by_id_with_tera(
         &self, 
         state: &Arc<AppState>,
         report_id: i32,
-        chart_modules_content: Option<Arc<String>>, // THÊM THAM SỐ NÀY
+        chart_modules_content: Option<Arc<String>>,  // ✅ Already Arc, no clone needed
     ) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
         println!("🚀 Layer 5: Nhận yêu cầu cho report #{}", report_id);
         
@@ -232,14 +232,12 @@ impl CryptoHandlers {
 
         match db_res {
             Ok(Some(report)) => {
-                // Chuẩn bị chart_modules_content cho template rendering
-                let chart_content = chart_modules_content.map(|arc| (*arc).clone());
-                
+                // ✅ Pass Arc directly - no clone needed
                 // Template rendering with TemplateOrchestrator
                 match self.template_orchestrator.render_crypto_report_view(
                     &state.tera,
                     &report,
-                    chart_content, // Truyền pre-loaded chart modules
+                    chart_modules_content,  // ✅ Arc<String> passed directly, zero clone
                     None
                 ).await {
                     Ok(compressed_data) => {
