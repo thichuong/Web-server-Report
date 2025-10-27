@@ -229,9 +229,20 @@ impl MarketDataAdapter {
             // STEP 3: Move data into cache (no clone needed - saves ~1-3μs per cache miss)
             // Pattern: Cache becomes source of truth - always return from cache
             if let Some(cache_system) = &self.cache_system {
-                match cache_system.cache_manager().set_with_strategy("latest_market_data", layer2_data, CacheStrategy::RealTime).await {
+                match cache_system.cache_manager().set_with_strategy("latest_market_data", layer2_data.clone(), CacheStrategy::RealTime).await {
                     Ok(_) => {
                         println!("💾 [Layer 3] Stored latest_market_data in cache (RealTime strategy - 10s TTL)");
+                        
+                        // STEP 3.5: Publish to Redis Stream for streaming consumers (Python AI service)
+                        match Self::publish_to_redis_stream(cache_system, &layer2_data).await {
+                            Ok(entry_id) => {
+                                println!("📤 [Layer 3 → Redis Streams] Published market data to stream (ID: {})", entry_id);
+                            }
+                            Err(e) => {
+                                println!("⚠️ [Layer 3] Failed to publish to Redis Stream (non-critical): {}", e);
+                                // Non-critical - continue even if stream publish fails
+                            }
+                        }
                         
                         // Retrieve from cache to return (cache is now source of truth)
                         match cache_system.cache_manager().get("latest_market_data").await {
@@ -264,6 +275,43 @@ impl MarketDataAdapter {
         } else {
             Err(anyhow::anyhow!("Layer 2 External APIs not configured in MarketDataAdapter"))
         }
+    }
+    
+    /// Helper method to publish market data to Redis Stream
+    /// 
+    /// Converts JSON market data into stream fields and publishes to "market_data_stream"
+    async fn publish_to_redis_stream(
+        cache_system: &Arc<CacheSystemIsland>,
+        data: &serde_json::Value
+    ) -> Result<String> {
+        // Convert JSON to stream fields (flatten key-value pairs)
+        let mut fields = Vec::new();
+        
+        if let Some(obj) = data.as_object() {
+            for (key, value) in obj {
+                // Convert value to string based on type
+                let value_str = match value {
+                    serde_json::Value::String(s) => s.clone(),
+                    serde_json::Value::Number(n) => n.to_string(),
+                    serde_json::Value::Bool(b) => b.to_string(),
+                    serde_json::Value::Null => "null".to_string(),
+                    // For objects and arrays, serialize as JSON
+                    _ => serde_json::to_string(value).unwrap_or_else(|_| "{}".to_string()),
+                };
+                
+                fields.push((key.clone(), value_str));
+            }
+        }
+        
+        // Add timestamp if not present
+        if !fields.iter().any(|(k, _)| k == "stream_timestamp") {
+            fields.push(("stream_timestamp".to_string(), chrono::Utc::now().to_rfc3339()));
+        }
+        
+        // Publish to stream with max length of 1000 entries (keeps last ~16 hours at 1 update/minute)
+        cache_system.cache_manager()
+            .publish_to_stream("market_data_stream", fields, Some(1000))
+            .await
     }
     
     // DEPRECATED v2 Methods - Replaced by unified fetch_normalized_market_data()
