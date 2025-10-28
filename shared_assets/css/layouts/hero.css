@@ -1,0 +1,49 @@
+/**
+ * Layout - Hero Section
+ * Hero/feature section styling
+ */
+
+.hero-section {
+  text-align: left;
+  padding: 2rem;
+  background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
+  border-radius: 16px;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--card-border);
+  backdrop-filter: blur(10px);
+}
+
+.hero-icon {
+  margin-bottom: 1.5rem;
+}
+
+.hero-title {
+  background: linear-gradient(135deg, #1e40af, #3b82f6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.1;
+}
+
+.hero-description {
+  color: var(--text-secondary);
+  margin-bottom: 2rem;
+  line-height: 1.6;
+}
+
+/* Responsive hero */
+@media (max-width: 1024px) {
+  .hero-section {
+    text-align: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .hero-section {
+    padding: 1.5rem;
+  }
+  
+  .hero-title {
+    font-size: 2rem;
+  }
+}

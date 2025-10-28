@@ -24,95 +24,28 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  
+  <!-- Base Styles -->
   <link rel="stylesheet" href="/shared_assets/css/colors.css">
-  <link rel="stylesheet" href="/shared_assets/css/style.css">
+  <link rel="stylesheet" href="/shared_assets/css/base/reset.css">
+  <link rel="stylesheet" href="/shared_assets/css/base/typography.css">
+  
+  <!-- Layout Styles -->
+  <link rel="stylesheet" href="/shared_assets/css/layouts/grid.css">
+  <link rel="stylesheet" href="/shared_assets/css/layouts/hero.css">
+  
+  <!-- Component Styles -->
+  <link rel="stylesheet" href="/shared_assets/css/components/buttons.css">
+  <link rel="stylesheet" href="/shared_assets/css/components/navigation.css">
   <link rel="stylesheet" href="/shared_components/market-indicators/market-indicators.css">
-  <style>
-    body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
-    .center { min-height: 100vh; display:flex; align-items:center; justify-content:center; flex-direction: column; padding: 2rem 1rem; }
-    .language-toggle-container { position: fixed; bottom: 20px; right: 20px; z-index: 1000; }
-    .main-content { width: 100%; margin: 0 auto; }
-    
-    /* Two-column layout */
-    .content-grid { 
-      display: grid; 
-      grid-template-columns: 1fr 1.2fr; 
-      gap: 3rem; 
-      align-items: start; 
-    }
-    
-    .hero-section { 
-      text-align: left; 
-      padding: 2rem;
-      background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
-      border-radius: 16px;
-      box-shadow: var(--card-shadow);
-      border: 1px solid var(--card-border);
-      backdrop-filter: blur(10px);
-    }
-    
-    .market-section { 
-      margin-top: 0;
-    }
-    
-    .hero-icon {
-      margin-bottom: 1.5rem;
-    }
-    
-    .hero-title {
-      background: linear-gradient(135deg, #1e40af, #3b82f6);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      line-height: 1.1;
-    }
-    
-    .hero-description {
-      color: var(--text-secondary);
-      margin-bottom: 2rem;
-      line-height: 1.6;
-    }
-    
-    .cta-button {
-      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-      transition: all 0.3s ease;
-      transform: translateY(0);
-    }
-    
-    .cta-button:hover {
-      background: linear-gradient(135deg, #1d4ed8, #1e3a8a);
-      transform: translateY(-2px);
-      box-shadow: 0 8px 25px -3px rgba(59, 130, 246, 0.4);
-    }
-    
-    /* Responsive design */
-    @media (max-width: 1024px) {
-      .content-grid {
-        grid-template-columns: 1fr;
-        gap: 2rem;
-      }
-      
-      .hero-section {
-        text-align: center;
-      }
-    }
-    
-    @media (max-width: 768px) {
-      .center {
-        padding: 1rem;
-      }
-      
-      .hero-section {
-        padding: 1.5rem;
-      }
-      
-      .hero-title {
-        font-size: 2rem;
-      }
-    }
-  </style>
+  
+  <!-- Page Styles -->
+  <link rel="stylesheet" href="/shared_assets/css/pages/home.css">
+  
+  <!-- Legacy Styles -->
+  <link rel="stylesheet" href="/shared_assets/css/style.css">
 </head>
-<body>
+<body class="homepage">
   <div class="center" style="padding-bottom: 5rem;">
     <div class="main-content">
       <div class="content-grid">
@@ -144,10 +77,9 @@
   </div>
 
   <!-- Bottom Navigation Panel -->
-  <div class="fixed bottom-0 left-0 right-0 z-50" style="background-color: var(--bg-secondary); border-top: 1px solid var(--border-color); backdrop-filter: blur(10px);">
-    <div class="px-4 sm:px-6 lg:px-8">
+  <div class="bottom-nav">
+    <div class="bottom-nav-container">
       <div class="flex justify-end items-center h-16">
-        <!-- Controls -->
         <div class="flex items-center space-x-4">
           {% include "crypto/components/theme_toggle.html" %}
           {% include "crypto/components/language_toggle.html" %}

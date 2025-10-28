@@ -33,3 +33,9 @@ rust_server.log
 
 # Redis dump file
 dump.rdb
+
+# Node.js build system
+node_modules/
+dist/
+build-report.json
+package-lock.json

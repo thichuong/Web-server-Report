@@ -1,0 +1,54 @@
+/**
+ * Components - Navigation
+ * Navigation bar and bottom panel styles
+ */
+
+/* Bottom navigation panel */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background-color: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  backdrop-filter: blur(10px);
+}
+
+.bottom-nav-container {
+  padding: 0 1rem;
+  /* display and alignment handled by Tailwind classes in HTML */
+}
+
+.nav-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.nav-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Language toggle container */
+.language-toggle-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+}
+
+/* Responsive navigation */
+@media (min-width: 640px) {
+  .bottom-nav-container {
+    padding: 0 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .bottom-nav-container {
+    padding: 0 2rem;
+  }
+}

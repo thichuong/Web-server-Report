@@ -78,7 +78,7 @@
                         <tbody>
                             {% if reports.items | length > 0 %}
                                 {% for report in reports.items %}
-                                <tr class="hover:bg-opacity-50 transition-all duration-200" style="border-bottom: 1px solid var(--border-color); background-color: transparent;" onmouseover="this.style.backgroundColor='var(--table-row-hover-bg)'" onmouseout="this.style.backgroundColor='transparent'">
+                                <tr class="hover:bg-opacity-50 transition-all duration-200" style="border-bottom: 1px solid var(--border-color); background-color: transparent;">
                                     <td class="px-6 py-5 text-sm">
                                         <div class="flex items-center">
                                             <i class="fas fa-clock mr-3" style="color: var(--text-secondary);"></i>
@@ -208,6 +208,10 @@
         </div>
     </div>
     
+    <!-- Table interactions -->
+    <script src="/crypto_dashboard/assets/report-list-interactions.js" defer></script>
+    
+    <!-- Core theme and language scripts -->
     <script src="/shared_components/core/theme-manager.js" defer></script>
     <script src="/crypto_dashboard/assets/translations.js" defer></script>
     <script src="/shared_components/core/language-toggle.js" defer></script>

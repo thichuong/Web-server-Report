@@ -1,0 +1,21 @@
+/**
+ * Page - Homepage Specific Styles
+ * Styles specific to homepage layout
+ */
+
+/* Homepage center layout adjustment */
+.homepage .center {
+  padding-bottom: 5rem;
+}
+
+/* Market section spacing */
+.market-section {
+  margin-top: 0;
+}
+
+/* Homepage responsive adjustments */
+@media (max-width: 768px) {
+  .homepage .center {
+    padding-bottom: 4rem;
+  }
+}
