@@ -34,21 +34,38 @@
             
             // Get current language
             const currentLang = (window.languageManager && window.languageManager.currentLanguage) || 'vi';
-            
-            // Format date with timezone (GMT+7 - Asia/Ho_Chi_Minh)
-            const formatter = new Intl.DateTimeFormat(currentLang === 'vi' ? 'vi-VN' : 'en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
+
+            // Format time (GMT+7 - Asia/Ho_Chi_Minh)
+            const timeFormatter = new Intl.DateTimeFormat(currentLang === 'vi' ? 'vi-VN' : 'en-US', {
                 hour: '2-digit',
                 minute: '2-digit',
                 second: '2-digit',
+                hour12: false,
+                timeZone: 'Asia/Ho_Chi_Minh'
+            });
+
+            // Format date without timezone
+            const dateFormatter = new Intl.DateTimeFormat(currentLang === 'vi' ? 'vi-VN' : 'en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                timeZone: 'Asia/Ho_Chi_Minh'
+            });
+
+            // Get timezone name
+            const timezoneFormatter = new Intl.DateTimeFormat(currentLang === 'vi' ? 'vi-VN' : 'en-US', {
                 timeZone: 'Asia/Ho_Chi_Minh',
                 timeZoneName: 'short'
             });
-            
-            const formattedDate = formatter.format(date);
-            createdAtElement.textContent = formattedDate;
+            const timezoneParts = timezoneFormatter.formatToParts(date);
+            const timezone = timezoneParts.find(part => part.type === 'timeZoneName')?.value || 'GMT+7';
+
+            // Combine: time first, then date, then timezone
+            const formattedTime = timeFormatter.format(date);
+            const formattedDate = dateFormatter.format(date);
+            const combinedFormat = `${formattedTime}, ${formattedDate} ${timezone}`;
+
+            createdAtElement.textContent = combinedFormat;
             
             console.log('✅ Date Formatter: Formatted date successfully:', formattedDate);
         } catch (error) {
