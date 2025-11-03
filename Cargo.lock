@@ -1373,6 +1373,7 @@ dependencies = [
 [[package]]
 name = "multi-tier-cache"
 version = "0.1.0"
+source = "git+https://github.com/thichuong/multi-tier-cache#7acd0f159f449160722c8a6b183f3263b8538122"
 dependencies = [
  "anyhow",
  "dashmap",
