@@ -4,111 +4,103 @@
 //! for global market data, Fear & Greed Index, RSI, and US stock indices.
 
 use anyhow::Result;
+use std::sync::Arc;
 use super::aggregator_core::ApiAggregator;
 
 impl ApiAggregator {
-    /// Fetch global data with generic caching strategy
+    /// Fetch global data with type-safe automatic caching
+    ///
+    /// ✨ NEW: Uses get_or_compute_typed() for automatic caching
     pub async fn fetch_global_with_cache(&self) -> Result<serde_json::Value> {
-        let cache_key = "global_coingecko_1h";
-
-        // Try cache first
         if let Some(ref cache) = self.cache_system {
-            if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
-                return Ok(cached_data);
-            }
-        }
+            let market_api = Arc::clone(&self.market_api);
 
-        // Fetch from API
-        match self.market_api.fetch_global_data().await {
-            Ok(data) => {
-                // Cache using generic MediumTerm strategy (1 hour)
-                if let Some(ref cache) = self.cache_system {
-                    let _ = cache.cache_manager.set_with_strategy(cache_key, data.clone(),
-                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::MediumTerm).await;
-                    println!("💾 Global data cached for 1 hour (MediumTerm strategy)");
+            cache.cache_manager.get_or_compute_typed(
+                "global_coingecko_1h",
+                crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::MediumTerm, // 1 hour
+                || async move {
+                    println!("🔄 Fetching global data from API...");
+                    let data = market_api.fetch_global_data().await?;
+                    println!("✅ Global data fetched");
+                    Ok(data)
                 }
-                Ok(data)
-            }
-            Err(e) => Err(e)
+            ).await
+        } else {
+            // No cache - direct API call
+            println!("⚠️ No cache system - calling API directly");
+            self.market_api.fetch_global_data().await
         }
     }
 
-    /// Fetch Fear & Greed with generic caching strategy
+    /// Fetch Fear & Greed with type-safe automatic caching
+    ///
+    /// ✨ NEW: Uses get_or_compute_typed() for automatic caching
     pub async fn fetch_fng_with_cache(&self) -> Result<serde_json::Value> {
-        let cache_key = "fng_alternative_5m";
-
-        // Try cache first
         if let Some(ref cache) = self.cache_system {
-            if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
-                return Ok(cached_data);
-            }
-        }
+            let market_api = Arc::clone(&self.market_api);
 
-        // Fetch from API
-        match self.market_api.fetch_fear_greed_index().await {
-            Ok(data) => {
-                // Cache using generic ShortTerm strategy (5 minutes)
-                if let Some(ref cache) = self.cache_system {
-                    let _ = cache.cache_manager.set_with_strategy(cache_key, data.clone(),
-                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm).await;
-                    println!("💾 Fear & Greed cached for 5 minutes (short-term strategy)");
+            cache.cache_manager.get_or_compute_typed(
+                "fng_alternative_5m",
+                crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm, // 5 minutes
+                || async move {
+                    println!("🔄 Fetching Fear & Greed Index from API...");
+                    let data = market_api.fetch_fear_greed_index().await?;
+                    println!("✅ Fear & Greed Index fetched");
+                    Ok(data)
                 }
-                Ok(data)
-            }
-            Err(e) => Err(e)
+            ).await
+        } else {
+            // No cache - direct API call
+            println!("⚠️ No cache system - calling API directly");
+            self.market_api.fetch_fear_greed_index().await
         }
     }
 
-    /// Fetch RSI with generic caching strategy
+    /// Fetch RSI with type-safe automatic caching
+    ///
+    /// ✨ NEW: Uses get_or_compute_typed() for automatic caching
     pub async fn fetch_btc_rsi_14_with_cache(&self) -> Result<serde_json::Value> {
-        let cache_key = "btc_rsi_14_taapi_3h";
-
-        // Try cache first
         if let Some(ref cache) = self.cache_system {
-            if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
-                return Ok(cached_data);
-            }
-        }
+            let market_api = Arc::clone(&self.market_api);
 
-        // Fetch from API
-        match self.market_api.fetch_btc_rsi_14().await {
-            Ok(data) => {
-                // Cache using generic LongTerm strategy (3 hours)
-                if let Some(ref cache) = self.cache_system {
-                    let cache_manager = cache.get_cache_manager();
-                    let _ = cache_manager.set_with_strategy(cache_key, data.clone(),
-                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::LongTerm).await;
-                    println!("💾 RSI cached for 3 hours (long-term strategy)");
+            cache.cache_manager.get_or_compute_typed(
+                "btc_rsi_14_taapi_3h",
+                crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::LongTerm, // 3 hours
+                || async move {
+                    println!("🔄 Fetching BTC RSI-14 from API...");
+                    let data = market_api.fetch_btc_rsi_14().await?;
+                    println!("✅ BTC RSI-14 fetched");
+                    Ok(data)
                 }
-                Ok(data)
-            }
-            Err(e) => Err(e)
+            ).await
+        } else {
+            // No cache - direct API call
+            println!("⚠️ No cache system - calling API directly");
+            self.market_api.fetch_btc_rsi_14().await
         }
     }
 
-    /// Fetch US Stock Indices with generic caching strategy
+    /// Fetch US Stock Indices with type-safe automatic caching
+    ///
+    /// ✨ NEW: Uses get_or_compute_typed() for automatic caching
     pub async fn fetch_us_indices_with_cache(&self) -> Result<serde_json::Value> {
-        let cache_key = "us_indices_finnhub_5m";
-
-        // Try cache first
         if let Some(ref cache) = self.cache_system {
-            if let Ok(Some(cached_data)) = cache.cache_manager.get(cache_key).await {
-                return Ok(cached_data);
-            }
-        }
+            let market_api = Arc::clone(&self.market_api);
 
-        // Fetch from API
-        match self.market_api.fetch_us_stock_indices().await {
-            Ok(data) => {
-                // Cache using generic ShortTerm strategy (5 minutes)
-                if let Some(ref cache) = self.cache_system {
-                    let _ = cache.cache_manager.set_with_strategy(cache_key, data.clone(),
-                        crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm).await;
-                    println!("💾 US Stock Indices cached for 5 minutes (short-term strategy)");
+            cache.cache_manager.get_or_compute_typed(
+                "us_indices_finnhub_5m",
+                crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm, // 5 minutes
+                || async move {
+                    println!("🔄 Fetching US Stock Indices from API...");
+                    let data = market_api.fetch_us_stock_indices().await?;
+                    println!("✅ US Stock Indices fetched");
+                    Ok(data)
                 }
-                Ok(data)
-            }
-            Err(e) => Err(e)
+            ).await
+        } else {
+            // No cache - direct API call
+            println!("⚠️ No cache system - calling API directly");
+            self.market_api.fetch_us_stock_indices().await
         }
     }
 }
