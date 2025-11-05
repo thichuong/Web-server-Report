@@ -1372,13 +1372,14 @@ dependencies = [
 
 [[package]]
 name = "multi-tier-cache"
-version = "0.3.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a4d14234dec947bf1a5f64332c486c8ded8d049a0c4826db2b77716dbeadd76"
+checksum = "8d9e5e648895828e524054445786763cd6880d195e54439312a31685f66e2e5a"
 dependencies = [
  "anyhow",
  "async-trait",
  "dashmap",
+ "futures-util",
  "moka",
  "redis 0.32.5",
  "serde",

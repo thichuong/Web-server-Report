@@ -73,6 +73,7 @@ impl CacheSystemIsland {
     }
 
     /// Get cache manager (for compatibility with existing code)
+    #[allow(dead_code)]
     pub fn get_cache_manager(&self) -> Arc<CacheManager> {
         self.cache_manager.clone()
     }

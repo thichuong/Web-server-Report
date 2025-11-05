@@ -494,8 +494,8 @@ impl CryptoDataService {
 
             let (total_res, rows_res) = tokio::join!(total_fut, rows_fut);
 
-            let total = total_res.map_err(|e| format!("Database error: {}", e))?;
-            let list = rows_res.map_err(|e| format!("Database error: {}", e))?;
+            let _total = total_res.map_err(|e| format!("Database error: {}", e))?;
+            let _list = rows_res.map_err(|e| format!("Database error: {}", e))?;
 
             // ... (rest of fallback logic - simplified for brevity, just render without cache)
             Err("Cache system not available".into())
