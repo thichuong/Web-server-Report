@@ -28,9 +28,15 @@ impl Layer2GrpcClient {
     ///
     /// This replaces the HTTP call with a high-performance gRPC call
     pub async fn fetch_dashboard_summary_v2(&self, force_realtime_refresh: bool) -> Result<Value> {
-        let mut client = MarketDataServiceClient::connect(self.endpoint.clone())
-            .await
-            .context("Failed to connect to Layer2 gRPC service")?;
+        // Add timeout for Railway connection
+        let connect_future = MarketDataServiceClient::connect(self.endpoint.clone());
+        let mut client = tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            connect_future
+        )
+        .await
+        .context("Timeout connecting to Layer2 gRPC service (10s)")?
+        .with_context(|| format!("Failed to connect to Layer2 gRPC service at {}", self.endpoint))?;
 
         let request = tonic::Request::new(DashboardSummaryRequest {
             force_realtime_refresh,
@@ -79,7 +85,7 @@ impl Layer2GrpcClient {
     pub async fn health_check(&self) -> Result<bool> {
         let mut client = MarketDataServiceClient::connect(self.endpoint.clone())
             .await
-            .context("Failed to connect to Layer2 gRPC service")?;
+            .with_context(|| format!("Health check: Failed to connect to Layer2 gRPC at {}", self.endpoint))?;
 
         let request = tonic::Request::new(HealthCheckRequest {});
 
