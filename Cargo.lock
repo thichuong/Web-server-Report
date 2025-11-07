@@ -185,11 +185,13 @@ dependencies = [
 
 [[package]]
 name = "backon"
-version = "1.5.2"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "592277618714fbcecda9a02ba7a8781f319d26532a88553bbacc77ba5d2b3a8d"
+checksum = "fd0b50b1b78dbadd44ab18b3c794e496f3a139abb9fbc27d9c94c4eebbb96496"
 dependencies = [
  "fastrand",
+ "gloo-timers",
+ "tokio",
 ]
 
 [[package]]
@@ -861,6 +863,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "gloo-timers"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbb143cf96099802033e0d4f4963b19fd2e0b728bcf076cd9cf7f6634f092994"
+dependencies = [
+ "futures-channel",
+ "futures-core",
+ "js-sys",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "h2"
 version = "0.3.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1446,7 +1460,7 @@ dependencies = [
  "dashmap",
  "futures-util",
  "moka",
- "redis 0.32.5",
+ "redis 0.32.3",
  "serde",
  "serde_json",
  "tokio",
@@ -2032,9 +2046,9 @@ dependencies = [
 
 [[package]]
 name = "redis"
-version = "0.32.5"
+version = "0.32.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7cd3650deebc68526b304898b192fa4102a4ef0b9ada24da096559cb60e0eef8"
+checksum = "7f0f6a8c53351d89a3869a703459995a0bcadcfa846002707fbc7e5cca235c4a"
 dependencies = [
  "arc-swap",
  "backon",
@@ -2049,7 +2063,7 @@ dependencies = [
  "pin-project-lite",
  "ryu",
  "sha1_smol",
- "socket2 0.6.0",
+ "socket2 0.5.10",
  "tokio",
  "tokio-util",
  "url",
@@ -3387,6 +3401,7 @@ dependencies = [
  "ahash",
  "anyhow",
  "axum",
+ "backon",
  "base64ct",
  "bb8-redis",
  "chrono",
@@ -3402,7 +3417,7 @@ dependencies = [
  "prost",
  "rand 0.9.2",
  "rayon",
- "redis 0.32.5",
+ "redis 0.32.3",
  "regex",
  "reqwest",
  "serde",
