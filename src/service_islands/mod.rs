@@ -99,16 +99,28 @@ impl ServiceIslands {
             finnhub_api_key,
             Some(cache_system.clone())
         ).await?);
-        
+
+        // Initialize Layer 2 gRPC Client for microservice communication
+        println!("🔌 Initializing Layer 2 gRPC Client...");
+        let layer2_grpc_url = std::env::var("LAYER2_GRPC_URL")
+            .unwrap_or_else(|_| "http://localhost:50051".to_string());
+
+        let layer2_grpc_client = Arc::new(
+            crate::service_islands::layer3_communication::layer2_grpc_client::Layer2GrpcClient::new(
+                layer2_grpc_url.clone()
+            )?
+        );
+        println!("✅ Layer 2 gRPC Client initialized at {}", layer2_grpc_url);
+
         // Initialize Layer 4: Observability
         println!("🔍 Initializing Layer 4: Observability Islands...");
         let health_system = Arc::new(HealthSystemIsland::new().await?);
-        
+
         // Initialize Layer 3: Communication (depends on Layer 2 + Cache Optimization)
-        println!("📡 Initializing Layer 3: Communication Islands with Layer 2 dependencies and Cache Optimization...");
+        println!("📡 Initializing Layer 3: Communication Islands with Layer 2 gRPC Client and Cache Optimization...");
         let websocket_service = Arc::new(
-            WebSocketServiceIsland::with_external_apis_and_cache(
-                external_apis.clone(),
+            WebSocketServiceIsland::with_grpc_client_and_cache(
+                layer2_grpc_client.clone(),
                 cache_system.clone()
             ).await?
         );

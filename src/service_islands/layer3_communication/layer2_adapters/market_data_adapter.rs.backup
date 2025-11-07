@@ -10,20 +10,20 @@ use anyhow::Result;
 use serde_json;
 use std::sync::Arc;
 
-use crate::service_islands::layer3_communication::layer2_grpc_client::Layer2GrpcClient;
+use crate::service_islands::layer2_external_services::external_apis_island::ExternalApisIsland;
 use crate::service_islands::layer1_infrastructure::cache_system_island::{CacheSystemIsland, CacheStrategy};
 
-/// Market Data Adapter (gRPC-Based, Cache-Optimized)
-///
-/// Handles all Layer 3 → Layer 2 market data communication via gRPC.
+/// Market Data Adapter (Cache-Optimized)
+/// 
+/// Handles all Layer 3 → Layer 2 market data communication.
 /// Provides methods for fetching various types of market data
 /// while maintaining proper Service Islands Architecture.
-///
+/// 
 /// OPTIMIZATION: Performs Layer 3 cache checks for latest_market_data
-/// to minimize unnecessary Layer 2 calls. Uses gRPC for 50-70% better performance vs HTTP.
+/// to minimize unnecessary Layer 2 API calls.
 pub struct MarketDataAdapter {
-    /// gRPC client for Layer 2 Data Service (High Performance)
-    layer2_grpc_client: Option<Arc<Layer2GrpcClient>>,
+    /// Reference to Layer 2 External APIs Island
+    external_apis: Option<Arc<ExternalApisIsland>>,
     /// Reference to Layer 1 Cache System for direct cache access
     cache_system: Option<Arc<CacheSystemIsland>>,
 }
@@ -33,17 +33,17 @@ impl MarketDataAdapter {
     /// Create new Market Data Adapter without dependencies
     pub fn new() -> Self {
         Self {
-            layer2_grpc_client: None,
+            external_apis: None,
             cache_system: None,
         }
     }
-
-    /// Set Layer 2 gRPC Client dependency (High Performance)
-    pub fn with_layer2_grpc_client(mut self, layer2_grpc_client: Arc<Layer2GrpcClient>) -> Self {
-        self.layer2_grpc_client = Some(layer2_grpc_client);
+    
+    /// Set Layer 2 External APIs dependency
+    pub fn with_external_apis(mut self, external_apis: Arc<ExternalApisIsland>) -> Self {
+        self.external_apis = Some(external_apis);
         self
     }
-
+    
     /// Set Layer 1 Cache System dependency for direct cache access
     pub fn with_cache_system(mut self, cache_system: Arc<CacheSystemIsland>) -> Self {
         self.cache_system = Some(cache_system);
@@ -155,33 +155,33 @@ impl MarketDataAdapter {
     
     /// Health check for market data adapter
     pub async fn health_check(&self) -> bool {
-        if let Some(grpc_client) = &self.layer2_grpc_client {
-            match grpc_client.health_check().await {
+        if let Some(external_apis) = &self.external_apis {
+            match external_apis.health_check().await {
                 Ok(_) => {
-                    println!("  ✅ Market Data Adapter - Layer 2 gRPC service healthy");
+                    println!("  ✅ Market Data Adapter - Layer 2 connection healthy");
                     true
                 }
                 Err(e) => {
                     // Be tolerant of rate limiting and temporary issues
                     let error_msg = e.to_string();
                     if error_msg.contains("429") || error_msg.contains("Circuit breaker") || error_msg.contains("rate limit") {
-                        println!("  ⚠️ Market Data Adapter - Layer 2 gRPC service rate limited (functional)");
+                        println!("  ⚠️ Market Data Adapter - Layer 2 rate limited (functional)");
                         true
                     } else {
-                        println!("  ❌ Market Data Adapter - Layer 2 gRPC service unhealthy: {}", e);
+                        println!("  ❌ Market Data Adapter - Layer 2 connection unhealthy: {}", e);
                         false
                     }
                 }
             }
         } else {
-            println!("  ⚠️ Market Data Adapter - Layer 2 gRPC service not configured");
+            println!("  ⚠️ Market Data Adapter - Layer 2 not configured");
             true // Not configured is not an error
         }
     }
-
-    /// Check if Layer 2 gRPC is configured
+    
+    /// Check if Layer 2 is configured
     pub fn is_layer2_configured(&self) -> bool {
-        self.layer2_grpc_client.is_some()
+        self.external_apis.is_some()
     }
     
     // ===== NEW CACHE-FREE METHODS (Phase 2 Refactoring) =====
@@ -198,55 +198,28 @@ impl MarketDataAdapter {
     pub async fn fetch_dashboard_summary_v2(&self, force_realtime_refresh: bool) -> Result<serde_json::Value> {
         println!("🔄 [Layer 3 → Cache Check] Checking latest_market_data cache (force_realtime_refresh: {})...", force_realtime_refresh);
 
-        let grpc_client = self.layer2_grpc_client.as_ref()
-            .ok_or_else(|| anyhow::anyhow!("Layer 2 gRPC Client not configured in MarketDataAdapter"))?;
-
         // Handle force refresh: bypass cache completely
         if force_realtime_refresh {
             if let Some(cache_system) = &self.cache_system {
-                println!("🔄 [Layer 3] Force refresh - bypassing cache and calling Layer 2 service via gRPC");
-                let layer2_data = grpc_client.fetch_dashboard_summary_v2(force_realtime_refresh).await?;
+                if let Some(external_apis) = &self.external_apis {
+                    println!("🔄 [Layer 3] Force refresh - bypassing cache and calling Layer 2 directly");
 
-                // Update cache with fresh data
-                if let Err(e) = cache_system.cache_manager().set_with_strategy(
-                    "latest_market_data",
-                    layer2_data.clone(),
-                    CacheStrategy::RealTime
-                ).await {
-                    println!("⚠️ [Layer 3] Failed to update cache after force refresh: {}", e);
-                } else {
-                    println!("💾 [Layer 3] Cache updated with fresh data");
-                }
+                    // Fetch fresh data from Layer 2
+                    let layer2_data = external_apis.fetch_dashboard_summary_v2(force_realtime_refresh).await?;
 
-                // Publish to Redis Stream
-                match Self::publish_to_redis_stream(cache_system, &layer2_data).await {
-                    Ok(entry_id) => {
-                        println!("📤 [Layer 3 → Redis Streams] Published market data (ID: {})", entry_id);
+                    // Update cache with fresh data
+                    if let Err(e) = cache_system.cache_manager().set_with_strategy(
+                        "latest_market_data",
+                        layer2_data.clone(),
+                        CacheStrategy::RealTime
+                    ).await {
+                        println!("⚠️ [Layer 3] Failed to update cache after force refresh: {}", e);
+                    } else {
+                        println!("💾 [Layer 3] Cache updated with fresh data");
                     }
-                    Err(e) => {
-                        println!("⚠️ [Layer 3] Failed to publish to Redis Stream (non-critical): {}", e);
-                    }
-                }
 
-                println!("✅ [Layer 3] Force refresh completed");
-                return Ok(layer2_data);
-            }
-        }
-
-        // Normal flow: Use type-safe caching with get_or_compute_typed()
-        if let Some(cache_system) = &self.cache_system {
-            let grpc_client_clone = Arc::clone(grpc_client);
-            let cache_system_clone = Arc::clone(cache_system);
-
-            match cache_system.cache_manager().get_or_compute_typed(
-                "latest_market_data",
-                CacheStrategy::RealTime, // 30s TTL for real-time data
-                || async move {
-                    println!("🔄 [Layer 3 → Layer 2] Fetching dashboard summary from Layer 2 service via gRPC...");
-                    let layer2_data = grpc_client_clone.fetch_dashboard_summary_v2(false).await?;
-
-                    // Publish to Redis Stream for external consumers (non-critical)
-                    match Self::publish_to_redis_stream(&cache_system_clone, &layer2_data).await {
+                    // Publish to Redis Stream
+                    match Self::publish_to_redis_stream(cache_system, &layer2_data).await {
                         Ok(entry_id) => {
                             println!("📤 [Layer 3 → Redis Streams] Published market data (ID: {})", entry_id);
                         }
@@ -255,23 +228,61 @@ impl MarketDataAdapter {
                         }
                     }
 
-                    println!("✅ [Layer 3] Fresh data fetched from Layer 2 service via gRPC");
-                    Ok(layer2_data)
-                }
-            ).await {
-                Ok(data) => {
-                    println!("✅ [Layer 3] Dashboard summary ready (with stampede protection)");
-                    Ok(data)
-                }
-                Err(e) => {
-                    println!("⚠️ [Layer 3] Cache/Layer 2 error: {}", e);
-                    Err(e)
+                    println!("✅ [Layer 3] Force refresh completed");
+                    return Ok(layer2_data);
+                } else {
+                    return Err(anyhow::anyhow!("Layer 2 External APIs not configured in MarketDataAdapter"));
                 }
             }
+        }
+
+        // Normal flow: Use type-safe caching with get_or_compute_typed()
+        if let Some(cache_system) = &self.cache_system {
+            if let Some(external_apis) = &self.external_apis {
+                let external_apis_clone = Arc::clone(external_apis);
+                let cache_system_clone = Arc::clone(cache_system);
+
+                match cache_system.cache_manager().get_or_compute_typed(
+                    "latest_market_data",
+                    CacheStrategy::RealTime, // 30s TTL for real-time data
+                    || async move {
+                        println!("🔄 [Layer 3 → Layer 2] Fetching dashboard summary from Layer 2...");
+                        let layer2_data = external_apis_clone.fetch_dashboard_summary_v2(false).await?;
+
+                        // Publish to Redis Stream for external consumers (non-critical)
+                        match Self::publish_to_redis_stream(&cache_system_clone, &layer2_data).await {
+                            Ok(entry_id) => {
+                                println!("📤 [Layer 3 → Redis Streams] Published market data (ID: {})", entry_id);
+                            }
+                            Err(e) => {
+                                println!("⚠️ [Layer 3] Failed to publish to Redis Stream (non-critical): {}", e);
+                            }
+                        }
+
+                        println!("✅ [Layer 3] Fresh data fetched from Layer 2");
+                        Ok(layer2_data)
+                    }
+                ).await {
+                    Ok(data) => {
+                        println!("✅ [Layer 3] Dashboard summary ready (with stampede protection)");
+                        Ok(data)
+                    }
+                    Err(e) => {
+                        println!("⚠️ [Layer 3] Cache/Layer 2 error: {}", e);
+                        Err(e)
+                    }
+                }
+            } else {
+                Err(anyhow::anyhow!("Layer 2 External APIs not configured in MarketDataAdapter"))
+            }
         } else {
-            // No cache system - fallback to direct gRPC call
-            println!("⚠️ [Layer 3] No cache system - calling Layer 2 service directly via gRPC");
-            grpc_client.fetch_dashboard_summary_v2(force_realtime_refresh).await
+            // No cache system - fallback to direct Layer 2 call
+            if let Some(external_apis) = &self.external_apis {
+                println!("⚠️ [Layer 3] No cache system - calling Layer 2 directly");
+                external_apis.fetch_dashboard_summary_v2(force_realtime_refresh).await
+            } else {
+                Err(anyhow::anyhow!("Layer 2 External APIs not configured in MarketDataAdapter"))
+            }
         }
     }
     
@@ -340,19 +351,19 @@ impl MarketDataAdapter {
     
     /// Check if adapter supports cache-free mode and Layer 3 cache optimization
     pub fn supports_cache_free_mode(&self) -> bool {
-        let layer2_support = if let Some(_grpc_client) = &self.layer2_grpc_client {
-            // Layer2 gRPC service supports cache-free mode
-            true // Layer2 Data Service supports cache-free mode
+        let layer2_support = if let Some(_external_apis) = &self.external_apis {
+            // Replaced removed is_cache_free_mode method with direct logic
+            true // ExternalApisIsland supports cache-free mode
         } else {
             false
         };
-
+        
         let layer3_cache = self.cache_system.is_some();
-
+        
         println!("🔧 [Layer 3] Cache optimization status:");
-        println!("  - Layer 2 gRPC service configured: {}", layer2_support);
+        println!("  - Layer 2 cache-free mode: {}", layer2_support);
         println!("  - Layer 3 cache system: {}", layer3_cache);
-
+        
         layer2_support || layer3_cache
     }
     

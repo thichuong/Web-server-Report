@@ -1,0 +1,132 @@
+syntax = "proto3";
+
+package market_data;
+
+// Market Data Service - Layer2 External APIs
+service MarketDataService {
+  // Fetch comprehensive dashboard summary
+  rpc GetDashboardSummary(DashboardSummaryRequest) returns (DashboardSummaryResponse);
+
+  // Fetch crypto prices only
+  rpc GetCryptoPrices(CryptoPricesRequest) returns (CryptoPricesResponse);
+
+  // Fetch global market data
+  rpc GetGlobalMarketData(GlobalMarketDataRequest) returns (GlobalMarketDataResponse);
+
+  // Fetch Fear & Greed Index
+  rpc GetFearGreedIndex(FearGreedIndexRequest) returns (FearGreedIndexResponse);
+
+  // Fetch BTC RSI-14
+  rpc GetBtcRsi(BtcRsiRequest) returns (BtcRsiResponse);
+
+  // Fetch US Stock Indices
+  rpc GetUsIndices(UsIndicesRequest) returns (UsIndicesResponse);
+
+  // Health check
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// Dashboard Summary Request/Response
+message DashboardSummaryRequest {
+  bool force_realtime_refresh = 1;
+}
+
+message DashboardSummaryResponse {
+  double btc_price_usd = 1;
+  double btc_change_24h = 2;
+  double eth_price_usd = 3;
+  double eth_change_24h = 4;
+  double sol_price_usd = 5;
+  double sol_change_24h = 6;
+  double xrp_price_usd = 7;
+  double xrp_change_24h = 8;
+  double ada_price_usd = 9;
+  double ada_change_24h = 10;
+  double link_price_usd = 11;
+  double link_change_24h = 12;
+  double bnb_price_usd = 13;
+  double bnb_change_24h = 14;
+  double market_cap_usd = 15;
+  double volume_24h_usd = 16;
+  double market_cap_change_percentage_24h_usd = 17;
+  double btc_market_cap_percentage = 18;
+  double eth_market_cap_percentage = 19;
+  uint32 fng_value = 20;
+  double btc_rsi_14 = 21;
+  UsStockIndices us_stock_indices = 22;
+  bool partial_failure = 23;
+  uint64 fetch_duration_ms = 24;
+  string timestamp = 25;
+}
+
+message UsStockIndices {
+  StockIndex spx = 1;
+  StockIndex dji = 2;
+  StockIndex ixic = 3;
+}
+
+message StockIndex {
+  double current_price = 1;
+  double daily_change = 2;
+  double daily_change_percentage = 3;
+  int64 timestamp = 4;
+}
+
+// Crypto Prices Request/Response
+message CryptoPricesRequest {
+  bool force_refresh = 1;
+}
+
+message CryptoPricesResponse {
+  map<string, CryptoPrice> prices = 1;
+}
+
+message CryptoPrice {
+  string symbol = 1;
+  string last_price = 2;
+  string price_change_percent = 3;
+}
+
+// Global Market Data Request/Response
+message GlobalMarketDataRequest {}
+
+message GlobalMarketDataResponse {
+  double total_market_cap_usd = 1;
+  double total_volume_usd = 2;
+  double market_cap_change_percentage_24h_usd = 3;
+  double btc_market_cap_percentage = 4;
+  double eth_market_cap_percentage = 5;
+}
+
+// Fear & Greed Index Request/Response
+message FearGreedIndexRequest {}
+
+message FearGreedIndexResponse {
+  uint32 value = 1;
+  string value_classification = 2;
+}
+
+// BTC RSI Request/Response
+message BtcRsiRequest {}
+
+message BtcRsiResponse {
+  double value = 1;
+  int64 timestamp = 2;
+}
+
+// US Indices Request/Response
+message UsIndicesRequest {}
+
+message UsIndicesResponse {
+  UsStockIndices indices = 1;
+}
+
+// Health Check Request/Response
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+  string status = 1;
+  string service = 2;
+  string version = 3;
+  bool external_apis_healthy = 4;
+}

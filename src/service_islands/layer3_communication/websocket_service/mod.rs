@@ -56,11 +56,12 @@ impl WebSocketServiceIsland {
     ) -> Result<Self> {
         println!("🔧 Initializing WebSocket Service Island with Layer 2 and Cache Optimization...");
         
-        // Initialize Layer 2 adapters with BOTH External APIs and Cache System
+        // Initialize Layer 2 adapters with Cache System
+        // TODO: Initialize with Layer2HttpClient once service URL is configured
         // Note: Arc::clone maintains ownership for potential reuse in future code
         let layer2_adapters = Arc::new(
             Layer2AdaptersHub::new()
-                .with_external_apis(Arc::clone(&external_apis))
+                // .with_layer2_client() - TODO: Add when Layer2 service URL is available
                 .with_cache_system(Arc::clone(&cache_system)) // 🚀 Enable Layer 3 cache optimization
         );
         
@@ -90,7 +91,48 @@ impl WebSocketServiceIsland {
             broadcast_tx,
         })
     }
-    
+
+    /// Initialize the WebSocket Service Island with Layer 2 gRPC Client and Cache Optimization
+    ///
+    /// Creates all components using the gRPC client for high-performance Layer 2 communication.
+    pub async fn with_grpc_client_and_cache(
+        layer2_grpc_client: Arc<crate::service_islands::layer3_communication::layer2_grpc_client::Layer2GrpcClient>,
+        cache_system: Arc<crate::service_islands::layer1_infrastructure::cache_system_island::CacheSystemIsland>
+    ) -> Result<Self> {
+        println!("🔧 Initializing WebSocket Service Island with Layer 2 gRPC Client and Cache Optimization...");
+
+        // Initialize Layer 2 adapters with gRPC Client for microservice communication
+        let layer2_adapters = Arc::new(
+            Layer2AdaptersHub::new()
+                .with_layer2_grpc_client(Arc::clone(&layer2_grpc_client))
+                .with_cache_system(Arc::clone(&cache_system))
+        );
+
+        // Initialize components
+        let connection_manager = Arc::new(ConnectionManager::new());
+        let message_handler = Arc::new(MessageHandler::new());
+        let broadcast_service = Arc::new(BroadcastService::new());
+        let handlers = Arc::new(WebSocketHandlers::new());
+
+        // Initialize market data streamer
+        let market_data_streamer = Arc::new(MarketDataStreamer::new());
+
+        // Create broadcast channel (increased buffer for high-frequency updates)
+        let (broadcast_tx, _) = broadcast::channel(1000);
+
+        println!("✅ WebSocket Service Island initialized with gRPC Client");
+
+        Ok(Self {
+            connection_manager,
+            message_handler,
+            broadcast_service,
+            handlers,
+            market_data_streamer,
+            layer2_adapters,
+            broadcast_tx,
+        })
+    }
+
     /// Health check for the entire WebSocket Service Island
     /// 
     /// Validates that all components are operational.
