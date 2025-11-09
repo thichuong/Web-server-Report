@@ -7,7 +7,7 @@
  * - Provide state comparison for change detection
  */
 
-const DEBUG_MODE = false;
+const DEBUG_MODE = true;
 
 function debugLog(...args) {
     if (DEBUG_MODE) console.log(...args);

@@ -5,7 +5,7 @@
  */
 
 // Debug mode - set to false for production (reduces Firefox lag)
-const DEBUG_MODE = false;
+const DEBUG_MODE = true;
 
 // Debug logging wrapper
 function debugLog(...args) {

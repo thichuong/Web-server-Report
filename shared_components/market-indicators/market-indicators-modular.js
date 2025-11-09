@@ -21,7 +21,7 @@ import { CryptoPriceUpdater } from './modules/updaters/CryptoPriceUpdater.js';
 import { StockIndexUpdater } from './modules/updaters/StockIndexUpdater.js';
 import { ChartRenderer } from './modules/charts/ChartRenderer.js';
 
-const DEBUG_MODE = false;
+const DEBUG_MODE = true;
 
 function debugLog(...args) {
     if (DEBUG_MODE) console.log(...args);

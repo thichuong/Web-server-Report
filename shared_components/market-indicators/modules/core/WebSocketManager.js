@@ -8,7 +8,7 @@
  * - Emit events for message handling
  */
 
-const DEBUG_MODE = false;
+const DEBUG_MODE = true;
 
 function debugLog(...args) {
     if (DEBUG_MODE) console.log(...args);
