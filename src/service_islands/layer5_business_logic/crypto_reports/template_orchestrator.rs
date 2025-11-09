@@ -116,6 +116,12 @@ impl TemplateOrchestrator {
         // Add sandbox token to additional context - không clone string
         let mut extra_context = context.additional_context.unwrap_or_else(HashMap::new);
         extra_context.insert("sandbox_token".to_string(), serde_json::Value::String(sandboxed_report.sandbox_token));
+
+        // Add WebSocket service URL from environment variable
+        let ws_url = std::env::var("WEBSOCKET_SERVICE_URL")
+            .unwrap_or_else(|_| "ws://localhost:8081".to_string());
+        extra_context.insert("websocket_url".to_string(), serde_json::Value::String(ws_url));
+
         context.additional_context = Some(extra_context);
         
         println!("✅ TemplateOrchestrator: Context prepared successfully with sandbox token (memory optimized)");

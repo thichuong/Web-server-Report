@@ -222,6 +222,12 @@
         window.SANDBOX_TOKEN = '{{ sandbox_token }}';
     </script>
 
+    <!-- Inject WebSocket URL from server -->
+    <script>
+        // WebSocket service URL injected from backend environment configuration
+        window.WEBSOCKET_URL = "{{ websocket_url }}";
+    </script>
+
     <!-- Iframe sandboxing functionality -->
     <script src="/crypto_dashboard/assets/report-view-iframe.js" defer></script>
     
