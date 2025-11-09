@@ -1,7 +1,7 @@
 // dashboard-websocket.js - Combined dashboard logic and WebSocket functionality
 
 // Reduce console noise for Firefox performance
-const WS_DEBUG = false;
+const WS_DEBUG = true; // Enable debug logging to troubleshoot connection issues
 
 // ===== WEBSOCKET MANAGER =====
 
