@@ -107,63 +107,33 @@ class DashboardWebSocket {
     }
 
     handleMessage(message) {
-        if (WS_DEBUG) console.log('📨 Received WebSocket message:', message.type);
-        
-        switch (message.type) {
-            case 'connected':
-                if (WS_DEBUG) console.log('✅ WebSocket connection confirmed:', message.message);
-                break;
-                
-            case 'pong':
-                if (WS_DEBUG) console.log('🏓 Pong received at:', message.timestamp);
-                break;
-                
-            case 'btc_price_update':
-                if (WS_DEBUG) console.log('₿ BTC price update received:', message.data);
-                if (message.data) {
-                    // Batch update for better Firefox performance
-                    this.scheduleDOMUpdate(() => updateBtcPriceFromWebSocket(message.data));
-                }
-                break;
-                
-            case 'dashboard_data':
-                if (WS_DEBUG) console.log('📊 Dashboard data received:', message.data);
-                if (message.data) {
-                    // Cache the data for language switching
-                    window.dashboardSummaryCache = message.data;
-                    
-                    // Batch update entire dashboard UI with real-time data
-                    this.scheduleDOMUpdate(() => {
-                        updateDashboardFromData(message.data);
-                        console.log('✅ Dashboard updated from WebSocket data');
-                    });
-                }
-                break;
-                
-            case 'market_update':
-                if (WS_DEBUG) console.log('📈 Market update received:', message.data);
-                if (message.data) {
-                    // Partial update for specific market data
-                    this.scheduleDOMUpdate(() => updateMarketDataFromWebSocket(message.data));
-                }
-                break;
-                
-            case 'dashboard_update':
-                if (message.data) {
-                    // Cache the data for language switching
-                    window.dashboardSummaryCache = message.data;
-                    
-                    // Update dashboard UI
-                    this.scheduleDOMUpdate(() => updateDashboardFromData(message.data));
-                }
-                break;
-                
-            case 'echo':
-                if (WS_DEBUG) console.log('🔁 Echo received:', message.data, 'at:', message.timestamp);
-                break;
-                
-            default:
-                if (WS_DEBUG) console.log('❓ Unknown WebSocket message type:', message.type, message);
+        if (WS_DEBUG) console.log('📨 Received WebSocket message:', message.type || 'no-type');
+
+        // Handle special control messages
+        if (message.type === 'connected') {
+            if (WS_DEBUG) console.log('✅ WebSocket connection confirmed:', message.message);
+            return;
+        }
+
+        if (message.type === 'pong') {
+            if (WS_DEBUG) console.log('🏓 Pong received at:', message.timestamp);
+            return;
+        }
+
+        // For all other messages, just check if data exists and update
+        if (message.data) {
+            if (WS_DEBUG) console.log('📊 Dashboard data received, updating UI...');
+
+            // Cache the data for language switching
+            window.dashboardSummaryCache = message.data;
+
+            // Batch update entire dashboard UI with real-time data
+            this.scheduleDOMUpdate(() => {
+                updateDashboardFromData(message.data);
+                console.log('✅ Dashboard updated from WebSocket data');
+            });
+        } else {
+            if (WS_DEBUG) console.log('⚠️ Message has no data field:', message);
         }
     }
 

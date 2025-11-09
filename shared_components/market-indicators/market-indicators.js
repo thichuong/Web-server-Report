@@ -261,42 +261,27 @@ class MarketIndicatorsDashboard {
     handleWebSocketMessage(message) {
         // Compact logging with timestamp for broadcast tracking
         const now = new Date().toLocaleTimeString();
-        debugLog(`📨 [${now}] WebSocket message type: ${message.type}`);
-        
+        debugLog(`📨 [${now}] WebSocket message type: ${message.type || 'no-type'}`);
+
         try {
-            switch (message.type) {
-                case 'dashboard_data':
-                case 'dashboard_update':
-                    if (message.data) {
-                        debugLog(`📊 [${now}] Market data update received - processing...`);
-                        // Batch update to reduce Firefox reflow - use requestAnimationFrame
-                        this.scheduleUpdate(() => this.updateMarketData(message.data));
-                    }
-                    break;
-                    
-                case 'market_update':
-                    if (message.data) {
-                        debugLog('📈 Received market update:', message.data);
-                        this.scheduleUpdate(() => this.updateMarketData(message.data));
-                    }
-                    break;
-                    
-                case 'connected':
-                    debugLog('✅ WebSocket connection confirmed');
-                    break;
-                    
-                case 'pong':
-                    debugLog('🏓 Pong received');
-                    break;
-                    
-                default:
-                    debugLog('❓ Unknown WebSocket message type:', message.type);
-                    // Try to handle as generic market data if it has the expected fields
-                    if (message.btc_price_usd || message.market_cap_usd || message.fng_value) {
-                        debugLog('🔄 Treating unknown message as market data:', message);
-                        this.scheduleUpdate(() => this.updateMarketData(message));
-                    }
-                    break;
+            // Handle special control messages
+            if (message.type === 'connected') {
+                debugLog('✅ WebSocket connection confirmed');
+                return;
+            }
+
+            if (message.type === 'pong') {
+                debugLog('🏓 Pong received');
+                return;
+            }
+
+            // For all other messages, just check if data exists and update
+            if (message.data) {
+                debugLog(`📊 [${now}] Market data update received - processing...`);
+                // Batch update to reduce Firefox reflow - use requestAnimationFrame
+                this.scheduleUpdate(() => this.updateMarketData(message.data));
+            } else {
+                debugLog('⚠️ Message has no data field:', message);
             }
         } catch (error) {
             debugError('❌ Error handling WebSocket message:', error);
