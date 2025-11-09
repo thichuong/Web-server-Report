@@ -8,7 +8,8 @@ pub mod homepage;
 pub mod system;
 pub mod crypto_reports;
 pub mod api;
-pub mod websocket;
+// WebSocket module moved to separate Web-server-Report-websocket service
+// pub mod websocket;
 
 use axum::Router;
 use std::sync::Arc;
@@ -32,9 +33,9 @@ pub fn create_service_islands_router(service_islands: Arc<ServiceIslands>) -> Ro
         
         // API endpoints
         .merge(api::configure_api_routes())
-        
-        // WebSocket endpoint
-        .merge(websocket::configure_websocket_routes())
-        
+
+        // Note: WebSocket endpoint has been moved to Web-server-Report-websocket service
+        // Client should connect to separate websocket service (port 8081)
+
         .with_state(service_islands)
 }

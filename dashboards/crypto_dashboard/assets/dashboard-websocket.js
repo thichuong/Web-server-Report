@@ -27,13 +27,20 @@ class DashboardWebSocket {
         }
 
         this.isConnecting = true;
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+        // Use WebSocket URL injected from server or fallback to same-host
+        let wsUrl;
+        if (window.WEBSOCKET_URL) {
+            wsUrl = window.WEBSOCKET_URL + '/ws';
+            if (WS_DEBUG) console.log('🔗 Using injected WebSocket URL:', window.WEBSOCKET_URL);
+        } else {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            wsUrl = `${protocol}//${window.location.host}/ws`;
+            if (WS_DEBUG) console.log('⚠️ No injected WebSocket URL, using same-host fallback');
+        }
 
         if (WS_DEBUG) {
             console.log('🔍 [DEBUG] WebSocket connection details:');
-            console.log('  📍 Protocol:', protocol);
-            console.log('  🌐 Host:', window.location.host);
             console.log('  🔗 Full URL:', wsUrl);
         }
         console.log('🔌 Connecting to WebSocket:', wsUrl);

@@ -35,12 +35,21 @@ export class WebSocketManager {
     }
     
     /**
-     * Get WebSocket URL based on current protocol
+     * Get WebSocket URL - uses injected URL from server or falls back to same-host
      */
     getWebSocketUrl() {
+        // Use WebSocket URL injected from server environment configuration
+        if (window.WEBSOCKET_URL) {
+            debugLog('🔗 Using injected WebSocket URL:', window.WEBSOCKET_URL);
+            return window.WEBSOCKET_URL + '/ws';
+        }
+
+        // Fallback to same-host for development/backward compatibility
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const host = window.location.host;
-        return `${protocol}//${host}/ws`;
+        const fallbackUrl = `${protocol}//${host}/ws`;
+        debugLog('⚠️ No injected WebSocket URL, using fallback:', fallbackUrl);
+        return fallbackUrl;
     }
     
     /**

@@ -5,24 +5,21 @@
 //! managing the initialization and health checking of all islands across all layers.
 
 pub mod layer1_infrastructure;
-pub mod layer2_external_services;
+// Layer 2 external services moved to Web-server-Report-websocket service
+// pub mod layer2_external_services;
 pub mod layer3_communication;
 pub mod layer4_observability;
 pub mod layer5_business_logic;
 
 use std::sync::Arc;
-use std::sync::atomic::AtomicUsize;
 
 use layer1_infrastructure::{
     AppStateIsland,
     SharedComponentsIsland,
     CacheSystemIsland,
 };
-use layer2_external_services::{
-    external_apis_island::ExternalApisIsland,
-};
 use layer3_communication::{
-    websocket_service::WebSocketServiceIsland,
+    redis_stream_reader::RedisStreamReader,
 };
 use layer4_observability::{
     health_system::HealthSystemIsland,
@@ -43,22 +40,16 @@ pub struct ServiceIslands {
     legacy_app_state: std::sync::OnceLock<Arc<layer1_infrastructure::AppState>>,
     pub shared_components: Arc<SharedComponentsIsland>,
     pub cache_system: Arc<CacheSystemIsland>,
-    
-    // Layer 2: External Services Islands
-    pub external_apis: Arc<ExternalApisIsland>,
-    
+
     // Layer 3: Communication Islands
-    pub websocket_service: Arc<WebSocketServiceIsland>,
-    
+    pub redis_stream_reader: Arc<RedisStreamReader>,
+
     // Layer 4: Observability Islands
     pub health_system: Arc<HealthSystemIsland>,
-    
+
     // Layer 5: Business Logic Islands
     pub dashboard: Arc<DashboardIsland>,
     pub crypto_reports: Arc<CryptoReportsIsland>,
-    
-    // WebSocket connection tracking
-    pub active_ws_connections: Arc<AtomicUsize>,
 }
 
 impl ServiceIslands {
@@ -74,153 +65,67 @@ impl ServiceIslands {
         let app_state = Arc::new(AppStateIsland::new().await?);
         let shared_components = Arc::new(SharedComponentsIsland::new().await?);
         let cache_system = Arc::new(CacheSystemIsland::new().await?);
-        
-        // Initialize Layer 2: External Services (depends on Layer 1 - Cache System)
-        println!("🌐 Initializing Layer 2: External Services Islands with Cache...");
-        let taapi_secret = std::env::var("TAAPI_SECRET").unwrap_or_else(|_| "default_secret".to_string());
-        let cmc_api_key = std::env::var("CMC_API_KEY").ok(); // Optional CoinMarketCap API key
-        let finnhub_api_key = std::env::var("FINNHUB_API_KEY").ok(); // Optional Finnhub API key
-        
-        if cmc_api_key.is_some() {
-            println!("🔑 CoinMarketCap API key found - enabling fallback support");
-        } else {
-            println!("⚠️ No CoinMarketCap API key - using CoinGecko only");
-        }
-        
-        if finnhub_api_key.is_some() {
-            println!("📈 Finnhub API key found - enabling US stock indices");
-        } else {
-            println!("⚠️ No Finnhub API key - US stock indices will be unavailable");
-        }
-        
-        let external_apis = Arc::new(ExternalApisIsland::with_cache_and_all_keys(
-            taapi_secret,
-            cmc_api_key,
-            finnhub_api_key,
-            Some(cache_system.clone())
-        ).await?);
 
-        // Initialize Layer 2 gRPC Client for microservice communication
-        println!("🔌 Initializing Layer 2 gRPC Client...");
-        let layer2_grpc_url = std::env::var("LAYER2_GRPC_URL")
-            .unwrap_or_else(|_| "http://localhost:50051".to_string());
-
-        let layer2_grpc_client = Arc::new(
-            crate::service_islands::layer3_communication::layer2_grpc_client::Layer2GrpcClient::new(
-                layer2_grpc_url.clone()
-            )?
-        );
-        println!("✅ Layer 2 gRPC Client initialized at {}", layer2_grpc_url);
+        // Initialize Layer 3: Communication (Redis Stream Reader for data from websocket service)
+        println!("📡 Initializing Layer 3: Communication Islands (Redis Stream Reader)...");
+        let redis_stream_reader = Arc::new(RedisStreamReader::new(cache_system.clone()));
+        println!("✅ Redis Stream Reader initialized!");
 
         // Initialize Layer 4: Observability
         println!("🔍 Initializing Layer 4: Observability Islands...");
         let health_system = Arc::new(HealthSystemIsland::new().await?);
 
-        // Initialize Layer 3: Communication (depends on Layer 2 + Cache Optimization)
-        println!("📡 Initializing Layer 3: Communication Islands with Layer 2 gRPC Client and Cache Optimization...");
-        let websocket_service = Arc::new(
-            WebSocketServiceIsland::with_grpc_client_and_cache(
-                layer2_grpc_client.clone(),
-                cache_system.clone()
-            ).await?
-        );
-        
-        // Initialize Layer 5: Business Logic (depends on Layer 3 ONLY)
+        // Initialize Layer 5: Business Logic
+        // Note: Layer 5 now reads from cache/streams instead of calling external APIs directly
         println!("📊 Initializing Layer 5: Business Logic Islands...");
-        let dashboard = Arc::new(DashboardIsland::with_dependencies(websocket_service.clone()).await?);
-        // ✅ STRICT: Layer 5 only depends on Layer 3 (no direct Layer 2 access)
-        let crypto_reports = Arc::new(CryptoReportsIsland::with_dependencies(websocket_service.clone()).await?);
+        let dashboard = Arc::new(DashboardIsland::new().await?);
+        let crypto_reports = Arc::new(CryptoReportsIsland::new().await?);
         
         println!("✅ Layer 1 Infrastructure Islands initialized!");
-        println!("✅ Layer 2 External Services Islands initialized with Cache!");
-        println!("✅ Layer 4 Observability Islands initialized!");
         println!("✅ Layer 3 Communication Islands initialized!");
+        println!("✅ Layer 4 Observability Islands initialized!");
         println!("✅ Layer 5 Business Logic Islands initialized!");
-        println!("✅ Service Islands Architecture initialized with API caching!");
-        
+        println!("✅ Service Islands Architecture initialized (Main Service)!");
+        println!("📡 Note: External APIs and WebSocket are handled by separate websocket service");
+
         println!("📊 Architecture Status:");
-        println!("  🏝️ Total Islands: 8/8 (100% complete)");
+        println!("  🏝️ Total Islands: 6/6 islands (Main Service)");
         println!("  🏗️ Layer 1 - Infrastructure: 3/3 islands");
-        println!("  🌐 Layer 2 - External Services: 1/1 islands");
-        println!("  📡 Layer 3 - Communication: 1/2 islands");
+        println!("  📡 Layer 3 - Communication: 1/1 islands (Redis Stream Reader)");
         println!("  🔍 Layer 4 - Observability: 1/1 islands");
-        println!("  � Layer 5 - Business Logic: 2/2 islands");
-        
+        println!("  📊 Layer 5 - Business Logic: 2/2 islands");
+
         Ok(Self {
             app_state,
             legacy_app_state: std::sync::OnceLock::new(),
             shared_components,
             cache_system,
-            external_apis,
-            websocket_service,
+            redis_stream_reader,
             health_system,
             dashboard,
             crypto_reports,
-            active_ws_connections: Arc::new(AtomicUsize::new(0)),
         })
     }
     
-    /// Initialize unified streaming with Layer 5 access
-    /// 
-    /// This ensures WebSocket streaming uses the same Layer 5 → Layer 3 → Layer 2 flow
-    /// as HTTP API and WebSocket initial messages for data consistency.
-    pub async fn initialize_unified_streaming(&self) -> Result<(), anyhow::Error> {
-        println!("🔄 Initializing unified streaming with Layer 5 access...");
-        
-        // Configure WebSocket streaming to use ServiceIslands for unified data access
-        self.websocket_service.start_streaming_with_service_islands(
-            Arc::new(ServiceIslands {
-                app_state: self.app_state.clone(),
-                legacy_app_state: std::sync::OnceLock::new(),
-                shared_components: self.shared_components.clone(),
-                cache_system: self.cache_system.clone(),
-                external_apis: self.external_apis.clone(),
-                websocket_service: self.websocket_service.clone(),
-                health_system: self.health_system.clone(),
-                dashboard: self.dashboard.clone(),
-                crypto_reports: self.crypto_reports.clone(),
-                active_ws_connections: self.active_ws_connections.clone(),
-            })
-        ).await?;
-        
-        println!("✅ Unified streaming initialized - all messages now use same Layer 2 access!");
-        Ok(())
-    }
-
-    /// Initialize Redis Streams integration for real-time updates
-    /// 
-    /// Phase 3: Connects Redis Streams to WebSocket broadcasting for sub-millisecond real-time updates
-    pub async fn initialize_stream_integration(&self) -> Result<(), anyhow::Error> {
-        println!("🚀 Phase 3: Initializing Redis Streams → WebSocket integration...");
-        
-        // Connect Redis Streams consumer to WebSocket broadcasting
-        if let Err(e) = self.websocket_service.start_stream_consumer(self.cache_system.clone()).await {
-            println!("⚠️ Redis Streams consumer initialization failed: {}", e);
-            return Err(anyhow::anyhow!("Stream integration failed: {}", e));
-        }
-        
-        println!("✅ Phase 3: Redis Streams → WebSocket integration active!");
-        println!("📡 Real-time updates: Stream → WebSocket broadcast (<1ms latency)");
-        Ok(())
-    }
+    // Note: initialize_unified_streaming and initialize_stream_integration methods
+    // have been removed as WebSocket functionality is now in a separate service
     
     /// Perform health check on all Service Islands
     /// 
     /// Returns true if all islands are healthy, false otherwise.
     pub async fn health_check(&self) -> bool {
-        println!("🔍 Performing Service Islands health check...");
-        
+        println!("🔍 Performing Service Islands health check (Main Service)...");
+
         let shared_components_healthy = self.shared_components.health_check().await;
         let app_state_healthy = self.app_state.health_check().await;
         let cache_system_healthy = self.cache_system.health_check().await;
-        let external_apis_healthy = self.external_apis.health_check().await.unwrap_or(false);
-        let websocket_service_healthy = self.websocket_service.health_check().await.is_ok();
+        let redis_stream_reader_healthy = self.redis_stream_reader.health_check().await.unwrap_or(false);
         let health_system_healthy = self.health_system.health_check().await;
         let dashboard_healthy = self.dashboard.health_check().await;
         let crypto_reports_healthy = self.crypto_reports.health_check().await;
-        
-        let all_healthy = shared_components_healthy && app_state_healthy && cache_system_healthy && external_apis_healthy && websocket_service_healthy && health_system_healthy && dashboard_healthy && crypto_reports_healthy;
-        
+
+        let all_healthy = shared_components_healthy && app_state_healthy && cache_system_healthy && redis_stream_reader_healthy && health_system_healthy && dashboard_healthy && crypto_reports_healthy;
+
         if all_healthy {
             println!("✅ All Service Islands are healthy!");
         } else {
@@ -228,13 +133,12 @@ impl ServiceIslands {
             println!("   Shared Components Island: {}", if shared_components_healthy { "✅" } else { "❌" });
             println!("   App State Island: {}", if app_state_healthy { "✅" } else { "❌" });
             println!("   Cache System Island: {}", if cache_system_healthy { "✅" } else { "❌" });
-            println!("   External APIs Island: {}", if external_apis_healthy { "✅" } else { "❌" });
-            println!("   WebSocket Service Island: {}", if websocket_service_healthy { "✅" } else { "❌" });
+            println!("   Redis Stream Reader: {}", if redis_stream_reader_healthy { "✅" } else { "❌" });
             println!("   Health System Island: {}", if health_system_healthy { "✅" } else { "❌" });
             println!("   Dashboard Island: {}", if dashboard_healthy { "✅" } else { "❌" });
             println!("   Crypto Reports Island: {}", if crypto_reports_healthy { "✅" } else { "❌" });
         }
-        
+
         all_healthy
     }
     
@@ -254,9 +158,5 @@ impl ServiceIslands {
         }).clone()
     }
     
-    /// Get number of active WebSocket connections
-    pub fn active_connections(&self) -> usize {
-        use std::sync::atomic::Ordering;
-        self.active_ws_connections.load(Ordering::SeqCst)
-    }
+    // Note: active_connections() method removed as WebSocket tracking is in separate service
 }

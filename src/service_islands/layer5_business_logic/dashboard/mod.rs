@@ -12,7 +12,10 @@ pub mod report_manager;
 pub mod ui_components;
 
 use std::sync::Arc;
+// WebSocketServiceIsland moved to separate service - only needed for with_dependencies()
+#[cfg(feature = "with_websocket")]
 use crate::service_islands::layer3_communication::websocket_service::WebSocketServiceIsland;
+#[cfg(feature = "with_websocket")]
 use crate::service_islands::layer5_business_logic::market_data_service::MarketDataService;
 
 
@@ -30,27 +33,51 @@ pub struct DashboardIsland {
     pub report_manager: report_manager::ReportManager,
     pub ui_components: ui_components::UIComponents,
     /// ✅ Layer 5 Market Data Service: Common service for market data operations
+    #[cfg(feature = "with_websocket")]
     pub market_data_service: Option<MarketDataService>,
 }
 
 impl DashboardIsland {
-    /// Initialize Dashboard Island with proper Service Islands dependencies
-    /// 
-    /// ✅ STRICT: Only takes Layer 3 dependency (WebSocket Service) which has Layer 2 dependency.
-    /// This follows strict Service Islands Architecture: Layer 5 → Layer 3 → Layer 2
-    pub async fn with_dependencies(websocket_service: Arc<WebSocketServiceIsland>) -> Result<Self, anyhow::Error> {
-        println!("🎯 Initializing Dashboard Island with strict Layer 3 dependency...");
-        
+    /// Initialize Dashboard Island without dependencies
+    ///
+    /// For main service that reads from cache/streams instead of calling external APIs directly.
+    /// Market data service is not available in this mode.
+    pub async fn new() -> Result<Self, anyhow::Error> {
+        println!("🎯 Initializing Dashboard Island (cache-read mode)...");
+
         let handlers = handlers::DashboardHandlers::new();
         let template_renderer = template_renderer::TemplateRenderer::new();
         let report_manager = report_manager::ReportManager::new();
         let ui_components = ui_components::UIComponents::new();
-        
+
+        println!("✅ Dashboard Island initialized (using cache for market data)!");
+
+        Ok(Self {
+            handlers,
+            template_renderer,
+            report_manager,
+            ui_components,
+        })
+    }
+
+    /// Initialize Dashboard Island with proper Service Islands dependencies
+    ///
+    /// ✅ STRICT: Only takes Layer 3 dependency (WebSocket Service) which has Layer 2 dependency.
+    /// This follows strict Service Islands Architecture: Layer 5 → Layer 3 → Layer 2
+    #[cfg(feature = "with_websocket")]
+    pub async fn with_dependencies(websocket_service: Arc<WebSocketServiceIsland>) -> Result<Self, anyhow::Error> {
+        println!("🎯 Initializing Dashboard Island with strict Layer 3 dependency...");
+
+        let handlers = handlers::DashboardHandlers::new();
+        let template_renderer = template_renderer::TemplateRenderer::new();
+        let report_manager = report_manager::ReportManager::new();
+        let ui_components = ui_components::UIComponents::new();
+
         // Initialize Market Data Service with Layer 3 dependency
         let market_data_service = MarketDataService::new(websocket_service.clone());
-        
+
         println!("✅ Dashboard Island initialized with strict Service Islands Architecture!");
-        
+
         Ok(Self {
             handlers,
             template_renderer,
@@ -71,13 +98,19 @@ impl DashboardIsland {
         let ui_ok = self.ui_components.health_check().await;
         
         // Check market data service if available
+        #[cfg(feature = "with_websocket")]
         let market_data_ok = if let Some(market_data_service) = &self.market_data_service {
             market_data_service.health_check().await
         } else {
             println!("  ⚠️ Market Data Service not configured (using fallback)");
             true // Not critical if using fallback
         };
-        
+        #[cfg(not(feature = "with_websocket"))]
+        let market_data_ok = {
+            println!("  ℹ️ Market Data Service not available (main service mode)");
+            true
+        };
+
         handlers_ok && renderer_ok && manager_ok && ui_ok && market_data_ok
     }
 }

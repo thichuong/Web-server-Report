@@ -17,15 +17,9 @@ async fn main() -> Result<(), anyhow::Error> {
     // Initialize Service Islands Architecture
     println!("🏝️ Initializing Service Islands Architecture...");
     let service_islands = Arc::new(ServiceIslands::initialize().await?);
-    
-    // Initialize unified streaming for consistent data access
-    println!("🔄 Initializing unified streaming...");
-    service_islands.initialize_unified_streaming().await?; 
-    
-    // Phase 3: Initialize Redis Streams integration for real-time updates
-    println!("🚀 Phase 3: Initializing Redis Streams integration...");
-    service_islands.initialize_stream_integration().await?;
-    
+
+    // Note: WebSocket and streaming functionality is now handled by separate websocket service
+
     // Perform initial health check
     println!("🔍 Performing initial health check...");
     if service_islands.health_check().await {

@@ -117,7 +117,12 @@ impl DashboardHandlers {
         context.insert("page_title", "Trang chủ - Crypto Dashboard");
         context.insert("welcome_message", "Chào mừng đến Crypto Dashboard");
         context.insert("description", "Theo dõi và phân tích thị trường tiền mã hóa");
-        
+
+        // Inject WebSocket service URL from environment variable
+        let ws_url = std::env::var("WEBSOCKET_SERVICE_URL")
+            .unwrap_or_else(|_| "ws://localhost:8081".to_string());
+        context.insert("websocket_url", &ws_url);
+
         // Render the template using the registered components
         match state.tera.render("home.html", &context) {
             Ok(html) => {

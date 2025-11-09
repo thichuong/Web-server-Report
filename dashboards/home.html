@@ -88,6 +88,12 @@
     </div>
   </div>
 
+  <!-- Inject WebSocket URL from server -->
+  <script>
+    // WebSocket service URL injected from backend environment configuration
+    window.WEBSOCKET_URL = "{{ websocket_url }}";
+  </script>
+
   <script src="/crypto_dashboard/assets/translations.js" defer></script>
   <script src="/shared_components/core/language-toggle.js" defer></script>
   <script src="/shared_components/core/theme-manager.js" defer></script>

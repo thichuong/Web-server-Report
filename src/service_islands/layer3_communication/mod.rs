@@ -1,17 +1,15 @@
 //! Layer 3: Communication
 //!
 //! This layer handles all communication-related functionality including:
-//! - WebSocket real-time communication
 //! - HTTP request/response handling
-//! - Message broadcasting and routing
 //! - Data communication with infrastructure layer
 //! - Dashboard data communication and caching
-//! - Layer 2 adapters for clean API access
-//! - Layer 2 gRPC client for high-performance microservice communication
+//! - Redis stream reading for inter-service communication
+//!
+//! Note: WebSocket, Layer2 adapters, and external APIs have been moved to
+//! the separate Web-server-Report-websocket service.
 
-pub mod websocket_service;
 pub mod data_communication;
 pub mod dashboard_communication;
-pub mod layer2_adapters;
-pub mod layer2_grpc_client;
+pub mod redis_stream_reader;
 

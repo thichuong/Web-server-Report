@@ -14,7 +14,6 @@ use std::sync::Arc;
 use std::collections::HashMap;
 
 use crate::service_islands::ServiceIslands;
-use crate::service_islands::layer5_business_logic::market_data_service::fetch_realtime_market_data;
 
 /// Configure API routes
 pub fn configure_api_routes() -> Router<Arc<ServiceIslands>> {
@@ -34,7 +33,7 @@ async fn api_dashboard_data(
     // Phase 3: Primary reads from Redis Streams, DB as fallback
     println!("🚀 [API] Attempting stream-first dashboard data fetch...");
     
-    // Try cache manager first (primary storage)
+    // Try cache manager first (populated by websocket service)
     let cache_system = &service_islands.cache_system;
     match cache_system.cache_manager().get("latest_market_data").await {
         Ok(Some(stream_data)) => {
@@ -42,61 +41,39 @@ async fn api_dashboard_data(
             return Json(stream_data);
         }
         Ok(None) => {
-            println!("⚠️ [API] No data in cache, falling back to Layer 5...");
+            println!("⚠️ [API] No data in cache yet, websocket service will populate it soon");
         }
         Err(e) => {
-            println!("⚠️ [API] Cache read failed: {}, falling back to Layer 5...", e);
+            println!("⚠️ [API] Cache read failed: {}", e);
         }
     }
-    
-    // Fallback to Layer 5 Market Data Service + immediate stream storage
-    match fetch_realtime_market_data(&service_islands.websocket_service).await {
-        Ok(market_data) => {
-            println!("✅ [API] Dashboard data fetched via Layer 5 Market Data Service");
-            
-            // Store in cache for future reads - dùng reference thay vì clone
-            let cache_system = &service_islands.cache_system;
-            use crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy;
-            if let Err(e) = cache_system.cache_manager().set_with_strategy(
-                "latest_market_data", 
-                market_data.clone(), // Chỉ clone 1 lần duy nhất
-                CacheStrategy::ShortTerm
-            ).await {
-                println!("⚠️ [API] Failed to store in cache: {}", e);
-            } else {
-                println!("💾 [API] Data stored to cache for future reads");
-            }
-            
-            Json(market_data) // Return data in same format as WebSocket - move ownership
-        }
-        Err(e) => {
-            println!("❌ [API] Failed to fetch dashboard data: {}", e);
-            // Return fallback data in correct format (not wrapped in "dashboard")
-            Json(json!({
-                "btc_price_usd": 45000.0,
-                "btc_change_24h": 0.0,
-                "market_cap_usd": 2100000000000.0,
-                "volume_24h_usd": 150000000000.0,
-                "fng_value": 50,
-                "btc_rsi_14": 50.0,
-                "data_sources": {},
-                "fetch_duration_ms": 0,
-                "partial_failure": true,
-                "last_updated": chrono::Utc::now().to_rfc3339(),
-                "timestamp": chrono::Utc::now().to_rfc3339()
-            }))
-        }
-    }
+
+    // Return fallback data - websocket service will populate cache within 10 seconds
+    println!("📊 [API] Returning fallback data (websocket service will update cache)");
+    Json(json!({
+        "btc_price_usd": 45000.0,
+        "btc_change_24h": 0.0,
+        "market_cap_usd": 2100000000000.0,
+        "volume_24h_usd": 150000000000.0,
+        "fng_value": 50,
+        "btc_rsi_14": 50.0,
+        "data_sources": {},
+        "fetch_duration_ms": 0,
+        "partial_failure": true,
+        "last_updated": chrono::Utc::now().to_rfc3339(),
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+        "note": "Fallback data - fresh data will be available within 10 seconds"
+    }))
 }
 
-/// Dashboard summary API endpoint - Enhanced with Redis Streams
+/// Dashboard summary API endpoint - Reads from cache populated by websocket service
 async fn api_dashboard_summary(
     State(service_islands): State<Arc<ServiceIslands>>
 ) -> Json<serde_json::Value> {
-    // Phase 3: Primary reads from Redis Streams, DB as fallback
-    println!("🚀 [API] Attempting stream-first dashboard summary fetch...");
-    
-    // Try cache manager first (primary storage)
+    // Cache-first strategy: Read from cache populated by websocket service
+    println!("🚀 [API] Reading dashboard summary from cache...");
+
+    // Try cache manager first (populated by websocket service)
     let cache_system = &service_islands.cache_system;
     match cache_system.cache_manager().get("latest_market_data").await {
         Ok(Some(stream_data)) => {
@@ -104,51 +81,29 @@ async fn api_dashboard_summary(
             return Json(stream_data);
         }
         Ok(None) => {
-            println!("⚠️ [API] No data in cache, falling back to Layer 5...");
+            println!("⚠️ [API] No data in cache yet, websocket service will populate it soon");
         }
         Err(e) => {
-            println!("⚠️ [API] Cache read failed: {}, falling back to Layer 5...", e);
+            println!("⚠️ [API] Cache read failed: {}", e);
         }
     }
-    
-    // Fallback to Layer 5 Market Data Service + immediate stream storage
-    match fetch_realtime_market_data(&service_islands.websocket_service).await {
-        Ok(market_data) => {
-            println!("✅ [API] Dashboard summary fetched via Layer 5 Market Data Service");
-            
-            // Store in cache for future reads - dùng reference thay vì clone
-            let cache_system = &service_islands.cache_system;
-            use crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy;
-            if let Err(e) = cache_system.cache_manager().set_with_strategy(
-                "latest_market_data", 
-                market_data.clone(), // Chỉ clone 1 lần duy nhất
-                CacheStrategy::ShortTerm
-            ).await {
-                println!("⚠️ [API] Failed to store in cache: {}", e);
-            } else {
-                println!("💾 [API] Data stored to cache for future reads");
-            }
-            
-            Json(market_data) // Return data in same format as WebSocket - move ownership
-        }
-        Err(e) => {
-            println!("❌ [API] Failed to fetch dashboard summary: {}", e);
-            // Return fallback data in correct format (not wrapped in "dashboard")
-            Json(json!({
-                "btc_price_usd": 45000.0,
-                "btc_change_24h": 0.0,
-                "market_cap_usd": 2100000000000.0,
-                "volume_24h_usd": 150000000000.0,
-                "fng_value": 50,
-                "btc_rsi_14": 50.0,
-                "data_sources": {},
-                "fetch_duration_ms": 0,
-                "partial_failure": true,
-                "last_updated": chrono::Utc::now().to_rfc3339(),
-                "timestamp": chrono::Utc::now().to_rfc3339()
-            }))
-        }
-    }
+
+    // Return fallback data - websocket service will populate cache within 10 seconds
+    println!("📊 [API] Returning fallback data (websocket service will update cache)");
+    Json(json!({
+        "btc_price_usd": 45000.0,
+        "btc_change_24h": 0.0,
+        "market_cap_usd": 2100000000000.0,
+        "volume_24h_usd": 150000000000.0,
+        "fng_value": 50,
+        "btc_rsi_14": 50.0,
+        "data_sources": {},
+        "fetch_duration_ms": 0,
+        "partial_failure": true,
+        "last_updated": chrono::Utc::now().to_rfc3339(),
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+        "note": "Fallback data - fresh data will be available within 10 seconds"
+    }))
 }
 
 /// API health check endpoint
@@ -234,16 +189,16 @@ async fn api_sandboxed_report(
 }
 
 /// WebSocket statistics API endpoint
-/// 
-/// Returns real-time statistics about WebSocket connections
+///
+/// Note: WebSocket functionality is now in a separate service.
+/// This endpoint returns a redirect message to the websocket service.
 async fn api_websocket_stats(
-    State(service_islands): State<Arc<ServiceIslands>>
+    State(_service_islands): State<Arc<ServiceIslands>>
 ) -> Json<serde_json::Value> {
-    let active_connections = service_islands.active_connections();
-    
     Json(json!({
-        "active_connections": active_connections,
-        "status": "healthy",
+        "message": "WebSocket functionality has been moved to a separate service",
+        "websocket_service": "Check Web-server-Report-websocket service for WebSocket stats",
+        "websocket_health_endpoint": "http://localhost:8081/health",
         "timestamp": chrono::Utc::now().to_rfc3339()
     }))
 }

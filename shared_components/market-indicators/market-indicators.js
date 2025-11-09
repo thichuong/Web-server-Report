@@ -179,9 +179,17 @@ class MarketIndicatorsDashboard {
             return;
         }
 
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws`;
-        
+        // Use injected WebSocket URL from server or fallback to same-host
+        let wsUrl;
+        if (window.WEBSOCKET_URL) {
+            wsUrl = window.WEBSOCKET_URL + '/ws';
+            debugLog('🔗 Using injected WebSocket URL:', window.WEBSOCKET_URL);
+        } else {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            wsUrl = `${protocol}//${window.location.host}/ws`;
+            debugLog('⚠️ No injected WebSocket URL, using same-host fallback');
+        }
+
         debugLog('🔌 Connecting to WebSocket for market indicators:', wsUrl);
         this.updateConnectionStatus('connecting');
 
