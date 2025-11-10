@@ -30,26 +30,25 @@ pub fn configure_api_routes() -> Router<Arc<ServiceIslands>> {
 async fn api_dashboard_data(
     State(service_islands): State<Arc<ServiceIslands>>
 ) -> Json<serde_json::Value> {
-    // Phase 3: Primary reads from Redis Streams, DB as fallback
-    println!("🚀 [API] Attempting stream-first dashboard data fetch...");
-    
-    // Try cache manager first (populated by websocket service)
-    let cache_system = &service_islands.cache_system;
-    match cache_system.cache_manager().get("latest_market_data").await {
-        Ok(Some(stream_data)) => {
-            println!("✅ [API] Dashboard data served from cache (<1ms)");
-            return Json(stream_data);
+    // Phase 3: Primary reads from Redis Streams via RedisStreamReader
+    println!("🚀 [API] Reading dashboard data from Redis Stream...");
+
+    // Use RedisStreamReader to fetch latest market data
+    match service_islands.redis_stream_reader.read_latest_market_data().await {
+        Ok(Some(data)) => {
+            println!("✅ [API] Dashboard data served from Redis Stream (<1ms)");
+            return Json(data);
         }
         Ok(None) => {
-            println!("⚠️ [API] No data in cache yet, websocket service will populate it soon");
+            println!("⚠️ [API] No data in Redis Stream yet, websocket service will populate it soon");
         }
         Err(e) => {
-            println!("⚠️ [API] Cache read failed: {}", e);
+            println!("⚠️ [API] Failed to read from Redis Stream: {}", e);
         }
     }
 
-    // Return fallback data - websocket service will populate cache within 10 seconds
-    println!("📊 [API] Returning fallback data (websocket service will update cache)");
+    // Return fallback data - websocket service will populate stream within 10 seconds
+    println!("📊 [API] Returning fallback data (websocket service will update stream)");
     Json(json!({
         "btc_price_usd": 45000.0,
         "btc_change_24h": 0.0,
@@ -66,30 +65,29 @@ async fn api_dashboard_data(
     }))
 }
 
-/// Dashboard summary API endpoint - Reads from cache populated by websocket service
+/// Dashboard summary API endpoint - Reads from Redis Stream via RedisStreamReader
 async fn api_dashboard_summary(
     State(service_islands): State<Arc<ServiceIslands>>
 ) -> Json<serde_json::Value> {
-    // Cache-first strategy: Read from cache populated by websocket service
-    println!("🚀 [API] Reading dashboard summary from cache...");
+    // Stream-first strategy: Read from Redis Stream populated by websocket service
+    println!("🚀 [API] Reading dashboard summary from Redis Stream...");
 
-    // Try cache manager first (populated by websocket service)
-    let cache_system = &service_islands.cache_system;
-    match cache_system.cache_manager().get("latest_market_data").await {
-        Ok(Some(stream_data)) => {
-            println!("✅ [API] Dashboard summary served from cache (<1ms)");
-            return Json(stream_data);
+    // Use RedisStreamReader to fetch latest market data
+    match service_islands.redis_stream_reader.read_latest_market_data().await {
+        Ok(Some(data)) => {
+            println!("✅ [API] Dashboard summary served from Redis Stream (<1ms)");
+            return Json(data);
         }
         Ok(None) => {
-            println!("⚠️ [API] No data in cache yet, websocket service will populate it soon");
+            println!("⚠️ [API] No data in Redis Stream yet, websocket service will populate it soon");
         }
         Err(e) => {
-            println!("⚠️ [API] Cache read failed: {}", e);
+            println!("⚠️ [API] Failed to read from Redis Stream: {}", e);
         }
     }
 
-    // Return fallback data - websocket service will populate cache within 10 seconds
-    println!("📊 [API] Returning fallback data (websocket service will update cache)");
+    // Return fallback data - websocket service will populate stream within 10 seconds
+    println!("📊 [API] Returning fallback data (websocket service will update stream)");
     Json(json!({
         "btc_price_usd": 45000.0,
         "btc_change_24h": 0.0,

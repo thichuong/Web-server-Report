@@ -90,7 +90,18 @@ impl RedisStreamReader {
     /// Convert Redis Stream fields to JSON
     ///
     /// Transforms the flat key-value pairs from Redis Streams back into JSON.
+    /// Special handling: If there's a single "data" field containing JSON, unwrap it.
     fn stream_fields_to_json(&self, fields: &Vec<(String, String)>) -> Result<Value> {
+        // Special case: If there's only one field named "data" containing JSON string
+        if fields.len() == 1 && fields[0].0 == "data" {
+            let data_str = &fields[0].1;
+            if let Ok(data) = serde_json::from_str::<Value>(data_str) {
+                println!("📦 Unwrapped nested 'data' field from Redis Stream");
+                return Ok(data);
+            }
+        }
+
+        // General case: parse each field
         let mut map = serde_json::Map::new();
 
         for (key, value) in fields {
