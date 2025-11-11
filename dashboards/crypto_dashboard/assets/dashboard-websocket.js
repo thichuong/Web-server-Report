@@ -31,8 +31,16 @@ class DashboardWebSocket {
         // Use WebSocket URL injected from server or fallback to same-host
         let wsUrl;
         if (window.WEBSOCKET_URL) {
-            wsUrl = window.WEBSOCKET_URL + '/ws';
-            if (WS_DEBUG) console.log('🔗 Using injected WebSocket URL:', window.WEBSOCKET_URL);
+            wsUrl = window.WEBSOCKET_URL;
+
+            // SAFETY: Auto-upgrade to wss:// if page is on https://
+            if (window.location.protocol === 'https:' && wsUrl.startsWith('ws://')) {
+                wsUrl = wsUrl.replace('ws://', 'wss://');
+                if (WS_DEBUG) console.log('🔒 Auto-upgraded WebSocket to secure protocol:', wsUrl);
+            }
+
+            wsUrl = wsUrl + '/ws';
+            if (WS_DEBUG) console.log('🔗 Using injected WebSocket URL:', wsUrl);
         } else {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             wsUrl = `${protocol}//${window.location.host}/ws`;

@@ -40,8 +40,16 @@ export class WebSocketManager {
     getWebSocketUrl() {
         // Use WebSocket URL injected from server environment configuration
         if (window.WEBSOCKET_URL) {
-            debugLog('🔗 Using injected WebSocket URL:', window.WEBSOCKET_URL);
-            return window.WEBSOCKET_URL + '/ws';
+            let wsUrl = window.WEBSOCKET_URL;
+
+            // SAFETY: Auto-upgrade to wss:// if page is on https://
+            if (window.location.protocol === 'https:' && wsUrl.startsWith('ws://')) {
+                wsUrl = wsUrl.replace('ws://', 'wss://');
+                debugLog('🔒 Auto-upgraded WebSocket to secure protocol:', wsUrl);
+            }
+
+            debugLog('🔗 Using injected WebSocket URL:', wsUrl);
+            return wsUrl + '/ws';
         }
 
         // Fallback to same-host for development/backward compatibility

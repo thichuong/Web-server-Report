@@ -182,8 +182,16 @@ class MarketIndicatorsDashboard {
         // Use injected WebSocket URL from server or fallback to same-host
         let wsUrl;
         if (window.WEBSOCKET_URL) {
-            wsUrl = window.WEBSOCKET_URL + '/ws';
-            debugLog('🔗 Using injected WebSocket URL:', window.WEBSOCKET_URL);
+            wsUrl = window.WEBSOCKET_URL;
+
+            // SAFETY: Auto-upgrade to wss:// if page is on https://
+            if (window.location.protocol === 'https:' && wsUrl.startsWith('ws://')) {
+                wsUrl = wsUrl.replace('ws://', 'wss://');
+                debugLog('🔒 Auto-upgraded WebSocket to secure protocol:', wsUrl);
+            }
+
+            wsUrl = wsUrl + '/ws';
+            debugLog('🔗 Using injected WebSocket URL:', wsUrl);
         } else {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             wsUrl = `${protocol}//${window.location.host}/ws`;

@@ -120,7 +120,18 @@ impl DashboardHandlers {
 
         // Inject WebSocket service URL from environment variable
         let ws_url = std::env::var("WEBSOCKET_SERVICE_URL")
-            .unwrap_or_else(|_| "ws://localhost:8081".to_string());
+            .unwrap_or_else(|_| {
+                // Default to localhost for development
+                if cfg!(debug_assertions) {
+                    "ws://localhost:8081".to_string()
+                } else {
+                    // In production, warn if not explicitly configured
+                    eprintln!("⚠️ WEBSOCKET_SERVICE_URL not set in production!");
+                    eprintln!("   Using fallback: wss://web-server-report-websocket-production.up.railway.app");
+                    eprintln!("   Set WEBSOCKET_SERVICE_URL environment variable to avoid this warning.");
+                    "wss://web-server-report-websocket-production.up.railway.app".to_string()
+                }
+            });
         context.insert("websocket_url", &ws_url);
 
         // Render the template using the registered components
