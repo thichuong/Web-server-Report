@@ -1,8 +1,8 @@
 # Auto detect text files and perform LF normalization
 * text=auto
-dashboards/crypto_dashboard/assets/* linguist-vendored
-shared_assets/* linguist-vendored
-shared_components/* linguist-vendored
-backups/* linguist-vendored
+dashboards/crypto_dashboard/assets/** linguist-vendored
+shared_assets/** linguist-vendored
+shared_components/** linguist-vendored
+backups/** linguist-vendored
 
 build.js linguist-vendored
