@@ -1,6 +1,8 @@
-# Web Server Report - High-Performance Crypto Dashboard
+# Web Server Report - High-Performance Crypto Dashboard (Main Service)
 
-🚀 **Ultra-fast Rust web server** achieving **16,829+ RPS** with **5.2ms latency** for crypto investment reports with advanced multi-threading, Cache Stampede Protection, and real-time features.
+🚀 **Ultra-fast Rust web server** achieving **16,829+ RPS** with **5.2ms latency** for crypto investment reports with advanced multi-threading, Cache Stampede Protection, and microservices architecture.
+
+> **🏗️ Microservices Architecture**: This is the **Main Service** that handles web presentation and data consumption. External APIs and WebSocket functionality are handled by the separate [Web-server-Report-websocket](../Web-server-Report-websocket) service.
 
 ## ✨ Key Features
 
@@ -8,9 +10,8 @@
 - **Interactive Crypto Reports**: Dynamic investment reports with Chart.js visualizations
 - **Multi-language Support**: Vietnamese/English with seamless switching
 - **Responsive Design**: Mobile-first, adaptive UI
-- **PDF Generation**: Export reports to PDF format
-- **Real-time Updates**: WebSocket integration for live data
-- **API Resilience**: Binance + CoinGecko + CoinMarketCap fallback system for 99.9% uptime
+- **Redis Streams Integration**: Consume real-time data from websocket service
+- **Microservices Architecture**: Main service focuses on presentation, websocket service handles external APIs
 
 ### ⚡ Performance Optimizations
 - **Cache Stampede Protection**: DashMap+Mutex request coalescing for L2, Moka's get_with() for L1
@@ -24,31 +25,30 @@
 - **Chart Module Bundling**: Optimized JavaScript asset delivery
 
 ### 🛡️ Reliability Features
-- **Automatic API Fallback**: Binance → CoinGecko → CoinMarketCap seamless switching
+- **Microservices Separation**: Main service isolated from external API failures
+- **Redis Streams Consumer**: Reliable data consumption from websocket service
 - **Data Validation**: Prevents corrupted data from affecting reports
-- **Cache-first Data Strategy**: Cache persistence với intelligent API fallback logic
-- **Circuit Breaker Pattern**: Automatic recovery from API failures
-- **Source Attribution**: Track which APIs provided data for debugging
+- **Cache-first Strategy**: Read from cache and Redis Streams, minimal external dependencies
+- **Service Health Monitoring**: Independent health checks for each service
 
 ### 🔧 Technical Stack
 - **Backend**: Rust + Axum (high-performance async web framework)
 - **Database**: PostgreSQL with optimized connection pooling (32 max connections)
 - **Caching**: Multi-tier L1 (moka) + L2 (Redis) with Cache Stampede Protection
-- **Market Data**: Binance (primary) + CoinGecko + CoinMarketCap (fallback) + TAAPI.io + Finnhub (US stocks)
+- **Data Source**: Redis Streams (consumes data from websocket service)
 - **Concurrency**: Rayon ThreadPool + tokio async runtime + DashMap request coalescing
-- **Real-time**: Redis + WebSocket for live updates
+- **Inter-service Communication**: Redis Streams for real-time data from websocket service
 - **Templates**: Tera template engine with background rendering
 - **Frontend**: Vanilla JS with Chart.js and modern CSS
-- **API Resilience**: Multi-source data with Binance + CoinGecko + CoinMarketCap fallback + Finnhub US stocks
+- **Architecture**: Microservices - Main service (presentation) + Websocket service (external APIs)
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 - Rust 1.70+ ([Install Rust](https://rustup.rs/))
 - PostgreSQL database
-- Redis server (optional, for WebSocket features)
-- CoinMarketCap API key (optional, for fallback support)
-- Finnhub API key (optional, for US stock market indices)
+- Redis server (required for cache and inter-service communication)
+- **Web-server-Report-websocket** service running (provides market data via Redis Streams)
 
 ### 1. Clone & Setup
 ```bash
@@ -68,12 +68,7 @@ DATABASE_URL=postgresql://username:password@localhost:5432/database_name
 # Security
 AUTO_UPDATE_SECRET_KEY=your_secret_key_here
 
-# External APIs
-TAAPI_SECRET=your_taapi_secret_for_crypto_data
-CMC_API_KEY=your_coinmarketcap_api_key_here    # Optional - enables crypto fallback support
-FINNHUB_API_KEY=your_finnhub_api_key_here      # Optional - enables US stock market data
-
-# Optional: Redis for WebSocket/caching (defaults to localhost:6379)
+# Redis for cache and inter-service communication (REQUIRED)
 REDIS_URL=redis://localhost:6379
 
 # Server configuration
@@ -82,6 +77,8 @@ PORT=8000
 
 # Development mode (enables debug logging)
 DEBUG=1
+
+# Note: External API keys (TAAPI, CMC, Finnhub) are configured in the websocket service
 ```
 
 ### 3. Build & Run
@@ -98,42 +95,64 @@ Server will start at `http://localhost:8000` 🎉
 
 ## 🏗️ Architecture & Performance
 
-### 🆕 Recent Upgrades (Latest)
+### 🏗️ Microservices Architecture
 
-#### Redis Streams Integration (Real-time Data Pipeline)
-- **📤 Stream Publishing**: Market data automatically published to Redis Streams for external consumers
-- **🔄 Bi-directional Communication**: Layer 3 publishes to streams, enables Python AI service consumption
-- **⚡ Sub-millisecond Publishing**: Non-blocking stream writes with <1ms overhead
-- **🎯 Consumer-Ready Format**: Flattened JSON key-value pairs optimized for stream consumers
-- **🛡️ Fault Tolerance**: Stream publishing failures don't affect core functionality
-- **📊 Stream Monitoring**: Track stream health via `/health` endpoint
+This project uses a **microservices architecture** with clear separation of concerns:
 
-#### Layer 1 Infrastructure Enhancements
-- **🗂️ Cache Manager Redis Streams**: Native Redis Stream methods in CacheManager
-  - `publish_to_stream()`: XADD with automatic trimming support
-  - `read_stream_latest()`: Retrieve N latest entries (newest first)
-  - `read_stream()`: Blocking/non-blocking stream consumption with XREAD
-- **🏝️ App State Island**: Unified application state management with Redis Streams support
-- **📦 Chart Modules Island**: Optimized JavaScript bundling with cache integration
-- **🔧 Shared Components**: Template registry and utilities across all layers
+#### **Main Service** (Web-server-Report) - This repository
+- **Purpose**: Web presentation, report generation, data consumption
+- **Responsibilities**:
+  - Serve HTTP endpoints for crypto reports and dashboard
+  - Render HTML templates with Tera
+  - Read data from Redis Streams (published by websocket service)
+  - Cache data in L1 (Moka) and L2 (Redis)
+  - Database operations (PostgreSQL)
+- **Does NOT handle**: External API calls, WebSocket connections
 
-#### Layer 2 External Services Improvements
-- **🌐 External APIs Island**: Enhanced circuit breaker with stream publishing
-- **💾 Cache-first Strategy**: API responses cached before stream publishing
-- **🔄 Multi-source Fallback**: Binance → CoinGecko → CoinMarketCap with stream integration
-- **📡 US Stock Data**: Finnhub integration with stream publishing for indices
+#### **Websocket Service** (Web-server-Report-websocket) - Separate service
+- **Purpose**: External API integration, WebSocket broadcasting, data publishing
+- **Responsibilities**:
+  - Fetch data from external APIs (Binance, CoinGecko, CoinMarketCap, etc.)
+  - Manage WebSocket connections for real-time updates
+  - Publish market data to Redis Streams
+  - Circuit breaker and API fallback logic
+- **Repository**: [Web-server-Report-websocket](../Web-server-Report-websocket)
 
-#### Layer 3 Communication Upgrades
-- **📊 Market Data Adapter**: 
-  - Automatic Redis Streams publishing after Layer 2 data fetch
-  - Stream entry ID tracking for debugging
-  - Non-critical error handling (continues on stream failure)
-- **🔌 WebSocket Service**: Ready for Redis Streams consumer integration (Phase 3)
-- **💬 Dashboard Communication**: Stream-aware data routing
-- **🌉 Layer 2 Adapters**: Clean API abstraction with stream publishing
+### 🔄 Inter-service Communication
 
-### Service Islands Architecture
-Hệ thống sử dụng **Service Islands Architecture** - kiến trúc phân tầng 5 lớp với separation of concerns rõ ràng:
+```
+┌─────────────────────────────────────────────────────────────┐
+│         Web-server-Report-websocket (Separate Service)     │
+│                                                             │
+│  Layer 2: External APIs                                    │
+│  • Binance, CoinGecko, CoinMarketCap                       │
+│  • TAAPI.io, Finnhub (US stocks)                           │
+│  • Circuit breaker + fallback logic                        │
+│                                                             │
+│  Layer 3: WebSocket + Market Data Adapter                  │
+│  • WebSocket broadcasting                                  │
+│  • Publish to Redis Streams                                │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+                      │ Redis Streams (market_data_stream)
+                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│         Web-server-Report (Main Service - This Repo)       │
+│                                                             │
+│  Layer 3: Communication                                    │
+│  • Redis Stream Reader (consumes data)                     │
+│  • Data Communication (PostgreSQL)                         │
+│  • Dashboard Communication                                 │
+│                                                             │
+│  Layer 5: Business Logic                                   │
+│  • Crypto Reports (template rendering)                     │
+│  • Dashboard (data aggregation)                            │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Service Islands Architecture (Main Service)
+
+The **Main Service** uses a **simplified 4-layer Service Islands Architecture** focused on presentation and data consumption:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -142,9 +161,9 @@ Hệ thống sử dụng **Service Islands Architecture** - kiến trúc phân t
 │  │  Dashboard      │    │     Crypto Reports              ││
 │  │  Island         │    │     Island                      ││
 │  │ • Market Data   │    │ • Report Management             ││
-│  │   Processing    │    │ • Template Orchestration        ││
-│  │ • WebSocket     │    │ • Cache Integration             ││
-│  │   Integration   │    │                                 ││
+│  │   Aggregation   │    │ • Template Orchestration        ││
+│  │ • Data          │    │ • Cache Integration             ││
+│  │   Processing    │    │                                 ││
 │  └─────────────────┘    └─────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────┘
 ┌─────────────────────────────────────────────────────────────┐
@@ -153,46 +172,33 @@ Hệ thống sử dụng **Service Islands Architecture** - kiến trúc phân t
 │  │              Health System Island                      ││
 │  │ • Component Health Monitoring                          ││
 │  │ • System Status Reporting                              ││
-│  │ • Inter-layer Health Validation                        ││
+│  │ • Inter-service Health Validation                      ││
 │  └─────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────┘
 ┌─────────────────────────────────────────────────────────────┐
 │                   Layer 3: Communication                   │
-│  ┌─────────────────┐    ┌─────────────────────────────────┐│
-│  │  WebSocket      │    │    Data Communication          ││
-│  │  Service        │    │    Service                      ││
-│  │ • Real-time     │    │ • Database Operations           ││
-│  │   Communication │    │ • Cache Integration             ││
-│  │ • Broadcasting  │    │ • Data Models                   ││
-│  └─────────────────┘    └─────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────────┐
-│                  Layer 2: External Services                │
-│  ┌─────────────────────────────────────────────────────────┐│
-│  │              External APIs Island                      ││
-│  │ • Market Data API (Binance, CoinGecko, CoinMarketCap) ││
-│  │ • US Stock Indices (Finnhub)                          ││
-│  │ • Cache-first Strategy with Data Persistence          ││
-│  │ • API Aggregator (Multi-source data + Cache storage)  ││
-│  │ • Circuit Breaker (Fault tolerance)                   ││
-│  └─────────────────────────────────────────────────────────┘│
+│  ┌──────────────────┐  ┌──────────────────┐  ┌────────────┐│
+│  │ Redis Stream     │  │ Data             │  │ Dashboard  ││
+│  │ Reader           │  │ Communication    │  │ Comm       ││
+│  │ • Consume from   │  │ • PostgreSQL Ops │  │ • Data     ││
+│  │   websocket svc  │  │ • Cache Integ    │  │   Routing  ││
+│  │ • Real-time data │  │ • DB Models      │  │            ││
+│  └──────────────────┘  └──────────────────┘  └────────────┘│
 └─────────────────────────────────────────────────────────────┘
 ┌─────────────────────────────────────────────────────────────┐
 │                  Layer 1: Infrastructure                   │
-│  ┌─────────────────┐    ┌─────────────────────────────────┐│
-│  │  Shared         │    │    Cache System                 ││
-│  │  Components     │    │    Island                       ││
-│  │  Island         │    │ • L1 Cache (Moka)              ││
-│  │ • Template      │    │   - 2000 entries, 5min TTL     ││
-│  │   Registry      │    │ • L2 Cache (Redis)             ││
-│  │ • Model         │    │   - 1hr default TTL            ││
-│  │   Registry      │    │ • Cache Manager                ││
-│  │ • Utilities     │    │   - Unified interface          ││
-│  └─────────────────┘    │ • Cache Strategies              ││
-│                         │   - ShortTerm, MediumTerm       ││
-│                         │   - LongTerm, RealTime          ││
-│                         └─────────────────────────────────┘│
+│  ┌─────────────────┐  ┌──────────────────┐  ┌─────────────┐│
+│  │  Shared         │  │  Cache System    │  │ App State   ││
+│  │  Components     │  │  Island          │  │ Island      ││
+│  │ • Template      │  │ • L1 (Moka)      │  │ • DB Pool   ││
+│  │   Registry      │  │ • L2 (Redis)     │  │ • Redis     ││
+│  │ • Chart Modules │  │ • Stampede Prot  │  │ • Templates ││
+│  │ • Utilities     │  │ • Strategies     │  │             ││
+│  └─────────────────┘  └──────────────────┘  └─────────────┘│
 └─────────────────────────────────────────────────────────────┘
+
+Note: Layer 2 (External Services) and WebSocket are in separate
+      Web-server-Report-websocket service
 ```
 
 ### Generic Cache Architecture (Layer Separation)
@@ -231,9 +237,9 @@ Hệ thống sử dụng **Service Islands Architecture** - kiến trúc phân t
         └──────────────────┘                          └──────────────────┘
 ```
 
-### Request Flow Through Service Islands
+### Request Flow (Main Service)
 ```
-Client Request ───► Axum Router
+Client Request ───► Axum Router (Main Service)
                            │
                            ▼
               ┌─────────────────────────┐
@@ -241,68 +247,66 @@ Client Request ───► Axum Router
               │   • Dashboard Island    │     Report Processing
               │   • Crypto Reports      │
               └─────────┬───────────────┘
-                        │ Business Logic Processing
+                        │ Data Needed
                         ▼
               ┌─────────────────────────┐
-              │   Layer 3: Comm        │ ──► PostgreSQL
-              │   • Data Communication │     WebSocket Broadcasting
+              │   Layer 3: Comm         │ ──► PostgreSQL
+              │   • Redis Stream Reader │     Read from Cache
+              │   • Data Communication  │     (L1 + L2)
+              │   • Dashboard Comm      │
               └─────────┬───────────────┘
-                        │ Data Fetching
+                        │ Cache Lookup / Stream Read
                         ▼
               ┌─────────────────────────┐
-              │   Layer 2: External    │ ──► Binance API
-              │   • APIs Island        │     TaApi.io API  
-              │   • Cache-first        │     Circuit Breaker
-              └─────────┬───────────────┘
-                        │ Cache Integration
-                        ▼
+              │   Layer 1: Cache       │ ──► L1 (moka) ⚡<1ms
+              │   • Generic Strategies │     L2 (Redis) 🔥2-5ms
+              │   • Unified Manager    │     Redis Streams (read)
+              └─────────────────────────┘
+                        ▲
+                        │ Data published by websocket service
+                        │
               ┌─────────────────────────┐
-              │   Layer 1: Cache       │ ──► L1 (moka) ⚡<1ms + Stampede Protection
-              │   • Generic Strategies │     L2 (Redis) 🔥2-5ms + Request Coalescing
-              │   • Unified Manager    │     Cache Miss 💻200ms+ (single request only)
+              │ Web-server-Report-      │ ──► External APIs
+              │ websocket (Separate)    │     (Binance, CoinGecko, etc.)
+              │ • Fetch from APIs       │     WebSocket broadcasting
+              │ • Publish to Streams    │     Circuit breaker
               └─────────────────────────┘
 ```
 
-### Service Islands Performance Metrics
+### Service Islands Performance Metrics (Main Service)
 
-#### Redis Streams Performance (NEW)
-- **📤 Publish Latency**: <1ms average (non-blocking XADD)
-- **📊 Stream Throughput**: 10,000+ entries/sec sustained
-- **🔄 Consumer Lag**: Sub-second for Python AI service integration
-- **💾 Stream Retention**: Auto-trimming at 1000 entries (configurable)
-- **🎯 Field Encoding**: Flattened JSON → Stream fields in <0.5ms
+#### Redis Streams Consumer Performance
+- **📥 Read Latency**: <2ms average (XREAD from websocket service)
+- **📊 Consumer Throughput**: Process 10,000+ entries/sec
+- **🔄 Stream Lag**: Sub-second consumption from websocket service
+- **💾 Reliability**: Automatic reconnection and error recovery
 
 #### Cache Performance (Layer 1 Infrastructure) - **with Cache Stampede Protection**
 - **L1 Hit Rate**: ~90% (sub-millisecond response)
-- **L2 Hit Rate**: ~75% (2-5ms with automatic L1 promotion)  
+- **L2 Hit Rate**: ~75% (2-5ms with automatic L1 promotion)
 - **Stampede Protection**: 99.6% improvement in high-concurrency scenarios
 - **Request Coalescing**: DashMap+Mutex for L2, Moka's get_with() for L1
-- **Overall Coverage**: ~95% (giảm 95% external API calls)
+- **Overall Coverage**: ~95% (minimal external service dependencies)
 - **Generic Strategies**: ShortTerm(5min), MediumTerm(1hr), LongTerm(3hr), RealTime(30s)
 
 #### Business Logic Performance (Layer 5)
-- **Dashboard Island**: Real-time market data processing với WebSocket integration
-- **Crypto Reports Island**: Template orchestration với multi-tier caching
-- **Report Generation**: Background processing với spawn_blocking
+- **Dashboard Island**: Data aggregation from cache and streams
+- **Crypto Reports Island**: Template orchestration with multi-tier caching
+- **Report Generation**: Background processing with spawn_blocking
 
-#### Communication Layer Performance (Layer 3) 
-- **WebSocket Service**: Real-time broadcasting tới multiple clients
+#### Communication Layer Performance (Layer 3)
+- **Redis Stream Reader**: Consume real-time data from websocket service
 - **Data Communication**: PostgreSQL connection pool (32 max connections)
-- **Cache Integration**: L2 cache cho database queries
-
-#### External Services Performance (Layer 2)
-- **Cache-first Strategy**: Binance API primary với cache persistence
-- **Circuit Breaker**: Fault tolerance cho external APIs
-- **API Aggregator**: Multi-source data với intelligent failover và cache storage
+- **Cache Integration**: L2 cache for database queries
 
 #### Infrastructure Performance (Layer 1)
 - **🚄 16,829+ RPS**: Handle 16,829+ concurrent requests per second with Cache Stampede Protection
 - **⚡ Sub-1ms L1 Cache**: Moka in-memory cache hits with get_with() coalescing
-- **🔥 2-5ms L2 Cache**: Redis distributed cache với DashMap+Mutex request coalescing
-- **🛡️ 99.6% Stampede Protection**: Prevents cache stampede in high-concurrency scenarios  
+- **🔥 2-5ms L2 Cache**: Redis distributed cache with DashMap+Mutex request coalescing
+- **🛡️ 99.6% Stampede Protection**: Prevents cache stampede in high-concurrency scenarios
 - **🔄 Multi-threaded**: Rayon ThreadPool + tokio async runtime
-- **📊 95% Cache Coverage**: Generic cache strategies reduce API calls
-- **🏗️ Service Islands**: Clean separation of concerns across 5 layers
+- **📊 95% Cache Coverage**: Minimal dependency on external services
+- **🏗️ Microservices**: Clean separation between main and websocket services
 
 ### Benchmark Results
 ```
@@ -329,26 +333,33 @@ Multi-tier Cache Performance:
 • Overall Coverage: 95% (drastically reduced API calls)
 ```
 
-### Service Islands Request Flow
+### Service Islands Request Flow (Main Service)
 1. **Client Request** → Axum Router → Layer 5 Business Logic
-2. **Dashboard Island** → Market data processing → Layer 3 Communication
-3. **Data Communication** → PostgreSQL/Cache lookup → Layer 2 External Services
-4. **External APIs Island** → Rate-limited API calls → Layer 1 Infrastructure  
-5. **Cache System Island** → Generic cache strategies (L1: <1ms, L2: 2-5ms)
-6. **📤 Redis Streams Publishing** → Market data published to stream (async, non-blocking)
-7. **Response** → Multi-tier cache storage → Client delivery
+2. **Dashboard Island** → Data aggregation → Layer 3 Communication
+3. **Layer 3 Communication** → Check L1/L2 cache → Read from Redis Streams
+4. **Cache System Island** → Generic cache strategies (L1: <1ms, L2: 2-5ms)
+5. **Redis Stream Reader** → Consume data published by websocket service
+6. **Response** → Template rendering → Client delivery
 
-#### Redis Streams Data Flow (NEW)
+#### Data Flow Between Services
 ```
-Layer 2 External APIs (Binance/CoinGecko/CMC)
+Websocket Service (External Service)
         ↓
-Layer 3 Market Data Adapter
+External APIs (Binance/CoinGecko/CMC)
         ↓
-Layer 1 Cache Manager (L1 + L2 caching)
+Market Data Adapter (Websocket Service)
         ↓
 Redis Streams Publishing (XADD)
         ↓
-External Consumers (Python AI Service, Analytics, etc.)
+Main Service (This Repo)
+        ↓
+Redis Stream Reader (Layer 3)
+        ↓
+Cache Manager (L1 + L2 caching)
+        ↓
+Business Logic (Dashboard, Reports)
+        ↓
+Client (Web Browser)
 ```
 
 #### Cache Strategy Mapping
@@ -393,7 +404,7 @@ cache_manager.publish_to_stream("market_data_stream", fields, Some(1000)).await?
 - **Zero Data Loss**: All requests receive the same valid result
 - **📡 Stream Integration**: Cached data automatically published to Redis Streams for external consumers
 
-## 📡 API Reference
+## 📡 API Reference (Main Service)
 
 ### Core Endpoints
 | Method | Endpoint | Description | Performance |
@@ -402,23 +413,21 @@ cache_manager.publish_to_stream("market_data_stream", fields, Some(1000)).await?
 | `GET` | `/health` | Server health check + metrics | - |
 | `GET` | `/metrics` | Performance metrics | - |
 | `GET` | `/crypto_report` | Latest crypto report | 16,829+ RPS |
-| `GET` | `/crypto_report/:id` | Specific report by ID | 16,829+ RPS |
-| `GET` | `/pdf-template/:id` | PDF-optimized report view | ✅ Cached + Stampede Protected |
+| `GET` | `/crypto_report/:id` | Specific report by ID | 16,829+ RPS Stampede Protected |
 | `GET` | `/crypto_reports_list` | Paginated report list | - |
 
 ### Admin & Monitoring
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/health` | Server health + unified cache metrics + Redis Streams status |
-| `GET` | `/cache-stats` | Detailed L1/L2 cache statistics + stream metrics |
+| `GET` | `/health` | Main service health + cache metrics + Redis Streams reader status |
+| `GET` | `/cache-stats` | Detailed L1/L2 cache statistics |
 | `POST` | `/clear-cache` | Clear all cache tiers (L1+L2) |
 
-### Real-time & API
+### Data API
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/ws` | WebSocket connection for real-time updates |
-| `GET` | `/api/crypto/dashboard-summary` | Cached dashboard data with crypto + US stocks (JSON) + Stream publish |
-| `GET` | `/api/crypto/dashboard-summary/refresh` | Force refresh dashboard + Stream publish |
+| `GET` | `/api/crypto/dashboard-summary` | Cached dashboard data (from cache or Redis Streams) |
+| `GET` | `/api/crypto/dashboard-summary/refresh` | Force cache refresh and re-read from streams |
 
 ### Static Assets
 | Path | Description |
@@ -427,99 +436,82 @@ cache_manager.publish_to_stream("market_data_stream", fields, Some(1000)).await?
 | `/shared_assets/css/` | Stylesheets |
 | `/crypto_dashboard/assets/` | Dashboard-specific assets |
 
-## 🗂️ Service Islands Cache System
+> **Note**: WebSocket endpoint (`/ws`) is served by the separate **Web-server-Report-websocket** service (port 3001)
 
-Hệ thống implement **Generic Cache Architecture** với Layer Separation để tách biệt business logic khỏi cache infrastructure:
+## 🗂️ Service Islands Cache System (Main Service)
 
-### Layer 1: Infrastructure (Generic Cache + Redis Streams)
+Main service implements **Generic Cache Architecture** focused on data consumption and caching:
+
+### Layer 1: Infrastructure (Generic Cache + Redis Streams Reader)
 - **L1 Cache**: `moka::future::Cache` - Ultra-fast in-memory (2000 entries, 5min TTL)
 - **L2 Cache**: Redis - Distributed cache with persistence (1hr default TTL)
-- **🆕 Redis Streams**: Native stream support with XADD/XREAD operations
-  - `publish_to_stream()`: Publish market data to streams
-  - `read_stream_latest()`: Retrieve latest N entries
+- **Redis Streams Reader**: Consume data from websocket service
+  - `read_stream_latest()`: Retrieve latest N entries from websocket service
   - `read_stream()`: Blocking/non-blocking stream consumption
 - **Generic Strategies**: ShortTerm, MediumTerm, LongTerm, RealTime, Custom
-- **Unified API**: Pure caching infrastructure, không business knowledge
+- **Unified API**: Pure caching infrastructure, no external API knowledge
 
-### Layer 2: Business Logic (API-Specific + Stream Publishing)
-- **Business Wrappers**: API-specific implementations using generic Layer 1
-- **Strategy Mapping**: Business needs mapped to generic cache strategies
-- **Cache Keys**: Business-aware cache key generation
-- **🆕 Stream Integration**: Automatic stream publishing after API data fetch
-
-### Layer 3: Communication (Enhanced with Streams)
-- **🆕 Market Data Adapter**: Publishes to Redis Streams after caching
-- **WebSocket Service**: Ready for stream consumer integration
-- **Data Communication**: Stream-aware data routing
+### Layer 3: Communication (Data Consumption)
+- **Redis Stream Reader**: Consume market data published by websocket service
+- **Data Communication**: PostgreSQL operations with cache integration
+- **Dashboard Communication**: Data routing from cache and streams
 
 ### Cache Architecture Benefits
-- **Separation of Concerns**: Layer 1 pure caching, Layer 2 business logic
-- **Extensibility**: Add new APIs chỉ cần thay đổi Layer 2
-- **Maintainability**: Không hardcoded business keys trong Layer 1
-- **Testability**: Layer 1 unit test độc lập, Layer 2 business logic isolated
-- **🆕 Real-time Pipeline**: Redis Streams enables external consumer integration
+- **Separation of Concerns**: Layer 1 pure caching, Layer 3 data consumption
+- **Microservices**: Main service isolated from external API complexities
+- **Maintainability**: Clear boundaries between services
+- **Testability**: Each layer independently testable
+- **Real-time Pipeline**: Redis Streams for inter-service communication
 
-### Cache Usage Patterns
+### Cache Usage Patterns (Main Service)
 
-#### 1. **Generic Cache Helper (Layer 2) + Redis Streams**
+#### 1. **Consume Data from Websocket Service**
 ```rust
-async fn cache_api_data<F, T>(
-    cache_key: &str,
-    strategy: CacheStrategy,  // Generic strategy
-    fetch_fn: F
-) -> Result<Value> {
-    // Fetch and cache data
-    let data = cache_manager.get_or_compute_with(key, strategy, fetch_fn).await?;
-    
-    // Publish to Redis Streams for external consumers
-    cache_manager.publish_to_stream("market_data_stream", fields, Some(1000)).await?;
-    
-    Ok(data)
+// Read latest market data from Redis Streams
+let stream_data = redis_stream_reader
+    .read_stream_latest("market_data_stream", 10)
+    .await?;
+
+// Cache the consumed data for fast access
+cache_manager.cache_data("dashboard_summary", stream_data, ttl).await?;
+```
+
+#### 2. **Cache-First Data Access**
+```rust
+// Try L1 cache first
+if let Some(data) = cache_manager.get_l1("btc_price").await? {
+    return Ok(data);
 }
+
+// Try L2 cache second
+if let Some(data) = cache_manager.get_l2("btc_price").await? {
+    // Promote to L1
+    cache_manager.set_l1("btc_price", data.clone()).await?;
+    return Ok(data);
+}
+
+// Read from Redis Streams as fallback
+let data = redis_stream_reader.read_stream_latest("market_data_stream", 1).await?;
+cache_manager.set_with_strategy("btc_price", data, CacheStrategy::ShortTerm).await?;
 ```
 
-#### 2. **Business-Specific Wrappers (Layer 2) with Streams**
+#### 3. **Business Logic Integration**
 ```rust
-fetch_btc_price() → cache_api_data("btc_coingecko", ShortTerm, api_call) → Stream publish
-fetch_rsi_data() → cache_api_data("rsi_taapi", LongTerm, api_call) → Stream publish
-fetch_fear_greed() → cache_api_data("fear_greed", RealTime, api_call) → Stream publish
+// Dashboard Island - aggregate data from cache and streams
+DashboardIsland → Check L1/L2 cache → Read from Redis Streams → Cache result
+
+// Crypto Reports Island - template rendering with cached data
+CryptoReportsIsland → Fetch from cache → Render with Tera → Return HTML
 ```
 
-#### 3. **WebSocket Broadcasting (Layer 3) + Stream Consumers**
-```rust
-WebSocketService → Redis pub/sub → Real-time updates (existing)
-StreamConsumer → Redis Streams → Python AI service (NEW)
-```
-
-#### 4. **Redis Streams Operations (Layer 1)**
-```rust
-// Publish to stream
-let entry_id = cache_manager.publish_to_stream(
-    "market_data_stream",
-    vec![("btc_price".to_string(), "50000".to_string())],
-    Some(1000) // Max 1000 entries
-).await?;
-
-// Read latest entries
-let latest = cache_manager.read_stream_latest("market_data_stream", 10).await?;
-
-// Blocking read for new entries
-let new_entries = cache_manager.read_stream(
-    "market_data_stream", 
-    "$",  // Only new entries
-    100,
-    Some(5000)  // Block for 5 seconds
-).await?;
-```
-
-### Cache Monitoring
-- **Health**: `/health` endpoint shows L1/L2 status, hit rates, and Redis Streams health
-- **Statistics**: `/cache-stats` provides detailed cache metrics + stream entry counts
-- **Management**: `/clear-cache` clears all cache tiers
+### Cache Monitoring (Main Service)
+- **Health**: `/health` endpoint shows L1/L2 status, hit rates, and Redis Streams reader health
+- **Statistics**: `/cache-stats` provides detailed cache metrics
+- **Management**: `/clear-cache` clears all cache tiers (L1+L2)
 - **Performance**: 95% cache coverage, <1ms L1 hits, 2-5ms L2 hits
-- **🆕 Stream Metrics**: Track published entries, consumer lag, stream throughput
+- **Stream Metrics**: Track consumer lag, read throughput from websocket service
 
-📖 **Detailed Documentation**: See [CACHE_ARCHITECTURE.md](./CACHE_ARCHITECTURE.md) for complete implementation guide.
+📖 **Detailed Documentation**: See service-specific documentation in [docs/](./docs) folder.
 
 ## 🚀 Deployment
 
@@ -577,207 +569,171 @@ docker run -p 8000:8000 \
 - Configure reverse proxy (nginx) for SSL/domain routing
 - Monitor memory usage of report cache (grows with unique report IDs accessed)
 
-## 🏗️ Project Structure (Service Islands Architecture)
+## 🏗️ Project Structure (Main Service)
 
 ```
-Web-server-Report/
+Web-server-Report/ (Main Service - Port 8000)
 ├── 📁 src/
 │   ├── 🦀 main.rs              # Server initialization + Service Islands setup
-│   ├── 📊 performance.rs       # Performance monitoring across layers
-│   ├── 🏗️ state.rs             # Application state + Service Islands integration
-│   └── 🏝️ service_islands/     # Service Islands Architecture (5 layers)
-│       ├── 📋 mod.rs           # Service Islands module coordination
-│       ├── 🏗️ layer1_infrastructure/     # Generic cache + shared components + Redis Streams
-│       │   ├── cache_system_island.rs    # L1/L2 cache + generic strategies + Redis Streams (XADD/XREAD)
-│       │   ├── app_state_island.rs       # Unified app state with stream support
-│       │   ├── chart_modules_island.rs   # JavaScript bundling
-│       │   └── shared_components_island.rs # Template registry + utilities
-│       ├── 🌐 layer2_external_services/   # External APIs + cache-first + stream publishing
-│       │   └── external_apis_island.rs    # Binance, CoinGecko + cache-first + circuit breaker
-│       ├── 📡 layer3_communication/       # WebSocket + data communication + streams
-│       │   ├── websocket_service.rs       # Real-time communication
-│       │   ├── data_communication.rs      # Database operations + cache
-│       │   ├── dashboard_communication.rs # Stream-aware data routing
-│       │   └── layer2_adapters/           
-│       │       └── market_data_adapter.rs # 🆕 Publishes to Redis Streams after caching
-│       ├── 🔍 layer4_observability/       # Health monitoring + metrics + stream status
-│       │   └── health_system_island.rs    # Component health + system status + stream metrics
-│       └── 💼 layer5_business_logic/      # Business-specific logic
-│           ├── dashboard_island.rs         # Market data processing
-│           └── crypto_reports_island.rs    # Report management + templates
-├── 📁 routes/                  # Axum routes + Service Islands integration
-│   ├── � homepage.rs          # Homepage với Crypto Reports Island
-│   ├── 💰 crypto_reports.rs    # Business logic routing
-│   ├── 📊 dashboard.rs         # Dashboard Island endpoints
-│   ├── 🔌 websocket.rs         # WebSocket Layer 3 Communication
-│   └── 🏥 system.rs           # Layer 4 Observability endpoints
-├── 📁 scripts/                 # Performance testing across Service Islands
-│   ├── ⚡ simple_rps_test.sh   # End-to-end RPS benchmark (500+ RPS)
-│   ├── 📊 advanced_benchmark.sh # Service Islands performance test
-│   └── 🔥 stress_test.sh       # Multi-layer load testing
-├── 📁 docs/                    # Service Islands Architecture documentation
-│   ├── �️ SERVICE_ISLANDS_ARCHITECTURE.md   # 5-layer architecture guide
-│   ├── 🔄 SERVICE_ISLANDS_WORKFLOW.md        # Development workflow
-│   ├── 🗂️ GENERIC_CACHE_ARCHITECTURE.md     # Layer separation cache
-│   └── � WEBSOCKET_REALTIME_IMPLEMENTATION.md # Layer 3 communication
-├── 📁 dashboards/              # Templates với Layer 1 shared components
+│   ├── 📊 performance.rs       # Performance monitoring
+│   ├── 🏗️ state.rs             # Application state
+│   └── 🏝️ service_islands/     # Service Islands Architecture (4 layers)
+│       ├── 📋 mod.rs           # Service Islands coordination
+│       ├── 🏗️ layer1_infrastructure/     # Generic cache + shared components
+│       │   ├── cache_system_island/     # L1/L2 cache + Redis Streams reader
+│       │   ├── app_state_island/        # Unified app state
+│       │   ├── chart_modules_island/    # JavaScript bundling
+│       │   └── shared_components_island/ # Template registry + utilities
+│       ├── 📡 layer3_communication/      # Data communication (NO WebSocket)
+│       │   ├── redis_stream_reader/     # 🔥 Consume from websocket service
+│       │   ├── data_communication/      # Database operations + cache
+│       │   └── dashboard_communication/ # Data routing from cache/streams
+│       ├── 🔍 layer4_observability/      # Health monitoring
+│       │   └── health_system/           # Component health + system status
+│       └── 💼 layer5_business_logic/     # Business logic
+│           ├── dashboard/               # Data aggregation (from cache/streams)
+│           └── crypto_reports/          # Report management + templates
+├── 📁 routes/                  # Axum routes
+│   ├── 🏠 homepage.rs          # Homepage
+│   ├── 💰 crypto_reports.rs    # Crypto reports endpoints
+│   ├── 📊 api.rs               # API endpoints (dashboard data)
+│   ├── 🗂️ static_files.rs     # Static assets serving
+│   └── 🏥 system.rs            # Health & monitoring endpoints
+├── 📁 scripts/                 # Performance testing
+│   ├── ⚡ simple_rps_test.sh   # RPS benchmark
+│   └── 🔥 stress_test.sh       # Load testing
+├── 📁 docs/                    # Documentation
+│   └── (Main service specific docs)
+├── 📁 dashboards/              # HTML templates
 │   ├── 🏠 home.html            # Homepage template
-│   └── � crypto_dashboard/    # Business logic templates
-├── 📁 shared_assets/           # Layer 1 shared components
-│   ├── 🎨 css/                # Global stylesheets
-│   └── ⚙️ js/chart_modules/   # Modular chart components
-├── ⚙️ Cargo.toml              # Dependencies (moka, redis, dashmap, rayon)
-├── 🐳 Dockerfile              # Container với Service Islands
-├── 🚂 railway.json           # Railway deployment config
-└── 📋 .env.example           # Environment template với layer configs
+│   └── 💹 crypto_dashboard/    # Dashboard templates
+├── 📁 shared_assets/           # Static assets
+│   ├── 🎨 css/                 # Stylesheets
+│   └── ⚙️ js/chart_modules/    # Chart components
+├── ⚙️ Cargo.toml               # Dependencies (NO tonic/prost)
+├── 🐳 Dockerfile               # Container config
+└── 📋 .env.example             # Environment template
+
+Note: Layer 2 (External APIs) and WebSocket moved to:
+      ../Web-server-Report-websocket/ (Separate service - Port 3001)
 ```
 
-### Service Islands Code Organization
-- **Layer 5 → Layer 1**: Top-down dependency flow
-- **Generic Layer 1**: Pure infrastructure, không business knowledge
-- **Business Layer 2**: API-specific implementations using generic Layer 1
-- **Clear Boundaries**: Mỗi island độc lập, interface rõ ràng
-- **Testable Architecture**: Unit test từng layer independently
+### Service Islands Code Organization (Main Service)
+- **4-Layer Architecture**: Layer 1 (Infrastructure), Layer 3 (Communication), Layer 4 (Observability), Layer 5 (Business)
+- **No Layer 2**: External APIs handled by websocket service
+- **Redis Streams Consumer**: Layer 3 consumes data published by websocket service
+- **Clear Boundaries**: Each layer independent, well-defined interfaces
+- **Testable Architecture**: Unit test each layer independently
+- **Microservices**: Main service focuses on presentation, websocket service handles external APIs
 
-## � Redis Streams Integration
+## 📡 Redis Streams Integration (Main Service)
 
 ### Overview
-Redis Streams được tích hợp vào Layer 1 Infrastructure và sử dụng qua Layer 3 Communication để tạo real-time data pipeline cho external consumers (Python AI service, analytics, monitoring).
+Main service consumes market data from Redis Streams published by the **websocket service**. This enables real-time data access without direct external API dependencies.
 
-### Architecture Flow
+### Architecture Flow (Consumer Role)
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Layer 2: External APIs (Binance, CoinGecko, CMC)         │
-│  • Fetch market data from multiple sources                │
-│  • Circuit breaker + fallback logic                       │
-└─────────────────┬───────────────────────────────────────────┘
-                  │
-                  ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Layer 3: Market Data Adapter                              │
-│  • Normalize data format                                   │
-│  • Cache with RealTime strategy (10s TTL)                 │
+│  Websocket Service (Separate - Port 3001)                  │
+│  • Fetch from External APIs (Binance, CoinGecko, etc.)    │
 │  • Publish to Redis Streams (market_data_stream)          │
+│  • XADD with auto-trim at 1000 entries                    │
 └─────────────────┬───────────────────────────────────────────┘
-                  │
+                  │ Redis Streams
+                  │ (market_data_stream)
                   ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  Layer 1: Cache Manager + Redis Streams                    │
+│  Main Service (This Repo - Port 8000)                     │
+│                                                             │
+│  Layer 3: Redis Stream Reader                              │
+│  • XREAD / XREVRANGE to consume data                      │
+│  • Read latest entries for dashboard                       │
+│  • Monitor consumer lag                                    │
+│                                                             │
+│  Layer 1: Cache Manager                                    │
 │  • L1 Cache (moka): In-memory, <1ms                       │
 │  • L2 Cache (Redis): Distributed, 2-5ms                   │
-│  • Redis Streams: XADD publish, auto-trim at 1000 entries │
+│  • Cache consumed stream data                              │
+│                                                             │
+│  Layer 5: Business Logic                                   │
+│  • Dashboard: Aggregate cached + stream data               │
+│  • Reports: Render templates with data                     │
 └─────────────────┬───────────────────────────────────────────┘
                   │
-    ┌─────────────┴─────────────┐
-    ▼                           ▼
-┌─────────────┐         ┌──────────────────┐
-│ Web Clients │         │ External         │
-│ (REST API)  │         │ Consumers        │
-│             │         │ • Python AI      │
-│             │         │ • Analytics      │
-│             │         │ • Monitoring     │
-└─────────────┘         └──────────────────┘
+                  ▼
+            Web Clients (Browser)
 ```
 
-### Key Features
+### Key Features (Consumer Side)
 
-#### 1. **Automatic Publishing**
+#### 1. **Consuming from Streams**
 ```rust
-// Market data automatically published after caching
-match cache_manager.publish_to_stream(
-    "market_data_stream",
-    fields,  // Flattened JSON key-value pairs
-    Some(1000)  // Auto-trim at 1000 entries
-).await {
-    Ok(entry_id) => println!("📤 Published to stream: {}", entry_id),
-    Err(e) => println!("⚠️ Stream publish failed (non-critical): {}", e)
-}
+// Main service reads data published by websocket service
+let stream_data = redis_stream_reader
+    .read_stream_latest("market_data_stream", 10)
+    .await?;
+
+// Cache the consumed data
+cache_manager.cache_data("dashboard_summary", stream_data, ttl).await?;
 ```
 
-#### 2. **Consumer-Ready Format**
+#### 2. **Data Format**
 ```rust
-// JSON data → Flattened stream fields
-{
-  "btc_price_usd": 50000.0,
-  "eth_price_usd": 3000.0
-}
-↓
+// Websocket service publishes flattened fields
+// Main service consumes and reconstructs JSON
 [
   ("btc_price_usd", "50000.0"),
-  ("eth_price_usd", "3000.0")
+  ("eth_price_usd", "3000.0"),
+  ("updated_at", "2025-01-15T10:30:00Z")
 ]
+↓ (Main service reconstructs)
+{
+  "btc_price_usd": 50000.0,
+  "eth_price_usd": 3000.0,
+  "updated_at": "2025-01-15T10:30:00Z"
+}
 ```
 
-#### 3. **Stream Operations**
+#### 3. **Stream Reader Operations**
 ```rust
 // Read latest N entries (newest first)
-let latest = cache_manager.read_stream_latest("market_data_stream", 10).await?;
+let latest = redis_stream_reader
+    .read_stream_latest("market_data_stream", 10)
+    .await?;
 
-// Blocking read for new entries only
-let new_data = cache_manager.read_stream(
-    "market_data_stream",
-    "$",        // Only new entries
-    100,        // Max count
-    Some(5000)  // Block for 5 seconds
-).await?;
+// Blocking read for new entries (if needed)
+let new_data = redis_stream_reader
+    .read_stream("market_data_stream", "$", 100, Some(5000))
+    .await?;
 ```
 
-#### 4. **Python Consumer Example**
-```python
-import redis
-import json
+### Performance Characteristics (Consumer)
+- **📥 Read Latency**: <2ms (XREAD/XREVRANGE)
+- **📊 Throughput**: Process 10,000+ entries/second
+- **🔄 Consumer Lag**: Sub-second from websocket service
+- **💾 Cache Integration**: Stream data cached in L1+L2
+- **🛡️ Fault Tolerance**: Fallback to cache if stream unavailable
 
-r = redis.Redis(host='localhost', port=6379, decode_responses=True)
-
-# Read latest 10 entries
-entries = r.xrevrange('market_data_stream', count=10)
-
-for entry_id, fields in entries:
-    data = dict(fields)
-    print(f"Entry {entry_id}: BTC=${data.get('btc_price_usd')}")
-
-# Blocking read for real-time updates
-while True:
-    entries = r.xread({'market_data_stream': '$'}, block=5000, count=1)
-    for stream, messages in entries:
-        for entry_id, fields in messages:
-            print(f"New data: {dict(fields)}")
-```
-
-### Performance Characteristics
-- **📤 Publish Latency**: <1ms (non-blocking XADD)
-- **📊 Throughput**: 10,000+ entries/second sustained
-- **💾 Memory**: Auto-trim at 1000 entries (~200KB typical)
-- **🔄 Consumer Lag**: Sub-second for Python consumers
-- **🛡️ Fault Tolerance**: Stream failures don't affect core API
-
-### Monitoring
+### Monitoring (Main Service)
 ```bash
-# Check stream info
+# Check consumer health
+curl http://localhost:8000/health
+
+# Verify stream reader status
+curl http://localhost:8000/cache-stats
+
+# Monitor Redis Streams (from Redis CLI)
 redis-cli XINFO STREAM market_data_stream
-
-# Read latest entry
 redis-cli XREVRANGE market_data_stream + - COUNT 1
-
-# Monitor stream length
-redis-cli XLEN market_data_stream
 ```
-
-### Use Cases
-1. **Python AI Service**: Real-time market data for ML models
-2. **Analytics Pipeline**: Stream data to data warehouse
-3. **Monitoring Dashboards**: External monitoring tools
-4. **Backup Systems**: Asynchronous data replication
-5. **Audit Logging**: Track all market data updates
 
 ### Configuration
 ```env
-# Redis connection (default: localhost:6379)
+# Redis connection (REQUIRED for stream consumer)
 REDIS_URL=redis://localhost:6379
 
-# Stream settings (configured in code)
-STREAM_NAME=market_data_stream
-MAX_STREAM_LENGTH=1000
+# Websocket service should be running on port 3001
+# and publishing to 'market_data_stream'
 ```
 
 ---
@@ -862,19 +818,20 @@ strip target/release/web-server-report
 
 ## 🎯 Recent Updates
 
-### ✅ Redis Streams Integration (Latest - October 2025)
-- **📤 Native Stream Publishing**: Market data automatically published to `market_data_stream`
-- **🔄 Python AI Service Integration**: External consumers can read real-time market data
-- **⚡ Sub-millisecond Overhead**: Stream publishing adds <1ms latency
-- **🛡️ Non-blocking Architecture**: Stream failures don't affect core functionality
-- **📊 Auto-trimming**: Streams maintain last 1000 entries automatically
-- **🎯 Consumer-ready Format**: Flattened JSON fields optimized for XREAD consumers
+### ✅ Microservices Architecture Refactoring (Latest - January 2025)
+- **🏗️ Service Separation**: Split into Main Service (this repo) and Websocket Service
+- **📥 Redis Streams Consumer**: Main service consumes data from websocket service
+- **🔧 Layer Simplification**: 4-layer architecture (removed Layer 2 from main service)
+- **🎯 Clear Responsibilities**: Main service = presentation, Websocket service = external APIs
+- **🚀 Independent Deployment**: Each service can be deployed and scaled independently
+- **📡 Inter-service Communication**: Redis Streams for real-time data pipeline
 
-### ✅ Layer Architecture Refactoring (October 2025)
-- **🏝️ Layer 1 Enhancements**: Cache Manager with Redis Streams methods
-- **🌐 Layer 2 Improvements**: External APIs Island with stream publishing
-- **📡 Layer 3 Upgrades**: Market Data Adapter publishes to streams after caching
-- **🔧 Modular Design**: Each layer clearly separated with well-defined interfaces
+### ✅ Main Service Optimization (January 2025)
+- **🏝️ Layer 1 (Infrastructure)**: Cache Manager with Redis Streams reader
+- **📡 Layer 3 (Communication)**: Redis Stream Reader, Data Communication, Dashboard Communication
+- **🔍 Layer 4 (Observability)**: Health monitoring for main service components
+- **💼 Layer 5 (Business Logic)**: Dashboard aggregation and Crypto Reports rendering
+- **🔧 No External APIs**: All API calls handled by websocket service
 
 ### ✅ Cache Stampede Protection Implementation
 - **🛡️ DashMap+Mutex Request Coalescing**: Prevents multiple concurrent API calls for same cache key
@@ -931,12 +888,13 @@ strip target/release/web-server-report
 - 💡 Feature requests: [GitHub Discussions](https://github.com/thichuong/Web-server-Report/discussions)
 - 📧 Contact: [Your Email]
 
-**Related Projects**:
-- 🤖 [Crypto-Dashboard-and-AI-ReportGenerator](https://github.com/thichuong/Crypto-Dashboard-and-AI-ReportGenerator) - Admin UI & AI report generation
+**Related Services** (Microservices Architecture):
+- 🔌 **[Web-server-Report-websocket](../Web-server-Report-websocket)** - Websocket service handling external APIs (Binance, CoinGecko, etc.) and WebSocket connections
+- 🤖 **[Crypto-Dashboard-and-AI-ReportGenerator](https://github.com/thichuong/Crypto-Dashboard-and-AI-ReportGenerator)** - Admin UI & AI report generation
 
 ---
 
-⭐ **Star this repo** if it helps you build better crypto dashboards! 
+⭐ **Star this repo** if it helps you build better crypto dashboards!
 
-Built with ❤️ using Rust 🦀
+Built with ❤️ using Rust 🦀 | **Microservices Architecture**
 
