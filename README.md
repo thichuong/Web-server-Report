@@ -2,7 +2,7 @@
 
 🚀 **Ultra-fast Rust web server** achieving **16,829+ RPS** with **5.2ms latency** for crypto investment reports with advanced multi-threading, Cache Stampede Protection, and microservices architecture.
 
-> **🏗️ Microservices Architecture**: This is the **Main Service** that handles web presentation and data consumption. External APIs and WebSocket functionality are handled by the separate [Web-server-Report-websocket](../Web-server-Report-websocket) service.
+> **🏗️ Microservices Architecture**: This is the **Main Service** that handles web presentation and data consumption. External APIs and WebSocket functionality are handled by the separate [Web-server-Report-websocket](https://github.com/thichuong/Web-server-Report-websocket) service.
 
 ## ✨ Key Features
 
