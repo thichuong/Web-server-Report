@@ -9,22 +9,20 @@
 use serde::{Serialize, Deserialize};
 use sqlx::{FromRow};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 // Import from current state - will be refactored when lower layers are implemented
 use crate::service_islands::layer1_infrastructure::AppState;
 
 /// Memory limits for cache entries - Production safety guards
-/// 
-/// These limits prevent memory exhaustion and ensure stable operation under high load
-const MAX_COMPRESSED_ENTRY_SIZE: usize = 5 * 1024 * 1024; // 5MB per entry
-const MAX_TOTAL_COMPRESSED_MEMORY: usize = 500 * 1024 * 1024; // 500MB total
+///
+/// These limits prevent memory exhaustion and ensure stable operation under high load.
+///
+/// ⚠️ NOTE: These are soft limits for logging purposes only. The actual cache memory management
+/// is handled by the multi-tier-cache library (L1 moka cache: 2000 entries, L2 Redis with TTL).
+/// The library automatically evicts entries based on size and TTL, so manual memory tracking
+/// is unnecessary and can lead to inaccurate counts due to eviction events.
+const MAX_COMPRESSED_ENTRY_SIZE: usize = 5 * 1024 * 1024; // 5MB per entry (soft limit for logging)
 const WARN_COMPRESSED_ENTRY_SIZE: usize = 2 * 1024 * 1024; // 2MB warning threshold
-
-/// Global memory tracking for compressed cache entries
-/// 
-/// Tracks total memory used by compressed report cache to prevent memory exhaustion
-static TOTAL_COMPRESSED_CACHE_SIZE: AtomicUsize = AtomicUsize::new(0);
 
 /// Report model for data layer - matches business logic model
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -179,65 +177,61 @@ impl CryptoDataService {
     }
 
     /// Cache rendered report compressed data with memory safety guards
-    /// ✅ PRODUCTION-READY: Implements memory limits to prevent cache exhaustion
-    pub async fn cache_rendered_report_compressed(&self, state: &Arc<AppState>, report_id: i32, compressed_data: Vec<u8>) -> Result<(), anyhow::Error> {
+    ///
+    /// ✅ PRODUCTION-READY: Delegates memory management to multi-tier-cache library.
+    /// The library automatically handles eviction based on size limits (2000 entries)
+    /// and TTL expiration, eliminating need for manual memory tracking.
+    ///
+    /// ✅ MEMORY OPTIMIZED: Accepts &[u8] reference instead of owned Vec<u8> to avoid
+    /// unnecessary clones. The data is serialized for cache storage anyway.
+    pub async fn cache_rendered_report_compressed(&self, state: &Arc<AppState>, report_id: i32, compressed_data: &[u8]) -> Result<(), anyhow::Error> {
         let data_size = compressed_data.len();
         let size_kb = data_size / 1024;
         let size_mb = data_size as f64 / (1024.0 * 1024.0);
         let report_type = if report_id == -1 { "latest report" } else { &format!("report #{}", report_id) };
-        
-        // 🛡️ GUARD 1: Check individual entry size limit
+
+        // 🛡️ GUARD: Warn if individual entry size is very large (soft limit for logging)
         if data_size > MAX_COMPRESSED_ENTRY_SIZE {
-            eprintln!("❌ Layer 3: MEMORY LIMIT - Compressed data too large for {} ({}MB > {}MB limit)", 
-                     report_type, size_mb, MAX_COMPRESSED_ENTRY_SIZE as f64 / (1024.0 * 1024.0));
-            eprintln!("   Skipping cache to prevent memory exhaustion");
-            return Ok(()); // Not an error, just skip caching
-        }
-        
-        // 🛡️ GUARD 2: Check total memory limit
-        let current_total = TOTAL_COMPRESSED_CACHE_SIZE.load(Ordering::Relaxed);
-        let new_total = current_total + data_size;
-        
-        if new_total > MAX_TOTAL_COMPRESSED_MEMORY {
-            let current_mb = current_total as f64 / (1024.0 * 1024.0);
-            let max_mb = MAX_TOTAL_COMPRESSED_MEMORY as f64 / (1024.0 * 1024.0);
-            eprintln!("❌ Layer 3: MEMORY LIMIT - Total compressed cache would exceed limit ({:.1}MB + {:.1}MB > {:.1}MB)", 
-                     current_mb, size_mb, max_mb);
-            eprintln!("   Skipping cache to prevent memory exhaustion. Consider evicting old entries.");
-            return Ok(()); // Not an error, just skip caching
-        }
-        
-        // ⚠️ WARNING: Log if entry is large
-        if data_size > WARN_COMPRESSED_ENTRY_SIZE {
-            println!("⚠️  Layer 3: Large compressed entry for {} ({:.1}MB) - consider optimization", 
+            eprintln!("⚠️  Layer 3: Very large compressed data for {} ({:.1}MB) - may impact cache performance",
+                     report_type, size_mb);
+            eprintln!("   Note: Cache library will handle storage, but consider optimizing entry size");
+        } else if data_size > WARN_COMPRESSED_ENTRY_SIZE {
+            println!("⚠️  Layer 3: Large compressed entry for {} ({:.1}MB) - consider optimization",
                     report_type, size_mb);
         }
-        
-        // ✅ All checks passed - proceed with caching
+
+        // ✅ Cache the data - library handles memory management automatically
         if let Some(ref cache_system) = state.cache_system {
             let cache_key = format!("compressed_report_{}", report_id);
             let strategy = crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm;
-            let compressed_json = serde_json::to_value(&compressed_data).unwrap_or_default();
-            
+            // Serialize the slice - this creates a temporary Vec internally, but that's required for JSON serialization
+            let compressed_json = serde_json::to_value(compressed_data).unwrap_or_default();
+
             cache_system.cache_manager.set_with_strategy(&cache_key, compressed_json, strategy).await?;
-            
-            // Update global memory tracking
-            TOTAL_COMPRESSED_CACHE_SIZE.fetch_add(data_size, Ordering::Relaxed);
-            let new_total_mb = (current_total + data_size) as f64 / (1024.0 * 1024.0);
-            
-            println!("💾 Layer 3: Cached compressed data for {} ({}KB) - Total cache: {:.1}MB / {:.1}MB", 
-                    report_type, size_kb, new_total_mb, 
-                    MAX_TOTAL_COMPRESSED_MEMORY as f64 / (1024.0 * 1024.0));
+
+            println!("💾 Layer 3: Cached compressed data for {} ({}KB)", report_type, size_kb);
         }
         Ok(())
     }
-    
-    /// Get current compressed cache memory statistics
-    /// ✅ PRODUCTION-READY: Monitoring endpoint for cache memory usage
-    pub fn get_compressed_cache_stats() -> (usize, usize, f64) {
-        let current_bytes = TOTAL_COMPRESSED_CACHE_SIZE.load(Ordering::Relaxed);
-        let usage_percent = (current_bytes as f64 / MAX_TOTAL_COMPRESSED_MEMORY as f64) * 100.0;
-        (current_bytes, MAX_TOTAL_COMPRESSED_MEMORY, usage_percent)
+
+    /// Get current cache statistics from the cache manager
+    ///
+    /// ✅ PRODUCTION-READY: Queries actual cache statistics from multi-tier-cache library
+    /// instead of maintaining separate manual counters. This ensures accuracy even after
+    /// automatic evictions.
+    pub fn get_cache_stats(state: &Arc<AppState>) -> Option<String> {
+        if let Some(ref cache_system) = state.cache_system {
+            let stats = cache_system.cache_manager.get_stats();
+            Some(format!(
+                "L1 Hits: {} | L2 Hits: {} | Misses: {} | Hit Rate: {:.1}%",
+                stats.l1_hits,
+                stats.l2_hits,
+                stats.misses,
+                stats.hit_rate
+            ))
+        } else {
+            None
+        }
     }
 
     // ========================================
@@ -277,8 +271,9 @@ impl CryptoDataService {
     }
 
     /// Step 2: Format report items with rayon
+    /// ✅ PRODUCTION-READY: Added 10s timeout to prevent hanging tasks
     async fn format_report_items(list: Vec<ReportSummaryData>) -> anyhow::Result<Vec<serde_json::Value>> {
-        tokio::task::spawn_blocking(move || {
+        let task = tokio::task::spawn_blocking(move || {
             use rayon::prelude::*;
 
             list.par_iter()
@@ -293,19 +288,29 @@ impl CryptoDataService {
                     })
                 })
                 .collect()
-        }).await.map_err(|e| {
-            println!("❌ Layer 3: Date formatting task join error: {:#?}", e);
-            anyhow::anyhow!("Task join error: {}", e)
-        })
+        });
+
+        match tokio::time::timeout(std::time::Duration::from_secs(10), task).await {
+            Ok(Ok(result)) => Ok(result),
+            Ok(Err(e)) => {
+                println!("❌ Layer 3: Date formatting task join error: {:#?}", e);
+                Err(anyhow::anyhow!("Task join error: {}", e))
+            }
+            Err(_) => {
+                println!("❌ Layer 3: Date formatting timeout after 10s");
+                Err(anyhow::anyhow!("Date formatting timeout - operation took longer than 10 seconds"))
+            }
+        }
     }
 
     /// Step 3: Calculate pagination
+    /// ✅ PRODUCTION-READY: Added 5s timeout to prevent hanging tasks
     async fn calculate_pagination(
         total: i64,
         page: i64,
         per_page: i64,
     ) -> anyhow::Result<(i64, Vec<Option<i64>>)> {
-        tokio::task::spawn_blocking(move || {
+        let task = tokio::task::spawn_blocking(move || {
             let pages = if total == 0 { 1 } else { ((total as f64) / (per_page as f64)).ceil() as i64 };
 
             let mut page_numbers: Vec<Option<i64>> = Vec::new();
@@ -348,10 +353,19 @@ impl CryptoDataService {
             }
 
             (pages, page_numbers)
-        }).await.map_err(|e| {
-            println!("❌ Layer 3: Pagination task join error: {:#?}", e);
-            anyhow::anyhow!("Task join error: {}", e)
-        })
+        });
+
+        match tokio::time::timeout(std::time::Duration::from_secs(5), task).await {
+            Ok(Ok(result)) => Ok(result),
+            Ok(Err(e)) => {
+                println!("❌ Layer 3: Pagination task join error: {:#?}", e);
+                Err(anyhow::anyhow!("Task join error: {}", e))
+            }
+            Err(_) => {
+                println!("❌ Layer 3: Pagination timeout after 5s");
+                Err(anyhow::anyhow!("Pagination timeout - operation took longer than 5 seconds"))
+            }
+        }
     }
 
     /// Step 4: Build reports context
@@ -384,21 +398,32 @@ impl CryptoDataService {
     }
 
     /// Step 5: Render template
+    /// ✅ PRODUCTION-READY: Added 15s timeout to prevent hanging tasks
     async fn render_reports_template(
         tera: Arc<tera::Tera>,
         reports: serde_json::Value,
     ) -> anyhow::Result<String> {
-        tokio::task::spawn_blocking(move || {
+        let task = tokio::task::spawn_blocking(move || {
             let mut context = tera::Context::new();
             context.insert("reports", &reports);
             tera.render("crypto/routes/reports/list.html", &context)
-        }).await.map_err(|e| {
-            println!("❌ Layer 3: Reports list task join error: {:#?}", e);
-            anyhow::anyhow!("Task join error: {}", e)
-        })?.map_err(|e| {
-            println!("❌ Layer 3: Reports list template render error: {:#?}", e);
-            anyhow::anyhow!("Template render error: {}", e)
-        })
+        });
+
+        match tokio::time::timeout(std::time::Duration::from_secs(15), task).await {
+            Ok(Ok(Ok(html))) => Ok(html),
+            Ok(Ok(Err(e))) => {
+                println!("❌ Layer 3: Reports list template render error: {:#?}", e);
+                Err(anyhow::anyhow!("Template render error: {}", e))
+            }
+            Ok(Err(e)) => {
+                println!("❌ Layer 3: Reports list task join error: {:#?}", e);
+                Err(anyhow::anyhow!("Task join error: {}", e))
+            }
+            Err(_) => {
+                println!("❌ Layer 3: Reports list template rendering timeout after 15s");
+                Err(anyhow::anyhow!("Template rendering timeout - operation took longer than 15 seconds"))
+            }
+        }
     }
 
     /// Step 6: Compress HTML

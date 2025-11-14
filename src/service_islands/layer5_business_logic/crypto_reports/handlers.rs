@@ -139,18 +139,19 @@ impl CryptoHandlers {
 
         match db_res {
             Ok(Some(report)) => {
-                // ✅ Pass Arc directly - no clone needed
+                // ✅ MEMORY OPTIMIZED: Move report ownership to avoid cloning in template_orchestrator
                 // Template rendering with TemplateOrchestrator
                 match self.template_orchestrator.render_crypto_report_view(
                     &state.tera,
-                    &report,
+                    report,  // ✅ Move ownership - no clone needed!
                     chart_modules_content,  // ✅ Arc<String> passed directly, zero clone
                     None
                 ).await {
                     Ok(compressed_data) => {
                         println!("✅ Layer 5: Render thành công cho latest report. Yêu cầu Layer 3 cache lại compressed data.");
                         // BƯỚC 3: SAU KHI RENDER THÀNH CÔNG, YÊU CẦU LAYER 3 LƯU LẠI COMPRESSED DATA
-                        if let Err(e) = data_service.cache_rendered_report_compressed(state, -1, compressed_data.clone()).await {
+                        // ✅ MEMORY OPTIMIZED: Pass reference instead of cloning entire Vec<u8>
+                        if let Err(e) = data_service.cache_rendered_report_compressed(state, -1, &compressed_data).await {
                             eprintln!("⚠️ Layer 5: Không thể cache compressed data cho latest report: {}", e);
                         }
                         println!("✅ Template rendered from DB via TemplateOrchestrator - crypto_index complete");
@@ -232,18 +233,19 @@ impl CryptoHandlers {
 
         match db_res {
             Ok(Some(report)) => {
-                // ✅ Pass Arc directly - no clone needed
+                // ✅ MEMORY OPTIMIZED: Move report ownership to avoid cloning in template_orchestrator
                 // Template rendering with TemplateOrchestrator
                 match self.template_orchestrator.render_crypto_report_view(
                     &state.tera,
-                    &report,
+                    report,  // ✅ Move ownership - no clone needed!
                     chart_modules_content,  // ✅ Arc<String> passed directly, zero clone
                     None
                 ).await {
                     Ok(compressed_data) => {
                         println!("✅ Layer 5: Render thành công cho report #{}. Yêu cầu Layer 3 cache lại compressed data.", report_id);
                         // BƯỚC 3: SAU KHI RENDER THÀNH CÔNG, YÊU CẦU LAYER 3 LƯU LẠI COMPRESSED DATA
-                        if let Err(e) = data_service.cache_rendered_report_compressed(state, report_id, compressed_data.clone()).await {
+                        // ✅ MEMORY OPTIMIZED: Pass reference instead of cloning entire Vec<u8>
+                        if let Err(e) = data_service.cache_rendered_report_compressed(state, report_id, &compressed_data).await {
                             eprintln!("⚠️ Layer 5: Không thể cache compressed data cho report #{}: {}", report_id, e);
                         }
                         println!("✅ Template rendered from DB via TemplateOrchestrator - crypto_report_by_id complete");

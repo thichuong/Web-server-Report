@@ -142,6 +142,24 @@ impl RedisStreamReader {
             }
         }
     }
+
+    /// Cleanup resources on shutdown
+    ///
+    /// ✅ PRODUCTION-READY: Graceful cleanup for Redis Stream Reader
+    /// Note: Redis connections are managed by the cache_system library and will
+    /// be automatically cleaned up when cache_system is dropped.
+    pub async fn cleanup(&self) -> Result<()> {
+        println!("🧹 RedisStreamReader: Starting cleanup...");
+
+        // Note: If using Redis consumer groups, we would acknowledge pending messages here
+        // Currently using simple XREAD without consumer groups, so no pending messages to handle
+
+        // Redis connections managed by cache_system - no manual cleanup needed
+        println!("   ✅ Redis connections managed by cache_system library");
+
+        println!("✅ RedisStreamReader: Cleanup complete");
+        Ok(())
+    }
 }
 
 #[cfg(test)]

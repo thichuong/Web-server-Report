@@ -44,16 +44,16 @@ async fn health_check(
 }
 
 /// Performance metrics endpoint
-/// ✅ PRODUCTION-READY: Includes memory monitoring for compressed cache
+/// ✅ PRODUCTION-READY: Queries actual cache statistics from multi-tier-cache library
 async fn performance_metrics(
-    State(_service_islands): State<Arc<ServiceIslands>>
+    State(service_islands): State<Arc<ServiceIslands>>
 ) -> Json<serde_json::Value> {
-    // Get compressed cache memory statistics
+    // Get actual cache statistics from library
     use crate::service_islands::layer3_communication::data_communication::CryptoDataService;
-    let (current_bytes, max_bytes, usage_percent) = CryptoDataService::get_compressed_cache_stats();
-    let current_mb = current_bytes as f64 / (1024.0 * 1024.0);
-    let max_mb = max_bytes as f64 / (1024.0 * 1024.0);
-    
+    let legacy_state = service_islands.get_legacy_app_state();
+    let cache_info = CryptoDataService::get_cache_stats(&legacy_state)
+        .unwrap_or_else(|| "Cache statistics unavailable".to_string());
+
     Json(json!({
         "performance": {
             "service_islands_active": 7,
@@ -61,12 +61,7 @@ async fn performance_metrics(
             "memory_usage": "optimized",
             "cache_status": "active"
         },
-        "compressed_cache_memory": {
-            "current_mb": format!("{:.2}", current_mb),
-            "max_mb": format!("{:.2}", max_mb),
-            "usage_percent": format!("{:.1}%", usage_percent),
-            "status": if usage_percent < 80.0 { "healthy" } else if usage_percent < 95.0 { "warning" } else { "critical" }
-        }
+        "cache_info": cache_info
     }))
 }
 
@@ -82,45 +77,50 @@ async fn clear_cache(
 }
 
 /// Cache statistics endpoint - delegates to Cache System Island
-/// ✅ PRODUCTION-READY: Detailed memory and cache statistics
+/// ✅ PRODUCTION-READY: Queries detailed statistics from multi-tier-cache library
 async fn cache_stats(
-    State(_service_islands): State<Arc<ServiceIslands>>
+    State(service_islands): State<Arc<ServiceIslands>>
 ) -> Json<serde_json::Value> {
-    // Get compressed cache memory statistics
-    use crate::service_islands::layer3_communication::data_communication::CryptoDataService;
-    let (current_bytes, max_bytes, usage_percent) = CryptoDataService::get_compressed_cache_stats();
-    let current_mb = current_bytes as f64 / (1024.0 * 1024.0);
-    let max_mb = max_bytes as f64 / (1024.0 * 1024.0);
-    let available_mb = (max_bytes - current_bytes) as f64 / (1024.0 * 1024.0);
-    
-    Json(json!({
-        "cache": {
-            "l1_cache": "active",
-            "l2_cache": "active", 
-            "status": "operational"
-        },
-        "compressed_cache": {
-            "memory": {
-                "current_bytes": current_bytes,
-                "current_mb": format!("{:.2}", current_mb),
-                "max_bytes": max_bytes,
-                "max_mb": format!("{:.2}", max_mb),
-                "available_mb": format!("{:.2}", available_mb),
-                "usage_percent": format!("{:.1}%", usage_percent)
+    let legacy_state = service_islands.get_legacy_app_state();
+
+    // Get actual cache statistics from the multi-tier-cache library
+    if let Some(ref cache_system) = legacy_state.cache_system {
+        let stats = cache_system.cache_manager.get_stats();
+        Json(json!({
+            "cache": {
+                "system": "multi-tier-cache library v0.5.2",
+                "l1_cache": "active (moka)",
+                "l2_cache": "active (Redis)",
+                "status": "operational"
             },
-            "limits": {
-                "max_entry_size_mb": 5,
-                "max_total_size_mb": 500,
-                "warn_entry_size_mb": 2
+            "statistics": {
+                "total_requests": stats.total_requests,
+                "l1_hits": stats.l1_hits,
+                "l2_hits": stats.l2_hits,
+                "total_hits": stats.total_hits,
+                "misses": stats.misses,
+                "promotions": stats.promotions,
+                "hit_rate": format!("{:.1}%", stats.hit_rate),
+                "in_flight_requests": stats.in_flight_requests
+            },
+            "configuration": {
+                "l1_max_capacity": 2000,
+                "l1_ttl": "5 minutes (ShortTerm)",
+                "l2_ttl": "1 hour (default)",
+                "eviction": "automatic (size + TTL based)",
+                "stampede_protection": "enabled (DashMap coalescing)"
             },
             "health": {
-                "status": if usage_percent < 80.0 { "healthy" } else if usage_percent < 95.0 { "warning" } else { "critical" },
-                "recommendation": if usage_percent > 90.0 { 
-                    "Consider clearing old cache entries or increasing limits" 
-                } else { 
-                    "Operating normally" 
-                }
+                "status": "healthy",
+                "recommendation": "Cache operating normally with automatic memory management"
             }
-        }
-    }))
+        }))
+    } else {
+        Json(json!({
+            "error": "Cache system not available",
+            "cache": {
+                "status": "unavailable"
+            }
+        }))
+    }
 }

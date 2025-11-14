@@ -29,7 +29,7 @@ async fn main() -> Result<(), anyhow::Error> {
     }
 
     // Create comprehensive router using Service Islands
-    let app = create_service_islands_router(service_islands);
+    let app = create_service_islands_router(service_islands.clone());
 
     // Start server
     let host = env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
@@ -37,13 +37,33 @@ async fn main() -> Result<(), anyhow::Error> {
         .unwrap_or_else(|_| "8000".to_string())
         .parse()
         .expect("PORT must be a valid number");
-    
+
     let addr: SocketAddr = format!("{}:{}", host, port)
         .parse()
         .expect("HOST and PORT must form a valid address");
     println!("🌐 Server listening on http://{}", addr);
-    
-    axum::Server::bind(&addr).serve(app.into_make_service()).await?;
-    
+
+    // Setup graceful shutdown signal handler
+    let shutdown_signal = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("Failed to install CTRL+C signal handler");
+        println!("\n🛑 Received shutdown signal (Ctrl+C)");
+    };
+
+    // Start server with graceful shutdown support
+    println!("✅ Server started - Press Ctrl+C to shutdown gracefully");
+    axum::Server::bind(&addr)
+        .serve(app.into_make_service())
+        .with_graceful_shutdown(shutdown_signal)
+        .await?;
+
+    // Perform graceful shutdown cleanup
+    println!("🧹 Starting graceful shutdown of Service Islands...");
+    if let Err(e) = service_islands.shutdown().await {
+        eprintln!("⚠️  Shutdown error: {}", e);
+    }
+
+    println!("👋 Server shutdown complete - All resources cleaned up");
     Ok(())
 }
