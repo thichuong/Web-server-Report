@@ -51,7 +51,7 @@ impl CryptoHandlers {
     }
 
     /// Create cached response with proper headers
-    /// 
+    ///
     /// From archive_old_code/handlers/crypto.rs::create_cached_response
     #[allow(dead_code)]
     pub fn create_cached_response(&self, html: String, cache_status: &str) -> Response {
@@ -61,12 +61,18 @@ impl CryptoHandlers {
             .header("content-type", "text/html; charset=utf-8")
             .header("x-cache", cache_status)
             .body(html)
-            .unwrap()
+            .unwrap_or_else(|e| {
+                eprintln!("⚠️ Failed to build cached response: {}", e);
+                Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .body("Response build error".to_string())
+                    .unwrap()  // This is guaranteed safe with literal body
+            })
             .into_response()
     }
 
     /// Create compressed HTTP response with proper headers
-    /// 
+    ///
     /// Helper function to create HTTP response with gzip compression headers
     pub fn create_compressed_response(compressed_data: Vec<u8>) -> Response {
         Response::builder()
@@ -76,7 +82,13 @@ impl CryptoHandlers {
             .header("content-type", "text/html; charset=utf-8")
             .header("content-encoding", "gzip")
             .body(Body::from(compressed_data))
-            .unwrap()
+            .unwrap_or_else(|e| {
+                eprintln!("⚠️ Failed to build compressed response: {}", e);
+                Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .body(Body::from("Response build error"))
+                    .unwrap()  // This is guaranteed safe with literal body
+            })
             .into_response()
     }
 

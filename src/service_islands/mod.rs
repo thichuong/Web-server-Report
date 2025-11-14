@@ -68,7 +68,7 @@ impl ServiceIslands {
 
         // Initialize Layer 3: Communication (Redis Stream Reader for data from websocket service)
         println!("📡 Initializing Layer 3: Communication Islands (Redis Stream Reader)...");
-        let redis_stream_reader = Arc::new(RedisStreamReader::new(cache_system.clone()));
+        let redis_stream_reader = Arc::new(RedisStreamReader::new(Arc::clone(&cache_system)));
         println!("✅ Redis Stream Reader initialized!");
 
         // Initialize Layer 4: Observability
@@ -145,7 +145,7 @@ impl ServiceIslands {
     /// Get pre-loaded chart modules content for optimal performance
     /// Direct access to Layer 1 SharedComponentsIsland
     pub fn get_chart_modules_content(&self) -> Arc<String> {
-        self.shared_components.chart_modules_content.clone()
+        Arc::clone(&self.shared_components.chart_modules_content)
     }
     
     /// Get legacy AppState for backward compatibility
@@ -153,9 +153,9 @@ impl ServiceIslands {
     /// This method creates a legacy AppState instance with cache system integration
     /// for components that haven't been fully migrated to Service Islands.
     pub fn get_legacy_app_state(&self) -> Arc<layer1_infrastructure::AppState> {
-        self.legacy_app_state.get_or_init(|| {
-            Arc::new(self.app_state.create_legacy_app_state(Some(self.cache_system.clone())))
-        }).clone()
+        Arc::clone(self.legacy_app_state.get_or_init(|| {
+            Arc::new(self.app_state.create_legacy_app_state(Some(Arc::clone(&self.cache_system))))
+        }))
     }
 
     /// Graceful shutdown of all Service Islands

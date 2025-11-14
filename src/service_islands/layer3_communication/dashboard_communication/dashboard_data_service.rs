@@ -67,7 +67,7 @@ impl DashboardDataService {
     pub async fn cache_rendered_homepage_compressed(
         &self,
         state: &Arc<AppState>,
-        compressed_data: Vec<u8>,
+        compressed_data: &[u8],
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let cache_key = "dashboard_homepage_compressed";
         

@@ -86,7 +86,13 @@ async fn crypto_reports_list(
                 .header("content-encoding", "gzip")
                 .header("x-cache", "Layer5-Compressed")
                 .body(Body::from(compressed_data))
-                .unwrap()
+                .unwrap_or_else(|e| {
+                    eprintln!("⚠️ Failed to build reports list response: {}", e);
+                    Response::builder()
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .body(Body::from("Response build error"))
+                        .unwrap()  // This is guaranteed safe with literal body
+                })
                 .into_response()
         }
         Err(e) => {
@@ -120,18 +126,6 @@ async fn crypto_view_report(
 
     println!("📄 [Route] Requesting report ID: {}", report_id);
 
-    // First fetch real-time market data from Layer 5 → Layer 2 for enhanced template context
-    // let realtime_data = match service_islands.crypto_reports.fetch_realtime_market_data().await {
-    //     Ok(data) => {
-    //         println!("✅ [Route] Got real-time data from Layer 5 for template context");
-    //         Some(data)
-    //     }
-    //     Err(e) => {
-    //         println!("⚠️ [Route] Failed to get real-time data: {}, using cached template only", e);
-    //         None
-    //     }
-    // };
-
     // Get pre-loaded chart modules content for optimal performance
     let chart_modules_content = service_islands.get_chart_modules_content();
 
@@ -153,7 +147,13 @@ async fn crypto_view_report(
                 .header("x-cache", "Layer5-Generated-Compressed")
                 .header("x-report-id", report_id.to_string())
                 .body(Body::from(compressed_data))
-                .unwrap()
+                .unwrap_or_else(|e| {
+                    eprintln!("⚠️ Failed to build report response: {}", e);
+                    Response::builder()
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .body(Body::from("Response build error"))
+                        .unwrap()  // This is guaranteed safe with literal body
+                })
                 .into_response()
         }
         Err(e) => {

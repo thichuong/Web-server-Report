@@ -53,9 +53,9 @@ impl CacheSystemIsland {
         let inner = LibraryCacheSystem::new().await?;
 
         // Extract Arc references for backward compatibility
-        let cache_manager = inner.cache_manager.clone();
-        let l1_cache = inner.l1_cache.clone();
-        let l2_cache = inner.l2_cache.clone();
+        let cache_manager = Arc::clone(&inner.cache_manager);
+        let l1_cache = Arc::clone(&inner.l1_cache);
+        let l2_cache = Arc::clone(&inner.l2_cache);
 
         println!("✅ Cache System Island initialized successfully (library-backed)");
 
@@ -72,13 +72,10 @@ impl CacheSystemIsland {
         self.inner.health_check().await
     }
 
-    /// Get cache manager (for compatibility with existing code)
-    #[allow(dead_code)]
-    pub fn get_cache_manager(&self) -> Arc<CacheManager> {
-        self.cache_manager.clone()
-    }
-
     /// Direct access to cache manager
+    ///
+    /// Returns a reference to the Arc<CacheManager> for efficient access.
+    /// Use Arc::clone() if you need to clone the Arc.
     pub fn cache_manager(&self) -> &Arc<CacheManager> {
         &self.cache_manager
     }

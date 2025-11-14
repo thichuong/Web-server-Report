@@ -25,42 +25,45 @@ impl RedisStreamReader {
         }
     }
 
-    /// Read the latest market data from Redis Stream
+    /// Read the latest market data using cache-first strategy with automatic fallback
     ///
-    /// Returns the most recent entry from the stream.
-    /// Falls back to cache if stream is empty.
+    /// Uses `get_or_compute_typed` for automatic cache management:
+    /// - Cache hit: Returns immediately (L1 <1ms, L2 2-5ms)
+    /// - Cache miss: Reads from Redis Stream, caches result, then returns
+    /// - Built-in cache stampede protection prevents multiple concurrent stream reads
     pub async fn read_latest_market_data(&self) -> Result<Option<Value>> {
-        println!("📖 Reading latest market data from Redis Stream...");
+        println!("📖 Reading latest market data (cache-first with auto-fallback)...");
 
-        // Try to read from Redis Stream first
-        match self.read_from_stream().await {
-            Ok(Some(data)) => {
-                println!("✅ Market data read from Redis Stream");
-                return Ok(Some(data));
-            }
-            Ok(None) => {
-                println!("⚠️ No data in Redis Stream, trying cache...");
-            }
-            Err(e) => {
-                println!("❌ Failed to read from Redis Stream: {}, trying cache...", e);
-            }
-        }
+        use crate::service_islands::layer1_infrastructure::cache_system_island::CacheStrategy;
 
-        // Fallback to reading from cache
-        match self.cache_system.cache_manager().get("latest_market_data").await {
-            Ok(Some(data)) => {
-                println!("✅ Market data read from cache (fallback)");
-                Ok(Some(data))
-            }
-            Ok(None) => {
-                println!("⚠️ No data in cache either");
-                Ok(None)
-            }
-            Err(e) => {
-                println!("❌ Failed to read from cache: {}", e);
-                Err(anyhow::anyhow!("Failed to read market data: {}", e))
-            }
-        }
+        // ✅ IDIOMATIC: Use get_or_compute_typed for automatic cache management
+        // This provides cache-first behavior + stampede protection + automatic caching
+        self.cache_system
+            .cache_manager()
+            .get_or_compute_typed(
+                "latest_market_data",
+                CacheStrategy::ShortTerm, // 5 minutes TTL
+                || async {
+                    // Compute function: only called on cache miss
+                    println!("💾 Cache miss - reading from Redis Stream...");
+
+                    match self.read_from_stream().await {
+                        Ok(Some(data)) => {
+                            println!("✅ Market data read from Redis Stream (will be cached)");
+                            Ok(Some(data))
+                        }
+                        Ok(None) => {
+                            println!("⚠️ No data in Redis Stream");
+                            Ok(None)
+                        }
+                        Err(e) => {
+                            println!("❌ Failed to read from Redis Stream: {}", e);
+                            Err(anyhow::anyhow!("Failed to read market data: {}", e))
+                        }
+                    }
+                },
+            )
+            .await
     }
 
     /// Read from Redis Stream

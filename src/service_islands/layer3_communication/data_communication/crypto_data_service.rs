@@ -485,11 +485,13 @@ impl CryptoDataService {
                     let (pages, page_numbers) = Self::calculate_pagination(total, page, per_page).await?;
 
                     // Step 4: Build reports context
-                    let reports = Self::build_reports_context(items.clone(), total, page, per_page, pages, page_numbers);
+                    // ✅ IDIOMATIC: Capture length before moving ownership to avoid clone
+                    let items_count = items.len();
+                    let reports = Self::build_reports_context(items, total, page, per_page, pages, page_numbers);
 
                     // Step 5: Render template
                     let html = Self::render_reports_template(tera, reports).await?;
-                    println!("✅ Layer 3: Reports list template rendered successfully - {} items, page {} of {}", items.len(), page, pages);
+                    println!("✅ Layer 3: Reports list template rendered successfully - {} items, page {} of {}", items_count, page, pages);
 
                     // Step 6: Compress HTML
                     let compressed_data = Self::compress_html(html, page)?;

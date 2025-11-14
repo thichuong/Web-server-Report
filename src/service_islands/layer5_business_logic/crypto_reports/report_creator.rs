@@ -59,6 +59,17 @@ lazy_static! {
         Regex::new(r"parent\.").unwrap(),                   // Remove parent access
         Regex::new(r"top\.").unwrap(),                      // Remove top access
     ];
+
+    /// Pre-loaded iframe template to avoid file I/O on every request
+    /// Eliminates thousands of syscalls/second at high RPS
+    static ref VIEW_IFRAME_TEMPLATE: String = {
+        // Try to load from file first, fall back to compile-time include
+        std::fs::read_to_string("shared_components/view_iframe.html")
+            .unwrap_or_else(|_| {
+                // Compile-time fallback ensures template is always available
+                include_str!("../../../../shared_components/view_iframe.html").to_string()
+            })
+    };
 }
 
 /// Report model - exactly from archive_old_code/models.rs with iframe sandboxing support
@@ -367,16 +378,9 @@ impl ReportCreator {
             ("active", "")
         };
 
-        // Load HTML template from external file
-        let template_path = "shared_components/view_iframe.html";
-        let template_content = match std::fs::read_to_string(template_path) {
-            Ok(content) => content,
-            Err(e) => {
-                eprintln!("⚠️ ReportCreator: Failed to load template {}: {}. Using fallback.", template_path, e);
-                // Fallback to minimal template if file loading fails
-                include_str!("../../../../shared_components/view_iframe.html").to_string()
-            }
-        };
+        // ✅ PERFORMANCE OPTIMIZATION: Use pre-loaded template (zero file I/O)
+        // At high RPS, this eliminates thousands of syscalls/second
+        let template_content = &*VIEW_IFRAME_TEMPLATE;
 
         // Replace template variables
         template_content
@@ -425,29 +429,34 @@ impl ReportCreator {
                         .status(StatusCode::FORBIDDEN)
                         .header("content-type", "text/plain")
                         .body(Body::from("Invalid sandbox token"))
-                        .unwrap()
+                        .unwrap_or_else(|e| {
+                            eprintln!("⚠️ Failed to build forbidden response: {}", e);
+                            Response::builder()
+                                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                                .body(Body::from("Response build error"))
+                                .unwrap()  // This is guaranteed safe
+                        })
                         .into_response()
                     );
                 }
                 
                 // Use the pre-generated complete HTML document from cache
                 // If a specific language is requested and it's different from default (vi), regenerate
-                let sandboxed_html = if let Some(lang) = language {
-                    if lang != "vi" {
+                let sandboxed_html = match language {
+                    Some(lang) if lang != "vi" => {
                         // Regenerate with specific language
                         self.regenerate_html_document(&sandboxed_report, Some(lang))
-                    } else {
-                        // Use cached default document
-                        sandboxed_report.complete_html_document.clone()
                     }
-                } else {
-                    // Use cached default document
-                    sandboxed_report.complete_html_document.clone()
+                    _ => {
+                        // ✅ IDIOMATIC: Move ownership instead of cloning 100-500KB HTML
+                        // sandboxed_report is not used after this point
+                        sandboxed_report.complete_html_document
+                    }
                 };
                 
-                println!("✅ ReportCreator: Serving HTML document for report {} with language {:?} ({} bytes)", 
+                println!("✅ ReportCreator: Serving HTML document for report {} with language {:?} ({} bytes)",
                         report_id, language.unwrap_or("vi"), sandboxed_html.len());
-                
+
                 // Return response with security headers
                 Ok(Response::builder()
                     .status(StatusCode::OK)
@@ -460,7 +469,13 @@ impl ReportCreator {
                     .header("access-control-allow-methods", "GET, POST, OPTIONS")
                     .header("access-control-allow-headers", "Content-Type")
                     .body(Body::from(sandboxed_html))
-                    .unwrap()
+                    .unwrap_or_else(|e| {
+                        eprintln!("⚠️ Failed to build sandboxed response: {}", e);
+                        Response::builder()
+                            .status(StatusCode::INTERNAL_SERVER_ERROR)
+                            .body(Body::from("Response build error"))
+                            .unwrap()  // This is guaranteed safe
+                    })
                     .into_response()
                 )
             }
@@ -470,7 +485,13 @@ impl ReportCreator {
                     .status(StatusCode::NOT_FOUND)
                     .header("content-type", "text/plain")
                     .body(Body::from("Report not found"))
-                    .unwrap()
+                    .unwrap_or_else(|e| {
+                        eprintln!("⚠️ Failed to build not found response: {}", e);
+                        Response::builder()
+                            .status(StatusCode::INTERNAL_SERVER_ERROR)
+                            .body(Body::from("Response build error"))
+                            .unwrap()  // This is guaranteed safe
+                    })
                     .into_response()
                 )
             }
@@ -480,7 +501,13 @@ impl ReportCreator {
                     .status(StatusCode::INTERNAL_SERVER_ERROR)
                     .header("content-type", "text/plain")
                     .body(Body::from("Database error"))
-                    .unwrap()
+                    .unwrap_or_else(|err| {
+                        eprintln!("⚠️ Failed to build error response: {}", err);
+                        Response::builder()
+                            .status(StatusCode::INTERNAL_SERVER_ERROR)
+                            .body(Body::from("Response build error"))
+                            .unwrap()  // This is guaranteed safe
+                    })
                     .into_response()
                 )
             }
