@@ -14,7 +14,7 @@ linker = "cc"
 
 # Production optimizations for Railway
 [env]
-RUST_LOG = { value = "warn", force = false }  # Less logging for performance
+RUST_LOG = { value = "info", force = false }  # Less logging for performance
 TOKIO_THREAD_STACK_SIZE = { value = "8388608", force = false }  # 8MB stack
 MALLOC_ARENA_MAX = { value = "4", force = false }  # Memory optimization
 
