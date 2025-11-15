@@ -3,12 +3,7 @@ use std::{env, net::SocketAddr, sync::Arc};
 use tracing::{info, warn, error};
 use tracing_subscriber::EnvFilter;
 
-mod service_islands;
-mod performance;
-mod routes;
-
-use service_islands::ServiceIslands;
-use routes::create_service_islands_router;
+use web_server_report::{ServiceIslands, routes::create_service_islands_router};
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {

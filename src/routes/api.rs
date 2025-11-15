@@ -9,12 +9,20 @@ use axum::{
     response::{Json, IntoResponse},
     extract::{State, Path, Query}
 };
-use serde_json::json;
 use std::sync::Arc;
 use std::collections::HashMap;
 use tracing::{info, warn, error, debug};
 
 use crate::service_islands::ServiceIslands;
+use crate::dto::{
+    HealthStatus,
+    responses::{
+        DashboardDataResponse,
+        ApiHealthResponse,
+        ApiHealthInfo,
+        WebSocketStatsResponse,
+    },
+};
 
 /// Configure API routes
 pub fn configure_api_routes() -> Router<Arc<ServiceIslands>> {
@@ -30,7 +38,7 @@ pub fn configure_api_routes() -> Router<Arc<ServiceIslands>> {
 /// Same functionality as api_dashboard_summary but with cleaner path
 async fn api_dashboard_data(
     State(service_islands): State<Arc<ServiceIslands>>
-) -> Json<serde_json::Value> {
+) -> Json<DashboardDataResponse> {
     // Phase 3: Primary reads from Redis Streams via RedisStreamReader
     debug!("🚀 [API] Reading dashboard data from Redis Stream...");
 
@@ -38,7 +46,12 @@ async fn api_dashboard_data(
     match service_islands.redis_stream_reader.read_latest_market_data().await {
         Ok(Some(data)) => {
             debug!("✅ [API] Dashboard data served from Redis Stream (<1ms)");
-            return Json(data);
+            // Deserialize the Value into our typed response
+            if let Ok(typed_data) = serde_json::from_value::<DashboardDataResponse>(data) {
+                return Json(typed_data);
+            } else {
+                warn!("⚠️ [API] Failed to deserialize Redis Stream data, using fallback");
+            }
         }
         Ok(None) => {
             warn!("⚠️ [API] No data in Redis Stream yet, websocket service will populate it soon");
@@ -50,26 +63,63 @@ async fn api_dashboard_data(
 
     // Return fallback data - websocket service will populate stream within 10 seconds
     info!("📊 [API] Returning fallback data (websocket service will update stream)");
-    Json(json!({
-        "btc_price_usd": 45000.0,
-        "btc_change_24h": 0.0,
-        "market_cap_usd": 2100000000000.0,
-        "volume_24h_usd": 150000000000.0,
-        "fng_value": 50,
-        "btc_rsi_14": 50.0,
-        "data_sources": {},
-        "fetch_duration_ms": 0,
-        "partial_failure": true,
-        "last_updated": chrono::Utc::now().to_rfc3339(),
-        "timestamp": chrono::Utc::now().to_rfc3339(),
-        "note": "Fallback data - fresh data will be available within 10 seconds"
-    }))
+    let fallback_response = DashboardDataResponse {
+        // Bitcoin
+        btc_price_usd: 96000.0,
+        btc_change_24h: 0.0,
+        btc_market_cap_percentage: 57.0,
+        btc_rsi_14: 50.0,
+
+        // Ethereum
+        eth_price_usd: 3170.0,
+        eth_change_24h: 0.0,
+        eth_market_cap_percentage: 11.4,
+
+        // BNB
+        bnb_price_usd: 928.0,
+        bnb_change_24h: 0.0,
+
+        // Solana
+        sol_price_usd: 142.0,
+        sol_change_24h: 0.0,
+
+        // XRP
+        xrp_price_usd: 2.28,
+        xrp_change_24h: 0.0,
+
+        // Cardano
+        ada_price_usd: 0.51,
+        ada_change_24h: 0.0,
+
+        // Chainlink
+        link_price_usd: 14.17,
+        link_change_24h: 0.0,
+
+        // Market metrics
+        market_cap_usd: 3340000000000.0,
+        market_cap_change_percentage_24h_usd: 0.0,
+        volume_24h_usd: 260000000000.0,
+
+        // Fear & Greed Index
+        fng_value: 50,
+
+        // US Stock Indices
+        us_stock_indices: HashMap::new(),
+
+        // Metadata
+        fetch_duration_ms: 0,
+        partial_failure: true,
+        last_updated: chrono::Utc::now().to_rfc3339(),
+        timestamp: chrono::Utc::now().to_rfc3339(),
+        note: Some("Fallback data - fresh data will be available within 10 seconds".to_string()),
+    };
+    Json(fallback_response)
 }
 
 /// Dashboard summary API endpoint - Reads from Redis Stream via RedisStreamReader
 async fn api_dashboard_summary(
     State(service_islands): State<Arc<ServiceIslands>>
-) -> Json<serde_json::Value> {
+) -> Json<DashboardDataResponse> {
     // Stream-first strategy: Read from Redis Stream populated by websocket service
     debug!("🚀 [API] Reading dashboard summary from Redis Stream...");
 
@@ -77,7 +127,12 @@ async fn api_dashboard_summary(
     match service_islands.redis_stream_reader.read_latest_market_data().await {
         Ok(Some(data)) => {
             debug!("✅ [API] Dashboard summary served from Redis Stream (<1ms)");
-            return Json(data);
+            // Deserialize the Value into our typed response
+            if let Ok(typed_data) = serde_json::from_value::<DashboardDataResponse>(data) {
+                return Json(typed_data);
+            } else {
+                warn!("⚠️ [API] Failed to deserialize Redis Stream data, using fallback");
+            }
         }
         Ok(None) => {
             warn!("⚠️ [API] No data in Redis Stream yet, websocket service will populate it soon");
@@ -89,34 +144,74 @@ async fn api_dashboard_summary(
 
     // Return fallback data - websocket service will populate stream within 10 seconds
     info!("📊 [API] Returning fallback data (websocket service will update stream)");
-    Json(json!({
-        "btc_price_usd": 45000.0,
-        "btc_change_24h": 0.0,
-        "market_cap_usd": 2100000000000.0,
-        "volume_24h_usd": 150000000000.0,
-        "fng_value": 50,
-        "btc_rsi_14": 50.0,
-        "data_sources": {},
-        "fetch_duration_ms": 0,
-        "partial_failure": true,
-        "last_updated": chrono::Utc::now().to_rfc3339(),
-        "timestamp": chrono::Utc::now().to_rfc3339(),
-        "note": "Fallback data - fresh data will be available within 10 seconds"
-    }))
+    let fallback_response = DashboardDataResponse {
+        // Bitcoin
+        btc_price_usd: 96000.0,
+        btc_change_24h: 0.0,
+        btc_market_cap_percentage: 57.0,
+        btc_rsi_14: 50.0,
+
+        // Ethereum
+        eth_price_usd: 3170.0,
+        eth_change_24h: 0.0,
+        eth_market_cap_percentage: 11.4,
+
+        // BNB
+        bnb_price_usd: 928.0,
+        bnb_change_24h: 0.0,
+
+        // Solana
+        sol_price_usd: 142.0,
+        sol_change_24h: 0.0,
+
+        // XRP
+        xrp_price_usd: 2.28,
+        xrp_change_24h: 0.0,
+
+        // Cardano
+        ada_price_usd: 0.51,
+        ada_change_24h: 0.0,
+
+        // Chainlink
+        link_price_usd: 14.17,
+        link_change_24h: 0.0,
+
+        // Market metrics
+        market_cap_usd: 3340000000000.0,
+        market_cap_change_percentage_24h_usd: 0.0,
+        volume_24h_usd: 260000000000.0,
+
+        // Fear & Greed Index
+        fng_value: 50,
+
+        // US Stock Indices
+        us_stock_indices: HashMap::new(),
+
+        // Metadata
+        fetch_duration_ms: 0,
+        partial_failure: true,
+        last_updated: chrono::Utc::now().to_rfc3339(),
+        timestamp: chrono::Utc::now().to_rfc3339(),
+        note: Some("Fallback data - fresh data will be available within 10 seconds".to_string()),
+    };
+    Json(fallback_response)
 }
 
 /// API health check endpoint
 async fn api_health(
     State(service_islands): State<Arc<ServiceIslands>>
-) -> Json<serde_json::Value> {
+) -> Json<ApiHealthResponse> {
     let is_healthy = service_islands.health_check().await;
-    Json(json!({
-        "api": {
-            "status": if is_healthy { "healthy" } else { "unhealthy" },
-            "service_islands": 7,
-            "timestamp": chrono::Utc::now().to_rfc3339()
-        }
-    }))
+
+    let response = ApiHealthResponse {
+        api: ApiHealthInfo {
+            status: if is_healthy { HealthStatus::Healthy } else { HealthStatus::Unhealthy },
+            service_islands: 7,
+            timestamp: chrono::Utc::now().to_rfc3339(),
+        },
+    };
+
+    Json(response)
 }
 
 /// Sandboxed report content API endpoint
@@ -193,11 +288,13 @@ async fn api_sandboxed_report(
 /// This endpoint returns a redirect message to the websocket service.
 async fn api_websocket_stats(
     State(_service_islands): State<Arc<ServiceIslands>>
-) -> Json<serde_json::Value> {
-    Json(json!({
-        "message": "WebSocket functionality has been moved to a separate service",
-        "websocket_service": "Check Web-server-Report-websocket service for WebSocket stats",
-        "websocket_health_endpoint": "http://localhost:8081/health",
-        "timestamp": chrono::Utc::now().to_rfc3339()
-    }))
+) -> Json<WebSocketStatsResponse> {
+    let response = WebSocketStatsResponse {
+        message: "WebSocket functionality has been moved to a separate service".to_string(),
+        websocket_service: "Check Web-server-Report-websocket service for WebSocket stats".to_string(),
+        websocket_health_endpoint: "http://localhost:8081/health".to_string(),
+        timestamp: chrono::Utc::now().to_rfc3339(),
+    };
+
+    Json(response)
 }
