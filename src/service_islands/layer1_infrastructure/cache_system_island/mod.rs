@@ -7,6 +7,7 @@
 
 use std::sync::Arc;
 use anyhow::Result;
+use tracing::info;
 
 // Import and re-export from multi-tier-cache library
 pub use multi_tier_cache::{
@@ -47,7 +48,7 @@ impl CacheSystemIsland {
     ///
     /// Now uses the multi-tier-cache library internally.
     pub async fn new() -> Result<Self> {
-        println!("🏗️ Initializing Cache System Island (using multi-tier-cache library)...");
+        info!("🏗️ Initializing Cache System Island (using multi-tier-cache library)...");
 
         // Initialize from library
         let inner = LibraryCacheSystem::new().await?;
@@ -57,7 +58,7 @@ impl CacheSystemIsland {
         let l1_cache = Arc::clone(&inner.l1_cache);
         let l2_cache = Arc::clone(&inner.l2_cache);
 
-        println!("✅ Cache System Island initialized successfully (library-backed)");
+        info!("✅ Cache System Island initialized successfully (library-backed)");
 
         Ok(Self {
             inner,

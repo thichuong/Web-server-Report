@@ -1,5 +1,5 @@
 //! Shared Components Island
-//! 
+//!
 //! This island provides foundational components that are shared across all other service islands:
 //! - Template management with Tera engine
 //! - Common data model definitions
@@ -9,6 +9,7 @@
 
 use std::sync::Arc;
 use anyhow::Result;
+use tracing::{info, warn, debug};
 
 pub mod template_registry;
 pub mod model_registry;
@@ -47,27 +48,27 @@ impl SharedComponentsIsland {
     /// - Utility functions preparation
     /// - Chart modules pre-loading and caching
     pub async fn new() -> Result<Self> {
-        println!("🧩 Initializing Shared Components Island...");
-        
+        info!("🧩 Initializing Shared Components Island...");
+
         // Initialize template registry
         let template_registry = Arc::new(TemplateRegistry::new()?);
-        println!("  ✅ Template Registry initialized");
-        
+        debug!("  ✅ Template Registry initialized");
+
         // Initialize model registry
         let model_registry = Arc::new(ModelRegistry::new().await?);
-        println!("  ✅ Model Registry initialized");
-        
+        debug!("  ✅ Model Registry initialized");
+
         // Initialize utility functions
         let utility_functions = Arc::new(UtilityFunctions::new().await?);
-        println!("  ✅ Utility Functions initialized");
-        
+        debug!("  ✅ Utility Functions initialized");
+
         // Initialize chart modules service with pre-loading
-        println!("📦 Layer 1: Đang chuẩn bị và cache lại chart_modules.js...");
+        info!("📦 Layer 1: Đang chuẩn bị và cache lại chart_modules.js...");
         let chart_modules_service = Arc::new(ChartModulesService::new().await?);
         let chart_modules_content = chart_modules_service.get_content();
-        println!("  ✅ Chart Modules Service initialized");
-        
-        println!("🧩 Shared Components Island initialization complete!");
+        info!("  ✅ Chart Modules Service initialized");
+
+        info!("🧩 Shared Components Island initialization complete!");
         
         Ok(Self {
             template_registry,
@@ -82,25 +83,25 @@ impl SharedComponentsIsland {
     /// 
     /// Returns true if all components are healthy and operational
     pub async fn health_check(&self) -> bool {
-        println!("🔍 Checking Shared Components Island health...");
-        
+        debug!("🔍 Checking Shared Components Island health...");
+
         let template_healthy = self.template_registry.health_check().await;
         let model_healthy = self.model_registry.health_check().await;
         let utility_healthy = self.utility_functions.health_check().await;
         let chart_modules_healthy = self.chart_modules_service.health_check().await;
-        
+
         let all_healthy = template_healthy && model_healthy && utility_healthy && chart_modules_healthy;
-        
+
         if all_healthy {
-            println!("✅ Shared Components Island is healthy!");
+            debug!("✅ Shared Components Island is healthy!");
         } else {
-            println!("❌ Shared Components Island health issues detected:");
-            if !template_healthy { println!("  ❌ Template Registry unhealthy"); }
-            if !model_healthy { println!("  ❌ Model Registry unhealthy"); }
-            if !utility_healthy { println!("  ❌ Utility Functions unhealthy"); }
-            if !chart_modules_healthy { println!("  ❌ Chart Modules Service unhealthy"); }
+            warn!("❌ Shared Components Island health issues detected:");
+            if !template_healthy { warn!("  ❌ Template Registry unhealthy"); }
+            if !model_healthy { warn!("  ❌ Model Registry unhealthy"); }
+            if !utility_healthy { warn!("  ❌ Utility Functions unhealthy"); }
+            if !chart_modules_healthy { warn!("  ❌ Chart Modules Service unhealthy"); }
         }
-        
+
         all_healthy
     }
 }

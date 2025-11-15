@@ -6,6 +6,7 @@
 use serde::{Serialize, Deserialize};
 use sqlx::{FromRow};
 use std::{sync::Arc, error::Error as StdError};
+use tracing::{info, warn, error, debug};
 use axum::{
     response::{Response, IntoResponse},
     http::StatusCode,
@@ -131,7 +132,7 @@ impl ReportCreator {
         &self,
         state: &Arc<AppState>,
     ) -> Result<Option<Report>, sqlx::Error> {
-        println!("🔍 ReportCreator: Fetching latest crypto report from database via data service");
+        debug!("🔍 ReportCreator: Fetching latest crypto report from database via data service");
         
         // Use Layer 3 data service instead of direct database access
         let report_data = self.data_service.fetch_latest_report(state).await?;
@@ -150,13 +151,13 @@ impl ReportCreator {
             
             // Update latest id cache (business logic concern)
             state.cached_latest_id.store(report.id, std::sync::atomic::Ordering::Relaxed);
-            println!("💾 ReportCreator: Cached latest crypto report {} from data service", report.id);
+            debug!("💾 ReportCreator: Cached latest crypto report {} from data service", report.id);
             
             // TODO: Implement L1/L2 caching logic when cache layers are ready
             
             Ok(Some(report))
         } else {
-            println!("📭 ReportCreator: No latest crypto report available");
+            info!("📭 ReportCreator: No latest crypto report available");
             Ok(None)
         }
     }
@@ -169,7 +170,7 @@ impl ReportCreator {
         state: &Arc<AppState>,
         report_id: i32,
     ) -> Result<Option<Report>, sqlx::Error> {
-        println!("🔍 ReportCreator: Fetching crypto report {} via data service", report_id);
+        debug!("🔍 ReportCreator: Fetching crypto report {} via data service", report_id);
         
         // Use Layer 3 data service instead of direct database access
         let report_data = self.data_service.fetch_report_by_id(state, report_id).await?;
@@ -186,13 +187,13 @@ impl ReportCreator {
                 created_at: data.created_at,
             };
             
-            println!("💾 ReportCreator: Successfully processed crypto report {} from data service", report.id);
+            debug!("💾 ReportCreator: Successfully processed crypto report {} from data service", report.id);
             
             // TODO: Implement L1/L2 caching logic when cache layers are ready
             
             Ok(Some(report))
         } else {
-            println!("📭 ReportCreator: Crypto report {} not found via data service", report_id);
+            info!("📭 ReportCreator: Crypto report {} not found via data service", report_id);
             Ok(None)
         }
     }
@@ -202,7 +203,7 @@ impl ReportCreator {
     /// Delegates to Layer 1 ChartModulesIsland for proper architectural separation.
     /// This method provides a business logic wrapper around the infrastructure service.
     pub async fn get_chart_modules_content(&self) -> String {
-        println!("📊 ReportCreator: Requesting chart modules from Layer 1 Infrastructure");
+        debug!("📊 ReportCreator: Requesting chart modules from Layer 1 Infrastructure");
         
         // Delegate to Layer 1 infrastructure service
         self.chart_modules_island.get_cached_chart_modules_content().await
@@ -231,7 +232,7 @@ impl ReportCreator {
         report.created_at.hash(&mut hasher);
         let sandbox_token = format!("sb_{:x}", hasher.finish());
         
-        println!("🔒 ReportCreator: Generated sandbox token for report {}: {}", report.id, sandbox_token);
+        info!("🔒 ReportCreator: Generated sandbox token for report {}: {}", report.id, sandbox_token);
         
         // Create sandboxed report with sanitized content
         let mut sandboxed_report = SandboxedReport {
@@ -250,7 +251,7 @@ impl ReportCreator {
         // Generate complete HTML document and store it
         sandboxed_report.complete_html_document = self.generate_sandboxed_html_document(&sandboxed_report, None, chart_modules_content);
         
-        println!("📄 ReportCreator: Complete HTML document generated for report {} ({} bytes)", 
+        debug!("📄 ReportCreator: Complete HTML document generated for report {} ({} bytes)", 
                 report.id, sandboxed_report.complete_html_document.len());
         
         sandboxed_report
@@ -264,7 +265,7 @@ impl ReportCreator {
         let html_doc = self.generate_sandboxed_html_document(sandboxed_report, language, 
             sandboxed_report.chart_modules_content.as_deref());
         
-        println!("🔄 ReportCreator: Regenerated HTML document for report {} with language {:?} ({} bytes)",
+        info!("🔄 ReportCreator: Regenerated HTML document for report {} with language {:?} ({} bytes)",
                 sandboxed_report.id, language.unwrap_or("vi"), html_doc.len());
         
         html_doc
@@ -408,7 +409,7 @@ impl ReportCreator {
         language: Option<&str>,
         chart_modules_content: Option<&str>
     ) -> Result<Response, Box<dyn StdError + Send + Sync>> {
-        println!("🔒 ReportCreator: Serving sandboxed content for report {} with token {}", report_id, sandbox_token);
+        info!("🔒 ReportCreator: Serving sandboxed content for report {} with token {}", report_id, sandbox_token);
         
         // Fetch report from database
         let report_result = if report_id == -1 {
@@ -424,13 +425,13 @@ impl ReportCreator {
                 
                 // Verify sandbox token
                 if sandboxed_report.sandbox_token != sandbox_token {
-                    println!("❌ ReportCreator: Invalid sandbox token for report {}", report_id);
+                    error!("❌ ReportCreator: Invalid sandbox token for report {}", report_id);
                     return Ok(Response::builder()
                         .status(StatusCode::FORBIDDEN)
                         .header("content-type", "text/plain")
                         .body(Body::from("Invalid sandbox token"))
                         .unwrap_or_else(|e| {
-                            eprintln!("⚠️ Failed to build forbidden response: {}", e);
+                            warn!("⚠️ Failed to build forbidden response: {}", e);
                             Response::builder()
                                 .status(StatusCode::INTERNAL_SERVER_ERROR)
                                 .body(Body::from("Response build error"))
@@ -454,7 +455,7 @@ impl ReportCreator {
                     }
                 };
                 
-                println!("✅ ReportCreator: Serving HTML document for report {} with language {:?} ({} bytes)",
+                info!("✅ ReportCreator: Serving HTML document for report {} with language {:?} ({} bytes)",
                         report_id, language.unwrap_or("vi"), sandboxed_html.len());
 
                 // Return response with security headers
@@ -470,7 +471,7 @@ impl ReportCreator {
                     .header("access-control-allow-headers", "Content-Type")
                     .body(Body::from(sandboxed_html))
                     .unwrap_or_else(|e| {
-                        eprintln!("⚠️ Failed to build sandboxed response: {}", e);
+                        warn!("⚠️ Failed to build sandboxed response: {}", e);
                         Response::builder()
                             .status(StatusCode::INTERNAL_SERVER_ERROR)
                             .body(Body::from("Response build error"))
@@ -480,13 +481,13 @@ impl ReportCreator {
                 )
             }
             Ok(None) => {
-                println!("❌ ReportCreator: Report {} not found for sandboxing", report_id);
+                error!("❌ ReportCreator: Report {} not found for sandboxing", report_id);
                 Ok(Response::builder()
                     .status(StatusCode::NOT_FOUND)
                     .header("content-type", "text/plain")
                     .body(Body::from("Report not found"))
                     .unwrap_or_else(|e| {
-                        eprintln!("⚠️ Failed to build not found response: {}", e);
+                        warn!("⚠️ Failed to build not found response: {}", e);
                         Response::builder()
                             .status(StatusCode::INTERNAL_SERVER_ERROR)
                             .body(Body::from("Response build error"))
@@ -496,13 +497,13 @@ impl ReportCreator {
                 )
             }
             Err(e) => {
-                eprintln!("❌ ReportCreator: Database error serving sandboxed report {}: {}", report_id, e);
+                error!("❌ ReportCreator: Database error serving sandboxed report {}: {}", report_id, e);
                 Ok(Response::builder()
                     .status(StatusCode::INTERNAL_SERVER_ERROR)
                     .header("content-type", "text/plain")
                     .body(Body::from("Database error"))
                     .unwrap_or_else(|err| {
-                        eprintln!("⚠️ Failed to build error response: {}", err);
+                        warn!("⚠️ Failed to build error response: {}", err);
                         Response::builder()
                             .status(StatusCode::INTERNAL_SERVER_ERROR)
                             .body(Body::from("Response build error"))

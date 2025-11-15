@@ -8,6 +8,8 @@
 //!
 //! Note: WebSocket functionality has been moved to a separate service (Web-server-Report-websocket)
 
+use tracing::info;
+
 pub mod handlers;
 pub mod template_renderer;
 pub mod report_manager;
@@ -32,14 +34,14 @@ impl DashboardIsland {
     ///
     /// Reads market data from Redis Stream (populated by WebSocket service)
     pub async fn new() -> Result<Self, anyhow::Error> {
-        println!("🎯 Initializing Dashboard Island...");
+        info!("🎯 Initializing Dashboard Island...");
 
         let handlers = handlers::DashboardHandlers::new();
         let template_renderer = template_renderer::TemplateRenderer::new();
         let report_manager = report_manager::ReportManager::new();
         let ui_components = ui_components::UIComponents::new();
 
-        println!("✅ Dashboard Island initialized!");
+        info!("✅ Dashboard Island initialized!");
 
         Ok(Self {
             handlers,

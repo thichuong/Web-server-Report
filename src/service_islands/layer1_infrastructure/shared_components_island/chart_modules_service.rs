@@ -1,5 +1,5 @@
 //! Chart Modules Service
-//! 
+//!
 //! Layer 1 service responsible for managing chart modules JavaScript assets.
 //! Pre-loads and caches all chart modules content during server startup for optimal performance.
 
@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::path::Path;
 use tokio::fs::{read_dir, read_to_string};
 use anyhow::Result;
+use tracing::{info, warn, debug};
 
 /// Chart Modules Service
 /// 
@@ -22,8 +23,8 @@ pub struct ChartModulesService {
 impl ChartModulesService {
     /// Create a new ChartModulesService and pre-load all chart modules
     pub async fn new() -> Result<Self> {
-        println!("📦 Layer 1: Khởi tạo ChartModulesService...");
-        
+        debug!("📦 Layer 1: Khởi tạo ChartModulesService...");
+
         // Default priority order for chart modules
         let priority_order = vec![
             "gauge.js".to_string(),
@@ -32,9 +33,9 @@ impl ChartModulesService {
             "pie.js".to_string(),
             "doughnut.js".to_string(),
         ];
-        
+
         let chart_content = Self::prepare_chart_modules(&priority_order).await?;
-        println!("✅ Layer 1: Chart modules đã sẵn sàng. ({} bytes)", chart_content.len());
+        info!("✅ Layer 1: Chart modules đã sẵn sàng. ({} bytes)", chart_content.len());
         
         Ok(Self {
             base_path: "shared_assets/js/chart_modules".to_string(),
@@ -47,7 +48,7 @@ impl ChartModulesService {
         let source_dir = Path::new("shared_assets").join("js").join("chart_modules");
         
         if !source_dir.exists() {
-            println!("⚠️ Chart modules directory not found: {:?}", source_dir);
+            warn!("⚠️ Chart modules directory not found: {:?}", source_dir);
             return Ok(String::new());
         }
         
@@ -85,8 +86,8 @@ impl ChartModulesService {
             }
         }
         
-        println!("📦 Layer 1: Loading chart modules in order: {:?}", sorted_files);
-        
+        debug!("📦 Layer 1: Loading chart modules in order: {:?}", sorted_files);
+
         // Read and concatenate files
         for file_name in &sorted_files {
             let file_path = source_dir.join(file_name);
@@ -95,10 +96,10 @@ impl ChartModulesService {
                     final_content.push_str(&format!("// === {} ===\n", file_name));
                     final_content.push_str(&content);
                     final_content.push_str("\n\n");
-                    println!("  ✅ Loaded: {} ({} bytes)", file_name, content.len());
+                    debug!("  ✅ Loaded: {} ({} bytes)", file_name, content.len());
                 }
                 Err(e) => {
-                    println!("  ⚠️ Failed to load {}: {}", file_name, e);
+                    warn!("  ⚠️ Failed to load {}: {}", file_name, e);
                 }
             }
         }

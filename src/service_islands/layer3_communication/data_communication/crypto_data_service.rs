@@ -9,6 +9,7 @@
 use serde::{Serialize, Deserialize};
 use sqlx::{FromRow};
 use std::sync::Arc;
+use tracing::{info, warn, error, debug};
 
 // Import from current state - will be refactored when lower layers are implemented
 use crate::service_islands::layer1_infrastructure::AppState;
@@ -76,16 +77,16 @@ impl CryptoDataService {
                 "crypto_latest_report_data",
                 crate::service_islands::layer1_infrastructure::cache_system_island::CacheStrategy::ShortTerm, // 5 minutes
                 || async move {
-                    println!("🗄️ CryptoDataService: Fetching latest crypto report from database");
+                    info!("🗄️ CryptoDataService: Fetching latest crypto report from database");
 
                     let report = sqlx::query_as::<_, ReportData>(
                         "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report ORDER BY created_at DESC LIMIT 1",
                     ).fetch_optional(&db).await?;
 
                     if let Some(ref report) = report {
-                        println!("📊 CryptoDataService: Retrieved latest crypto report {} from database", report.id);
+                        debug!("📊 CryptoDataService: Retrieved latest crypto report {} from database", report.id);
                     } else {
-                        println!("📭 CryptoDataService: No crypto reports found in database");
+                        info!("📭 CryptoDataService: No crypto reports found in database");
                     }
 
                     Ok(report)
@@ -94,13 +95,13 @@ impl CryptoDataService {
                 Ok(report) => Ok(report),
                 Err(e) => {
                     // Convert anyhow::Error to sqlx::Error
-                    println!("⚠️ CryptoDataService: Cache/DB error: {}", e);
+                    warn!("⚠️ CryptoDataService: Cache/DB error: {}", e);
                     Err(sqlx::Error::Protocol(format!("Cache or database error: {}", e)))
                 }
             }
         } else {
             // Fallback: Direct database query if no cache
-            println!("🗄️ CryptoDataService: Fetching latest crypto report from database (no cache)");
+            info!("🗄️ CryptoDataService: Fetching latest crypto report from database (no cache)");
             sqlx::query_as::<_, ReportData>(
                 "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report ORDER BY created_at DESC LIMIT 1",
             ).fetch_optional(&state.db).await
@@ -124,7 +125,7 @@ impl CryptoDataService {
                 &format!("crypto_report_data_{}", report_id),
                 crate::service_islands::layer1_infrastructure::cache_system_island::CacheStrategy::ShortTerm, // 5 minutes
                 || async move {
-                    println!("🗄️ CryptoDataService: Fetching crypto report {} from database", report_id);
+                    info!("🗄️ CryptoDataService: Fetching crypto report {} from database", report_id);
 
                     let report = sqlx::query_as::<_, ReportData>(
                         "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report WHERE id = $1",
@@ -133,9 +134,9 @@ impl CryptoDataService {
                     .fetch_optional(&db).await?;
 
                     if let Some(ref report) = report {
-                        println!("📊 CryptoDataService: Retrieved crypto report {} from database", report.id);
+                        debug!("📊 CryptoDataService: Retrieved crypto report {} from database", report.id);
                     } else {
-                        println!("📭 CryptoDataService: Crypto report {} not found in database", report_id);
+                        info!("📭 CryptoDataService: Crypto report {} not found in database", report_id);
                     }
 
                     Ok(report)
@@ -144,13 +145,13 @@ impl CryptoDataService {
                 Ok(report) => Ok(report),
                 Err(e) => {
                     // Convert anyhow::Error to sqlx::Error
-                    println!("⚠️ CryptoDataService: Cache/DB error for report {}: {}", report_id, e);
+                    warn!("⚠️ CryptoDataService: Cache/DB error for report {}: {}", report_id, e);
                     Err(sqlx::Error::Protocol(format!("Cache or database error: {}", e)))
                 }
             }
         } else {
             // Fallback: Direct database query if no cache
-            println!("🗄️ CryptoDataService: Fetching crypto report {} from database (no cache)", report_id);
+            info!("🗄️ CryptoDataService: Fetching crypto report {} from database (no cache)", report_id);
             sqlx::query_as::<_, ReportData>(
                 "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report WHERE id = $1",
             )
@@ -168,7 +169,7 @@ impl CryptoDataService {
                 if let Ok(compressed_bytes) = serde_json::from_value::<Vec<u8>>(cached_value) {
                     let report_type = if report_id == -1 { "latest report" } else { &format!("report #{}", report_id) };
                     let size_kb = compressed_bytes.len() / 1024;
-                    println!("🔥 Layer 3: Cache HIT cho compressed data của {} ({}KB)", report_type, size_kb);
+                    info!("🔥 Layer 3: Cache HIT cho compressed data của {} ({}KB)", report_type, size_kb);
                     return Ok(Some(compressed_bytes));
                 }
             }
@@ -192,11 +193,11 @@ impl CryptoDataService {
 
         // 🛡️ GUARD: Warn if individual entry size is very large (soft limit for logging)
         if data_size > MAX_COMPRESSED_ENTRY_SIZE {
-            eprintln!("⚠️  Layer 3: Very large compressed data for {} ({:.1}MB) - may impact cache performance",
+            warn!("⚠️  Layer 3: Very large compressed data for {} ({:.1}MB) - may impact cache performance",
                      report_type, size_mb);
-            eprintln!("   Note: Cache library will handle storage, but consider optimizing entry size");
+            error!("   Note: Cache library will handle storage, but consider optimizing entry size");
         } else if data_size > WARN_COMPRESSED_ENTRY_SIZE {
-            println!("⚠️  Layer 3: Large compressed entry for {} ({:.1}MB) - consider optimization",
+            warn!("⚠️  Layer 3: Large compressed entry for {} ({:.1}MB) - consider optimization",
                     report_type, size_mb);
         }
 
@@ -209,7 +210,7 @@ impl CryptoDataService {
 
             cache_system.cache_manager.set_with_strategy(&cache_key, compressed_json, strategy).await?;
 
-            println!("💾 Layer 3: Cached compressed data for {} ({}KB)", report_type, size_kb);
+            debug!("💾 Layer 3: Cached compressed data for {} ({}KB)", report_type, size_kb);
         }
         Ok(())
     }
@@ -257,16 +258,16 @@ impl CryptoDataService {
         let (total_res, rows_res) = tokio::join!(total_fut, rows_fut);
 
         let total = total_res.map_err(|e| {
-            println!("❌ Layer 3: Database error getting total count: {}", e);
+            error!("❌ Layer 3: Database error getting total count: {}", e);
             anyhow::anyhow!("Database error: {}", e)
         })?;
 
         let list = rows_res.map_err(|e| {
-            println!("❌ Layer 3: Database error getting report list: {}", e);
+            error!("❌ Layer 3: Database error getting report list: {}", e);
             anyhow::anyhow!("Database error: {}", e)
         })?;
 
-        println!("📊 Layer 3: Fetched {} reports for page {}, total: {}", list.len(), page, total);
+        debug!("📊 Layer 3: Fetched {} reports for page {}, total: {}", list.len(), page, total);
         Ok((total, list))
     }
 
@@ -293,11 +294,11 @@ impl CryptoDataService {
         match tokio::time::timeout(std::time::Duration::from_secs(10), task).await {
             Ok(Ok(result)) => Ok(result),
             Ok(Err(e)) => {
-                println!("❌ Layer 3: Date formatting task join error: {:#?}", e);
+                error!("❌ Layer 3: Date formatting task join error: {:#?}", e);
                 Err(anyhow::anyhow!("Task join error: {}", e))
             }
             Err(_) => {
-                println!("❌ Layer 3: Date formatting timeout after 10s");
+                error!("❌ Layer 3: Date formatting timeout after 10s");
                 Err(anyhow::anyhow!("Date formatting timeout - operation took longer than 10 seconds"))
             }
         }
@@ -358,11 +359,11 @@ impl CryptoDataService {
         match tokio::time::timeout(std::time::Duration::from_secs(5), task).await {
             Ok(Ok(result)) => Ok(result),
             Ok(Err(e)) => {
-                println!("❌ Layer 3: Pagination task join error: {:#?}", e);
+                error!("❌ Layer 3: Pagination task join error: {:#?}", e);
                 Err(anyhow::anyhow!("Task join error: {}", e))
             }
             Err(_) => {
-                println!("❌ Layer 3: Pagination timeout after 5s");
+                error!("❌ Layer 3: Pagination timeout after 5s");
                 Err(anyhow::anyhow!("Pagination timeout - operation took longer than 5 seconds"))
             }
         }
@@ -412,15 +413,15 @@ impl CryptoDataService {
         match tokio::time::timeout(std::time::Duration::from_secs(15), task).await {
             Ok(Ok(Ok(html))) => Ok(html),
             Ok(Ok(Err(e))) => {
-                println!("❌ Layer 3: Reports list template render error: {:#?}", e);
+                error!("❌ Layer 3: Reports list template render error: {:#?}", e);
                 Err(anyhow::anyhow!("Template render error: {}", e))
             }
             Ok(Err(e)) => {
-                println!("❌ Layer 3: Reports list task join error: {:#?}", e);
+                error!("❌ Layer 3: Reports list task join error: {:#?}", e);
                 Err(anyhow::anyhow!("Task join error: {}", e))
             }
             Err(_) => {
-                println!("❌ Layer 3: Reports list template rendering timeout after 15s");
+                error!("❌ Layer 3: Reports list template rendering timeout after 15s");
                 Err(anyhow::anyhow!("Template rendering timeout - operation took longer than 15 seconds"))
             }
         }
@@ -433,12 +434,12 @@ impl CryptoDataService {
 
         let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
         encoder.write_all(html.as_bytes()).map_err(|e| {
-            println!("❌ Layer 3: Compression write error for reports list page {}: {}", page, e);
+            error!("❌ Layer 3: Compression write error for reports list page {}: {}", page, e);
             anyhow::anyhow!("Compression error: {}", e)
         })?;
 
         let compressed_data = encoder.finish().map_err(|e| {
-            println!("❌ Layer 3: Compression finish error for reports list page {}: {}", page, e);
+            error!("❌ Layer 3: Compression finish error for reports list page {}: {}", page, e);
             anyhow::anyhow!("Compression error: {}", e)
         })?;
 
@@ -446,7 +447,7 @@ impl CryptoDataService {
         let compressed_size = compressed_data.len();
         let compression_ratio = (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0;
 
-        println!("🗜️  Layer 3: Reports list compressed - Original: {}KB, Compressed: {}KB, Ratio: {:.1}%",
+        info!("🗜️  Layer 3: Reports list compressed - Original: {}KB, Compressed: {}KB, Ratio: {:.1}%",
                  original_size / 1024,
                  compressed_size / 1024,
                  compression_ratio);
@@ -473,7 +474,7 @@ impl CryptoDataService {
                 &format!("crypto_reports_list_page_{}_compressed", page),
                 crate::service_islands::layer1_infrastructure::cache_system_island::CacheStrategy::ShortTerm, // 5 minutes
                 || async move {
-                    println!("🗄️ CryptoDataService: Generating reports list page {} from database", page);
+                    info!("🗄️ CryptoDataService: Generating reports list page {} from database", page);
 
                     // Step 1: Fetch from database
                     let (total, list) = Self::fetch_reports_from_db(&db, page, per_page).await?;
@@ -491,7 +492,7 @@ impl CryptoDataService {
 
                     // Step 5: Render template
                     let html = Self::render_reports_template(tera, reports).await?;
-                    println!("✅ Layer 3: Reports list template rendered successfully - {} items, page {} of {}", items_count, page, pages);
+                    info!("✅ Layer 3: Reports list template rendered successfully - {} items, page {} of {}", items_count, page, pages);
 
                     // Step 6: Compress HTML
                     let compressed_data = Self::compress_html(html, page)?;
@@ -501,13 +502,13 @@ impl CryptoDataService {
             ).await {
                 Ok(result) => Ok(result),
                 Err(e) => {
-                    println!("⚠️ CryptoDataService: Cache/DB error for reports list page {}: {}", page, e);
+                    warn!("⚠️ CryptoDataService: Cache/DB error for reports list page {}: {}", page, e);
                     Err(format!("Cache or database error: {}", e).into())
                 }
             }
         } else {
             // Fallback: Direct database query + render if no cache
-            println!("🗄️ CryptoDataService: Generating reports list page {} (no cache)", page);
+            info!("🗄️ CryptoDataService: Generating reports list page {} (no cache)", page);
 
             let offset = (page - 1) * per_page;
 

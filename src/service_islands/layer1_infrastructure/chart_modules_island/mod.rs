@@ -1,5 +1,5 @@
 //! Chart Modules Island - Layer 1 Infrastructure
-//! 
+//!
 //! This island provides chart modules loading and management functionality.
 //! It handles the reading, concatenation, and serving of JavaScript chart modules
 //! from the shared_assets directory.
@@ -7,6 +7,7 @@
 use std::path::Path;
 use std::env;
 use tokio::fs::read_dir;
+use tracing::{info, warn, error, debug};
 
 /// Chart Modules Island
 /// 
@@ -62,18 +63,18 @@ impl ChartModulesIsland {
     /// - Error handling for individual modules
     /// - Debug mode support via environment variable
     pub async fn get_chart_modules_content(&self) -> String {
-        println!("📊 ChartModulesIsland: Loading chart modules from {}", self.base_dir);
-        
+        debug!("📊 ChartModulesIsland: Loading chart modules from {}", self.base_dir);
+
         // Check debug mode
         let _debug = env::var("DEBUG").unwrap_or_default() == "1";
-        
+
         let source_dir = Path::new(&self.base_dir);
 
         // Read directory entries
         let mut entries = match read_dir(&source_dir).await {
             Ok(rd) => rd,
             Err(e) => {
-                eprintln!("❌ ChartModulesIsland: Error reading directory {}: {}", self.base_dir, e);
+                error!("❌ ChartModulesIsland: Error reading directory {}: {}", self.base_dir, e);
                 return "// No chart modules found".to_string();
             }
         };
@@ -93,7 +94,7 @@ impl ChartModulesIsland {
         }
 
         if all_files.is_empty() {
-            println!("⚠️ ChartModulesIsland: No JavaScript files found in {}", self.base_dir);
+            warn!("⚠️ ChartModulesIsland: No JavaScript files found in {}", self.base_dir);
             return "// No chart modules found".to_string();
         }
 
@@ -107,7 +108,7 @@ impl ChartModulesIsland {
         all_files.sort();
         ordered.extend(all_files);
 
-        println!("📋 ChartModulesIsland: Loading {} chart modules in order: {:?}", ordered.len(), ordered);
+        debug!("📋 ChartModulesIsland: Loading {} chart modules in order: {:?}", ordered.len(), ordered);
 
         // Parallel file reading with concurrent futures
         // Use into_iter to take ownership and avoid clones
@@ -130,12 +131,12 @@ impl ChartModulesIsland {
                             wrapped.push_str(":', error);\n}\n// ==================== End ");
                             wrapped.push_str(&filename);
                             wrapped.push_str(" ====================");
-                            
-                            println!("✅ ChartModulesIsland: Loaded chart module {}", filename);
+
+                            debug!("✅ ChartModulesIsland: Loaded chart module {}", filename);
                             wrapped
                         }
                         Err(e) => {
-                            eprintln!("❌ ChartModulesIsland: Error loading {}: {}", filename, e);
+                            error!("❌ ChartModulesIsland: Error loading {}: {}", filename, e);
                             format!("// Warning: {name} not found - {error}", name = filename, error = e)
                         }
                     }
@@ -150,11 +151,11 @@ impl ChartModulesIsland {
         let final_content = tokio::task::spawn_blocking(move || {
             parts.join("\n\n")
         }).await.unwrap_or_else(|e| {
-            eprintln!("❌ ChartModulesIsland: Chart modules concatenation error: {:#?}", e);
+            error!("❌ ChartModulesIsland: Chart modules concatenation error: {:#?}", e);
             "// Error loading chart modules".to_string()
         });
 
-        println!("✅ ChartModulesIsland: Successfully loaded and concatenated all chart modules");
+        info!("✅ ChartModulesIsland: Successfully loaded and concatenated all chart modules");
         final_content
     }
 
@@ -231,6 +232,6 @@ impl Default for ChartModulesIsland {
 impl Drop for ChartModulesIsland {
     fn drop(&mut self) {
         // Cleanup confirmation for debugging
-        println!("🧹 ChartModulesIsland: Cleanup completed (base_dir: {})", self.base_dir);
+        debug!("🧹 ChartModulesIsland: Cleanup completed (base_dir: {})", self.base_dir);
     }
 }

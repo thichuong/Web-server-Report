@@ -1,6 +1,6 @@
 //! Service Islands Architecture Registry
 //! Central registry for all service islands
-//! 
+//!
 //! This module provides the main entry point for the Service Islands Architecture,
 //! managing the initialization and health checking of all islands across all layers.
 
@@ -12,6 +12,7 @@ pub mod layer4_observability;
 pub mod layer5_business_logic;
 
 use std::sync::Arc;
+use tracing::{info, warn, debug};
 
 use layer1_infrastructure::{
     AppStateIsland,
@@ -58,42 +59,42 @@ impl ServiceIslands {
     /// This method initializes all service islands in the proper dependency order.
     /// Layer 1 (Infrastructure) first, then Layer 2 (External Services), then Layer 4 (Observability), then Layer 3 (Communication), then Layer 5 (Business Logic).
     pub async fn initialize() -> Result<Self, anyhow::Error> {
-        println!("🏝️ Initializing Service Islands Architecture...");
-        
+        info!("🏝️ Initializing Service Islands Architecture...");
+
         // Initialize Layer 1: Infrastructure (foundation layer)
-        println!("🏗️ Initializing Layer 1: Infrastructure Islands...");
+        info!("🏗️ Initializing Layer 1: Infrastructure Islands...");
         let app_state = Arc::new(AppStateIsland::new().await?);
         let shared_components = Arc::new(SharedComponentsIsland::new().await?);
         let cache_system = Arc::new(CacheSystemIsland::new().await?);
 
         // Initialize Layer 3: Communication (Redis Stream Reader for data from websocket service)
-        println!("📡 Initializing Layer 3: Communication Islands (Redis Stream Reader)...");
+        info!("📡 Initializing Layer 3: Communication Islands (Redis Stream Reader)...");
         let redis_stream_reader = Arc::new(RedisStreamReader::new(Arc::clone(&cache_system)));
-        println!("✅ Redis Stream Reader initialized!");
+        info!("✅ Redis Stream Reader initialized!");
 
         // Initialize Layer 4: Observability
-        println!("🔍 Initializing Layer 4: Observability Islands...");
+        info!("🔍 Initializing Layer 4: Observability Islands...");
         let health_system = Arc::new(HealthSystemIsland::new().await?);
 
         // Initialize Layer 5: Business Logic
         // Note: Layer 5 now reads from cache/streams instead of calling external APIs directly
-        println!("📊 Initializing Layer 5: Business Logic Islands...");
+        info!("📊 Initializing Layer 5: Business Logic Islands...");
         let dashboard = Arc::new(DashboardIsland::new().await?);
         let crypto_reports = Arc::new(CryptoReportsIsland::new().await?);
-        
-        println!("✅ Layer 1 Infrastructure Islands initialized!");
-        println!("✅ Layer 3 Communication Islands initialized!");
-        println!("✅ Layer 4 Observability Islands initialized!");
-        println!("✅ Layer 5 Business Logic Islands initialized!");
-        println!("✅ Service Islands Architecture initialized (Main Service)!");
-        println!("📡 Note: External APIs and WebSocket are handled by separate websocket service");
 
-        println!("📊 Architecture Status:");
-        println!("  🏝️ Total Islands: 6/6 islands (Main Service)");
-        println!("  🏗️ Layer 1 - Infrastructure: 3/3 islands");
-        println!("  📡 Layer 3 - Communication: 1/1 islands (Redis Stream Reader)");
-        println!("  🔍 Layer 4 - Observability: 1/1 islands");
-        println!("  📊 Layer 5 - Business Logic: 2/2 islands");
+        info!("✅ Layer 1 Infrastructure Islands initialized!");
+        info!("✅ Layer 3 Communication Islands initialized!");
+        info!("✅ Layer 4 Observability Islands initialized!");
+        info!("✅ Layer 5 Business Logic Islands initialized!");
+        info!("✅ Service Islands Architecture initialized (Main Service)!");
+        info!("📡 Note: External APIs and WebSocket are handled by separate websocket service");
+
+        info!("📊 Architecture Status:");
+        info!("  🏝️ Total Islands: 6/6 islands (Main Service)");
+        info!("  🏗️ Layer 1 - Infrastructure: 3/3 islands");
+        info!("  📡 Layer 3 - Communication: 1/1 islands (Redis Stream Reader)");
+        info!("  🔍 Layer 4 - Observability: 1/1 islands");
+        info!("  📊 Layer 5 - Business Logic: 2/2 islands");
 
         Ok(Self {
             app_state,
@@ -114,7 +115,7 @@ impl ServiceIslands {
     /// 
     /// Returns true if all islands are healthy, false otherwise.
     pub async fn health_check(&self) -> bool {
-        println!("🔍 Performing Service Islands health check (Main Service)...");
+        debug!("🔍 Performing Service Islands health check (Main Service)...");
 
         let shared_components_healthy = self.shared_components.health_check().await;
         let app_state_healthy = self.app_state.health_check().await;
@@ -127,16 +128,16 @@ impl ServiceIslands {
         let all_healthy = shared_components_healthy && app_state_healthy && cache_system_healthy && redis_stream_reader_healthy && health_system_healthy && dashboard_healthy && crypto_reports_healthy;
 
         if all_healthy {
-            println!("✅ All Service Islands are healthy!");
+            info!("✅ All Service Islands are healthy!");
         } else {
-            println!("❌ Some Service Islands are unhealthy!");
-            println!("   Shared Components Island: {}", if shared_components_healthy { "✅" } else { "❌" });
-            println!("   App State Island: {}", if app_state_healthy { "✅" } else { "❌" });
-            println!("   Cache System Island: {}", if cache_system_healthy { "✅" } else { "❌" });
-            println!("   Redis Stream Reader: {}", if redis_stream_reader_healthy { "✅" } else { "❌" });
-            println!("   Health System Island: {}", if health_system_healthy { "✅" } else { "❌" });
-            println!("   Dashboard Island: {}", if dashboard_healthy { "✅" } else { "❌" });
-            println!("   Crypto Reports Island: {}", if crypto_reports_healthy { "✅" } else { "❌" });
+            warn!("❌ Some Service Islands are unhealthy!");
+            warn!("   Shared Components Island: {}", if shared_components_healthy { "✅" } else { "❌" });
+            warn!("   App State Island: {}", if app_state_healthy { "✅" } else { "❌" });
+            warn!("   Cache System Island: {}", if cache_system_healthy { "✅" } else { "❌" });
+            warn!("   Redis Stream Reader: {}", if redis_stream_reader_healthy { "✅" } else { "❌" });
+            warn!("   Health System Island: {}", if health_system_healthy { "✅" } else { "❌" });
+            warn!("   Dashboard Island: {}", if dashboard_healthy { "✅" } else { "❌" });
+            warn!("   Crypto Reports Island: {}", if crypto_reports_healthy { "✅" } else { "❌" });
         }
 
         all_healthy
@@ -163,35 +164,35 @@ impl ServiceIslands {
     /// ✅ PRODUCTION-READY: Properly closes all resources in reverse dependency order
     /// Ensures database connections and Redis connections are cleanly closed.
     pub async fn shutdown(&self) -> Result<(), anyhow::Error> {
-        println!("🛑 Initiating graceful shutdown of Service Islands...");
+        info!("🛑 Initiating graceful shutdown of Service Islands...");
 
         // Shutdown in reverse dependency order (Layer 5 → Layer 4 → Layer 3 → Layer 1)
 
         // Layer 5: Business Logic Islands (no resources to cleanup)
-        println!("📊 Layer 5: Business Logic Islands - no cleanup needed");
+        info!("📊 Layer 5: Business Logic Islands - no cleanup needed");
 
         // Layer 4: Observability Islands (no resources to cleanup)
-        println!("🔍 Layer 4: Observability Islands - no cleanup needed");
+        info!("🔍 Layer 4: Observability Islands - no cleanup needed");
 
         // Layer 3: Communication Islands
-        println!("📡 Layer 3: Cleaning up Communication Islands...");
+        info!("📡 Layer 3: Cleaning up Communication Islands...");
         if let Err(e) = self.redis_stream_reader.cleanup().await {
-            eprintln!("   ⚠️  Redis Stream Reader cleanup error: {}", e);
+            warn!("   ⚠️  Redis Stream Reader cleanup error: {}", e);
         }
 
         // Layer 1: Infrastructure Islands
-        println!("🏗️  Layer 1: Cleaning up Infrastructure Islands...");
+        info!("🏗️  Layer 1: Cleaning up Infrastructure Islands...");
 
         // Close database connections
-        println!("   🗄️  Closing database connection pool...");
+        info!("   🗄️  Closing database connection pool...");
         let legacy_state = self.get_legacy_app_state();
         legacy_state.db.close().await;
-        println!("   ✅ Database connections closed");
+        info!("   ✅ Database connections closed");
 
         // Cache system cleanup (Redis connections handled by multi-tier-cache library)
-        println!("   💾 Cache system cleanup - Redis connections handled by library");
+        info!("   💾 Cache system cleanup - Redis connections handled by library");
 
-        println!("✅ Service Islands shutdown complete");
+        info!("✅ Service Islands shutdown complete");
         Ok(())
     }
 

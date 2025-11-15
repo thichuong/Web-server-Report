@@ -41,7 +41,7 @@ Cache System Island đã được xây dựng lại hoàn toàn với kiến tr�
 
 ```rust
 pub enum CacheStrategy {
-    RealTime,     // 30 seconds
+    RealTime,     // 10 seconds
     ShortTerm,    // 5 minutes  
     MediumTerm,   // 1 hour
     LongTerm,     // 3 hours

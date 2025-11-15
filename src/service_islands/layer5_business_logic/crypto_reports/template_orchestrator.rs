@@ -7,6 +7,7 @@
 use std::{collections::HashMap, error::Error as StdError, io::Write, sync::Arc};
 use tera::Context;
 use flate2::{Compression, write::GzEncoder};
+use tracing::{info, warn, error, debug};
 
 // Import from our specialized components
 use super::report_creator::{Report, ReportCreator};
@@ -61,7 +62,7 @@ impl TemplateOrchestrator {
         let compressed_size = compressed_data.len();
         let compression_ratio = (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0;
         
-        println!("🗜️  TemplateOrchestrator: Compression completed - Original: {}KB, Compressed: {}KB, Ratio: {:.1}%", 
+        info!("🗜️  TemplateOrchestrator: Compression completed - Original: {}KB, Compressed: {}KB, Ratio: {:.1}%", 
                  original_size / 1024, 
                  compressed_size / 1024, 
                  compression_ratio);
@@ -82,16 +83,16 @@ impl TemplateOrchestrator {
         chart_modules_content: Option<Arc<String>>,  // ✅ Changed to Arc<String>
         additional_context: Option<HashMap<String, serde_json::Value>>
     ) -> Result<TemplateContext, Box<dyn StdError + Send + Sync>> {
-        println!("🎨 TemplateOrchestrator: Preparing context for template type: {}", template_type);
+        info!("🎨 TemplateOrchestrator: Preparing context for template type: {}", template_type);
 
         // Sử dụng chart_modules_content được truyền vào, hoặc fetch từ ReportCreator nếu không có
         let chart_modules_content = match chart_modules_content {
             Some(content) => {
-                println!("✅ TemplateOrchestrator: Sử dụng chart modules đã được pre-load (Arc - zero clone)");
+                info!("✅ TemplateOrchestrator: Sử dụng chart modules đã được pre-load (Arc - zero clone)");
                 content
             }
             None => {
-                println!("🔄 TemplateOrchestrator: Fallback - đọc chart modules từ file");
+                info!("🔄 TemplateOrchestrator: Fallback - đọc chart modules từ file");
                 Arc::new(self.report_creator.get_chart_modules_content().await)
             }
         };
@@ -125,9 +126,9 @@ impl TemplateOrchestrator {
                     "ws://localhost:8081".to_string()
                 } else {
                     // In production, warn if not explicitly configured
-                    eprintln!("⚠️ WEBSOCKET_SERVICE_URL not set in production!");
-                    eprintln!("   Using fallback: wss://web-server-report-websocket-production.up.railway.app");
-                    eprintln!("   Set WEBSOCKET_SERVICE_URL environment variable to avoid this warning.");
+                    warn!("⚠️ WEBSOCKET_SERVICE_URL not set in production!");
+                    error!("   Using fallback: wss://web-server-report-websocket-production.up.railway.app");
+                    error!("   Set WEBSOCKET_SERVICE_URL environment variable to avoid this warning.");
                     "wss://web-server-report-websocket-production.up.railway.app".to_string()
                 }
             });
@@ -135,7 +136,7 @@ impl TemplateOrchestrator {
 
         context.additional_context = Some(extra_context);
         
-        println!("✅ TemplateOrchestrator: Context prepared successfully with sandbox token (memory optimized)");
+        info!("✅ TemplateOrchestrator: Context prepared successfully with sandbox token (memory optimized)");
         Ok(context)
     }
 
@@ -149,7 +150,7 @@ impl TemplateOrchestrator {
         template_path: &str,
         context: TemplateContext
     ) -> Result<String, Box<dyn StdError + Send + Sync>> {
-        println!("🎨 TemplateOrchestrator: Rendering template: {}", template_path);
+        info!("🎨 TemplateOrchestrator: Rendering template: {}", template_path);
         
         // Clone để đáp ứng yêu cầu 'static của spawn_blocking
         // ✅ Now lightweight: Tera is Arc, TemplateContext uses Arc internally
@@ -195,24 +196,24 @@ impl TemplateOrchestrator {
         
         match render_result {
             Ok(Ok(Ok(html))) => {
-                println!("✅ TemplateOrchestrator: Template rendered successfully");
+                info!("✅ TemplateOrchestrator: Template rendered successfully");
                 Ok(html)
             }
             Ok(Ok(Err(e))) => {
-                eprintln!("❌ TemplateOrchestrator: Template render error: {:#?}", e);
+                error!("❌ TemplateOrchestrator: Template render error: {:#?}", e);
                 let mut src = e.source();
                 while let Some(s) = src {
-                    eprintln!("❌ Template render error source: {:#?}", s);
+                    error!("❌ Template render error source: {:#?}", s);
                     src = s.source();
                 }
                 Err(format!("Template render error: {}", e).into())
             }
             Ok(Err(e)) => {
-                eprintln!("❌ TemplateOrchestrator: Task join error: {:#?}", e);
+                error!("❌ TemplateOrchestrator: Task join error: {:#?}", e);
                 Err(format!("Task join error: {}", e).into())
             }
             Err(_) => {
-                eprintln!("❌ TemplateOrchestrator: Template rendering timeout after 30s");
+                error!("❌ TemplateOrchestrator: Template rendering timeout after 30s");
                 Err("Template rendering timeout - operation took longer than 30 seconds".into())
             }
         }
@@ -231,7 +232,7 @@ impl TemplateOrchestrator {
         chart_modules_content: Option<Arc<String>>,  // ✅ Changed to Arc<String>
         additional_context: Option<HashMap<String, serde_json::Value>>
     ) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
-        println!("🚀 TemplateOrchestrator: Rendering crypto report view with compression");
+        debug!("🚀 TemplateOrchestrator: Rendering crypto report view with compression");
 
         // Step 1: Prepare template context
         let context = self.prepare_crypto_report_context(
@@ -249,20 +250,20 @@ impl TemplateOrchestrator {
         ).await?;
         
         // Step 3: Compress and gather detailed metrics
-        println!("🗜️  TemplateOrchestrator: Starting HTML compression with metrics...");
+        info!("🗜️  TemplateOrchestrator: Starting HTML compression with metrics...");
         let original_size = html.len();
         let compressed_data = self.compress_html(&html)?;
         let compressed_size = compressed_data.len();
         let compression_ratio = (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0;
         
         // Log detailed compression information
-        println!("📊 TemplateOrchestrator: Compression Metrics:");
-        println!("   📏 Original Size: {} bytes ({} KB)", original_size, original_size / 1024);
-        println!("   🗜️  Compressed Size: {} bytes ({} KB)", compressed_size, compressed_size / 1024);
-        println!("   📈 Compression Ratio: {:.2}%", compression_ratio);
-        println!("   💾 Space Saved: {} bytes ({} KB)", original_size - compressed_size, (original_size - compressed_size) / 1024);
+        debug!("📊 TemplateOrchestrator: Compression Metrics:");
+        info!("   📏 Original Size: {} bytes ({} KB)", original_size, original_size / 1024);
+        info!("   🗜️  Compressed Size: {} bytes ({} KB)", compressed_size, compressed_size / 1024);
+        info!("   📈 Compression Ratio: {:.2}%", compression_ratio);
+        info!("   💾 Space Saved: {} bytes ({} KB)", original_size - compressed_size, (original_size - compressed_size) / 1024);
         
-        println!("✅ TemplateOrchestrator: HTML compression completed successfully");
+        info!("✅ TemplateOrchestrator: HTML compression completed successfully");
         
         // Return compressed data instead of original HTML
         Ok(compressed_data)
@@ -275,7 +276,7 @@ impl TemplateOrchestrator {
         &self,
         tera: &tera::Tera
     ) -> Result<String, Box<dyn StdError + Send + Sync>> {
-        println!("⚠️ TemplateOrchestrator: Rendering empty template");
+        warn!("⚠️ TemplateOrchestrator: Rendering empty template");
         
         // Create empty report for template
         let empty_report = Report {
@@ -317,7 +318,7 @@ impl TemplateOrchestrator {
         tera: &tera::Tera,
         report_id: i32
     ) -> Result<String, Box<dyn StdError + Send + Sync>> {
-        println!("🔍 TemplateOrchestrator: Rendering 404 template for report ID: {}", report_id);
+        debug!("🔍 TemplateOrchestrator: Rendering 404 template for report ID: {}", report_id);
         
         // Create not found report with error messages
         let not_found_report = Report {

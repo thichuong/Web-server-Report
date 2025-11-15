@@ -1,11 +1,13 @@
 //! Health System Island - Layer 4: Observability
-//! 
+//!
 //! This island handles all system monitoring and health checking operations including:
 //! - Comprehensive health monitoring
-//! - SSL certificate validation  
+//! - SSL certificate validation
 //! - Performance metrics tracking
 //! - Connectivity testing for external services
 //! - Alerting and reporting
+
+use tracing::info;
 
 pub mod health_checker;
 pub mod ssl_tester;
@@ -30,14 +32,14 @@ impl HealthSystemIsland {
     /// 
     /// Creates a new Health System Island with all its components properly initialized.
     pub async fn new() -> Result<Self, anyhow::Error> {
-        println!("🔍 Initializing Health System Island...");
+        info!("🔍 Initializing Health System Island...");
         
         let health_checker = health_checker::HealthChecker::new();
         let ssl_tester = ssl_tester::SslTester::new();
         let performance_monitor = performance_monitor::PerformanceMonitor::new();
         let connectivity_tester = connectivity_tester::ConnectivityTester::new();
         
-        println!("✅ Health System Island initialized successfully!");
+        info!("✅ Health System Island initialized successfully!");
         
         Ok(Self {
             health_checker,

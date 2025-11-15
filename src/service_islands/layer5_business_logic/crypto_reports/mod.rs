@@ -7,6 +7,8 @@
 //!
 //! Note: WebSocket functionality has been moved to a separate service (Web-server-Report-websocket)
 
+use tracing::info;
+
 pub mod handlers;
 pub mod report_creator;
 pub mod data_manager;
@@ -33,14 +35,14 @@ impl CryptoReportsIsland {
     ///
     /// Reads market data from Redis Stream (populated by WebSocket service)
     pub async fn new() -> Result<Self, anyhow::Error> {
-        println!("📊 Initializing Crypto Reports Island...");
+        info!("📊 Initializing Crypto Reports Island...");
 
         let report_creator = report_creator::ReportCreator::new();
         let handlers = handlers::CryptoHandlers::new();
         let data_manager = data_manager::DataManager::new();
         let template_orchestrator = template_orchestrator::TemplateOrchestrator::new(report_creator.clone());
 
-        println!("✅ Crypto Reports Island initialized!");
+        info!("✅ Crypto Reports Island initialized!");
 
         Ok(Self {
             handlers,

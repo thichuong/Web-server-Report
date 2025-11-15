@@ -15,6 +15,7 @@ use tera::Context;
 use flate2::{Compression, write::GzEncoder};
 use crate::service_islands::layer1_infrastructure::AppState;
 use crate::service_islands::layer3_communication::dashboard_communication::DashboardDataService;
+use tracing::{info, warn, error, debug};
 
 /// Dashboard Handlers
 /// 
@@ -50,7 +51,7 @@ impl DashboardHandlers {
             .header("content-encoding", "gzip")
             .body(Body::from(compressed_data))
             .unwrap_or_else(|e| {
-                eprintln!("⚠️ Failed to build compressed dashboard response: {}", e);
+                warn!("⚠️ Failed to build compressed dashboard response: {}", e);
                 Response::builder()
                     .status(StatusCode::INTERNAL_SERVER_ERROR)
                     .body(Body::from("Response build error"))
@@ -71,7 +72,7 @@ impl DashboardHandlers {
         let compressed_size = compressed_data.len();
         let compression_ratio = (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0;
         
-        println!("🗜️  DashboardHandlers: HTML compressed - Original: {}KB, Compressed: {}KB, Ratio: {:.1}%", 
+        info!("🗜️  DashboardHandlers: HTML compressed - Original: {}KB, Compressed: {}KB, Ratio: {:.1}%", 
                  original_size / 1024, 
                  compressed_size / 1024, 
                  compression_ratio);
@@ -98,16 +99,16 @@ impl DashboardHandlers {
         &self,
         state: &Arc<AppState>
     ) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
-        println!("🚀 Layer 5: Nhận yêu cầu cho homepage");
+        debug!("🚀 Layer 5: Nhận yêu cầu cho homepage");
         
         // BƯỚC 1: HỎI LAYER 3 ĐỂ LẤY COMPRESSED DATA TỪ CACHE CHO HOMEPAGE
         // Check cache for compressed data first (preferred)
         if let Ok(Some(cached_compressed)) = self.data_service.get_rendered_homepage_compressed(state).await {
-            println!("✅ Layer 5: Nhận compressed homepage từ cache. Trả về ngay lập tức.");
+            info!("✅ Layer 5: Nhận compressed homepage từ cache. Trả về ngay lập tức.");
             return Ok(cached_compressed);
         }
 
-        println!("🔍 Layer 5: Cache miss cho homepage. Bắt đầu quy trình render.");
+        debug!("🔍 Layer 5: Cache miss cho homepage. Bắt đầu quy trình render.");
 
         // BƯỚC 2: NẾU CACHE MISS, RENDER TEMPLATE VỚI CONTEXT ĐƠN GIẢN
         let mut context = Context::new();
@@ -132,9 +133,9 @@ impl DashboardHandlers {
                     "ws://localhost:8081".to_string()
                 } else {
                     // In production, warn if not explicitly configured
-                    eprintln!("⚠️ WEBSOCKET_SERVICE_URL not set in production!");
-                    eprintln!("   Using fallback: wss://web-server-report-websocket-production.up.railway.app");
-                    eprintln!("   Set WEBSOCKET_SERVICE_URL environment variable to avoid this warning.");
+                    warn!("⚠️ WEBSOCKET_SERVICE_URL not set in production!");
+                    error!("   Using fallback: wss://web-server-report-websocket-production.up.railway.app");
+                    error!("   Set WEBSOCKET_SERVICE_URL environment variable to avoid this warning.");
                     "wss://web-server-report-websocket-production.up.railway.app".to_string()
                 }
             });
@@ -143,10 +144,10 @@ impl DashboardHandlers {
         // Render the template using the registered components
         match state.tera.render("home.html", &context) {
             Ok(html) => {
-                println!("✅ Layer 5: Render homepage thành công với Tera components");
-                println!("   - Theme toggle component included");
-                println!("   - Language toggle component included"); 
-                println!("   - Market indicators component included");
+                info!("✅ Layer 5: Render homepage thành công với Tera components");
+                info!("   - Theme toggle component included");
+                info!("   - Language toggle component included"); 
+                info!("   - Market indicators component included");
                 
                 // BƯỚC 3: COMPRESS HTML VÀ CACHE RESULT
                 match self.compress_html(&html) {
@@ -154,30 +155,30 @@ impl DashboardHandlers {
                         // ✅ IDIOMATIC: Pass reference instead of cloning entire Vec<u8>
                         // At 16,829 RPS, this saves 840MB-3.3GB/sec of allocations
                         if let Err(e) = self.data_service.cache_rendered_homepage_compressed(state, &compressed_data).await {
-                            eprintln!("⚠️ Layer 5: Không thể cache compressed homepage: {}", e);
+                            warn!("⚠️ Layer 5: Không thể cache compressed homepage: {}", e);
                             // Vẫn trả về data ngay cả khi cache fail
                         } else {
-                            println!("✅ Homepage rendered and cached successfully");
+                            info!("✅ Homepage rendered and cached successfully");
                         }
                         Ok(compressed_data)  // Move ownership, zero clone
                     }
                     Err(e) => {
-                        eprintln!("❌ Failed to compress homepage HTML: {}", e);
+                        error!("❌ Failed to compress homepage HTML: {}", e);
                         Err(format!("Homepage compression error: {}", e).into())
                     }
                 }
             }
             Err(e) => {
-                println!("❌ Failed to render homepage template with Tera: {}", e);
-                println!("   Error details: {:?}", e);
+                error!("❌ Failed to render homepage template with Tera: {}", e);
+                info!("   Error details: {:?}", e);
                 // Fallback to simple file reading and compression
                 match fs::read_to_string("dashboards/home.html").await {
                     Ok(content) => {
-                        println!("   Using fallback file reading (components won't work)");
+                        info!("   Using fallback file reading (components won't work)");
                         match self.compress_html(&content) {
                             Ok(compressed_data) => Ok(compressed_data),
                             Err(compress_err) => {
-                                eprintln!("❌ Failed to compress fallback HTML: {}", compress_err);
+                                error!("❌ Failed to compress fallback HTML: {}", compress_err);
                                 Err(compress_err)
                             }
                         }

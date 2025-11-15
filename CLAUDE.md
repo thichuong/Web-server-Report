@@ -43,6 +43,44 @@ cargo run --example test_finnhub_integration
 cargo run --example http_load_benchmark
 ```
 
+### Logging and Tracing
+
+The project uses the `tracing` library for structured logging with the following benefits:
+- **Async-aware**: Integrates seamlessly with Tokio runtime
+- **Zero-cost abstractions**: Minimal performance overhead
+- **Environment-controlled**: Use `RUST_LOG` to control verbosity
+
+**Log Levels:**
+- `error` - Critical failures (e.g., database connection errors, API failures)
+- `warn` - Non-critical issues (e.g., cache misses, fallback scenarios)
+- `info` - Important state changes (e.g., server startup, successful operations)
+- `debug` - Detailed debugging information (e.g., cache hits, request routing)
+- `trace` - Very detailed tracing (not currently used)
+
+**Usage Examples:**
+
+```bash
+# Production mode (minimal logging - info and above)
+RUST_LOG=info cargo run
+
+# Development mode (detailed logging - debug and above)
+RUST_LOG=debug cargo run
+
+# Verbose debugging (all logs)
+RUST_LOG=trace cargo run
+
+# Module-specific debugging (debug for specific module, info for others)
+RUST_LOG=web_server_report::service_islands=debug,info cargo run
+
+# Multiple modules with different levels
+RUST_LOG=web_server_report::routes=debug,web_server_report::cache=trace,info cargo run
+```
+
+**Default Behavior:**
+- If `RUST_LOG` is not set, defaults to `info` level
+- All logs are output to stdout with timestamps
+- Supports filtering by module path for granular control
+
 ### Frontend Assets
 
 ```bash

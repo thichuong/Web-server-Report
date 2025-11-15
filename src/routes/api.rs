@@ -1,5 +1,5 @@
 //! API Routes
-//! 
+//!
 //! This module handles all API endpoints for the Service Islands Architecture.
 //! Includes dashboard APIs, cache APIs, health APIs, and rate limiting APIs.
 
@@ -12,6 +12,7 @@ use axum::{
 use serde_json::json;
 use std::sync::Arc;
 use std::collections::HashMap;
+use tracing::{info, warn, error, debug};
 
 use crate::service_islands::ServiceIslands;
 
@@ -31,24 +32,24 @@ async fn api_dashboard_data(
     State(service_islands): State<Arc<ServiceIslands>>
 ) -> Json<serde_json::Value> {
     // Phase 3: Primary reads from Redis Streams via RedisStreamReader
-    println!("🚀 [API] Reading dashboard data from Redis Stream...");
+    debug!("🚀 [API] Reading dashboard data from Redis Stream...");
 
     // Use RedisStreamReader to fetch latest market data
     match service_islands.redis_stream_reader.read_latest_market_data().await {
         Ok(Some(data)) => {
-            println!("✅ [API] Dashboard data served from Redis Stream (<1ms)");
+            debug!("✅ [API] Dashboard data served from Redis Stream (<1ms)");
             return Json(data);
         }
         Ok(None) => {
-            println!("⚠️ [API] No data in Redis Stream yet, websocket service will populate it soon");
+            warn!("⚠️ [API] No data in Redis Stream yet, websocket service will populate it soon");
         }
         Err(e) => {
-            println!("⚠️ [API] Failed to read from Redis Stream: {}", e);
+            warn!("⚠️ [API] Failed to read from Redis Stream: {}", e);
         }
     }
 
     // Return fallback data - websocket service will populate stream within 10 seconds
-    println!("📊 [API] Returning fallback data (websocket service will update stream)");
+    info!("📊 [API] Returning fallback data (websocket service will update stream)");
     Json(json!({
         "btc_price_usd": 45000.0,
         "btc_change_24h": 0.0,
@@ -70,24 +71,24 @@ async fn api_dashboard_summary(
     State(service_islands): State<Arc<ServiceIslands>>
 ) -> Json<serde_json::Value> {
     // Stream-first strategy: Read from Redis Stream populated by websocket service
-    println!("🚀 [API] Reading dashboard summary from Redis Stream...");
+    debug!("🚀 [API] Reading dashboard summary from Redis Stream...");
 
     // Use RedisStreamReader to fetch latest market data
     match service_islands.redis_stream_reader.read_latest_market_data().await {
         Ok(Some(data)) => {
-            println!("✅ [API] Dashboard summary served from Redis Stream (<1ms)");
+            debug!("✅ [API] Dashboard summary served from Redis Stream (<1ms)");
             return Json(data);
         }
         Ok(None) => {
-            println!("⚠️ [API] No data in Redis Stream yet, websocket service will populate it soon");
+            warn!("⚠️ [API] No data in Redis Stream yet, websocket service will populate it soon");
         }
         Err(e) => {
-            println!("⚠️ [API] Failed to read from Redis Stream: {}", e);
+            warn!("⚠️ [API] Failed to read from Redis Stream: {}", e);
         }
     }
 
     // Return fallback data - websocket service will populate stream within 10 seconds
-    println!("📊 [API] Returning fallback data (websocket service will update stream)");
+    info!("📊 [API] Returning fallback data (websocket service will update stream)");
     Json(json!({
         "btc_price_usd": 45000.0,
         "btc_change_24h": 0.0,
@@ -126,8 +127,8 @@ async fn api_sandboxed_report(
     Query(params): Query<HashMap<String, String>>,
     State(service_islands): State<Arc<ServiceIslands>>
 ) -> impl IntoResponse {
-    println!("🔒 [API] Sandboxed report requested for ID: {}", id);
-    
+    debug!("🔒 [API] Sandboxed report requested for ID: {}", id);
+
     // Parse report ID (-1 for latest)
     let report_id: i32 = if id == "latest" {
         -1
@@ -135,7 +136,7 @@ async fn api_sandboxed_report(
         match id.parse() {
             Ok(id) => id,
             Err(_) => {
-                println!("❌ [API] Invalid report ID format for sandboxing: {}", id);
+                error!("❌ [API] Invalid report ID format for sandboxing: {}", id);
                 return "Invalid report ID format".into_response();
             }
         }
@@ -145,7 +146,7 @@ async fn api_sandboxed_report(
     let sandbox_token = match params.get("token") {
         Some(token) => token,
         None => {
-            println!("❌ [API] Missing sandbox token for report {}", report_id);
+            warn!("❌ [API] Missing sandbox token for report {}", report_id);
             return "Missing sandbox token".into_response();
         }
     };
@@ -158,11 +159,11 @@ async fn api_sandboxed_report(
     let chart_modules = match params.get("chart_modules") {
         Some(_) => {
             // If chart_modules parameter is present, load actual chart modules
-            println!("📊 [API] Loading chart modules for iframe");
+            debug!("📊 [API] Loading chart modules for iframe");
             Some(service_islands.shared_components.chart_modules_content.as_str())
         },
         None => {
-            println!("⚠️ [API] No chart_modules parameter - iframe will have empty charts");
+            warn!("⚠️ [API] No chart_modules parameter - iframe will have empty charts");
             None
         }
     };
@@ -176,11 +177,11 @@ async fn api_sandboxed_report(
         chart_modules
     ).await {
         Ok(response) => {
-            println!("✅ [API] Sandboxed report {} served successfully", report_id);
+            info!("✅ [API] Sandboxed report {} served successfully", report_id);
             response
         }
         Err(e) => {
-            eprintln!("❌ [API] Failed to serve sandboxed report {}: {}", report_id, e);
+            error!("❌ [API] Failed to serve sandboxed report {}: {}", report_id, e);
             "Failed to serve sandboxed content".into_response()
         }
     }

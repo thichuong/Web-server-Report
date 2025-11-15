@@ -1,11 +1,12 @@
 //! Model Registry Component
-//! 
+//!
 //! Manages all data model definitions and provides model utilities.
 //! Central registry for data structures used across the application.
 
 use std::collections::HashMap;
 use anyhow::Result;
 use serde_json;
+use tracing::{debug, error};
 
 /// Model Registry manages all data model definitions
 pub struct ModelRegistry {
@@ -16,12 +17,12 @@ pub struct ModelRegistry {
 impl ModelRegistry {
     /// Initialize the Model Registry
     pub async fn new() -> Result<Self> {
-        println!("📊 Initializing Model Registry...");
-        
+        debug!("📊 Initializing Model Registry...");
+
         let models = Self::initialize_models().await?;
-        
-        println!("  📊 Registered {} data models", models.len());
-        
+
+        debug!("  📊 Registered {} data models", models.len());
+
         Ok(Self {
             models,
         })
@@ -54,15 +55,15 @@ impl ModelRegistry {
     pub async fn health_check(&self) -> bool {
         // Verify that core models are available
         let core_models = vec!["Report"];
-        
+
         for model_name in core_models {
             if !self.models.contains_key(model_name) {
-                eprintln!("❌ Core model '{}' is missing", model_name);
+                error!("❌ Core model '{}' is missing", model_name);
                 return false;
             }
         }
-        
-        println!("✅ Model Registry health check passed");
+
+        debug!("✅ Model Registry health check passed");
         true
     }
 }

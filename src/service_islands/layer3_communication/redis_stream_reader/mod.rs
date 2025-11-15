@@ -6,6 +6,7 @@
 use anyhow::Result;
 use serde_json::Value;
 use std::sync::Arc;
+use tracing::info;
 use crate::service_islands::layer1_infrastructure::cache_system_island::CacheSystemIsland;
 
 /// Redis Stream Reader
@@ -32,7 +33,7 @@ impl RedisStreamReader {
     /// - Cache miss: Reads from Redis Stream, caches result, then returns
     /// - Built-in cache stampede protection prevents multiple concurrent stream reads
     pub async fn read_latest_market_data(&self) -> Result<Option<Value>> {
-        println!("📖 Reading latest market data (cache-first with auto-fallback)...");
+        info!("📖 Reading latest market data (cache-first with auto-fallback)...");
 
         use crate::service_islands::layer1_infrastructure::cache_system_island::CacheStrategy;
 
@@ -42,22 +43,22 @@ impl RedisStreamReader {
             .cache_manager()
             .get_or_compute_typed(
                 "latest_market_data",
-                CacheStrategy::ShortTerm, // 5 minutes TTL
+                CacheStrategy::RealTime, // 5 minutes TTL
                 || async {
                     // Compute function: only called on cache miss
-                    println!("💾 Cache miss - reading from Redis Stream...");
+                    info!("💾 Cache miss - reading from Redis Stream...");
 
                     match self.read_from_stream().await {
                         Ok(Some(data)) => {
-                            println!("✅ Market data read from Redis Stream (will be cached)");
+                            info!("✅ Market data read from Redis Stream (will be cached)");
                             Ok(Some(data))
                         }
                         Ok(None) => {
-                            println!("⚠️ No data in Redis Stream");
+                            info!("⚠️ No data in Redis Stream");
                             Ok(None)
                         }
                         Err(e) => {
-                            println!("❌ Failed to read from Redis Stream: {}", e);
+                            info!("❌ Failed to read from Redis Stream: {}", e);
                             Err(anyhow::anyhow!("Failed to read market data: {}", e))
                         }
                     }
@@ -82,7 +83,7 @@ impl RedisStreamReader {
 
         // Get the first (and only) entry
         let (entry_id, fields) = &entries[0];
-        println!("📨 Stream entry ID: {}", entry_id);
+        info!("📨 Stream entry ID: {}", entry_id);
 
         // Convert stream fields back to JSON
         let json_data = self.stream_fields_to_json(fields)?;
@@ -99,7 +100,7 @@ impl RedisStreamReader {
         if fields.len() == 1 && fields[0].0 == "data" {
             let data_str = &fields[0].1;
             if let Ok(data) = serde_json::from_str::<Value>(data_str) {
-                println!("📦 Unwrapped nested 'data' field from Redis Stream");
+                info!("📦 Unwrapped nested 'data' field from Redis Stream");
                 return Ok(data);
             }
         }
@@ -140,7 +141,7 @@ impl RedisStreamReader {
         match self.cache_system.cache_manager().get("_health_check").await {
             Ok(_) => Ok(true),
             Err(e) => {
-                println!("❌ Redis Stream Reader health check failed: {}", e);
+                info!("❌ Redis Stream Reader health check failed: {}", e);
                 Ok(false)
             }
         }
@@ -152,15 +153,15 @@ impl RedisStreamReader {
     /// Note: Redis connections are managed by the cache_system library and will
     /// be automatically cleaned up when cache_system is dropped.
     pub async fn cleanup(&self) -> Result<()> {
-        println!("🧹 RedisStreamReader: Starting cleanup...");
+        info!("🧹 RedisStreamReader: Starting cleanup...");
 
         // Note: If using Redis consumer groups, we would acknowledge pending messages here
         // Currently using simple XREAD without consumer groups, so no pending messages to handle
 
         // Redis connections managed by cache_system - no manual cleanup needed
-        println!("   ✅ Redis connections managed by cache_system library");
+        info!("   ✅ Redis connections managed by cache_system library");
 
-        println!("✅ RedisStreamReader: Cleanup complete");
+        info!("✅ RedisStreamReader: Cleanup complete");
         Ok(())
     }
 }

@@ -5,6 +5,7 @@
 //! from infrastructure concerns.
 
 use std::sync::Arc;
+use tracing::info;
 
 // Import from current state - will be refactored when lower layers are implemented
 use crate::service_islands::layer1_infrastructure::AppState;
@@ -41,19 +42,19 @@ impl DashboardDataService {
                 Ok(Some(cached_data)) => {
                     match serde_json::from_value::<Vec<u8>>(cached_data) {
                         Ok(cached_compressed) => {
-                            println!("🔥 DashboardDataService: L1 Cache HIT for compressed homepage");
+                            info!("🔥 DashboardDataService: L1 Cache HIT for compressed homepage");
                             return Ok(Some(cached_compressed));
                         }
                         Err(e) => {
-                            println!("⚠️ DashboardDataService: L1 Cache deserialization error: {}", e);
+                            info!("⚠️ DashboardDataService: L1 Cache deserialization error: {}", e);
                         }
                     }
                 }
                 Ok(None) => {
-                    println!("🔍 DashboardDataService: L1 Cache MISS for homepage");
+                    info!("🔍 DashboardDataService: L1 Cache MISS for homepage");
                 }
                 Err(e) => {
-                    println!("⚠️ DashboardDataService: L1 Cache access error: {}", e);
+                    info!("⚠️ DashboardDataService: L1 Cache access error: {}", e);
                 }
             }
         }
@@ -81,9 +82,9 @@ impl DashboardDataService {
                 ).await {
                     Ok(_) => {
                         let size_kb = compressed_data.len() / 1024;
-                        println!("💾 DashboardDataService: Cached compressed homepage ({}KB) for 5 minutes", size_kb);
+                        info!("💾 DashboardDataService: Cached compressed homepage ({}KB) for 5 minutes", size_kb);
                     }
-                    Err(e) => println!("⚠️ DashboardDataService: L1 Cache set error: {}", e),
+                    Err(e) => info!("⚠️ DashboardDataService: L1 Cache set error: {}", e),
                 }
             }
         }
