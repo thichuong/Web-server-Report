@@ -55,8 +55,8 @@ impl CacheSystemIsland {
 
         // Extract Arc references for backward compatibility
         let cache_manager = Arc::clone(&inner.cache_manager);
-        let l1_cache = Arc::clone(&inner.l1_cache);
-        let l2_cache = Arc::clone(&inner.l2_cache);
+        let l1_cache = Arc::clone(inner.l1_cache.as_ref().expect("L1 cache should be initialized"));
+        let l2_cache = Arc::clone(inner.l2_cache.as_ref().expect("L2 cache should be initialized"));
 
         info!("✅ Cache System Island initialized successfully (library-backed)");
 
