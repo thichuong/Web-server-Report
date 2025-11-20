@@ -273,10 +273,9 @@ async fn crypto_index_dsd(
     let data_service = &service_islands.crypto_reports.report_creator.data_service;
     if let Ok(Some(cached_compressed)) = data_service.get_rendered_report_dsd_compressed(
         &service_islands.get_legacy_app_state(),
-        report_id_value,
-        &preferred_language
+        report_id_value
     ).await {
-        info!("✅ [Route] DSD cache HIT - returning compressed HTML for {} ({})",
+        info!("✅ [Route] DSD cache HIT - returning compressed HTML for {} (language: {})",
               if report_id_value == -1 { "latest".to_string() } else { format!("#{}", report_id_value) },
               preferred_language);
 
@@ -349,7 +348,7 @@ async fn crypto_index_dsd(
     context.insert("shadow_dom_token", &shadow_dom_token);
     context.insert("shadow_dom_content", &shadow_dom_content);
     context.insert("chart_modules_content", chart_modules_content.as_ref());
-    context.insert("websocket_url", &std::env::var("WEBSOCKET_URL")
+    context.insert("websocket_url", &std::env::var("WEBSOCKET_SERVICE_URL")
         .unwrap_or_else(|_| "ws://localhost:8081/ws".to_string()));
 
     let app_state = service_islands.get_legacy_app_state();
@@ -374,13 +373,12 @@ async fn crypto_index_dsd(
     if let Err(e) = data_service.cache_rendered_report_dsd_compressed(
         &service_islands.get_legacy_app_state(),
         report_id_value,
-        &preferred_language,
         &compressed_data
     ).await {
         warn!("⚠️ [Route] Failed to cache DSD compressed HTML: {}", e);
     }
 
-    info!("✅ [Route] DSD template rendered successfully for report {} ({})",
+    info!("✅ [Route] DSD template rendered successfully for report {} (language: {})",
           report.id, preferred_language);
 
     // STEP 8: Return compressed response
@@ -431,10 +429,9 @@ async fn crypto_view_report_dsd(
     let data_service = &service_islands.crypto_reports.report_creator.data_service;
     if let Ok(Some(cached_compressed)) = data_service.get_rendered_report_dsd_compressed(
         &service_islands.get_legacy_app_state(),
-        report_id,
-        &preferred_language
+        report_id
     ).await {
-        info!("✅ [Route] DSD cache HIT - returning compressed HTML for report #{} ({})",
+        info!("✅ [Route] DSD cache HIT - returning compressed HTML for report #{} (language: {})",
               report_id, preferred_language);
 
         return Response::builder()
@@ -501,7 +498,7 @@ async fn crypto_view_report_dsd(
     context.insert("shadow_dom_token", &shadow_dom_token);
     context.insert("shadow_dom_content", &shadow_dom_content);
     context.insert("chart_modules_content", chart_modules_content.as_ref());
-    context.insert("websocket_url", &std::env::var("WEBSOCKET_URL")
+    context.insert("websocket_url", &std::env::var("WEBSOCKET_SERVICE_URL")
         .unwrap_or_else(|_| "ws://localhost:8081/ws".to_string()));
 
     let app_state = service_islands.get_legacy_app_state();
@@ -526,13 +523,12 @@ async fn crypto_view_report_dsd(
     if let Err(e) = data_service.cache_rendered_report_dsd_compressed(
         &service_islands.get_legacy_app_state(),
         report_id,
-        &preferred_language,
         &compressed_data
     ).await {
         warn!("⚠️ [Route] Failed to cache DSD compressed HTML for report {}: {}", report_id, e);
     }
 
-    info!("✅ [Route] DSD template rendered successfully for report {} ({})",
+    info!("✅ [Route] DSD template rendered successfully for report {} (language: {})",
           report_id, preferred_language);
 
     // STEP 8: Return compressed response
