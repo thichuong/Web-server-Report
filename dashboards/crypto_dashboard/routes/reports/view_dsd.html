@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Toàn Cảnh Thị Trường</title>
+
+    <!-- Open Graph Meta Tags -->
+    <meta property="fb:app_id" content="2216301062195294" />
+    <meta property="og:title" content="Toàn Cảnh Thị Trường Tiền Mã Hóa - Crypto Dashboard" />
+    <meta property="og:description" content="Báo cáo chi tiết về thị trường tiền mã hóa với phân tích kỹ thuật, biểu đồ và dữ liệu real-time." />
+    <meta property="og:image" content="https://cryptodashboard.me/shared_assets/images/image.jpg" />
+    <meta property="og:url" content="https://cryptodashboard.me/" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="Crypto Dashboard" />
+
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Toàn Cảnh Thị Trường Tiền Mã Hóa - Crypto Dashboard" />
+    <meta name="twitter:description" content="Báo cáo chi tiết về thị trường tiền mã hóa với phân tích kỹ thuật, biểu đồ và dữ liệu real-time." />
+    <meta name="twitter:image" content="https://cryptodashboard.me/shared_assets/images/image.jpg" />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="/shared_assets/css/colors.css">
+    <link rel="stylesheet" href="/shared_assets/css/style.css">
+    <link rel="stylesheet" href="/shared_assets/css/chart.css">
+    <link rel="stylesheet" href="/crypto_dashboard/assets/report-view.css">
+
+    <!-- DSD-specific styles -->
+    <style>
+        /* Shadow host container */
+        #report-shadow-host {
+            width: 100%;
+            display: block;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Navigation sidebar styling */
+        #navigation-sidebar {
+            position: sticky;
+            top: 80px;
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- Fixed bottom navigation panel -->
+    <div class="fixed bottom-0 left-0 right-0 z-50" style="background-color: var(--bg-secondary); border-top: 1px solid var(--border-color); backdrop-filter: blur(10px);">
+        <div class="px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-3">
+                    <a href="/"
+                       class="inline-flex items-center justify-center w-10 h-10 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-300 transform hover:scale-110 shadow-md hover:shadow-lg"
+                       data-i18n-title="home"
+                       title="Trang chủ">
+                        <i class="fas fa-home text-lg"></i>
+                    </a>
+                    <a href="/crypto_reports_list"
+                       class="inline-flex items-center justify-center w-10 h-10 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-all duration-300 transform hover:scale-110 shadow-md hover:shadow-lg"
+                       data-i18n-title="view-report-history"
+                       title="Lịch sử báo cáo">
+                        <i class="fas fa-history text-lg"></i>
+                    </a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    {% include "crypto/components/theme_toggle.html" %}
+                    {% include "crypto/components/language_toggle.html" %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container mx-auto p-4 md:p-8 pt-20">
+        <header class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-extrabold mb-2">
+                <span data-i18n="site-title">Toàn Cảnh Thị Trường Tiền Mã Hóa</span>
+            </h1>
+            <p class="text-lg text-gray-600 max-w-3xl mx-auto">
+                <span data-i18n="analysis-summary">Báo cáo tổng hợp</span>
+            </p>
+            <p class="text-base text-gray-500 max-w-3xl mx-auto mt-2">
+                <span data-i18n="created-at">tạo lúc</span>: <span id="report-created-at" data-created-at="{{ report.created_at }}" class="ml-1 font-medium">{{ report.created_at }}</span>
+            </p>
+        </header>
+
+        <!-- Market Overview Cards - Horizontal Scroll Layout -->
+        <div class="mb-12 relative">
+            <!-- Scroll Container -->
+            <div class="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory custom-scrollbar" style="scroll-behavior: smooth; -webkit-overflow-scrolling: touch;">
+
+                <!-- Card 1: BTC Price -->
+                <div class="card flex-shrink-0 w-64 snap-center min-h-[180px] flex flex-col">
+                    <div class="flex items-center mb-3">
+                        <i class="fab fa-bitcoin text-yellow-500 text-2xl mr-2"></i>
+                        <h3 class="text-sm font-semibold text-gray-700" data-i18n="btc-price">Giá BTC</h3>
+                    </div>
+                    <div id="btc-price-container" class="flex-1 flex flex-col justify-center">
+                        <p class="text-2xl font-bold text-gray-900" data-btc-price>$--</p>
+                        <p class="text-xs font-semibold text-gray-600 mt-1" data-btc-change>--</p>
+                    </div>
+                </div>
+
+                <!-- Card 2: Market Cap -->
+                <div class="card flex-shrink-0 w-64 snap-center min-h-[180px] flex flex-col">
+                    <div class="flex items-center mb-3">
+                        <i class="fas fa-globe-americas text-blue-500 text-2xl mr-2"></i>
+                        <h3 class="text-sm font-semibold text-gray-700" data-i18n="market-cap">Tổng Vốn Hóa</h3>
+                    </div>
+                    <div id="market-cap-container" class="flex-1 flex flex-col justify-center">
+                        <div class="skeleton h-8 w-3/4 mb-2"></div>
+                        <div class="skeleton h-4 w-1/2"></div>
+                    </div>
+                </div>
+
+                <!-- Card 3: Volume 24h -->
+                <div class="card flex-shrink-0 w-64 snap-center min-h-[180px] flex flex-col">
+                    <div class="flex items-center mb-3">
+                        <i class="fas fa-chart-line text-green-500 text-2xl mr-2"></i>
+                        <h3 class="text-sm font-semibold text-gray-700" data-i18n="volume-24h">Khối Lượng GD 24h</h3>
+                    </div>
+                    <div id="volume-24h-container" class="flex-1 flex flex-col justify-center">
+                        <div class="skeleton h-8 w-3/4 mb-2"></div>
+                        <div class="skeleton h-4 w-1/2"></div>
+                    </div>
+                </div>
+
+                <!-- Card 4: Fear & Greed Index -->
+                <div class="card flex-shrink-0 w-64 snap-center min-h-[180px] flex flex-col">
+                    <div class="flex items-center mb-3">
+                        <i class="fas fa-thermometer-half text-purple-500 text-2xl mr-2"></i>
+                        <h3 class="text-sm font-semibold text-gray-700" data-i18n="fear-greed-title">Sợ hãi & Tham lam</h3>
+                    </div>
+                    <div id="fear-greed-container" class="flex-1 flex items-center justify-center">
+                        <div class="skeleton h-32 w-32 rounded-full"></div>
+                    </div>
+                </div>
+
+                <!-- Card 5: RSI -->
+                <div class="card flex-shrink-0 w-64 snap-center min-h-[180px] flex flex-col">
+                    <div class="flex items-center mb-3">
+                        <i class="fas fa-chart-area text-indigo-500 text-2xl mr-2"></i>
+                        <h3 class="text-sm font-semibold text-gray-700" data-i18n="rsi-btc-title">RSI (14) - BTC</h3>
+                    </div>
+                    <div id="rsi-container" class="flex-1 flex items-center justify-center">
+                        <div class="skeleton h-32 w-32 rounded-full"></div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Scroll Hint -->
+            <div class="absolute right-0 top-0 bottom-4 w-12 pointer-events-none lg:hidden"
+                 style="background: linear-gradient(to left, var(--scroll-hint-from), var(--scroll-hint-to));"
+                 aria-hidden="true"></div>
+        </div>
+
+        <!-- Disclaimer -->
+        <div id="disclaimer" class="mb-8">
+            <div class="disclaimer-container p-6 rounded-xl border-2 transform hover:scale-[1.02] transition-all duration-300">
+                <div class="flex items-start space-x-3 mb-4">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-exclamation-triangle text-3xl"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-base font-bold disclaimer-text-primary mb-2">
+                            <strong data-i18n="disclaimer-title" class="disclaimer-text-primary text-lg font-extrabold">Tuyên bố miễn trừ trách nhiệm:</strong>
+                            <span data-i18n="disclaimer-body" class="font-medium disclaimer-text-primary">Nội dung và phân tích trên trang này chỉ mang tính chất tham khảo và không cấu thành lời khuyên đầu tư. Mọi quyết định đầu tư là trách nhiệm của người đọc.</span>
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-start space-x-3">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-robot text-2xl"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-base font-semibold disclaimer-ai-section p-4 rounded-lg border-2 shadow-inner">
+                            <span data-i18n="ai-generated-disclaimer" class="font-bold">Báo cáo được tạo tự động bởi trí tuệ nhân tạo (AI) dựa trên dữ liệu thị trường thời gian thực. Không đảm bảo tính chính xác tuyệt đối và có thể chứa lỗi.</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="w-full pb-96">
+            <!-- Navigation and content layout -->
+            <div class="flex gap-6">
+                <!-- Left navigation sidebar -->
+                <aside id="navigation-sidebar" class="w-80 flex-shrink-0 hidden">
+                    <!-- Navigation will be populated by JavaScript -->
+                </aside>
+
+                <!-- Main report content using Declarative Shadow DOM -->
+                <main id="report-container" class="w-full flex-1">
+                    {% if report.id %}
+                        <!-- Shadow DOM Host Element -->
+                        <div id="report-shadow-host">
+                            <!--
+                                DECLARATIVE SHADOW DOM TEMPLATE
+                                Content is server-side rendered for optimal performance
+                            -->
+                            <template shadowrootmode="open">
+                                <!-- ✨ Shadow DOM content injected by backend -->
+                                {{ shadow_dom_content | safe }}
+                            </template>
+                        </div>
+                    {% else %}
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+                            <h3 class="text-lg font-semibold text-gray-600 mb-2">Không có báo cáo</h3>
+                            <p class="text-gray-500">Chưa có báo cáo nào được tạo.</p>
+                        </div>
+                    {% endif %}
+                </main>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart modules will be injected here -->
+    <script>
+        {{ chart_modules_content }}
+    </script>
+
+    <!-- Set report configuration for JavaScript -->
+    <script>
+        window.REPORT_ID = '{{ report.id }}';
+        window.SHADOW_DOM_TOKEN = '{{ shadow_dom_token }}';
+    </script>
+
+    <!-- Inject WebSocket URL from server -->
+    <script>
+        window.WEBSOCKET_URL = "{{ websocket_url }}";
+    </script>
+
+    <!-- Shadow DOM controller for parent page -->
+    <script src="/crypto_dashboard/assets/report-view-shadow-dom.js" defer></script>
+
+    <!-- Date formatter utility -->
+    <script src="/crypto_dashboard/assets/date-formatter-utility.js" defer></script>
+
+    <!-- Core theme and dashboard scripts -->
+    <script src="/shared_components/core/theme-manager.js" defer></script>
+    <script src="/crypto_dashboard/assets/dashboard-websocket.js" defer></script>
+    <script src="/crypto_dashboard/assets/translations.js" defer></script>
+    <script src="/shared_components/core/language-toggle.js" defer></script>
+
+</body>
+</html>
