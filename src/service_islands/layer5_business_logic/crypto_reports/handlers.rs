@@ -94,22 +94,23 @@ impl CryptoHandlers {
     }
 
     /// Compress HTML string to gzip format
-    /// 
+    ///
     /// Helper function to compress HTML strings for templates that don't use compression
-    fn compress_html_string(&self, html: &str) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
+    /// ✅ PUBLIC: Can be called from route handlers for DSD routes
+    pub fn compress_html_to_gzip(html: &str) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
         let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
         encoder.write_all(html.as_bytes())?;
         let compressed_data = encoder.finish()?;
-        
+
         let original_size = html.len();
         let compressed_size = compressed_data.len();
         let compression_ratio = (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0;
-        
-        info!("🗜️  CryptoHandlers: HTML compressed - Original: {}KB, Compressed: {}KB, Ratio: {:.1}%", 
-                 original_size / 1024, 
-                 compressed_size / 1024, 
+
+        info!("🗜️  CryptoHandlers: HTML compressed - Original: {}KB, Compressed: {}KB, Ratio: {:.1}%",
+                 original_size / 1024,
+                 compressed_size / 1024,
                  compression_ratio);
-        
+
         Ok(compressed_data)
     }
 
@@ -184,7 +185,7 @@ impl CryptoHandlers {
                     Ok(html) => {
                         info!("✅ Empty template rendered successfully via TemplateOrchestrator");
                         // Compress the empty template HTML
-                        match self.compress_html_string(&html) {
+                        match Self::compress_html_to_gzip(&html) {
                             Ok(compressed_data) => Ok(compressed_data),
                             Err(e) => {
                                 error!("❌ Failed to compress empty template: {}", e);
@@ -278,7 +279,7 @@ impl CryptoHandlers {
                     Ok(html) => {
                         info!("✅ Empty template rendered successfully via TemplateOrchestrator");
                         // Compress the empty template HTML
-                        match self.compress_html_string(&html) {
+                        match Self::compress_html_to_gzip(&html) {
                             Ok(compressed_data) => Ok(compressed_data),
                             Err(e) => {
                                 error!("❌ Failed to compress empty template: {}", e);

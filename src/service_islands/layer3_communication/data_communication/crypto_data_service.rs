@@ -215,6 +215,84 @@ impl CryptoDataService {
         Ok(())
     }
 
+    /// Get cached DSD rendered report (language-specific)
+    ///
+    /// Retrieves compressed HTML for Declarative Shadow DOM routes with language support.
+    /// Cache key format: compressed_report_dsd_{report_id}_{lang}
+    /// ✅ PRODUCTION-SAFE: No size limits on read - only on write
+    pub async fn get_rendered_report_dsd_compressed(
+        &self,
+        state: &Arc<AppState>,
+        report_id: i32,
+        language: &str
+    ) -> Result<Option<Vec<u8>>, anyhow::Error> {
+        if let Some(ref cache_system) = state.cache_system {
+            let cache_key = format!("compressed_report_dsd_{}_{}", report_id, language);
+            if let Ok(Some(cached_value)) = cache_system.cache_manager.get(&cache_key).await {
+                if let Ok(compressed_bytes) = serde_json::from_value::<Vec<u8>>(cached_value) {
+                    let report_type = if report_id == -1 {
+                        "latest DSD report"
+                    } else {
+                        &format!("DSD report #{}", report_id)
+                    };
+                    let size_kb = compressed_bytes.len() / 1024;
+                    info!("🔥 Layer 3: Cache HIT for {} ({}) ({}KB)", report_type, language, size_kb);
+                    return Ok(Some(compressed_bytes));
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    /// Cache DSD rendered report (language-specific, compressed)
+    ///
+    /// ✅ PRODUCTION-READY: Delegates memory management to multi-tier-cache library.
+    /// The library automatically handles eviction based on size limits (2000 entries)
+    /// and TTL expiration, eliminating need for manual memory tracking.
+    ///
+    /// ✅ MEMORY OPTIMIZED: Accepts &[u8] reference instead of owned Vec<u8> to avoid
+    /// unnecessary clones. The data is serialized for cache storage anyway.
+    pub async fn cache_rendered_report_dsd_compressed(
+        &self,
+        state: &Arc<AppState>,
+        report_id: i32,
+        language: &str,
+        compressed_data: &[u8]
+    ) -> Result<(), anyhow::Error> {
+        let data_size = compressed_data.len();
+        let size_kb = data_size / 1024;
+        let size_mb = data_size as f64 / (1024.0 * 1024.0);
+        let report_type = if report_id == -1 {
+            "latest DSD report"
+        } else {
+            &format!("DSD report #{}", report_id)
+        };
+
+        // 🛡️ GUARD: Warn if individual entry size is very large (soft limit for logging)
+        if data_size > MAX_COMPRESSED_ENTRY_SIZE {
+            warn!("⚠️  Layer 3: Very large DSD compressed data for {} ({}) ({:.1}MB)",
+                     report_type, language, size_mb);
+            error!("   Note: Cache library will handle storage, but consider optimizing entry size");
+        } else if data_size > WARN_COMPRESSED_ENTRY_SIZE {
+            warn!("⚠️  Layer 3: Large DSD compressed entry for {} ({}) ({:.1}MB)",
+                    report_type, language, size_mb);
+        }
+
+        // ✅ Cache the data - library handles memory management automatically
+        if let Some(ref cache_system) = state.cache_system {
+            let cache_key = format!("compressed_report_dsd_{}_{}", report_id, language);
+            let strategy = crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm;
+            // Serialize the slice - this creates a temporary Vec internally, but that's required for JSON serialization
+            let compressed_json = serde_json::to_value(compressed_data).unwrap_or_default();
+
+            cache_system.cache_manager.set_with_strategy(&cache_key, compressed_json, strategy).await?;
+
+            debug!("💾 Layer 3: Cached DSD compressed data for {} ({}) ({}KB)",
+                   report_type, language, size_kb);
+        }
+        Ok(())
+    }
+
     /// Get current cache statistics from the cache manager
     ///
     /// ✅ PRODUCTION-READY: Queries actual cache statistics from multi-tier-cache library
