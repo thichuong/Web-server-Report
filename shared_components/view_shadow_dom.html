@@ -1,0 +1,421 @@
+<!-- DECLARATIVE SHADOW DOM FRAGMENT - NOT a complete HTML document -->
+<!-- This content will be injected into <template shadowrootmode="open"> -->
+
+<!--
+  DECLARATIVE SHADOW DOM REPORT TEMPLATE
+
+  This template replaces the iframe-based architecture with a modern DSD approach:
+  - Style/DOM isolation without iframe overhead
+  - No postMessage communication needed
+  - Automatic height adjustment
+  - SSR-friendly with shadowrootmode="open"
+
+  Key techniques:
+  1. Proxy document.getElementById using document.currentScript.getRootNode()
+  2. Load chart modules within shadow DOM scope
+  3. CSS isolation via shadow DOM boundary
+-->
+
+<!-- CSS Isolation: All styles are scoped to shadow DOM -->
+<link rel="stylesheet" href="/shared_assets/css/colors.css">
+<link rel="stylesheet" href="/shared_assets/css/chart.css">
+<link rel="stylesheet" href="/shared_assets/css/report.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" crossorigin="anonymous">
+
+<!-- Inline styles for shadow DOM specific adjustments -->
+<style>
+    /* Reset for shadow DOM root */
+    :host {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* Container styles */
+    #report-container {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    /* Language content visibility */
+    .lang-content {
+        display: none;
+    }
+
+    .lang-content.active {
+        display: block;
+    }
+
+    /* Report-specific CSS from database */
+    .report-content {
+        {{css_content}}
+    }
+
+    /* Fallback icons if Font Awesome fails */
+    .fa-chart-line:before { content: "📈"; }
+    .fa-coins:before { content: "🪙"; }
+    .fa-arrow-up:before { content: "↑"; }
+    .fa-arrow-down:before { content: "↓"; }
+    .fa-info-circle:before { content: "ℹ️"; }
+    .fa-warning:before { content: "⚠️"; }
+</style>
+
+<!-- Report Content Container -->
+<div id="report-container" class="report-content">
+    <!-- Vietnamese content -->
+    <div id="content-vi" class="lang-content {{vi_active_class}}">
+        {{html_content_vi}}
+        <footer class="data-source-note" role="note" style="margin-top:1rem;font-size:0.85rem;color:var(--text-muted,#6b7280);padding:0 0.5rem;">
+            Giá crypto lấy từ Binance.
+        </footer>
+    </div>
+
+    <!-- English content -->
+    <div id="content-en" class="lang-content {{en_active_class}}">
+        {{html_content_en}}
+        <footer class="data-source-note" role="note" style="margin-top:1rem;font-size:0.85rem;color:var(--text-muted,#6b7280);padding:0 0.5rem;">
+            Crypto prices sourced from Binance.
+        </footer>
+    </div>
+</div>
+
+<!--
+  CRITICAL: Proxy Setup Script
+
+  This MUST execute BEFORE chart modules and initialization scripts.
+  It creates proxies for document.getElementById and related methods to work within shadow DOM.
+-->
+<script id="shadow-dom-proxy">
+(function() {
+    'use strict';
+
+    console.log('🔧 Shadow DOM Proxy: Initializing...');
+
+    // Get the shadow root - with Declarative Shadow DOM fallback
+    function getShadowRoot() {
+        // Try currentScript first (works in regular shadow DOM)
+        if (document.currentScript) {
+            const root = document.currentScript.getRootNode();
+            if (root && root !== document) {
+                console.log('✅ Shadow DOM Proxy: Got shadowRoot via currentScript');
+                return root;
+            }
+        }
+
+        // Fallback: Get from host element (reliable for Declarative Shadow DOM)
+        const host = document.getElementById('report-shadow-host');
+        if (host && host.shadowRoot) {
+            console.log('✅ Shadow DOM Proxy: Got shadowRoot via host element fallback');
+            return host.shadowRoot;
+        }
+
+        console.error('❌ Shadow DOM Proxy: Could not get shadowRoot via any method');
+        return null;
+    }
+
+    const shadowRoot = getShadowRoot();
+
+    if (!shadowRoot || shadowRoot === document) {
+        console.error('❌ Shadow DOM Proxy: Could not get shadow root!');
+        return;
+    }
+
+    console.log('✅ Shadow DOM Proxy: Shadow root acquired:', shadowRoot);
+
+    // Store original document methods
+    const originalMethods = {
+        getElementById: document.getElementById.bind(document),
+        querySelector: document.querySelector.bind(document),
+        querySelectorAll: document.querySelectorAll.bind(document),
+        getElementsByClassName: document.getElementsByClassName.bind(document),
+        getElementsByTagName: document.getElementsByTagName.bind(document)
+    };
+
+    // Proxy document.getElementById
+    // Priority: shadow DOM → light DOM
+    document.getElementById = function(id) {
+        // Try shadow DOM first
+        const shadowElement = shadowRoot.getElementById(id);
+        if (shadowElement) {
+            console.log(`🎯 Proxy: Found "${id}" in shadow DOM`);
+            return shadowElement;
+        }
+
+        // Fallback to light DOM
+        console.log(`🔍 Proxy: "${id}" not in shadow DOM, checking light DOM`);
+        return originalMethods.getElementById(id);
+    };
+
+    // Proxy document.querySelector
+    document.querySelector = function(selector) {
+        const shadowElement = shadowRoot.querySelector(selector);
+        if (shadowElement) {
+            console.log(`🎯 Proxy: Found "${selector}" in shadow DOM`);
+            return shadowElement;
+        }
+
+        console.log(`🔍 Proxy: "${selector}" not in shadow DOM, checking light DOM`);
+        return originalMethods.querySelector(selector);
+    };
+
+    // Proxy document.querySelectorAll
+    document.querySelectorAll = function(selector) {
+        const shadowElements = shadowRoot.querySelectorAll(selector);
+        if (shadowElements.length > 0) {
+            console.log(`🎯 Proxy: Found ${shadowElements.length} elements for "${selector}" in shadow DOM`);
+            return shadowElements;
+        }
+
+        console.log(`🔍 Proxy: No elements for "${selector}" in shadow DOM, checking light DOM`);
+        return originalMethods.querySelectorAll(selector);
+    };
+
+    // Proxy document.getElementsByClassName
+    document.getElementsByClassName = function(className) {
+        const shadowElements = shadowRoot.querySelectorAll('.' + className);
+        if (shadowElements.length > 0) {
+            console.log(`🎯 Proxy: Found ${shadowElements.length} elements for class "${className}" in shadow DOM`);
+            return shadowElements;
+        }
+
+        console.log(`🔍 Proxy: No elements for class "${className}" in shadow DOM, checking light DOM`);
+        return originalMethods.getElementsByClassName(className);
+    };
+
+    // Proxy document.getElementsByTagName
+    document.getElementsByTagName = function(tagName) {
+        const shadowElements = shadowRoot.querySelectorAll(tagName);
+        if (shadowElements.length > 0) {
+            console.log(`🎯 Proxy: Found ${shadowElements.length} elements for tag "${tagName}" in shadow DOM`);
+            return shadowElements;
+        }
+
+        console.log(`🔍 Proxy: No elements for tag "${tagName}" in shadow DOM, checking light DOM`);
+        return originalMethods.getElementsByTagName(tagName);
+    };
+
+    // Store shadow root globally for scripts that need direct access
+    window.reportShadowRoot = shadowRoot;
+
+    console.log('✅ Shadow DOM Proxy: All proxies installed successfully');
+    console.log('💡 Shadow DOM Proxy: Scripts can now use document.getElementById() normally');
+})();
+</script>
+
+<!-- Chart Modules: Loaded within shadow DOM scope -->
+<script id="chart-modules">
+{{chart_modules}}
+</script>
+
+<!-- Report JavaScript - Vietnamese -->
+<script id="report-js-vi">
+{{js_content_vi}}
+</script>
+
+<!-- Report JavaScript - English -->
+<script id="report-js-en">
+{{js_content_en}}
+</script>
+
+<!-- Language Switching and Initialization -->
+<script id="shadow-dom-controller">
+(function() {
+    'use strict';
+
+    console.log('🎮 Shadow DOM Controller: Initializing...');
+
+    // Get shadow root - with Declarative Shadow DOM fallback
+    function getShadowRoot() {
+        // Try currentScript first (works in regular shadow DOM)
+        if (document.currentScript) {
+            const root = document.currentScript.getRootNode();
+            if (root && root !== document) {
+                console.log('✅ Shadow DOM Controller: Got shadowRoot via currentScript');
+                return root;
+            }
+        }
+
+        // Fallback: Get from host element (reliable for Declarative Shadow DOM)
+        const host = document.getElementById('report-shadow-host');
+        if (host && host.shadowRoot) {
+            console.log('✅ Shadow DOM Controller: Got shadowRoot via host element fallback');
+            return host.shadowRoot;
+        }
+
+        // Additional fallback: Try window.reportShadowRoot if set by proxy script
+        if (window.reportShadowRoot && window.reportShadowRoot !== document) {
+            console.log('✅ Shadow DOM Controller: Got shadowRoot via window.reportShadowRoot');
+            return window.reportShadowRoot;
+        }
+
+        console.error('❌ Shadow DOM Controller: Could not get shadowRoot via any method');
+        return null;
+    }
+
+    const shadowRoot = getShadowRoot();
+
+    if (!shadowRoot || shadowRoot === document) {
+        console.error('❌ Shadow DOM Controller: Could not get shadow root!');
+        return;
+    }
+
+    // Store shadow root globally for external access
+    if (!window.reportShadowRoot) {
+        window.reportShadowRoot = shadowRoot;
+        console.log('✅ Shadow DOM Controller: Stored shadowRoot globally');
+    }
+
+    // Current language state
+    let currentLanguage = '{{default_lang}}';
+
+    // ✨ READY STATE FLAG - Signal when Shadow DOM is ready
+    window.shadowDOMReady = true;
+    console.log('✅ Shadow DOM Controller: Ready flag set to true');
+
+    // ✨ EXPOSE FUNCTION IMMEDIATELY - Before any other initialization
+    window.switchReportLanguage = function(lang) {
+        console.log('🔄 Shadow DOM: switchReportLanguage called with:', lang);
+
+        // Verify shadowRoot is accessible (try both sources)
+        const activeShadowRoot = shadowRoot || window.reportShadowRoot;
+        if (!activeShadowRoot || activeShadowRoot === document) {
+            console.error('❌ Shadow DOM: shadowRoot not accessible!');
+            console.error('   shadowRoot:', shadowRoot);
+            console.error('   window.reportShadowRoot:', window.reportShadowRoot);
+            return;
+        }
+
+        console.log('✅ Shadow DOM: Using shadowRoot:', activeShadowRoot);
+
+        // Hide all content
+        const allContent = activeShadowRoot.querySelectorAll('.lang-content');
+        console.log('🔍 Shadow DOM: Found .lang-content elements:', allContent.length);
+
+        allContent.forEach((content, index) => {
+            console.log(`   [${index}] Removing 'active' from:`, content.id, 'classes before:', content.className);
+            content.classList.remove('active');
+            console.log(`   [${index}] Classes after:`, content.className);
+        });
+
+        // Show selected language content
+        const targetContent = activeShadowRoot.querySelector('#content-' + lang);
+        console.log('🎯 Shadow DOM: Target element #content-' + lang + ':', targetContent);
+
+        if (targetContent) {
+            console.log('   Classes before adding active:', targetContent.className);
+            targetContent.classList.add('active');
+            console.log('   Classes after adding active:', targetContent.className);
+            currentLanguage = lang;
+
+            // Initialize charts for the selected language
+            setTimeout(() => {
+                if (lang === 'vi') {
+                    if (typeof initializeAllVisuals_report === 'function') {
+                        console.log('🎯 Shadow DOM: Initializing Vietnamese charts');
+                        initializeAllVisuals_report();
+                    } else {
+                        console.warn('⚠️ Shadow DOM: initializeAllVisuals_report function not found');
+                    }
+                } else if (lang === 'en') {
+                    if (typeof initializeAllVisuals_report_en === 'function') {
+                        console.log('🎯 Shadow DOM: Initializing English charts');
+                        initializeAllVisuals_report_en();
+                    } else {
+                        console.warn('⚠️ Shadow DOM: initializeAllVisuals_report_en function not found');
+                    }
+                }
+            }, 100);
+
+            // Dispatch event to parent page
+            console.log('📢 Shadow DOM: Dispatching reportLanguageChanged event');
+            window.dispatchEvent(new CustomEvent('reportLanguageChanged', {
+                detail: { language: lang }
+            }));
+
+            console.log('✅ Shadow DOM: Language switch completed successfully to:', lang);
+        } else {
+            console.error('❌ Shadow DOM: Target content not found for language:', lang);
+        }
+    };
+
+    // Function to apply theme
+    window.applyReportTheme = function(theme) {
+        console.log('🎨 Shadow DOM: Applying theme:', theme);
+
+        const container = shadowRoot.querySelector('#report-container');
+        if (container) {
+            if (theme === 'dark') {
+                container.classList.add('dark-theme');
+                container.classList.remove('light-theme');
+            } else {
+                container.classList.add('light-theme');
+                container.classList.remove('dark-theme');
+            }
+        }
+    };
+
+    // Initialize default language charts immediately (SSR content is already loaded)
+    console.log('📄 Shadow DOM: Initializing default language charts:', currentLanguage);
+
+    // Use setTimeout to ensure DOM is fully parsed
+    setTimeout(() => {
+        if (currentLanguage === 'vi') {
+            if (typeof initializeAllVisuals_report === 'function') {
+                console.log('🎯 Shadow DOM: Initializing default Vietnamese charts');
+                initializeAllVisuals_report();
+            } else {
+                console.warn('⚠️ Shadow DOM: initializeAllVisuals_report function not found');
+            }
+        } else if (currentLanguage === 'en') {
+            if (typeof initializeAllVisuals_report_en === 'function') {
+                console.log('🎯 Shadow DOM: Initializing default English charts');
+                initializeAllVisuals_report_en();
+            } else {
+                console.warn('⚠️ Shadow DOM: initializeAllVisuals_report_en function not found');
+            }
+        }
+    }, 300);
+
+    // Listen for language changes from parent - WITH DEBUG LOGGING
+    window.addEventListener('languageChanged', function(event) {
+        console.log('📢 Shadow DOM: Received languageChanged event:', event.detail);
+        if (event.detail && event.detail.language) {
+            window.switchReportLanguage(event.detail.language);
+        } else {
+            console.warn('⚠️ Shadow DOM: languageChanged event has no language detail');
+        }
+    });
+
+    console.log('✅ Shadow DOM: languageChanged listener registered');
+
+    // Listen for theme changes from parent (fallback via CustomEvent)
+    window.addEventListener('themeChanged', function(event) {
+        console.log('🎨 Shadow DOM: Theme changed via CustomEvent:', event.detail);
+        if (event.detail && event.detail.theme) {
+            window.applyReportTheme(event.detail.theme);
+        }
+    });
+
+    // ✨ DISPATCH READY EVENT - Notify parent that Shadow DOM is fully initialized
+    setTimeout(() => {
+        try {
+            const readyEvent = new CustomEvent('shadowDOMReady', {
+                detail: {
+                    language: currentLanguage,
+                    shadowRoot: shadowRoot
+                }
+            });
+            window.dispatchEvent(readyEvent);
+            console.log('📢 Shadow DOM: Dispatched shadowDOMReady event');
+        } catch (e) {
+            console.warn('⚠️ Shadow DOM: Failed to dispatch ready event:', e);
+        }
+    }, 50);
+
+    console.log('✅ Shadow DOM Controller: Initialization complete');
+})();
+</script>
