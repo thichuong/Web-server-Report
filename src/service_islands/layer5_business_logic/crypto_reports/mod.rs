@@ -13,8 +13,12 @@ pub mod handlers;
 pub mod report_creator;
 pub mod data_manager;
 pub mod template_orchestrator;
+pub mod rendering; // Rendering strategies (iframe and Shadow DOM)
 #[cfg(test)]
 pub mod tests;
+
+// Re-export commonly used types for convenience
+pub use rendering::{Report, SandboxedReport};
 
 /// Crypto Reports Island
 ///

@@ -24,9 +24,9 @@ pub fn configure_crypto_reports_routes() -> Router<Arc<ServiceIslands>> {
         .route("/crypto_report", get(crypto_index))
         .route("/crypto_report/:id", get(crypto_view_report))
         .route("/crypto_reports_list", get(crypto_reports_list))
-        // ✨ New DSD routes
-        .route("/crypto_report_dsd", get(crypto_index_dsd))
-        .route("/crypto_report_dsd/:id", get(crypto_view_report_dsd))
+        // Legacy iframe-based routes
+        .route("/crypto_report_iframe", get(crypto_index_iframe))
+        .route("/crypto_report_iframe/:id", get(crypto_view_report_iframe))
 }
 
 /// Detect preferred language from request
@@ -86,17 +86,18 @@ fn detect_preferred_language(
     None // None means use default (vi) in generate_shadow_dom_content
 }
 
-/// Crypto reports index page - Delegates to Crypto Reports Island with Tera engine
-async fn crypto_index(
+/// Crypto reports index page (iframe-based) - Delegates to Crypto Reports Island with Tera engine
+/// Legacy route for backward compatibility
+async fn crypto_index_iframe(
     State(service_islands): State<Arc<ServiceIslands>>,
     Query(params): Query<HashMap<String, String>>
 ) -> Response {
     // Check if specific report ID is requested (like ?id=54)
     let report_id = params.get("id");
     if let Some(id) = report_id {
-        debug!("🚀 [Route] crypto_index called for report ID: {} - fetching from Service Islands Layer 5", id);
+        debug!("🚀 [Route] crypto_index_iframe called for report ID: {} - fetching from Service Islands Layer 5", id);
     } else {
-        debug!("🚀 [Route] crypto_index called for latest report - fetching from Service Islands Layer 5");
+        debug!("🚀 [Route] crypto_index_iframe called for latest report - fetching from Service Islands Layer 5");
     }
     
 
@@ -166,12 +167,13 @@ async fn crypto_reports_list(
     }
 }
 
-/// View specific crypto report by ID
-async fn crypto_view_report(
+/// View specific crypto report by ID (iframe-based)
+/// Legacy route for backward compatibility
+async fn crypto_view_report_iframe(
     Path(id): Path<String>,
     State(service_islands): State<Arc<ServiceIslands>>
 ) -> impl IntoResponse {
-    debug!("🚀 [Route] crypto_view_report called for ID: {} - fetching from Service Islands Layer 5", id);
+    debug!("🚀 [Route] crypto_view_report_iframe called for ID: {} - fetching from Service Islands Layer 5", id);
     
     // Parse report ID
     let report_id: i32 = match id.parse() {
@@ -238,14 +240,14 @@ async fn crypto_view_report(
 }
 
 /// Crypto reports index page using Declarative Shadow DOM
-/// Modern replacement for iframe-based crypto_index
+/// Modern primary route for crypto reports
 /// ✅ OPTIMIZED: Full caching support with language-specific cache keys
-async fn crypto_index_dsd(
+async fn crypto_index(
     State(service_islands): State<Arc<ServiceIslands>>,
     Query(params): Query<HashMap<String, String>>,
     headers: HeaderMap
 ) -> Response {
-    debug!("🌓 [Route] crypto_index_dsd called - using Declarative Shadow DOM architecture");
+    debug!("🌓 [Route] crypto_index called - using Declarative Shadow DOM architecture");
 
     // Detect preferred language from request
     let preferred_language = detect_preferred_language(&params, &headers)
@@ -265,7 +267,7 @@ async fn crypto_index_dsd(
         -1 // Latest report sentinel
     };
 
-    debug!("🚀 [Route] DSD crypto_index called for {} (language: {})",
+    debug!("🚀 [Route] crypto_index called for {} (language: {})",
            if report_id_value == -1 { "latest report".to_string() } else { format!("report ID: {}", report_id_value) },
            preferred_language);
 
@@ -340,7 +342,7 @@ async fn crypto_index_dsd(
         Some(chart_modules_content.as_str())
     );
 
-    info!("🌐 [Route] DSD crypto_index rendering with language: {}", preferred_language);
+    info!("🌐 [Route] crypto_index rendering with language: {}", preferred_language);
 
     // STEP 5: Render template
     let mut context = tera::Context::new();
@@ -401,14 +403,15 @@ async fn crypto_index_dsd(
 }
 
 /// View specific crypto report by ID using Declarative Shadow DOM
+/// Modern primary route for viewing specific reports
 /// ✅ OPTIMIZED: Full caching support with language-specific cache keys
-async fn crypto_view_report_dsd(
+async fn crypto_view_report(
     Path(id): Path<String>,
     State(service_islands): State<Arc<ServiceIslands>>,
     Query(params): Query<HashMap<String, String>>,
     headers: HeaderMap
 ) -> Response {
-    debug!("🌓 [Route] crypto_view_report_dsd called for ID: {}", id);
+    debug!("🌓 [Route] crypto_view_report called for ID: {}", id);
 
     // Detect preferred language from request
     let preferred_language = detect_preferred_language(&params, &headers)
@@ -423,7 +426,7 @@ async fn crypto_view_report_dsd(
         }
     };
 
-    debug!("🚀 [Route] DSD crypto_view_report called for report #{} (language: {})", report_id, preferred_language);
+    debug!("🚀 [Route] crypto_view_report called for report #{} (language: {})", report_id, preferred_language);
 
     // STEP 1: Check cache for compressed DSD HTML
     let data_service = &service_islands.crypto_reports.report_creator.data_service;
@@ -490,7 +493,7 @@ async fn crypto_view_report_dsd(
         Some(chart_modules_content.as_str())
     );
 
-    info!("🌐 [Route] DSD crypto_view_report rendering with language: {}", preferred_language);
+    info!("🌐 [Route] crypto_view_report rendering with language: {}", preferred_language);
 
     // STEP 5: Render template
     let mut context = tera::Context::new();

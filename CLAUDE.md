@@ -294,8 +294,11 @@ DEBUG=1
 
 ### Core Routes
 - `GET /` - Homepage with latest report
-- `GET /crypto_report` - Latest crypto report
-- `GET /crypto_report/:id` - Specific report by ID
+- `GET /crypto_report` - Latest crypto report (Declarative Shadow DOM - primary)
+- `GET /crypto_report/:id` - Specific report by ID (Declarative Shadow DOM - primary)
+- `GET /crypto_report_iframe` - Latest crypto report (iframe-based - legacy)
+- `GET /crypto_report_iframe/:id` - Specific report by ID (iframe-based - legacy)
+- `GET /crypto_reports_list` - Paginated list of all reports
 - `GET /pdf-template/:id` - PDF-optimized report view
 
 ### Monitoring
