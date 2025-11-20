@@ -30,6 +30,7 @@ pub fn configure_api_routes() -> Router<Arc<ServiceIslands>> {
         .route("/api/crypto/dashboard-summary", get(api_dashboard_summary))
         .route("/api/dashboard/data", get(api_dashboard_data))
         .route("/api/crypto_reports/:id/sandboxed", get(api_sandboxed_report))
+        .route("/api/crypto_reports/:id/shadow_dom", get(api_shadow_dom_content))
         .route("/api/health", get(api_health))
         .route("/api/websocket/stats", get(api_websocket_stats))
 }
@@ -278,6 +279,74 @@ async fn api_sandboxed_report(
         Err(e) => {
             error!("❌ [API] Failed to serve sandboxed report {}: {}", report_id, e);
             "Failed to serve sandboxed content".into_response()
+        }
+    }
+}
+
+/// Shadow DOM content endpoint for Declarative Shadow DOM architecture
+///
+/// Returns HTML fragment for embedding within <template shadowrootmode="open">
+/// This is the modern replacement for api_sandboxed_report
+async fn api_shadow_dom_content(
+    Path(id): Path<String>,
+    Query(params): Query<HashMap<String, String>>,
+    State(service_islands): State<Arc<ServiceIslands>>
+) -> impl IntoResponse {
+    debug!("🌓 [API] Shadow DOM content requested for ID: {}", id);
+
+    // Parse report ID (-1 for latest)
+    let report_id: i32 = if id == "latest" {
+        -1
+    } else {
+        match id.parse() {
+            Ok(id) => id,
+            Err(_) => {
+                error!("❌ [API] Invalid report ID format for Shadow DOM: {}", id);
+                return "Invalid report ID format".into_response();
+            }
+        }
+    };
+
+    // Get shadow DOM token from query parameters
+    let shadow_dom_token = match params.get("token") {
+        Some(token) => token,
+        None => {
+            warn!("❌ [API] Missing shadow DOM token for report {}", report_id);
+            return "Missing shadow DOM token".into_response();
+        }
+    };
+
+    // Get language parameter (optional, defaults to Vietnamese)
+    let initial_language = params.get("lang").map(|s| s.as_str());
+
+    // Get chart modules content for Shadow DOM inclusion
+    let chart_modules = match params.get("chart_modules") {
+        Some(_) => {
+            // If chart_modules parameter is present, load actual chart modules
+            debug!("📊 [API] Loading chart modules for Shadow DOM");
+            Some(service_islands.shared_components.chart_modules_content.as_str())
+        },
+        None => {
+            debug!("💡 [API] No chart_modules parameter - using default behavior");
+            Some(service_islands.shared_components.chart_modules_content.as_str())
+        }
+    };
+
+    // Use Service Islands to serve Shadow DOM content
+    match service_islands.crypto_reports.handlers.serve_shadow_dom_content(
+        &service_islands.get_legacy_app_state(),
+        report_id,
+        shadow_dom_token,
+        initial_language,
+        chart_modules
+    ).await {
+        Ok(response) => {
+            info!("✅ [API] Shadow DOM content for report {} served successfully", report_id);
+            response
+        }
+        Err(e) => {
+            error!("❌ [API] Failed to serve Shadow DOM content for report {}: {}", report_id, e);
+            "Failed to serve Shadow DOM content".into_response()
         }
     }
 }

@@ -71,6 +71,15 @@ lazy_static! {
                 include_str!("../../../../shared_components/view_iframe.html").to_string()
             })
     };
+
+    /// Pre-loaded Shadow DOM template for modern DSD architecture
+    /// Replaces iframe-based approach with Declarative Shadow DOM
+    static ref VIEW_SHADOW_DOM_TEMPLATE: String = {
+        std::fs::read_to_string("shared_components/view_shadow_dom.html")
+            .unwrap_or_else(|_| {
+                include_str!("../../../../shared_components/view_shadow_dom.html").to_string()
+            })
+    };
 }
 
 /// Report model - exactly from archive_old_code/models.rs with iframe sandboxing support
@@ -395,6 +404,157 @@ impl ReportCreator {
             .replace("{{chart_modules}}", chart_modules)
             .replace("{{js_content_vi}}", default_js_vi)
             .replace("{{js_content_en}}", default_js_en)
+    }
+
+    /// Generate Shadow DOM content for Declarative Shadow DOM architecture
+    ///
+    /// Creates HTML fragment to be embedded within <template shadowrootmode="open">
+    /// This is a modern replacement for the iframe-based approach with better performance
+    pub fn generate_shadow_dom_content(&self, sandboxed_report: &SandboxedReport, language: Option<&str>, chart_modules_content: Option<&str>) -> String {
+        let default_lang = language.unwrap_or("vi");
+
+        // Create owned strings to avoid borrow checker issues
+        let empty_string = String::new();
+        let default_html_vi = &sandboxed_report.html_content;
+        let default_html_en = sandboxed_report.html_content_en.as_ref().unwrap_or(default_html_vi);
+        let default_js_vi = sandboxed_report.js_content.as_ref().unwrap_or(&empty_string);
+        let default_js_en = sandboxed_report.js_content_en.as_ref().unwrap_or(default_js_vi);
+        let default_css = sandboxed_report.css_content.as_ref().unwrap_or(&empty_string);
+
+        // Use chart modules from SandboxedReport if available, otherwise use parameter, otherwise empty
+        let chart_modules = sandboxed_report.chart_modules_content
+            .as_ref()
+            .map(|s| s.as_str())
+            .or(chart_modules_content)
+            .unwrap_or("");
+
+        // Determine active classes based on default language
+        let (vi_active_class, en_active_class) = if default_lang == "en" {
+            ("", "active")
+        } else {
+            ("active", "")
+        };
+
+        // Use pre-loaded Shadow DOM template
+        let template_content = &*VIEW_SHADOW_DOM_TEMPLATE;
+
+        // Replace template variables
+        template_content
+            .replace("{{default_lang}}", default_lang)
+            .replace("{{report_id}}", &sandboxed_report.id.to_string())
+            .replace("{{vi_active_class}}", vi_active_class)
+            .replace("{{en_active_class}}", en_active_class)
+            .replace("{{css_content}}", default_css)
+            .replace("{{html_content_vi}}", default_html_vi)
+            .replace("{{html_content_en}}", default_html_en)
+            .replace("{{chart_modules}}", chart_modules)
+            .replace("{{js_content_vi}}", default_js_vi)
+            .replace("{{js_content_en}}", default_js_en)
+    }
+
+    /// Serve Shadow DOM content for Declarative Shadow DOM architecture
+    ///
+    /// Returns HTML fragment for embedding within <template shadowrootmode="open">
+    /// This is a modern replacement for serve_sandboxed_report with better performance
+    pub async fn serve_shadow_dom_content(
+        &self,
+        state: &Arc<AppState>,
+        report_id: i32,
+        shadow_dom_token: &str,
+        language: Option<&str>,
+        chart_modules_content: Option<&str>
+    ) -> Result<Response, Box<dyn StdError + Send + Sync>> {
+        info!("🌓 ReportCreator: Serving Shadow DOM content for report {} with token {}", report_id, shadow_dom_token);
+
+        // Fetch report from database
+        let report_result = if report_id == -1 {
+            self.fetch_and_cache_latest_report(state).await
+        } else {
+            self.fetch_and_cache_report_by_id(state, report_id).await
+        };
+
+        match report_result {
+            Ok(Some(report)) => {
+                // Create sandboxed version (reuse existing logic)
+                let sandboxed_report = self.create_sandboxed_report(&report, chart_modules_content);
+
+                // Verify shadow DOM token (same as sandbox token)
+                if sandboxed_report.sandbox_token != shadow_dom_token {
+                    error!("❌ ReportCreator: Invalid shadow DOM token for report {}", report_id);
+                    return Ok(Response::builder()
+                        .status(StatusCode::FORBIDDEN)
+                        .header("content-type", "text/plain")
+                        .body(Body::from("Invalid shadow DOM token"))
+                        .unwrap_or_else(|e| {
+                            warn!("⚠️ Failed to build forbidden response: {}", e);
+                            Response::builder()
+                                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                                .body(Body::from("Response build error"))
+                                .unwrap()
+                        })
+                        .into_response()
+                    );
+                }
+
+                // Generate Shadow DOM content
+                let shadow_dom_html = self.generate_shadow_dom_content(&sandboxed_report, language, chart_modules_content);
+
+                info!("✅ ReportCreator: Serving Shadow DOM content for report {} with language {:?} ({} bytes)",
+                      report_id, language.unwrap_or("vi"), shadow_dom_html.len());
+
+                // Return response with appropriate headers
+                Ok(Response::builder()
+                    .status(StatusCode::OK)
+                    .header("content-type", "text/html; charset=utf-8")
+                    .header("x-content-type-options", "nosniff")
+                    .header("cache-control", "private, max-age=3600")
+                    .header("access-control-allow-origin", "*")
+                    .header("access-control-allow-methods", "GET, POST, OPTIONS")
+                    .header("access-control-allow-headers", "Content-Type")
+                    .body(Body::from(shadow_dom_html))
+                    .unwrap_or_else(|e| {
+                        warn!("⚠️ Failed to build Shadow DOM response: {}", e);
+                        Response::builder()
+                            .status(StatusCode::INTERNAL_SERVER_ERROR)
+                            .body(Body::from("Response build error"))
+                            .unwrap()
+                    })
+                    .into_response()
+                )
+            }
+            Ok(None) => {
+                error!("❌ ReportCreator: Report {} not found for Shadow DOM", report_id);
+                Ok(Response::builder()
+                    .status(StatusCode::NOT_FOUND)
+                    .header("content-type", "text/plain")
+                    .body(Body::from("Report not found"))
+                    .unwrap_or_else(|e| {
+                        warn!("⚠️ Failed to build not found response: {}", e);
+                        Response::builder()
+                            .status(StatusCode::INTERNAL_SERVER_ERROR)
+                            .body(Body::from("Response build error"))
+                            .unwrap()
+                    })
+                    .into_response()
+                )
+            }
+            Err(e) => {
+                error!("❌ ReportCreator: Database error serving Shadow DOM report {}: {}", report_id, e);
+                Ok(Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .header("content-type", "text/plain")
+                    .body(Body::from("Database error"))
+                    .unwrap_or_else(|err| {
+                        warn!("⚠️ Failed to build error response: {}", err);
+                        Response::builder()
+                            .status(StatusCode::INTERNAL_SERVER_ERROR)
+                            .body(Body::from("Response build error"))
+                            .unwrap()
+                    })
+                    .into_response()
+                )
+            }
+        }
     }
 
     /// Serve sandboxed report content for iframe

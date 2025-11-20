@@ -84,6 +84,11 @@ impl AppStateIsland {
             warn!("Failed to load crypto reports view template: {}", e);
         }
 
+        // ✨ Register DSD template
+        if let Err(e) = tera.add_template_file("dashboards/crypto_dashboard/routes/reports/view_dsd.html", Some("crypto/routes/reports/view_dsd.html")) {
+            warn!("Failed to load crypto reports DSD view template: {}", e);
+        }
+
         if let Err(e) = tera.add_template_file("dashboards/crypto_dashboard/routes/reports/list.html", Some("crypto/routes/reports/list.html")) {
             warn!("Failed to load crypto reports list template: {}", e);
         }

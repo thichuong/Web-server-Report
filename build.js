@@ -63,6 +63,12 @@ const bundles = [
     description: 'Report View Iframe Manager'
   },
   {
+    name: 'report-view-shadow-dom',
+    entryPoint: 'dashboards/crypto_dashboard/assets/report-view-shadow-dom.js',
+    outfile: 'dist/report-view-shadow-dom.bundle.js',
+    description: 'Report View Shadow DOM Manager'
+  },
+  {
     name: 'date-formatter',
     entryPoint: 'dashboards/crypto_dashboard/assets/date-formatter-utility.js',
     outfile: 'dist/date-formatter.bundle.js',

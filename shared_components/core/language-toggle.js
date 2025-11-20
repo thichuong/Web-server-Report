@@ -2,7 +2,7 @@
 // Simple language toggle between Vietnamese (vi) and English (en)
 (function(){
     // Debug mode - set to false for production (reduces Firefox lag)
-    const LANG_DEBUG = false;
+    const LANG_DEBUG = true; // ✨ Temporarily enabled for Shadow DOM debugging
     
     const LANG_KEY = 'preferred_language';
     const BACKUP_KEY = 'language';
@@ -86,6 +86,32 @@
             window.dispatchEvent(ev);
         } catch(e) {
             // ignore
+        }
+
+        // ✨ Shadow DOM Communication: Direct function call (standard for Shadow DOM)
+        // Shadow DOM runs in same window context, so direct call is the proper way
+        if (typeof window.switchReportLanguage === 'function') {
+            try {
+                if (LANG_DEBUG) console.log('📞 Language Toggle: Calling window.switchReportLanguage():', lang);
+                window.switchReportLanguage(lang);
+            } catch(e) {
+                if (LANG_DEBUG) console.warn('⚠️ Language Toggle: switchReportLanguage failed:', e);
+            }
+        } else {
+            // Retry after short delay if function not immediately available
+            if (LANG_DEBUG) console.log('⏳ Language Toggle: switchReportLanguage not ready, will retry');
+            setTimeout(() => {
+                if (typeof window.switchReportLanguage === 'function') {
+                    try {
+                        if (LANG_DEBUG) console.log('🔄 Language Toggle: Retry calling window.switchReportLanguage():', lang);
+                        window.switchReportLanguage(lang);
+                    } catch(e) {
+                        if (LANG_DEBUG) console.warn('⚠️ Language Toggle: Retry failed:', e);
+                    }
+                } else {
+                    if (LANG_DEBUG) console.warn('❌ Language Toggle: switchReportLanguage still not available after retry');
+                }
+            }, 100);
         }
     }
 
@@ -324,6 +350,33 @@
             const evInit = new CustomEvent('languageChanged', { detail: { language: initial } });
             window.dispatchEvent(evInit);
         } catch(e) {}
+
+        // ✨ Shadow DOM Communication: Direct function call with retry
+        // Try immediate call
+        if (typeof window.switchReportLanguage === 'function') {
+            try {
+                if (LANG_DEBUG) console.log('📞 Language Toggle: Initial call to window.switchReportLanguage():', initial);
+                window.switchReportLanguage(initial);
+            } catch(e) {
+                if (LANG_DEBUG) console.warn('⚠️ Language Toggle: Initial call failed:', e);
+            }
+        } else {
+            // Retry with increasing delays to catch late-loading shadow DOM
+            if (LANG_DEBUG) console.log('⏳ Language Toggle: switchReportLanguage not ready yet, scheduling retries');
+            const retryDelays = [100, 300, 500];
+            retryDelays.forEach(delay => {
+                setTimeout(() => {
+                    if (typeof window.switchReportLanguage === 'function') {
+                        try {
+                            if (LANG_DEBUG) console.log(`🔄 Language Toggle: Retry call (${delay}ms):`, initial);
+                            window.switchReportLanguage(initial);
+                        } catch(e) {
+                            if (LANG_DEBUG) console.warn(`⚠️ Language Toggle: Retry at ${delay}ms failed:`, e);
+                        }
+                    }
+                }, delay);
+            });
+        }
 
         const toggleBtn = document.getElementById('language-toggle');
         if (toggleBtn) {

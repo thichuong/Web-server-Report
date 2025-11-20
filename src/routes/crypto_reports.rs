@@ -5,7 +5,7 @@
 
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
+    http::{StatusCode, HeaderMap},
     response::{IntoResponse, Response},
     routing::get,
     Router,
@@ -24,6 +24,66 @@ pub fn configure_crypto_reports_routes() -> Router<Arc<ServiceIslands>> {
         .route("/crypto_report", get(crypto_index))
         .route("/crypto_report/:id", get(crypto_view_report))
         .route("/crypto_reports_list", get(crypto_reports_list))
+        // ✨ New DSD routes
+        .route("/crypto_report_dsd", get(crypto_index_dsd))
+        .route("/crypto_report_dsd/:id", get(crypto_view_report_dsd))
+}
+
+/// Detect preferred language from request
+/// Priority: Query param > Cookie > Accept-Language header > Default (vi)
+fn detect_preferred_language(
+    query_params: &HashMap<String, String>,
+    headers: &HeaderMap
+) -> Option<String> {
+    // 1. Check query parameter (?lang=en or ?lang=vi)
+    if let Some(lang) = query_params.get("lang") {
+        let lang = lang.to_lowercase();
+        if lang == "en" || lang == "vi" {
+            debug!("🌐 [Language] Detected from query param: {}", lang);
+            return Some(lang);
+        }
+    }
+
+    // 2. Check Cookie header for preferred_language or language
+    if let Some(cookie_header) = headers.get("cookie") {
+        if let Ok(cookie_str) = cookie_header.to_str() {
+            // Parse cookies manually
+            for cookie in cookie_str.split(';') {
+                let parts: Vec<&str> = cookie.trim().splitn(2, '=').collect();
+                if parts.len() == 2 {
+                    let (name, value) = (parts[0].trim(), parts[1].trim());
+                    if name == "preferred_language" || name == "language" {
+                        let lang = value.to_lowercase();
+                        if lang == "en" || lang == "vi" {
+                            debug!("🌐 [Language] Detected from cookie: {}", lang);
+                            return Some(lang);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Check Accept-Language header
+    if let Some(accept_lang) = headers.get("accept-language") {
+        if let Ok(lang_str) = accept_lang.to_str() {
+            // Parse Accept-Language: "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7"
+            for lang_tag in lang_str.split(',') {
+                let lang = lang_tag.split(';').next().unwrap_or("").trim();
+                if lang.starts_with("en") {
+                    debug!("🌐 [Language] Detected from Accept-Language: en");
+                    return Some("en".to_string());
+                } else if lang.starts_with("vi") {
+                    debug!("🌐 [Language] Detected from Accept-Language: vi");
+                    return Some("vi".to_string());
+                }
+            }
+        }
+    }
+
+    // 4. Default to Vietnamese
+    debug!("🌐 [Language] Using default: vi");
+    None // None means use default (vi) in generate_shadow_dom_content
 }
 
 /// Crypto reports index page - Delegates to Crypto Reports Island with Tera engine
@@ -169,10 +229,214 @@ async fn crypto_view_report(
                 ).into_response()
             } else {
                 (
-                    StatusCode::INTERNAL_SERVER_ERROR, 
+                    StatusCode::INTERNAL_SERVER_ERROR,
                     format!("Failed to load report #{}", report_id)
                 ).into_response()
             }
+        }
+    }
+}
+
+/// Crypto reports index page using Declarative Shadow DOM
+/// Modern replacement for iframe-based crypto_index
+async fn crypto_index_dsd(
+    State(service_islands): State<Arc<ServiceIslands>>,
+    Query(params): Query<HashMap<String, String>>,
+    headers: HeaderMap
+) -> Response {
+    debug!("🌓 [Route] crypto_index_dsd called - using Declarative Shadow DOM architecture");
+
+    // Detect preferred language from request
+    let preferred_language = detect_preferred_language(&params, &headers);
+
+    // Check if specific report ID is requested
+    let report_id = params.get("id");
+    if let Some(id) = report_id {
+        debug!("🚀 [Route] DSD crypto_index called for report ID: {}", id);
+    } else {
+        debug!("🚀 [Route] DSD crypto_index called for latest report");
+    }
+
+    // Get report from database
+    let report_result = if let Some(id_str) = report_id {
+        match id_str.parse::<i32>() {
+            Ok(id) => service_islands.crypto_reports.report_creator
+                .fetch_and_cache_report_by_id(&service_islands.get_legacy_app_state(), id).await,
+            Err(_) => {
+                error!("❌ [Route] Invalid report ID format: {}", id_str);
+                return (StatusCode::BAD_REQUEST, "Invalid report ID format").into_response();
+            }
+        }
+    } else {
+        service_islands.crypto_reports.report_creator
+            .fetch_and_cache_latest_report(&service_islands.get_legacy_app_state()).await
+    };
+
+    let report = match report_result {
+        Ok(Some(report)) => report,
+        Ok(None) => {
+            warn!("⚠️ [Route] No report found for DSD view");
+            return (StatusCode::NOT_FOUND, "Report not found").into_response();
+        }
+        Err(e) => {
+            error!("❌ [Route] Database error fetching report for DSD: {}", e);
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
+        }
+    };
+
+    // Generate shadow_dom_token (same as sandbox_token)
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    report.id.hash(&mut hasher);
+    report.created_at.hash(&mut hasher);
+    let shadow_dom_token = format!("sb_{:x}", hasher.finish());
+
+    // Get chart modules content
+    let chart_modules_content = service_islands.get_chart_modules_content();
+
+    // Generate shadow DOM content (SSR) with user's preferred language
+    let sandboxed_report = service_islands.crypto_reports.report_creator.create_sandboxed_report(
+        &report,
+        Some(chart_modules_content.as_str())
+    );
+    let shadow_dom_content = service_islands.crypto_reports.report_creator.generate_shadow_dom_content(
+        &sandboxed_report,
+        preferred_language.as_deref(), // Use detected language or default (vi)
+        Some(chart_modules_content.as_str())
+    );
+
+    info!("🌐 [Route] DSD crypto_index rendering with language: {}", preferred_language.as_deref().unwrap_or("vi"));
+
+    // Prepare template context
+    let mut context = tera::Context::new();
+    context.insert("report", &report);
+    context.insert("shadow_dom_token", &shadow_dom_token);
+    context.insert("shadow_dom_content", &shadow_dom_content);
+    context.insert("chart_modules_content", chart_modules_content.as_ref());
+    context.insert("websocket_url", &std::env::var("WEBSOCKET_URL").unwrap_or_else(|_| "ws://localhost:8081/ws".to_string()));
+
+    // Render template using view_dsd.html
+    let app_state = service_islands.get_legacy_app_state();
+    match app_state.tera.render("crypto/routes/reports/view_dsd.html", &context) {
+        Ok(html) => {
+            info!("✅ [Route] DSD template rendered successfully for report {}", report.id);
+
+            Response::builder()
+                .status(StatusCode::OK)
+                .header("cache-control", "public, max-age=300")
+                .header("content-type", "text/html; charset=utf-8")
+                .header("x-render-mode", "declarative-shadow-dom")
+                .body(Body::from(html))
+                .unwrap_or_else(|e| {
+                    warn!("⚠️ Failed to build DSD response: {}", e);
+                    Response::builder()
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .body(Body::from("Response build error"))
+                        .unwrap()
+                })
+                .into_response()
+        }
+        Err(e) => {
+            error!("❌ [Route] Failed to render DSD template: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Template render error").into_response()
+        }
+    }
+}
+
+/// View specific crypto report by ID using Declarative Shadow DOM
+async fn crypto_view_report_dsd(
+    Path(id): Path<String>,
+    State(service_islands): State<Arc<ServiceIslands>>,
+    Query(params): Query<HashMap<String, String>>,
+    headers: HeaderMap
+) -> Response {
+    debug!("🌓 [Route] crypto_view_report_dsd called for ID: {}", id);
+
+    // Detect preferred language from request
+    let preferred_language = detect_preferred_language(&params, &headers);
+
+    // Parse report ID
+    let report_id: i32 = match id.parse() {
+        Ok(id) => id,
+        Err(_) => {
+            error!("❌ [Route] Invalid report ID format: {}", id);
+            return (StatusCode::BAD_REQUEST, "Invalid report ID format").into_response();
+        }
+    };
+
+    // Get report from database
+    let report = match service_islands.crypto_reports.report_creator
+        .fetch_and_cache_report_by_id(&service_islands.get_legacy_app_state(), report_id).await
+    {
+        Ok(Some(report)) => report,
+        Ok(None) => {
+            warn!("⚠️ [Route] Report {} not found for DSD view", report_id);
+            return (StatusCode::NOT_FOUND, format!("Report #{} not found", report_id)).into_response();
+        }
+        Err(e) => {
+            error!("❌ [Route] Database error fetching report {}: {}", report_id, e);
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
+        }
+    };
+
+    // Generate shadow_dom_token
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    report.id.hash(&mut hasher);
+    report.created_at.hash(&mut hasher);
+    let shadow_dom_token = format!("sb_{:x}", hasher.finish());
+
+    // Get chart modules content
+    let chart_modules_content = service_islands.get_chart_modules_content();
+
+    // Generate shadow DOM content (SSR) with user's preferred language
+    let sandboxed_report = service_islands.crypto_reports.report_creator.create_sandboxed_report(
+        &report,
+        Some(chart_modules_content.as_str())
+    );
+    let shadow_dom_content = service_islands.crypto_reports.report_creator.generate_shadow_dom_content(
+        &sandboxed_report,
+        preferred_language.as_deref(), // Use detected language or default (vi)
+        Some(chart_modules_content.as_str())
+    );
+
+    info!("🌐 [Route] DSD crypto_view_report rendering with language: {}", preferred_language.as_deref().unwrap_or("vi"));
+
+    // Prepare template context
+    let mut context = tera::Context::new();
+    context.insert("report", &report);
+    context.insert("shadow_dom_token", &shadow_dom_token);
+    context.insert("shadow_dom_content", &shadow_dom_content);
+    context.insert("chart_modules_content", chart_modules_content.as_ref());
+    context.insert("websocket_url", &std::env::var("WEBSOCKET_URL").unwrap_or_else(|_| "ws://localhost:8081/ws".to_string()));
+
+    // Render template
+    let app_state = service_islands.get_legacy_app_state();
+    match app_state.tera.render("crypto/routes/reports/view_dsd.html", &context) {
+        Ok(html) => {
+            info!("✅ [Route] DSD template rendered successfully for report {}", report_id);
+
+            Response::builder()
+                .status(StatusCode::OK)
+                .header("cache-control", "public, max-age=300")
+                .header("content-type", "text/html; charset=utf-8")
+                .header("x-render-mode", "declarative-shadow-dom")
+                .header("x-report-id", report_id.to_string())
+                .body(Body::from(html))
+                .unwrap_or_else(|e| {
+                    warn!("⚠️ Failed to build DSD response: {}", e);
+                    Response::builder()
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .body(Body::from("Response build error"))
+                        .unwrap()
+                })
+                .into_response()
+        }
+        Err(e) => {
+            error!("❌ [Route] Failed to render DSD template for report {}: {}", report_id, e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Template render error").into_response()
         }
     }
 }

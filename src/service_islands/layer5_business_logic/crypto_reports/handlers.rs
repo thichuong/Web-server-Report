@@ -340,7 +340,7 @@ impl CryptoHandlers {
     }
 
     /// Serve sandboxed report content for iframe
-    /// 
+    ///
     /// Delegates to ReportCreator for actual sandboxed content generation
     pub async fn serve_sandboxed_report(
         &self,
@@ -351,12 +351,36 @@ impl CryptoHandlers {
         chart_modules_content: Option<&str>
     ) -> Result<axum::response::Response, Box<dyn StdError + Send + Sync>> {
         info!("🔒 CryptoHandlers: Delegating sandboxed content request to ReportCreator for report {} with token {}", report_id, sandbox_token);
-        
+
         // Delegate to ReportCreator - proper separation of concerns
         self.report_creator.serve_sandboxed_report(
             state,
             report_id,
             sandbox_token,
+            language,
+            chart_modules_content
+        ).await
+    }
+
+    /// Serve Shadow DOM content for Declarative Shadow DOM architecture
+    ///
+    /// Delegates to ReportCreator for actual Shadow DOM content generation
+    /// This is the modern replacement for serve_sandboxed_report
+    pub async fn serve_shadow_dom_content(
+        &self,
+        state: &Arc<AppState>,
+        report_id: i32,
+        shadow_dom_token: &str,
+        language: Option<&str>,
+        chart_modules_content: Option<&str>
+    ) -> Result<axum::response::Response, Box<dyn StdError + Send + Sync>> {
+        info!("🌓 CryptoHandlers: Delegating Shadow DOM content request to ReportCreator for report {} with token {}", report_id, shadow_dom_token);
+
+        // Delegate to ReportCreator - proper separation of concerns
+        self.report_creator.serve_shadow_dom_content(
+            state,
+            report_id,
+            shadow_dom_token,
             language,
             chart_modules_content
         ).await
