@@ -411,6 +411,8 @@ window.addEventListener('languageChanged', function(event) {
     // Re-extract navigation for new language
     setTimeout(() => {
         extractNavigationFromShadowDOM();
+        updateScrollProgress();
+        updateActiveSectionFromScroll();
     }, 200);
 });
 
