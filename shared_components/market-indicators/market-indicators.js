@@ -32,7 +32,7 @@ class MarketIndicatorsDashboard {
         this.lastDataUpdate = Date.now(); // Track last data received
         this.pendingUpdates = {}; // Batch updates for Firefox performance
         this.updateTimer = null; // Throttle DOM updates
-        
+
         // Data cache
         this.cachedData = {
             marketCap: null,
@@ -43,27 +43,27 @@ class MarketIndicatorsDashboard {
             btcRsi14: null,
             usStockIndices: null
         };
-        
+
         // Dominance history for charts (last 20 data points)
         this.dominanceHistory = {
             btc: [],
             eth: []
         };
         this.maxHistoryPoints = 20;
-        
+
         this.init();
     }
 
     init() {
         debugLog('🚀 Initializing Market Indicators Dashboard');
         this.initializeElements();
-        
+
         // Request initial data immediately before establishing WebSocket
         this.requestInitialData();
-        
+
         this.connectWebSocket();
         this.startDataRefresh();
-        
+
         // Crypto prices now come from server via WebSocket
     }
 
@@ -117,7 +117,7 @@ class MarketIndicatorsDashboard {
 
     async requestInitialData() {
         debugLog('🔄 Requesting initial market data...');
-        
+
         try {
             // Try to fetch initial data from the same server
             const response = await fetch('/api/dashboard/data', {
@@ -132,7 +132,7 @@ class MarketIndicatorsDashboard {
             if (response.ok) {
                 const data = await response.json();
                 debugLog('✅ Initial data received:', data);
-                
+
                 // Update dashboard with initial data
                 if (data) {
                     this.updateMarketData(data);
@@ -210,14 +210,14 @@ class MarketIndicatorsDashboard {
                 this.reconnectAttempts = 0;
                 this.reconnectDelay = 500; // Reset to faster initial delay
                 this.updateConnectionStatus('connected');
-                
+
                 // Send ping immediately on connection
                 this.websocket.send('ping');
                 debugLog('🏓 Sent initial ping on connection');
-                
+
                 // Request fresh data immediately after WebSocket connects
                 this.requestFreshData();
-                
+
                 // Start heartbeat to keep connection alive
                 this.startHeartbeat();
             };
@@ -235,7 +235,7 @@ class MarketIndicatorsDashboard {
                 debugLog('🔌 Market Indicators WebSocket disconnected:', event.code);
                 this.isConnected = false;
                 this.websocket = null;
-                
+
                 if (event.code !== 1000) {
                     this.updateConnectionStatus('disconnected');
                     this.scheduleReconnect();
@@ -257,7 +257,7 @@ class MarketIndicatorsDashboard {
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
             this.reconnectDelay = Math.min(this.reconnectDelay * 2, 3000); // Max 3s instead of 5s for faster reconnect
-            
+
             debugLog(`🔄 Scheduling reconnect... Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} (delay: ${this.reconnectDelay}ms)`);
             setTimeout(() => this.connectWebSocket(), this.reconnectDelay);
         } else {
@@ -305,7 +305,7 @@ class MarketIndicatorsDashboard {
         if (this.updateTimer) {
             cancelAnimationFrame(this.updateTimer);
         }
-        
+
         // Schedule update on next animation frame
         this.updateTimer = requestAnimationFrame(() => {
             updateFn();
@@ -318,7 +318,7 @@ class MarketIndicatorsDashboard {
         const cryptoPrices = ['btc_price_usd', 'eth_price_usd', 'sol_price_usd', 'xrp_price_usd', 'ada_price_usd', 'link_price_usd', 'bnb_price_usd'];
         const availablePrices = cryptoPrices.filter(key => data[key] !== undefined);
         const missingPrices = cryptoPrices.filter(key => data[key] === undefined);
-        
+
         // Only log if there are issues or in verbose debug mode
         if (missingPrices.length > 0) {
             debugLog(`⚠️ Market data update: ${availablePrices.length}/${cryptoPrices.length} crypto prices available. Missing: ${missingPrices.join(', ')}`);
@@ -486,18 +486,18 @@ class MarketIndicatorsDashboard {
         if (!element) return;
 
         const index = parseInt(value) || 0;
-        
+
         // Check if data has actually changed
         const cachedFearGreedIndex = this.cachedData.fearGreedIndex;
         if (cachedFearGreedIndex !== null && cachedFearGreedIndex === index) {
             debugLog('⏭️ Fear & Greed index unchanged, skipping update:', { index });
             return;
         }
-        
+
         this.cachedData.fearGreedIndex = index;
 
         let indexClass, indexLabelKey, indexDescriptionKey;
-        
+
         if (index <= 24) {
             indexClass = 'fear';
             indexLabelKey = 'extreme-fear';
@@ -532,12 +532,12 @@ class MarketIndicatorsDashboard {
 
         // Trigger translation update if available
         this.updateTranslations(element);
-        
+
         this.animateUpdate(element);
-        
+
         // Render gauge chart
         this.renderGaugeChart('fear-greed', index);
-        
+
         debugLog('✅ Fear & Greed Index updated:', { index, class: indexClass });
     }
 
@@ -546,14 +546,14 @@ class MarketIndicatorsDashboard {
         if (!element) return;
 
         const dominance = parseFloat(value) || 0;
-        
+
         // Check if data has actually changed (with small tolerance for floating point comparison)
         const cachedBtcDominance = this.cachedData.btcDominance;
         if (cachedBtcDominance !== null && Math.abs(cachedBtcDominance - dominance) < 0.01) {
             debugLog('⏭️ BTC dominance unchanged, skipping update:', { dominance });
             return;
         }
-        
+
         this.cachedData.btcDominance = dominance;
 
         // Add to history
@@ -561,7 +561,7 @@ class MarketIndicatorsDashboard {
             value: dominance,
             timestamp: Date.now()
         });
-        
+
         // Keep only last N points
         if (this.dominanceHistory.btc.length > this.maxHistoryPoints) {
             this.dominanceHistory.btc.shift();
@@ -572,10 +572,10 @@ class MarketIndicatorsDashboard {
         `;
 
         this.animateUpdate(element);
-        
+
         // Render chart
         this.renderDominanceChart('btc', dominance);
-        
+
         debugLog('✅ BTC dominance updated:', { dominance: dominance.toFixed(1) });
     }
 
@@ -584,14 +584,14 @@ class MarketIndicatorsDashboard {
         if (!element) return;
 
         const dominance = parseFloat(value) || 0;
-        
+
         // Check if data has actually changed (with small tolerance for floating point comparison)
         const cachedEthDominance = this.cachedData.ethDominance;
         if (cachedEthDominance !== null && Math.abs(cachedEthDominance - dominance) < 0.01) {
             debugLog('⏭️ ETH dominance unchanged, skipping update:', { dominance });
             return;
         }
-        
+
         this.cachedData.ethDominance = dominance;
 
         // Add to history
@@ -599,7 +599,7 @@ class MarketIndicatorsDashboard {
             value: dominance,
             timestamp: Date.now()
         });
-        
+
         // Keep only last N points
         if (this.dominanceHistory.eth.length > this.maxHistoryPoints) {
             this.dominanceHistory.eth.shift();
@@ -610,10 +610,10 @@ class MarketIndicatorsDashboard {
         `;
 
         this.animateUpdate(element);
-        
+
         // Render chart
         this.renderDominanceChart('eth', dominance);
-        
+
         debugLog('✅ ETH dominance updated:', { dominance: dominance.toFixed(1) });
     }
 
@@ -622,19 +622,19 @@ class MarketIndicatorsDashboard {
         if (!element) return;
 
         const rsi = parseFloat(value) || 0;
-        
+
         // Check if data has actually changed (with small tolerance for floating point comparison)
         const cachedBtcRsi14 = this.cachedData.btcRsi14;
         if (cachedBtcRsi14 !== null && Math.abs(cachedBtcRsi14 - rsi) < 0.01) {
             debugLog('⏭️ BTC RSI 14 unchanged, skipping update:', { rsi });
             return;
         }
-        
+
         this.cachedData.btcRsi14 = rsi;
 
         let rsiClass = 'neutral';
         let rsiLabelKey;
-        
+
         if (rsi <= 30) {
             rsiClass = 'oversold';
             rsiLabelKey = 'oversold';
@@ -655,12 +655,12 @@ class MarketIndicatorsDashboard {
 
         // Trigger translation update if available
         this.updateTranslations(element);
-        
+
         this.animateUpdate(element);
-        
+
         // Render gauge chart
         this.renderGaugeChart('btc-rsi', rsi);
-        
+
         debugLog('✅ BTC RSI 14 updated:', { rsi: rsi.toFixed(1), class: rsiClass });
     }
 
@@ -669,7 +669,7 @@ class MarketIndicatorsDashboard {
         if (!element) return;
 
         element.className = `connection-indicator ${status}`;
-        
+
         const statusTexts = {
             connecting: 'Đang kết nối...',
             connected: 'Kết nối thành công',
@@ -717,7 +717,7 @@ class MarketIndicatorsDashboard {
     formatLargeNumber(num) {
         const lang = window.current_language || 'vi';
         const isVietnamese = lang === 'vi';
-        
+
         if (num >= 1e12) {
             return {
                 number: (num / 1e12).toFixed(2),
@@ -751,7 +751,7 @@ class MarketIndicatorsDashboard {
         setInterval(() => {
             const now = Date.now();
             const timeSinceLastUpdate = now - this.lastDataUpdate;
-            
+
             debugLog('🔍 WebSocket Health Check:', {
                 connected: this.isConnected,
                 websocket: this.websocket !== null,
@@ -759,18 +759,18 @@ class MarketIndicatorsDashboard {
                 reconnectAttempts: this.reconnectAttempts,
                 timeSinceLastUpdate: `${Math.round(timeSinceLastUpdate / 1000)}s`
             });
-            
+
             // If no data received for 90 seconds and connected, something may be wrong
             if (this.isConnected && timeSinceLastUpdate > 90000) {
                 debugLog('⚠️ No data received for 90+ seconds, requesting fresh data');
                 this.requestFreshData(); // Use the new method instead of direct send
             }
-            
+
             if (this.websocket) {
                 const state = this.websocket.readyState;
                 const states = ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'];
                 debugLog(`🔍 WebSocket State: ${states[state]} (${state})`);
-                
+
                 // If WebSocket is in bad state, try to reconnect
                 if (state === WebSocket.CLOSED && this.isConnected) {
                     debugLog('🔄 WebSocket closed unexpectedly, scheduling reconnect');
@@ -781,7 +781,7 @@ class MarketIndicatorsDashboard {
                 debugLog('🔄 No WebSocket connection, attempting to connect');
                 this.connectWebSocket();
             }
-            
+
             // Crypto prices now come from server via WebSocket
         }, 30000); // Every 30 seconds (optimized monitoring - reduced unnecessary checks)
     }
@@ -792,20 +792,20 @@ class MarketIndicatorsDashboard {
             debugError('❌ Invalid US stock indices data:', indices);
             return;
         }
-        
+
         // Check if data has actually changed
         const cachedIndices = this.cachedData.usStockIndices;
         if (cachedIndices) {
             let hasChanged = false;
-            
+
             // Check each index for changes
             ['DIA', 'SPY', 'QQQM'].forEach(key => {
                 if (indices[key] && cachedIndices[key]) {
                     const current = indices[key];
                     const cached = cachedIndices[key];
-                    
-                    if (current.price !== cached.price || 
-                        current.change !== cached.change || 
+
+                    if (current.price !== cached.price ||
+                        current.change !== cached.change ||
                         current.change_percent !== cached.change_percent ||
                         current.status !== cached.status) {
                         hasChanged = true;
@@ -814,37 +814,37 @@ class MarketIndicatorsDashboard {
                     hasChanged = true;
                 }
             });
-            
+
             if (!hasChanged) {
                 debugLog('⏭️ US Stock Indices unchanged, skipping update');
                 return;
             }
         }
-        
+
         debugLog('📊 Updating US Stock Indices:', indices);
         this.cachedData.usStockIndices = indices;
-        
+
         // Update individual indices
         if (indices.DIA) {
             this.updateStockIndex('dia', indices.DIA, 'DJIA');
         }
-        
+
         if (indices.SPY) {
             this.updateStockIndex('spy', indices.SPY, 'S&P 500');
         }
-        
+
         if (indices.QQQM) {
             this.updateStockIndex('qqq', indices.QQQM, 'Nasdaq 100');
         }
     }
-    
+
     updateStockIndex(elementId, indexData, displayName) {
         const element = document.getElementById(`${elementId}-indicator`);
         if (!element) {
             debugError(`❌ Element not found: ${elementId}-indicator`);
             return;
         }
-        
+
         if (!indexData || indexData.status !== 'success') {
             // Handle error or loading state
             const status = indexData ? indexData.status : 'no data';
@@ -856,30 +856,30 @@ class MarketIndicatorsDashboard {
             `;
             return;
         }
-        
+
         const price = parseFloat(indexData.price) || 0;
         const change = parseFloat(indexData.change) || 0;
         const changePercent = parseFloat(indexData.change_percent) || 0;
-        
+
         // Check if data has actually changed for this specific stock index
         const cacheKey = `${elementId}_stock_index`;
         const cachedStock = this.cachedData[cacheKey];
-        if (cachedStock && 
-            cachedStock.price === price && 
-            cachedStock.change === change && 
+        if (cachedStock &&
+            cachedStock.price === price &&
+            cachedStock.change === change &&
             cachedStock.changePercent === changePercent) {
             debugLog(`⏭️ ${displayName} unchanged, skipping update:`, { price, change, changePercent });
             return;
         }
-        
+
         // Cache the new data
         this.cachedData[cacheKey] = { price, change, changePercent };
-        
+
         const changeClass = changePercent >= 0 ? 'positive' : 'negative';
         const changeIcon = changePercent >= 0 ? '📈' : '📉';
         const changeSign = change >= 0 ? '+' : '';
         const percentSign = changePercent >= 0 ? '+' : '';
-        
+
         element.innerHTML = `
             <div class="stock-value">$${price.toFixed(2)}</div>
             <div class="stock-change ${changeClass}">
@@ -887,7 +887,7 @@ class MarketIndicatorsDashboard {
                 ${changeSign}$${Math.abs(change).toFixed(2)} (${percentSign}${changePercent.toFixed(2)}%)
             </div>
         `;
-        
+
         this.animateUpdate(element);
         debugLog(`✅ Updated ${displayName}: $${price.toFixed(2)} (${percentSign}${changePercent.toFixed(2)}%)`);
     }
@@ -895,7 +895,7 @@ class MarketIndicatorsDashboard {
     startHeartbeat() {
         // Clear any existing heartbeat first
         this.stopHeartbeat();
-        
+
         // Send ping every 30 seconds to keep connection alive (optimized frequency)
         this.heartbeatInterval = setInterval(() => {
             if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
@@ -919,13 +919,13 @@ class MarketIndicatorsDashboard {
     destroy() {
         debugLog('🧹 Destroying Market Indicators Dashboard');
         this.stopHeartbeat();
-        
+
         // Cancel any pending updates
         if (this.updateTimer) {
             cancelAnimationFrame(this.updateTimer);
             this.updateTimer = null;
         }
-        
+
         if (this.websocket) {
             this.websocket.close();
             this.websocket = null;
@@ -938,7 +938,7 @@ class MarketIndicatorsDashboard {
     updateCryptoPrice(symbol, price, changePercent) {
         let elementId;
         let coinName;
-        
+
         // Map symbol to element ID and coin name
         switch (symbol) {
             case 'BTCUSDT':
@@ -972,13 +972,13 @@ class MarketIndicatorsDashboard {
             default:
                 return;
         }
-        
+
         const element = document.getElementById(elementId);
         if (!element) {
             debugError(`❌ Element not found: ${elementId}`);
             return;
         }
-        
+
         if (price === null || price === undefined || changePercent === 'Error') {
             // Only update if needed - use textContent for faster updates
             const priceElement = element.querySelector('[data-price]');
@@ -990,27 +990,27 @@ class MarketIndicatorsDashboard {
             }
             return;
         }
-        
+
         // OPTIMIZED: Use textContent instead of innerHTML for 10-20ms faster updates
         const changeClass = changePercent >= 0 ? 'positive' : 'negative';
         const changeSign = changePercent >= 0 ? '+' : '';
         const locale = 'en-US';
-        
+
         // Format price with commas and appropriate decimal places
         const formattedPrice = price.toLocaleString(locale, {
             minimumFractionDigits: 2,
             maximumFractionDigits: price >= 1 ? 2 : 6
         });
-        
+
         // Get sub-elements (cached after first update for even better performance)
         const priceElement = element.querySelector('[data-price]');
         const changeElement = element.querySelector('[data-change]');
-        
+
         if (priceElement && changeElement) {
             // Only update textContent - much faster than innerHTML (no re-parse, no re-render)
             priceElement.textContent = `$${formattedPrice}`;
             changeElement.textContent = `${changeSign}${changePercent.toFixed(2)}%`;
-            
+
             // Update className only if changed (avoid unnecessary style recalculation)
             const newClassName = `binance-price-change ${changeClass}`;
             if (changeElement.className !== newClassName) {
@@ -1025,7 +1025,7 @@ class MarketIndicatorsDashboard {
                 </div>
             `;
         }
-        
+
         debugLog(`✅ Updated ${coinName}: $${formattedPrice} (${changeSign}${changePercent.toFixed(2)}%)`);
     }
 
@@ -1037,7 +1037,7 @@ class MarketIndicatorsDashboard {
     renderDominanceChart(type, currentValue) {
         const svgId = type === 'btc' ? 'btc-dominance-svg' : 'eth-dominance-svg';
         const svg = document.getElementById(svgId);
-        
+
         if (!svg) {
             debugLog(`❌ SVG element not found: ${svgId}`);
             return;
@@ -1048,7 +1048,7 @@ class MarketIndicatorsDashboard {
     }
 
     /**
-     * Render a simple pie chart for dominance when we don't have history
+     * Render a Donut chart for dominance
      * @param {SVGElement} svg - SVG element
      * @param {string} type - 'btc' or 'eth'
      * @param {number} value - Dominance percentage
@@ -1058,65 +1058,76 @@ class MarketIndicatorsDashboard {
         const height = 80;
         const centerX = width / 2;
         const centerY = height / 2;
-        const radius = 28;
+        const radius = 32;
+        const innerRadius = 22; // For Donut chart
 
         const color = type === 'btc' ? '#f7931a' : '#627eea';
-        const othersColor = 'rgba(128, 128, 128, 0.3)';
+        const othersColor = 'rgba(128, 128, 128, 0.1)';
 
         // Clear SVG
         svg.innerHTML = '';
         svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
         svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
-        // Draw "Others" slice (full circle background)
-        const othersCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        othersCircle.setAttribute('cx', centerX);
-        othersCircle.setAttribute('cy', centerY);
-        othersCircle.setAttribute('r', radius);
-        othersCircle.setAttribute('fill', othersColor);
-        svg.appendChild(othersCircle);
+        // Draw background circle (track)
+        const trackPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        trackPath.setAttribute('d', this.describeDonut(centerX, centerY, radius, innerRadius, 0, 359.99));
+        trackPath.setAttribute('fill', othersColor);
+        svg.appendChild(trackPath);
 
         // Clamp value between 0 and 100
         const clampedValue = Math.max(0, Math.min(100, value));
 
-        // Draw dominance slice only if value is meaningful (> 0.5%)
-        if (clampedValue >= 0.5 && clampedValue < 100) {
-            const angle = (clampedValue / 100) * 2 * Math.PI;
-            const startAngle = -Math.PI / 2; // Start from top
+        // Draw dominance slice
+        if (clampedValue > 0) {
+            const angle = (clampedValue / 100) * 360;
+            const startAngle = -180; // Start from top (0 input becomes -90 in polarToCartesian)
             const endAngle = startAngle + angle;
-            
-            const x1 = centerX + radius * Math.cos(startAngle);
-            const y1 = centerY + radius * Math.sin(startAngle);
-            const x2 = centerX + radius * Math.cos(endAngle);
-            const y2 = centerY + radius * Math.sin(endAngle);
-            
-            const largeArc = angle > Math.PI ? 1 : 0;
-            
-            const pathData = [
-                `M ${centerX} ${centerY}`,
-                `L ${x1} ${y1}`,
-                `A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`,
-                'Z'
-            ].join(' ');
-            
-            const slice = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            slice.setAttribute('d', pathData);
-            slice.setAttribute('fill', color);
-            slice.setAttribute('opacity', '0.8');
-            svg.appendChild(slice);
-        } else if (clampedValue >= 100) {
-            // Full circle
-            const fullCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            fullCircle.setAttribute('cx', centerX);
-            fullCircle.setAttribute('cy', centerY);
-            fullCircle.setAttribute('r', radius);
-            fullCircle.setAttribute('fill', color);
-            fullCircle.setAttribute('opacity', '0.8');
-            svg.appendChild(fullCircle);
-        }
-        // If value < 0.5%, only show the background circle (no slice drawn)
 
-        debugLog(`📊 Rendered ${type.toUpperCase()} dominance large pie chart: ${clampedValue.toFixed(1)}%`);
+            const slice = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            slice.setAttribute('d', this.describeDonut(centerX, centerY, radius, innerRadius, startAngle, endAngle));
+            slice.setAttribute('fill', color);
+            // Add drop shadow filter if desired, or just opacity
+            slice.setAttribute('filter', 'drop-shadow(0px 2px 3px rgba(0,0,0,0.2))');
+            svg.appendChild(slice);
+        }
+
+        // Add text in center
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', centerX);
+        text.setAttribute('y', centerY);
+        text.setAttribute('dy', '0.35em');
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('font-size', '10px');
+        text.setAttribute('font-weight', 'bold');
+        text.setAttribute('fill', 'var(--text-primary)'); // Use CSS variable if possible, or fallback
+        text.style.fill = 'var(--text-primary)';
+        text.textContent = `${clampedValue.toFixed(1)}%`;
+        svg.appendChild(text);
+
+        debugLog(`📊 Rendered ${type.toUpperCase()} dominance donut chart: ${clampedValue.toFixed(1)}%`);
+    }
+
+    /**
+     * Helper to create donut slice path
+     */
+    describeDonut(x, y, radius, innerRadius, startAngle, endAngle) {
+        const start = this.polarToCartesian(x, y, radius, endAngle);
+        const end = this.polarToCartesian(x, y, radius, startAngle);
+        const startInner = this.polarToCartesian(x, y, innerRadius, endAngle);
+        const endInner = this.polarToCartesian(x, y, innerRadius, startAngle);
+
+        const largeArcFlag = endAngle - startAngle <= 180 ? '0' : '1';
+
+        const d = [
+            'M', start.x, start.y,
+            'A', radius, radius, 0, largeArcFlag, 0, end.x, end.y,
+            'L', endInner.x, endInner.y,
+            'A', innerRadius, innerRadius, 0, largeArcFlag, 1, startInner.x, startInner.y,
+            'Z'
+        ].join(' ');
+
+        return d;
     }
 
     /**
@@ -1137,12 +1148,12 @@ class MarketIndicatorsDashboard {
         const startPoint = this.polarToCartesian(x, y, radius, startAngle);
         const endPoint = this.polarToCartesian(x, y, radius, endAngle);
         const largeArcFlag = endAngle - startAngle <= 180 ? '0' : '1';
-        
+
         const d = [
             'M', startPoint.x, startPoint.y,
             'A', radius, radius, 0, largeArcFlag, '1', endPoint.x, endPoint.y
         ].join(' ');
-        
+
         return d;
     }
 
@@ -1158,37 +1169,29 @@ class MarketIndicatorsDashboard {
         }
 
         // Cấu hình gauge
-        const GAUGE_START_ANGLE = -120;
-        const GAUGE_END_ANGLE = 120;
+        const GAUGE_START_ANGLE = -135; // Wider arc
+        const GAUGE_END_ANGLE = 135;
         const ANGLE_SPAN = GAUGE_END_ANGLE - GAUGE_START_ANGLE;
-        
+
         const centerX = 60;
         const centerY = 60;
         const radius = 45;
-        const strokeWidth = 10;
+        const strokeWidth = 8; // Thinner, more elegant
 
         // Xác định điểm màu cho gradient
         let colorStops;
         if (type === 'fear-greed') {
-            // Fear & Greed: Đỏ -> Cam -> Vàng -> Xanh lá nhạt -> Xanh lá
             colorStops = [
-                { value: 0, color: '#ef4444' },    // Red (Extreme Fear)
+                { value: 0, color: '#ef4444' },    // Red
                 { value: 25, color: '#f97316' },   // Orange
-                { value: 40, color: '#fb923c' },   // Light Orange
-                { value: 50, color: '#fbbf24' },   // Yellow (Neutral)
-                { value: 60, color: '#a3e635' },   // Yellow-Green
+                { value: 50, color: '#eab308' },   // Yellow
                 { value: 75, color: '#84cc16' },   // Lime
-                { value: 100, color: '#22c55e' }   // Green (Extreme Greed)
+                { value: 100, color: '#22c55e' }   // Green
             ];
         } else {
-            // RSI: Xanh lá -> Xanh nhạt -> Vàng -> Cam -> Đỏ
             colorStops = [
                 { value: 0, color: '#22c55e' },    // Green (Oversold)
-                { value: 25, color: '#84cc16' },   // Lime
-                { value: 40, color: '#a3e635' },   // Yellow-Green
-                { value: 50, color: '#fbbf24' },   // Yellow (Neutral)
-                { value: 60, color: '#fb923c' },   // Light Orange
-                { value: 75, color: '#f97316' },   // Orange
+                { value: 50, color: '#eab308' },   // Yellow (Neutral)
                 { value: 100, color: '#ef4444' }   // Red (Overbought)
             ];
         }
@@ -1203,7 +1206,7 @@ class MarketIndicatorsDashboard {
         // Clear SVG
         svg.innerHTML = '';
 
-        // Tạo gradient mượt dọc theo cung
+        // Tạo gradient mượt
         const gradientId = `${type}-gauge-gradient`;
         const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
         const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
@@ -1222,23 +1225,32 @@ class MarketIndicatorsDashboard {
             color: stop.color
         }));
 
-        // Ensure offset boundaries are valid
         gradientStops.forEach(stop => {
             const stopElement = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
-            const offset = Math.max(0, Math.min(1, stop.offset));
-            stopElement.setAttribute('offset', `${(offset * 100).toFixed(1)}%`);
+            stopElement.setAttribute('offset', `${(Math.max(0, Math.min(1, stop.offset)) * 100).toFixed(1)}%`);
             stopElement.setAttribute('stop-color', stop.color);
             gradient.appendChild(stopElement);
         });
 
+        // Glow filter
+        const filter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
+        filter.setAttribute('id', `${type}-glow`);
+        filter.innerHTML = `
+            <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
+            <feMerge>
+                <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+        `;
+        defs.appendChild(filter);
         defs.appendChild(gradient);
         svg.appendChild(defs);
 
-        // 1. Vẽ track nền (cung tròn hoàn chỉnh)
+        // 1. Vẽ track nền
         const trackPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         trackPath.setAttribute('d', this.describeArc(centerX, centerY, radius, GAUGE_START_ANGLE, GAUGE_END_ANGLE));
         trackPath.setAttribute('fill', 'none');
-        trackPath.setAttribute('stroke', 'rgba(200, 200, 200, 0.2)');
+        trackPath.setAttribute('stroke', 'rgba(128, 128, 128, 0.15)');
         trackPath.setAttribute('stroke-width', strokeWidth);
         trackPath.setAttribute('stroke-linecap', 'round');
         svg.appendChild(trackPath);
@@ -1250,27 +1262,58 @@ class MarketIndicatorsDashboard {
         gradientPath.setAttribute('stroke', `url(#${gradientId})`);
         gradientPath.setAttribute('stroke-width', strokeWidth);
         gradientPath.setAttribute('stroke-linecap', 'round');
+        // gradientPath.setAttribute('filter', `url(#${type}-glow)`); // Optional: adds glow
         svg.appendChild(gradientPath);
 
-        // 3. Vẽ kim chỉ
+        // 3. Vẽ kim chỉ (Modern Needle)
         const needleGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         needleGroup.setAttribute('transform', `rotate(${valueAngle} ${centerX} ${centerY})`);
-        
-        // Kim chỉ (hình tam giác nhỏ gọn)
-        const needlePointer = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        const needlePath = `M ${centerX} ${centerY - radius + 5} L ${centerX - 3} ${centerY} L ${centerX + 3} ${centerY} Z`;
-        needlePointer.setAttribute('d', needlePath);
-        needlePointer.setAttribute('fill', '#1f2937');
-        needleGroup.appendChild(needlePointer);
-        
-        // Pivot (điểm tâm)
+
+        // Needle line
+        const needleLen = radius - 5;
+        const needleLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        needleLine.setAttribute('x1', centerX);
+        needleLine.setAttribute('y1', centerY);
+        needleLine.setAttribute('x2', centerX + needleLen); // Points to 0 degrees (right) initially, rotated by group
+        needleLine.setAttribute('y2', centerY);
+        needleLine.setAttribute('stroke', 'var(--text-primary)');
+        needleLine.setAttribute('stroke-width', '2');
+        needleLine.setAttribute('stroke-linecap', 'round');
+        // Fix rotation logic: polarToCartesian uses -90 offset, so 0 is up. 
+        // But SVG rotate is clockwise. 
+        // Let's stick to the previous logic which worked:
+        // Previous needle was a path. Let's use a simple circle at the tip for "modern" look
+
+        // Revert to path for reliable rotation
+        const needlePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        // A simple tapered needle
+        const d = `M ${centerX - 2} ${centerY} L ${centerX} ${centerY - radius + 8} L ${centerX + 2} ${centerY} Z`;
+        // Note: The rotation logic in previous code assumed 0 deg is UP (because of -90 offset in polarToCartesian?)
+        // Actually, let's just use the same path logic but styled better.
+        // The previous path was: M ${centerX} ${centerY - radius + 5} ...
+        // That points UP.
+        // Our valueAngle is calculated based on -90 offset in polarToCartesian?
+        // polarToCartesian: ((angleInDegrees - 90) * Math.PI) / 180.0; -> -90 is UP.
+        // So if valueAngle is -135, it is -135 degrees from UP (counter-clockwise).
+        // Wait, SVG rotate(angle, cx, cy) rotates CLOCKWISE.
+        // If valueAngle is -135, it rotates -135 (counter-clockwise).
+        // So if needle points UP (0 deg), -135 will point to bottom-left.
+        // Correct.
+
+        needlePath.setAttribute('d', `M ${centerX} ${centerY - radius + 5} L ${centerX - 3} ${centerY} L ${centerX + 3} ${centerY} Z`);
+        needlePath.setAttribute('fill', 'var(--text-primary)');
+        needlePath.style.fill = 'var(--text-primary)';
+        needleGroup.appendChild(needlePath);
+
+        // Pivot
         const needlePivot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         needlePivot.setAttribute('cx', centerX);
         needlePivot.setAttribute('cy', centerY);
-        needlePivot.setAttribute('r', '4');
-        needlePivot.setAttribute('fill', '#1f2937');
+        needlePivot.setAttribute('r', '3');
+        needlePivot.setAttribute('fill', 'var(--text-primary)');
+        needlePivot.style.fill = 'var(--text-primary)';
         needleGroup.appendChild(needlePivot);
-        
+
         svg.appendChild(needleGroup);
 
         debugLog(`📊 Rendered ${type} gauge chart: ${value.toFixed(1)}`);
@@ -1278,17 +1321,17 @@ class MarketIndicatorsDashboard {
 }
 
 // Initialize Market Indicators Dashboard when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     debugLog('📊 DOM loaded, initializing Market Indicators Dashboard');
-    
+
     // Only initialize if the market indicators container exists
     const container = document.getElementById('market-indicators-dashboard');
     if (container) {
         debugLog('✅ Market indicators container found, creating dashboard instance');
         window.marketIndicatorsDashboard = new MarketIndicatorsDashboard();
-        
+
         // Add a global function to manually update with data (for debugging)
-        window.updateMarketIndicators = function(data) {
+        window.updateMarketIndicators = function (data) {
             if (window.marketIndicatorsDashboard) {
                 debugLog('🔧 Manual update triggered with data:', data);
                 window.marketIndicatorsDashboard.updateMarketData(data);
@@ -1300,7 +1343,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Clean up on page unload
-window.addEventListener('beforeunload', function() {
+window.addEventListener('beforeunload', function () {
     if (window.marketIndicatorsDashboard) {
         window.marketIndicatorsDashboard.destroy();
     }
@@ -1312,14 +1355,14 @@ if (typeof module !== 'undefined' && module.exports) {
 }
 
 // Global debugging helpers (only active in DEBUG_MODE)
-window.debugMarketIndicators = function() {
+window.debugMarketIndicators = function () {
     if (!DEBUG_MODE) {
         console.log('Debug mode is disabled. Set DEBUG_MODE = true to enable debugging.');
         return;
     }
-    
+
     console.log('=== Market Indicators Debug Info ===');
-    
+
     if (window.marketIndicatorsDashboard) {
         console.log('✅ Dashboard instance exists');
         console.log('🔍 Elements status:', window.marketIndicatorsDashboard.elements);
@@ -1332,12 +1375,12 @@ window.debugMarketIndicators = function() {
 };
 
 // Manual WebSocket data request (only active in DEBUG_MODE)
-window.requestMarketData = function() {
+window.requestMarketData = function () {
     if (!DEBUG_MODE) {
         console.log('Debug mode is disabled. Set DEBUG_MODE = true to enable debugging.');
         return;
     }
-    
+
     if (window.marketIndicatorsDashboard) {
         console.log('📤 Manually requesting fresh market data via WebSocket...');
         window.marketIndicatorsDashboard.requestFreshData();
@@ -1347,7 +1390,7 @@ window.requestMarketData = function() {
 };
 
 // Test function with sample data (only active in DEBUG_MODE)
-window.testMarketIndicators = function() {
+window.testMarketIndicators = function () {
     const sampleData = {
         btc_change_24h: -1.1761369473535623,
         btc_price_usd: 110349,
@@ -1390,6 +1433,6 @@ window.testMarketIndicators = function() {
             }
         }
     };
-    
-        debugLog('🧪 Testing with sample data (including all crypto prices):', sampleData);
-    }
+
+    debugLog('🧪 Testing with sample data (including all crypto prices):', sampleData);
+}
