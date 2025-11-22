@@ -380,7 +380,7 @@ function setupSectionObserver() {
     // Create IntersectionObserver with anchor at 20% from top
     navigationObserver = new IntersectionObserver(() => {
         const viewportHeight = window.innerHeight;
-        const anchor = viewportHeight * 0.2; // 20% from top
+        const anchor = viewportHeight * 0.3; // 20% from top
 
         let bestSection = null;
         let bestTop = -Infinity;
