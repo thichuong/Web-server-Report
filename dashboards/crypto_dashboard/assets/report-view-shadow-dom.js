@@ -120,9 +120,14 @@ function extractNavigationFromShadowDOM() {
 
     // Find active content based on current language
     const currentLang = (window.languageManager && window.languageManager.currentLanguage) || 'vi';
+    console.log('🧭 Parent: Current language:', currentLang);
+
+    // Try language-specific content first, then active content, then any lang-content
     const activeContent = reportShadowRoot.querySelector(`#content-${currentLang}`) ||
                           reportShadowRoot.querySelector('.lang-content.active') ||
-                          reportShadowRoot.querySelector('#content-vi');
+                          reportShadowRoot.querySelector('.lang-content:not([style*="display: none"])');
+
+    console.log('🧭 Parent: Active content found:', activeContent ? activeContent.id : 'none');
 
     if (!activeContent) {
         console.warn('⚠️ Parent: No active content found in shadow DOM');
@@ -272,10 +277,21 @@ function handleSidebarNavClick(event) {
 
     console.log('🎯 Parent: Navigating to section:', sectionId);
 
-    // Find section in shadow DOM
-    const targetSection = reportShadowRoot.querySelector(`#${sectionId}`);
+    // Find active content first based on current language
+    const currentLang = (window.languageManager && window.languageManager.currentLanguage) || 'vi';
+    const activeContent = reportShadowRoot.querySelector(`#content-${currentLang}`) ||
+                          reportShadowRoot.querySelector('.lang-content.active') ||
+                          reportShadowRoot.querySelector('.lang-content:not([style*="display: none"])');
+
+    if (!activeContent) {
+        console.error('❌ Parent: No active content found');
+        return;
+    }
+
+    // Find section within active content only
+    const targetSection = activeContent.querySelector(`#${sectionId}`);
     if (!targetSection) {
-        console.error('❌ Parent: Section not found in shadow DOM:', sectionId);
+        console.error('❌ Parent: Section not found in active content:', sectionId);
         return;
     }
 
@@ -346,8 +362,10 @@ function setupSectionObserver() {
     if (!reportShadowRoot || !currentNavigationData) return;
 
     const currentLang = (window.languageManager && window.languageManager.currentLanguage) || 'vi';
+    // Try language-specific content first, then active content, then any visible lang-content
     const activeContent = reportShadowRoot.querySelector(`#content-${currentLang}`) ||
-                          reportShadowRoot.querySelector('.lang-content.active');
+                          reportShadowRoot.querySelector('.lang-content.active') ||
+                          reportShadowRoot.querySelector('.lang-content:not([style*="display: none"])');
 
     if (!activeContent) return;
 
