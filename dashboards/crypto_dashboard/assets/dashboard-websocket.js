@@ -865,146 +865,146 @@ function showErrorNotification(message) {
 /**
  * Tải nội dung báo cáo từ file tĩnh và tạo mục lục điều hướng.
  */
-async function CreateNav() {
-    try {
-        const reportContainer = document.getElementById('report-container');
-        const navLinksContainer = document.getElementById('report-nav-links');
+// async function CreateNav() {
+//     try {
+//         const reportContainer = document.getElementById('report-container');
+//         const navLinksContainer = document.getElementById('report-nav-links');
 
-        // Thoát sớm nếu các container chính không tồn tại để tránh lỗi
-        if (!reportContainer || !navLinksContainer) {
-            console.error("Không tìm thấy container cho báo cáo (#report-container) hoặc mục lục (#report-nav-links).");
-            return;
-        }
+//         // Thoát sớm nếu các container chính không tồn tại để tránh lỗi
+//         if (!reportContainer || !navLinksContainer) {
+//             console.error("Không tìm thấy container cho báo cáo (#report-container) hoặc mục lục (#report-nav-links).");
+//             return;
+//         }
 
-        // Ngắt observer cũ (nếu có) để tránh quan sát trùng lặp
-        if (reportContainer._navObserver) {
-            try { reportContainer._navObserver.disconnect(); } catch(e){}
-            reportContainer._navObserver = null;
-        }
+//         // Ngắt observer cũ (nếu có) để tránh quan sát trùng lặp
+//         if (reportContainer._navObserver) {
+//             try { reportContainer._navObserver.disconnect(); } catch(e){}
+//             reportContainer._navObserver = null;
+//         }
 
-        // Xóa nội dung cũ của mục lục trước khi tạo mới để tránh trùng lặp
-        navLinksContainer.innerHTML = '';
+//         // Xóa nội dung cũ của mục lục trước khi tạo mới để tránh trùng lặp
+//         navLinksContainer.innerHTML = '';
 
-        // Nếu có 2 container nội dung (vi/en), chỉ lấy các section từ phần đang hiển thị
-        const viContainer = document.getElementById('report-content-vi');
-        const enContainer = document.getElementById('report-content-en');
-        let activeContent = reportContainer; // fallback: toàn bộ reportContainer
+//         // Nếu có 2 container nội dung (vi/en), chỉ lấy các section từ phần đang hiển thị
+//         const viContainer = document.getElementById('report-content-vi');
+//         const enContainer = document.getElementById('report-content-en');
+//         let activeContent = reportContainer; // fallback: toàn bộ reportContainer
 
-        if (viContainer || enContainer) {
-            const viVisible = viContainer && window.getComputedStyle(viContainer).display !== 'none';
-            const enVisible = enContainer && window.getComputedStyle(enContainer).display !== 'none';
-            if (viVisible) activeContent = viContainer;
-            else if (enVisible) activeContent = enContainer;
-            else activeContent = viContainer || enContainer || reportContainer;
-        }
+//         if (viContainer || enContainer) {
+//             const viVisible = viContainer && window.getComputedStyle(viContainer).display !== 'none';
+//             const enVisible = enContainer && window.getComputedStyle(enContainer).display !== 'none';
+//             if (viVisible) activeContent = viContainer;
+//             else if (enVisible) activeContent = enContainer;
+//             else activeContent = viContainer || enContainer || reportContainer;
+//         }
 
-        const reportSections = activeContent.querySelectorAll('section');
+//         const reportSections = activeContent.querySelectorAll('section');
 
-        // Build navigation links only from the active content's sections
-        reportSections.forEach(section => {
-            const h2 = section.querySelector('h2');
-            if (h2 && section.id) {
-                const li = document.createElement('li');
-                const a = document.createElement('a');
-                a.href = `#${section.id}`;
-                // remove any icon node inside h2 when constructing the label
-                const h2Text = h2.cloneNode(true);
-                const icon = h2Text.querySelector('i');
-                if (icon && icon.parentNode) icon.parentNode.removeChild(icon);
-                a.textContent = h2Text.textContent.trim();
-                a.classList.add('block', 'py-1', 'px-2', 'rounded');
-                // smooth scroll on click và active ngay lập tức
-                a.addEventListener('click', (e) => {
-                    e.preventDefault();
+//         // Build navigation links only from the active content's sections
+//         reportSections.forEach(section => {
+//             const h2 = section.querySelector('h2');
+//             if (h2 && section.id) {
+//                 const li = document.createElement('li');
+//                 const a = document.createElement('a');
+//                 a.href = `#${section.id}`;
+//                 // remove any icon node inside h2 when constructing the label
+//                 const h2Text = h2.cloneNode(true);
+//                 const icon = h2Text.querySelector('i');
+//                 if (icon && icon.parentNode) icon.parentNode.removeChild(icon);
+//                 a.textContent = h2Text.textContent.trim();
+//                 a.classList.add('block', 'py-1', 'px-2', 'rounded');
+//                 // smooth scroll on click và active ngay lập tức
+//                 a.addEventListener('click', (e) => {
+//                     e.preventDefault();
                     
-                    const target = activeContent.querySelector(`#${section.id}`);
-                    if (target) {
-                        // Active ngay lập tức khi click
-                        navLinksContainer.querySelectorAll('a').forEach(link => link.classList.remove('active'));
-                        a.classList.add('active');
+//                     const target = activeContent.querySelector(`#${section.id}`);
+//                     if (target) {
+//                         // Active ngay lập tức khi click
+//                         navLinksContainer.querySelectorAll('a').forEach(link => link.classList.remove('active'));
+//                         a.classList.add('active');
                         
-                        // Scroll tới target
-                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }
-                });
-                li.appendChild(a);
-                navLinksContainer.appendChild(li);
-            }
-        });
+//                         // Scroll tới target
+//                         target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+//                     }
+//                 });
+//                 li.appendChild(a);
+//                 navLinksContainer.appendChild(li);
+//             }
+//         });
 
-        const navLinks = navLinksContainer.querySelectorAll('a');
+//         const navLinks = navLinksContainer.querySelectorAll('a');
 
-        // Quan sát các section để tự động active nav link khi scroll
-        const observer = new IntersectionObserver(() => {
-            // More deterministic selection:
-            // Choose the section whose top is the closest to the anchor line (20% from top)
-            // Preference: sections with top <= anchor (the one closest below the anchor). If none, pick the nearest section below the anchor.
-            const viewportHeight = window.innerHeight;
-            const anchor = viewportHeight * 0.2; // 20% from top
+//         // Quan sát các section để tự động active nav link khi scroll
+//         const observer = new IntersectionObserver(() => {
+//             // More deterministic selection:
+//             // Choose the section whose top is the closest to the anchor line (20% from top)
+//             // Preference: sections with top <= anchor (the one closest below the anchor). If none, pick the nearest section below the anchor.
+//             const viewportHeight = window.innerHeight;
+//             const anchor = viewportHeight * 0.2; // 20% from top
 
-            let bestSection = null;
-            let bestTop = -Infinity; // for tops <= anchor we want the maximum (closest to anchor from above)
+//             let bestSection = null;
+//             let bestTop = -Infinity; // for tops <= anchor we want the maximum (closest to anchor from above)
 
-            // First pass: find section top <= anchor and still at least partially visible
-            reportSections.forEach(section => {
-                const rect = section.getBoundingClientRect();
-                // ignore sections that are completely scrolled past
-                if (rect.bottom <= 0 || rect.top >= viewportHeight) return;
-                if (rect.top <= anchor) {
-                    if (rect.top > bestTop) {
-                        bestTop = rect.top;
-                        bestSection = section;
-                    }
-                }
-            });
+//             // First pass: find section top <= anchor and still at least partially visible
+//             reportSections.forEach(section => {
+//                 const rect = section.getBoundingClientRect();
+//                 // ignore sections that are completely scrolled past
+//                 if (rect.bottom <= 0 || rect.top >= viewportHeight) return;
+//                 if (rect.top <= anchor) {
+//                     if (rect.top > bestTop) {
+//                         bestTop = rect.top;
+//                         bestSection = section;
+//                     }
+//                 }
+//             });
 
-            // Second pass: if none found, pick the section whose top is the smallest positive distance below anchor
-            if (!bestSection) {
-                let minBelow = Infinity;
-                reportSections.forEach(section => {
-                    const rect = section.getBoundingClientRect();
-                    if (rect.bottom <= 0 || rect.top >= viewportHeight) return;
-                    if (rect.top > anchor && rect.top < minBelow) {
-                        minBelow = rect.top;
-                        bestSection = section;
-                    }
-                });
-            }
+//             // Second pass: if none found, pick the section whose top is the smallest positive distance below anchor
+//             if (!bestSection) {
+//                 let minBelow = Infinity;
+//                 reportSections.forEach(section => {
+//                     const rect = section.getBoundingClientRect();
+//                     if (rect.bottom <= 0 || rect.top >= viewportHeight) return;
+//                     if (rect.top > anchor && rect.top < minBelow) {
+//                         minBelow = rect.top;
+//                         bestSection = section;
+//                     }
+//                 });
+//             }
 
-            if (bestSection) {
-                const targetId = bestSection.id;
-                navLinks.forEach(link => {
-                    const isTarget = link.getAttribute('href').substring(1) === targetId;
-                    link.classList.toggle('active', isTarget);
-                });
-            }
-        }, {
-            root: null,
-            rootMargin: "0px",
-            threshold: [0, 0.1, 0.25, 0.5, 1.0]
-        });
+//             if (bestSection) {
+//                 const targetId = bestSection.id;
+//                 navLinks.forEach(link => {
+//                     const isTarget = link.getAttribute('href').substring(1) === targetId;
+//                     link.classList.toggle('active', isTarget);
+//                 });
+//             }
+//         }, {
+//             root: null,
+//             rootMargin: "0px",
+//             threshold: [0, 0.1, 0.25, 0.5, 1.0]
+//         });
 
-        // Quan sát tất cả sections
-        reportSections.forEach(section => {
-            observer.observe(section);
-        });
+//         // Quan sát tất cả sections
+//         reportSections.forEach(section => {
+//             observer.observe(section);
+//         });
 
-        // Thiết lập nav link đầu tiên làm active ban đầu nếu chưa có active nào
-        if (navLinks.length > 0 && !navLinksContainer.querySelector('a.active')) {
-            navLinks[0].classList.add('active');
-        }
+//         // Thiết lập nav link đầu tiên làm active ban đầu nếu chưa có active nào
+//         if (navLinks.length > 0 && !navLinksContainer.querySelector('a.active')) {
+//             navLinks[0].classList.add('active');
+//         }
 
-        // Lưu observer vào DOM node để có thể disconnect khi tạo lại nav
-        reportContainer._navObserver = observer;
+//         // Lưu observer vào DOM node để có thể disconnect khi tạo lại nav
+//         reportContainer._navObserver = observer;
 
-    } catch (error) {
-        console.error('Lỗi tải báo cáo:', error);
-        const reportContainer = document.getElementById('report-container');
-        if (reportContainer) {
-            reportContainer.innerHTML = '<p class="text-red-600 font-semibold">Lỗi: Không thể tải nội dung báo cáo chi tiết.</p>';
-        }
-    }
-}
+//     } catch (error) {
+//         console.error('Lỗi tải báo cáo:', error);
+//         const reportContainer = document.getElementById('report-container');
+//         if (reportContainer) {
+//             reportContainer.innerHTML = '<p class="text-red-600 font-semibold">Lỗi: Không thể tải nội dung báo cáo chi tiết.</p>';
+//         }
+//     }
+// }
 
 // ===== MAIN INITIALIZATION =====
 

@@ -10,6 +10,7 @@ let currentNavigationData = null;
 let currentActiveSection = null;
 let navigationSidebar = null;
 let reportShadowRoot = null;
+let navigationObserver = null; // IntersectionObserver for section tracking
 
 /**
  * Get preferred language from localStorage
@@ -107,6 +108,12 @@ function extractNavigationFromShadowDOM() {
     if (!reportShadowRoot) {
         console.warn('⚠️ Parent: No shadow root available for navigation extraction');
         return;
+    }
+
+    // Disconnect old observer to avoid duplicate observations
+    if (navigationObserver) {
+        try { navigationObserver.disconnect(); } catch(e) {}
+        navigationObserver = null;
     }
 
     console.log('🧭 Parent: Extracting navigation from shadow DOM...');
@@ -237,6 +244,16 @@ function createSidebarNavigation() {
     // Add click handler
     navigationSidebar.addEventListener('click', handleSidebarNavClick);
 
+    // Set first link as active by default if no active link exists
+    const navLinks = navigationSidebar.querySelectorAll('a[data-section-id]');
+    if (navLinks.length > 0 && !navigationSidebar.querySelector('a.active')) {
+        navLinks[0].classList.add('active');
+        currentActiveSection = navLinks[0].getAttribute('data-section-id');
+    }
+
+    // Setup IntersectionObserver for section tracking
+    setupSectionObserver();
+
     console.log('✅ Parent: Navigation created successfully');
 }
 
@@ -302,7 +319,7 @@ function updateSidebarNavigationActive(sectionId) {
 }
 
 /**
- * Setup scroll tracking
+ * Setup scroll tracking for progress bar only
  */
 function setupScrollTracking() {
     console.log('📜 Parent: Setting up scroll tracking...');
@@ -313,13 +330,90 @@ function setupScrollTracking() {
         clearTimeout(scrollTimeout);
         scrollTimeout = setTimeout(() => {
             updateScrollProgress();
-            updateActiveSectionFromScroll();
         }, 16); // ~60fps
     }
 
     window.addEventListener('scroll', handleScroll, { passive: true });
 
     console.log('✅ Parent: Scroll tracking enabled');
+}
+
+/**
+ * Setup IntersectionObserver for active section tracking
+ * Uses anchor at 20% from top for better UX
+ */
+function setupSectionObserver() {
+    if (!reportShadowRoot || !currentNavigationData) return;
+
+    const currentLang = (window.languageManager && window.languageManager.currentLanguage) || 'vi';
+    const activeContent = reportShadowRoot.querySelector(`#content-${currentLang}`) ||
+                          reportShadowRoot.querySelector('.lang-content.active');
+
+    if (!activeContent) return;
+
+    const sections = activeContent.querySelectorAll('section[id]');
+    if (sections.length === 0) return;
+
+    const sidebar = document.getElementById('navigation-sidebar');
+    if (!sidebar) return;
+
+    const navLinks = sidebar.querySelectorAll('a[data-section-id]');
+
+    // Create IntersectionObserver with anchor at 20% from top
+    navigationObserver = new IntersectionObserver(() => {
+        const viewportHeight = window.innerHeight;
+        const anchor = viewportHeight * 0.2; // 20% from top
+
+        let bestSection = null;
+        let bestTop = -Infinity;
+
+        // First pass: find section with top <= anchor (closest to anchor from above)
+        sections.forEach(section => {
+            const rect = section.getBoundingClientRect();
+            // Ignore sections completely scrolled past or below viewport
+            if (rect.bottom <= 0 || rect.top >= viewportHeight) return;
+            if (rect.top <= anchor) {
+                if (rect.top > bestTop) {
+                    bestTop = rect.top;
+                    bestSection = section;
+                }
+            }
+        });
+
+        // Second pass: if none found, pick section with smallest positive distance below anchor
+        if (!bestSection) {
+            let minBelow = Infinity;
+            sections.forEach(section => {
+                const rect = section.getBoundingClientRect();
+                if (rect.bottom <= 0 || rect.top >= viewportHeight) return;
+                if (rect.top > anchor && rect.top < minBelow) {
+                    minBelow = rect.top;
+                    bestSection = section;
+                }
+            });
+        }
+
+        if (bestSection && bestSection.id) {
+            if (currentActiveSection !== bestSection.id) {
+                currentActiveSection = bestSection.id;
+                navLinks.forEach(link => {
+                    const isTarget = link.getAttribute('data-section-id') === bestSection.id;
+                    link.classList.toggle('active', isTarget);
+                });
+            }
+        }
+    }, {
+        root: null,
+        rootMargin: "0px",
+        threshold: [0, 0.1, 0.25, 0.5, 1.0]
+    });
+
+    // Observe all sections
+    sections.forEach(section => {
+        navigationObserver.observe(section);
+    });
+
+    console.log('✅ Parent: Section observer enabled');
 }
 
 /**
@@ -348,44 +442,6 @@ function updateScrollProgress() {
     }
 }
 
-/**
- * Update active section based on scroll position
- */
-function updateActiveSectionFromScroll() {
-    if (!reportShadowRoot || !currentNavigationData) return;
-
-    const currentLang = (window.languageManager && window.languageManager.currentLanguage) || 'vi';
-    const activeContent = reportShadowRoot.querySelector(`#content-${currentLang}`) ||
-                          reportShadowRoot.querySelector('.lang-content.active');
-
-    if (!activeContent) return;
-
-    const sections = activeContent.querySelectorAll('section[id]');
-    if (sections.length === 0) return;
-
-    // Find which section is currently in viewport
-    const viewportCenter = window.innerHeight / 2;
-    let activeSection = null;
-    let minDistance = Infinity;
-
-    sections.forEach(section => {
-        const rect = section.getBoundingClientRect();
-        const sectionCenter = rect.top + (rect.height / 2);
-        const distance = Math.abs(sectionCenter - viewportCenter);
-
-        if (distance < minDistance && rect.top < viewportCenter && rect.bottom > 0) {
-            minDistance = distance;
-            activeSection = section;
-        }
-    });
-
-    if (activeSection && activeSection.id) {
-        if (currentActiveSection !== activeSection.id) {
-            currentActiveSection = activeSection.id;
-            updateSidebarNavigationActive(activeSection.id);
-        }
-    }
-}
 
 /**
  * Get report configuration
@@ -408,11 +464,14 @@ window.addEventListener('languageChanged', function(event) {
         window.switchReportLanguage(event.detail.language);
     }
 
-    // Re-extract navigation for new language
+    // Re-extract navigation for new language (also sets up new observer)
     setTimeout(() => {
         extractNavigationFromShadowDOM();
         updateScrollProgress();
-        updateActiveSectionFromScroll();
+        // Highlight current active section after navigation rebuild
+        if (currentActiveSection) {
+            updateSidebarNavigationActive(currentActiveSection);
+        }
     }, 200);
 });
 
