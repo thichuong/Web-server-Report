@@ -46,6 +46,16 @@
             max-height: calc(100vh - 100px);
             overflow-y: auto;
         }
+
+        /* Related Reports Card hover effects */
+        .related-report-card:hover {
+            background: var(--card-hover) !important;
+            box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.15) !important;
+        }
+
+        [data-theme="dark"] .related-report-card:hover {
+            box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.4) !important;
+        }
     </style>
 </head>
 <body class="antialiased">
@@ -268,52 +278,55 @@
         <!-- Related Reports Section for GEO optimization and internal linking -->
         {% if related_reports and related_reports | length > 0 %}
         <section class="mt-12 mb-24" aria-labelledby="related-reports-heading">
-            <h2 id="related-reports-heading" class="text-xl font-bold mb-6 flex items-center" style="color: var(--text-primary);">
-                <i class="fas fa-history mr-2 text-blue-500"></i>
-                <span data-i18n="related-reports-title" class="related-title-vi">Bao cao truoc do</span>
-                <span data-i18n="related-reports-title-en" class="related-title-en hidden">Previous Reports</span>
-            </h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Section Header -->
+            <div class="flex items-center justify-between mb-6">
+                <h2 id="related-reports-heading" class="text-lg font-semibold flex items-center" style="color: var(--text-primary);">
+                    <i class="fas fa-clock-rotate-left mr-2" style="color: var(--primary-blue);"></i>
+                    <span class="related-title-vi">Báo cáo trước đó</span>
+                    <span class="related-title-en hidden">Previous Reports</span>
+                </h2>
+                <a href="/crypto_reports_list"
+                   class="text-sm font-medium transition-colors duration-200"
+                   style="color: var(--primary-blue);">
+                    <span class="view-all-vi">Xem tất cả</span>
+                    <span class="view-all-en hidden">View all</span>
+                    <i class="fas fa-chevron-right ml-1 text-xs"></i>
+                </a>
+            </div>
+
+            <!-- Cards Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {% for related in related_reports %}
                 <a href="{{ related.url }}"
-                   class="card p-5 rounded-xl transition-all duration-300 hover:shadow-lg hover:scale-[1.02] group"
-                   style="background-color: var(--bg-secondary); border: 1px solid var(--border-color);">
-                    <div class="flex items-start justify-between">
-                        <div class="flex-1">
-                            <p class="font-semibold text-lg mb-1 group-hover:text-blue-600 transition-colors" style="color: var(--text-primary);">
-                                <span class="related-report-vi">Bao cao #{{ related.id }}</span>
-                                <span class="related-report-en hidden">Report #{{ related.id }}</span>
-                            </p>
-                            <p class="text-sm flex items-center" style="color: var(--text-secondary);">
-                                <i class="far fa-calendar-alt mr-2 text-gray-400"></i>
-                                {{ related.created_date_display }}
-                            </p>
-                            <p class="text-xs mt-1" style="color: var(--text-tertiary);">
-                                <i class="far fa-clock mr-1"></i>
-                                {{ related.created_time_display }}
-                            </p>
-                        </div>
-                        <div class="flex-shrink-0 ml-3">
-                            <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
-                                <i class="fas fa-arrow-right text-sm"></i>
-                            </span>
-                        </div>
+                   class="related-report-card flex items-center gap-4 p-4 rounded-lg transition-colors duration-200"
+                   style="background: var(--card-bg); border: 1px solid var(--border-color);">
+                    <!-- Report Number -->
+                    <div class="flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center"
+                         style="background-color: var(--bg-secondary); border: 1px solid var(--border-color);">
+                        <span class="font-bold" style="color: var(--primary-blue);">#{{ related.id }}</span>
                     </div>
+
+                    <!-- Report Info -->
+                    <div class="flex-1 min-w-0">
+                        <p class="font-medium text-sm mb-0.5" style="color: var(--text-primary);">
+                            <span class="related-report-vi">Báo cáo #{{ related.id }}</span>
+                            <span class="related-report-en hidden">Report #{{ related.id }}</span>
+                        </p>
+                        <p class="text-xs" style="color: var(--text-secondary);">
+                            {{ related.created_date_display }} · {{ related.created_time_display }}
+                        </p>
+                    </div>
+
+                    <!-- Arrow -->
+                    <i class="fas fa-chevron-right text-xs" style="color: var(--text-muted);"></i>
                 </a>
                 {% endfor %}
             </div>
-
-            <!-- View all reports link -->
-            <div class="mt-6 text-center">
-                <a href="/crypto_reports_list"
-                   class="inline-flex items-center px-6 py-3 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors duration-200">
-                    <span data-i18n="view-all-reports" class="view-all-vi">Xem tat ca bao cao</span>
-                    <span data-i18n="view-all-reports-en" class="view-all-en hidden">View all reports</span>
-                    <i class="fas fa-chevron-right ml-2"></i>
-                </a>
-            </div>
         </section>
         {% endif %}
+
+        <!-- Bottom spacer to prevent fixed navigation from covering content -->
+        <div style="height: 80px; min-height: 80px;"></div>
     </div>
 
     <!-- Chart modules will be injected here -->
