@@ -17,6 +17,7 @@ use tracing::{info, warn, error, debug};
 
 use crate::service_islands::ServiceIslands;
 use crate::service_islands::layer5_business_logic::crypto_reports::handlers::CryptoHandlers;
+use crate::service_islands::layer5_business_logic::crypto_reports::rendering::generate_complete_geo_metadata;
 
 /// Configure crypto reports routes
 pub fn configure_crypto_reports_routes() -> Router<Arc<ServiceIslands>> {
@@ -344,7 +345,14 @@ async fn crypto_index(
 
     info!("🌐 [Route] crypto_index rendering with language: {}", preferred_language);
 
-    // STEP 5: Render template
+    // STEP 5: Generate GEO metadata for AI bots (Grok, GPT, Claude)
+    let (geo_meta_tags, geo_json_ld, geo_title) = generate_complete_geo_metadata(
+        &report,
+        Some(&preferred_language)
+    );
+    debug!("📊 [Route] GEO metadata generated for report {} - title: {}", report.id, geo_title);
+
+    // STEP 6: Render template with GEO metadata
     let mut context = tera::Context::new();
     context.insert("report", &report);
     context.insert("shadow_dom_token", &shadow_dom_token);
@@ -352,6 +360,10 @@ async fn crypto_index(
     context.insert("chart_modules_content", chart_modules_content.as_ref());
     context.insert("websocket_url", &std::env::var("WEBSOCKET_SERVICE_URL")
         .unwrap_or_else(|_| "ws://localhost:8081/ws".to_string()));
+    // GEO metadata for AI optimization
+    context.insert("geo_meta_tags", &geo_meta_tags);
+    context.insert("geo_json_ld", &geo_json_ld);
+    context.insert("geo_title", &geo_title);
 
     let app_state = service_islands.get_legacy_app_state();
     let html = match app_state.tera.render("crypto/routes/reports/view_dsd.html", &context) {
@@ -362,7 +374,7 @@ async fn crypto_index(
         }
     };
 
-    // STEP 6: Compress HTML
+    // STEP 7: Compress HTML
     let compressed_data = match CryptoHandlers::compress_html_to_gzip(&html) {
         Ok(data) => data,
         Err(e) => {
@@ -371,7 +383,7 @@ async fn crypto_index(
         }
     };
 
-    // STEP 7: Cache the compressed HTML
+    // STEP 8: Cache the compressed HTML
     if let Err(e) = data_service.cache_rendered_report_dsd_compressed(
         &service_islands.get_legacy_app_state(),
         report_id_value,
@@ -383,7 +395,7 @@ async fn crypto_index(
     info!("✅ [Route] DSD template rendered successfully for report {} (language: {})",
           report.id, preferred_language);
 
-    // STEP 8: Return compressed response
+    // STEP 9: Return compressed response
     Response::builder()
         .status(StatusCode::OK)
         .header("cache-control", "public, max-age=300")
@@ -495,7 +507,14 @@ async fn crypto_view_report(
 
     info!("🌐 [Route] crypto_view_report rendering with language: {}", preferred_language);
 
-    // STEP 5: Render template
+    // STEP 5: Generate GEO metadata for AI bots (Grok, GPT, Claude)
+    let (geo_meta_tags, geo_json_ld, geo_title) = generate_complete_geo_metadata(
+        &report,
+        Some(&preferred_language)
+    );
+    debug!("📊 [Route] GEO metadata generated for report {} - title: {}", report_id, geo_title);
+
+    // STEP 6: Render template with GEO metadata
     let mut context = tera::Context::new();
     context.insert("report", &report);
     context.insert("shadow_dom_token", &shadow_dom_token);
@@ -503,6 +522,10 @@ async fn crypto_view_report(
     context.insert("chart_modules_content", chart_modules_content.as_ref());
     context.insert("websocket_url", &std::env::var("WEBSOCKET_SERVICE_URL")
         .unwrap_or_else(|_| "ws://localhost:8081/ws".to_string()));
+    // GEO metadata for AI optimization
+    context.insert("geo_meta_tags", &geo_meta_tags);
+    context.insert("geo_json_ld", &geo_json_ld);
+    context.insert("geo_title", &geo_title);
 
     let app_state = service_islands.get_legacy_app_state();
     let html = match app_state.tera.render("crypto/routes/reports/view_dsd.html", &context) {
@@ -513,7 +536,7 @@ async fn crypto_view_report(
         }
     };
 
-    // STEP 6: Compress HTML
+    // STEP 7: Compress HTML
     let compressed_data = match CryptoHandlers::compress_html_to_gzip(&html) {
         Ok(data) => data,
         Err(e) => {
@@ -522,7 +545,7 @@ async fn crypto_view_report(
         }
     };
 
-    // STEP 7: Cache the compressed HTML
+    // STEP 8: Cache the compressed HTML
     if let Err(e) = data_service.cache_rendered_report_dsd_compressed(
         &service_islands.get_legacy_app_state(),
         report_id,
@@ -534,7 +557,7 @@ async fn crypto_view_report(
     info!("✅ [Route] DSD template rendered successfully for report {} (language: {})",
           report_id, preferred_language);
 
-    // STEP 8: Return compressed response
+    // STEP 9: Return compressed response
     Response::builder()
         .status(StatusCode::OK)
         .header("cache-control", "public, max-age=300")
