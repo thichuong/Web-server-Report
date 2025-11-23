@@ -10,16 +10,19 @@
 //! - Content sanitization for security
 //! - Better SEO and accessibility compared to iframe
 
-use std::{sync::Arc, error::Error as StdError};
-use axum::{
-    response::{Response, IntoResponse},
-    http::StatusCode,
-    body::Body
-};
+use std::sync::Arc;
+use axum::response::Response;
 use lazy_static::lazy_static;
-use tracing::{info, warn, error};
+use tracing::{info, warn};
 
 use crate::service_islands::layer1_infrastructure::AppState;
+use crate::service_islands::layer5_business_logic::shared::{
+    generate_sandbox_token,
+    verify_sandbox_token,
+    build_shadow_dom_response,
+    build_forbidden_response,
+    Layer5Result,
+};
 use super::shared::{Report, SandboxedReport, sanitize_html_content, sanitize_css_content, sanitize_js_content};
 
 lazy_static! {
@@ -45,29 +48,26 @@ impl ShadowDomRenderer {
         Self
     }
 
-    /// Create sandboxed report (reuses iframe logic for token generation)
+    /// Create sandboxed report with secure token generation
     ///
-    /// Generates security token and sanitizes content for Shadow DOM delivery
+    /// Generates cryptographically secure token and sanitizes content for Shadow DOM delivery.
+    ///
+    /// # Security
+    /// Uses blake3 for cryptographically secure token generation.
     pub fn create_sandboxed_report(&self, report: &Report, chart_modules_content: Option<&str>) -> SandboxedReport {
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
+        // Generate cryptographically secure token
+        let sandbox_token = generate_sandbox_token(report.id, &report.created_at);
 
-        // Generate security token based on report ID and creation time
-        let mut hasher = DefaultHasher::new();
-        report.id.hash(&mut hasher);
-        report.created_at.hash(&mut hasher);
-        let sandbox_token = format!("sb_{:x}", hasher.finish());
+        info!("ShadowDomRenderer: Generated secure shadow DOM token for report {}: {}", report.id, sandbox_token);
 
-        info!("🌓 ShadowDomRenderer: Generated shadow DOM token for report {}: {}", report.id, sandbox_token);
-
-        // Create sandboxed report with sanitized content
+        // Create sandboxed report with sanitized content using as_deref() pattern
         SandboxedReport {
             id: report.id,
-            html_content: sanitize_html_content(&report.html_content),
-            css_content: report.css_content.as_ref().map(|css| sanitize_css_content(css)),
-            js_content: report.js_content.as_ref().map(|js| sanitize_js_content(js)),
-            html_content_en: report.html_content_en.as_ref().map(|html| sanitize_html_content(html)),
-            js_content_en: report.js_content_en.as_ref().map(|js| sanitize_js_content(js)),
+            html_content: sanitize_html_content(&report.html_content).into_owned(),
+            css_content: report.css_content.as_deref().map(sanitize_css_content),
+            js_content: report.js_content.as_deref().map(|js| sanitize_js_content(js).into_owned()),
+            html_content_en: report.html_content_en.as_deref().map(|html| sanitize_html_content(html).into_owned()),
+            js_content_en: report.js_content_en.as_deref().map(|js| sanitize_js_content(js).into_owned()),
             created_at: report.created_at,
             sandbox_token,
             chart_modules_content: chart_modules_content.map(str::to_owned),
@@ -77,23 +77,24 @@ impl ShadowDomRenderer {
 
     /// Generate Shadow DOM content for Declarative Shadow DOM architecture
     ///
-    /// Creates HTML fragment to be embedded within <template shadowrootmode="open">
-    /// This is a modern replacement for the iframe-based approach with better performance
+    /// Creates HTML fragment to be embedded within <template shadowrootmode="open">.
+    /// This is a modern replacement for the iframe-based approach with better performance.
+    ///
+    /// # Performance
+    /// Uses as_deref() pattern for zero-allocation Option handling.
     pub fn generate_shadow_dom_content(&self, sandboxed_report: &SandboxedReport, language: Option<&str>, chart_modules_content: Option<&str>) -> String {
         let default_lang = language.unwrap_or("vi");
 
-        // Create owned strings to avoid borrow checker issues
-        let empty_string = String::new();
+        // Use as_deref() pattern - zero allocations for defaults
         let default_html_vi = &sandboxed_report.html_content;
-        let default_html_en = sandboxed_report.html_content_en.as_ref().unwrap_or(default_html_vi);
-        let default_js_vi = sandboxed_report.js_content.as_ref().unwrap_or(&empty_string);
-        let default_js_en = sandboxed_report.js_content_en.as_ref().unwrap_or(default_js_vi);
-        let default_css = sandboxed_report.css_content.as_ref().unwrap_or(&empty_string);
+        let default_html_en = sandboxed_report.html_content_en.as_deref().unwrap_or(default_html_vi);
+        let default_js_vi = sandboxed_report.js_content.as_deref().unwrap_or("");
+        let default_js_en = sandboxed_report.js_content_en.as_deref().unwrap_or(default_js_vi);
+        let default_css = sandboxed_report.css_content.as_deref().unwrap_or("");
 
-        // Use chart modules from SandboxedReport if available, otherwise use parameter, otherwise empty
+        // Use chart modules from SandboxedReport if available, otherwise use parameter
         let chart_modules = sandboxed_report.chart_modules_content
-            .as_ref()
-            .map(|s| s.as_str())
+            .as_deref()
             .or(chart_modules_content)
             .unwrap_or("");
 
@@ -123,8 +124,11 @@ impl ShadowDomRenderer {
 
     /// Serve Shadow DOM content for Declarative Shadow DOM architecture
     ///
-    /// Returns HTML fragment for embedding within <template shadowrootmode="open">
-    /// This is a modern replacement for serve_sandboxed_report with better performance
+    /// Returns HTML fragment for embedding within <template shadowrootmode="open">.
+    /// This is a modern replacement for serve_sandboxed_report with better performance.
+    ///
+    /// # Security
+    /// Uses constant-time token comparison to prevent timing attacks.
     pub async fn serve_shadow_dom_content(
         &self,
         _state: &Arc<AppState>,
@@ -132,55 +136,26 @@ impl ShadowDomRenderer {
         shadow_dom_token: &str,
         language: Option<&str>,
         chart_modules_content: Option<&str>
-    ) -> Result<Response, Box<dyn StdError + Send + Sync>> {
-        info!("🌓 ShadowDomRenderer: Serving Shadow DOM content for report {} with token {}", report.id, shadow_dom_token);
+    ) -> Layer5Result<Response> {
+        info!("ShadowDomRenderer: Serving Shadow DOM content for report {} with token {}", report.id, shadow_dom_token);
 
-        // Create sandboxed version (reuse existing logic)
-        let sandboxed_report = self.create_sandboxed_report(report, chart_modules_content);
-
-        // Verify shadow DOM token (same as sandbox token)
-        if sandboxed_report.sandbox_token != shadow_dom_token {
-            error!("❌ ShadowDomRenderer: Invalid shadow DOM token for report {}", report.id);
-            return Ok(Response::builder()
-                .status(StatusCode::FORBIDDEN)
-                .header("content-type", "text/plain")
-                .body(Body::from("Invalid shadow DOM token"))
-                .unwrap_or_else(|e| {
-                    warn!("⚠️ Failed to build forbidden response: {}", e);
-                    Response::builder()
-                        .status(StatusCode::INTERNAL_SERVER_ERROR)
-                        .body(Body::from("Response build error"))
-                        .unwrap()
-                })
-                .into_response()
-            );
+        // Verify shadow DOM token using constant-time comparison
+        if !verify_sandbox_token(shadow_dom_token, report.id, &report.created_at) {
+            warn!("ShadowDomRenderer: Invalid shadow DOM token for report {}", report.id);
+            return Ok(build_forbidden_response("Invalid shadow DOM token"));
         }
+
+        // Create sandboxed version
+        let sandboxed_report = self.create_sandboxed_report(report, chart_modules_content);
 
         // Generate Shadow DOM content
         let shadow_dom_html = self.generate_shadow_dom_content(&sandboxed_report, language, chart_modules_content);
 
-        info!("✅ ShadowDomRenderer: Serving Shadow DOM content for report {} with language {:?} ({} bytes)",
+        info!("ShadowDomRenderer: Serving Shadow DOM content for report {} with language {:?} ({} bytes)",
               report.id, language.unwrap_or("vi"), shadow_dom_html.len());
 
-        // Return response with appropriate headers
-        Ok(Response::builder()
-            .status(StatusCode::OK)
-            .header("content-type", "text/html; charset=utf-8")
-            .header("x-content-type-options", "nosniff")
-            .header("cache-control", "private, max-age=3600")
-            .header("access-control-allow-origin", "*")
-            .header("access-control-allow-methods", "GET, POST, OPTIONS")
-            .header("access-control-allow-headers", "Content-Type")
-            .body(Body::from(shadow_dom_html))
-            .unwrap_or_else(|e| {
-                warn!("⚠️ Failed to build Shadow DOM response: {}", e);
-                Response::builder()
-                    .status(StatusCode::INTERNAL_SERVER_ERROR)
-                    .body(Body::from("Response build error"))
-                    .unwrap()
-            })
-            .into_response()
-        )
+        // Return response using safe builder
+        Ok(build_shadow_dom_response(shadow_dom_html))
     }
 }
 

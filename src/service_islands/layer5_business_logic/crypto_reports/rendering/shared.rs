@@ -4,11 +4,16 @@
 //! - Data models (Report, SandboxedReport)
 //! - Pre-compiled regex patterns for sanitization
 //! - Sanitization functions for HTML, CSS, and JavaScript
+//! - From trait implementations for type conversions
 
 use serde::{Serialize, Deserialize};
 use sqlx::FromRow;
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::borrow::Cow;
+
+// Import Layer 3 data model for From trait
+use crate::service_islands::layer3_communication::data_communication::ReportData;
 
 // ✅ PERFORMANCE OPTIMIZATION: Pre-compiled regex patterns for sanitization
 // These regexes are compiled once at startup instead of on every request,
@@ -62,6 +67,23 @@ pub struct Report {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
+/// Implement From trait for automatic conversion from Layer 3 ReportData
+/// This eliminates manual field-by-field copying in report_creator.rs
+impl From<ReportData> for Report {
+    #[inline]
+    fn from(data: ReportData) -> Self {
+        Self {
+            id: data.id,
+            html_content: data.html_content,
+            css_content: data.css_content,
+            js_content: data.js_content,
+            html_content_en: data.html_content_en,
+            js_content_en: data.js_content_en,
+            created_at: data.created_at,
+        }
+    }
+}
+
 /// Sandboxed report content for secure iframe delivery
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SandboxedReport {
@@ -79,78 +101,111 @@ pub struct SandboxedReport {
 
 /// Sanitize HTML content for sandbox
 ///
-/// Removes potentially dangerous HTML elements and attributes
-/// ✅ PERFORMANCE OPTIMIZED: Uses pre-compiled regex patterns (zero compilation overhead)
-pub fn sanitize_html_content(html: &str) -> String {
-    // Check if sanitization is needed using pre-compiled patterns
-    let needs_sanitization = HTML_SANITIZE_PATTERNS.iter()
-        .any(|re| re.is_match(html));
+/// Removes potentially dangerous HTML elements and attributes.
+///
+/// # Performance Optimizations
+/// - Uses pre-compiled regex patterns (zero compilation overhead)
+/// - Single-pass detection with Cow to avoid allocation when not needed
+/// - Only allocates when sanitization is actually required
+#[inline]
+pub fn sanitize_html_content(html: &str) -> Cow<'_, str> {
+    // Single-pass: apply all patterns, Cow avoids allocation if no changes
+    let mut result: Cow<'_, str> = Cow::Borrowed(html);
 
-    if !needs_sanitization {
-        // No dangerous content, return as-is
-        return html.to_string();
-    }
-
-    // Sanitize using pre-compiled regex patterns
-    let mut sanitized = html.to_string();
     for re in HTML_SANITIZE_PATTERNS.iter() {
-        sanitized = re.replace_all(&sanitized, "").into_owned();
+        match result {
+            Cow::Borrowed(s) => {
+                let replaced = re.replace_all(s, "");
+                if let Cow::Owned(owned) = replaced {
+                    result = Cow::Owned(owned);
+                }
+                // If Borrowed, no change was made, keep result as-is
+            }
+            Cow::Owned(ref s) => {
+                let replaced = re.replace_all(s, "");
+                if let Cow::Owned(owned) = replaced {
+                    result = Cow::Owned(owned);
+                }
+            }
+        }
     }
 
-    sanitized
+    result
 }
+
+/// CSS wrapper prefix for isolation
+const CSS_WRAPPER_PREFIX: &str = "/* CSS isolated within iframe sandbox */\n.sandboxed-report-container {\n";
+const CSS_WRAPPER_SUFFIX: &str = "\n}";
 
 /// Sanitize CSS content for sandbox
 ///
-/// Removes potentially dangerous CSS properties and expressions
-/// Enhanced to prevent CSS from affecting parent page
-/// ✅ PERFORMANCE: Uses pre-compiled regex patterns from lazy_static
+/// Removes potentially dangerous CSS properties and expressions.
+/// Enhanced to prevent CSS from affecting parent page.
+///
+/// # Performance Optimizations
+/// - Uses pre-compiled regex patterns from lazy_static
+/// - Single-pass with Cow to minimize allocations
+/// - Wrapping done only once at the end
+#[inline]
 pub fn sanitize_css_content(css: &str) -> String {
-    // Check if sanitization is needed
-    let needs_sanitization = CSS_SANITIZE_PATTERNS.iter()
-        .any(|re| re.is_match(css));
+    // Single-pass sanitization with Cow
+    let mut result: Cow<'_, str> = Cow::Borrowed(css);
 
-    if !needs_sanitization {
-        // No dangerous patterns found - wrap and return
-        return format!(
-            "/* CSS isolated within iframe sandbox */\n.sandboxed-report-container {{\n{}\n}}",
-            css
-        );
-    }
-
-    // Apply sanitization using pre-compiled patterns
-    let mut sanitized = css.to_string();
     for re in CSS_SANITIZE_PATTERNS.iter() {
-        sanitized = re.replace_all(&sanitized, "").into_owned();
+        match result {
+            Cow::Borrowed(s) => {
+                let replaced = re.replace_all(s, "");
+                if let Cow::Owned(owned) = replaced {
+                    result = Cow::Owned(owned);
+                }
+            }
+            Cow::Owned(ref s) => {
+                let replaced = re.replace_all(s, "");
+                if let Cow::Owned(owned) = replaced {
+                    result = Cow::Owned(owned);
+                }
+            }
+        }
     }
 
-    // Additional safety: wrap all CSS rules to ensure they only apply within iframe
-    let wrapped_css = format!(
-        "/* CSS isolated within iframe sandbox */\n.sandboxed-report-container {{\n{}\n}}",
-        sanitized
+    // Wrap CSS for isolation - single allocation for final result
+    let mut wrapped = String::with_capacity(
+        CSS_WRAPPER_PREFIX.len() + result.len() + CSS_WRAPPER_SUFFIX.len()
     );
-
-    wrapped_css
+    wrapped.push_str(CSS_WRAPPER_PREFIX);
+    wrapped.push_str(&result);
+    wrapped.push_str(CSS_WRAPPER_SUFFIX);
+    wrapped
 }
 
 /// Sanitize JavaScript content for sandbox
 ///
-/// Applies basic JavaScript sanitization for sandbox environment
-/// ✅ PERFORMANCE: Uses pre-compiled regex patterns from lazy_static
-pub fn sanitize_js_content(js: &str) -> String {
-    // Check if sanitization is needed
-    let needs_sanitization = JS_SANITIZE_PATTERNS.iter()
-        .any(|re| re.is_match(js));
+/// Applies basic JavaScript sanitization for sandbox environment.
+///
+/// # Performance Optimizations
+/// - Uses pre-compiled regex patterns from lazy_static
+/// - Single-pass with Cow to minimize allocations
+#[inline]
+pub fn sanitize_js_content(js: &str) -> Cow<'_, str> {
+    // Single-pass sanitization with Cow
+    let mut result: Cow<'_, str> = Cow::Borrowed(js);
 
-    if !needs_sanitization {
-        return js.to_string();
-    }
-
-    // Apply sanitization using pre-compiled patterns
-    let mut sanitized = js.to_string();
     for re in JS_SANITIZE_PATTERNS.iter() {
-        sanitized = re.replace_all(&sanitized, "/* SANITIZED */").into_owned();
+        match result {
+            Cow::Borrowed(s) => {
+                let replaced = re.replace_all(s, "/* SANITIZED */");
+                if let Cow::Owned(owned) = replaced {
+                    result = Cow::Owned(owned);
+                }
+            }
+            Cow::Owned(ref s) => {
+                let replaced = re.replace_all(s, "/* SANITIZED */");
+                if let Cow::Owned(owned) = replaced {
+                    result = Cow::Owned(owned);
+                }
+            }
+        }
     }
 
-    sanitized
+    result
 }

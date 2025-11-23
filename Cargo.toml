@@ -77,3 +77,5 @@ rand = "0.9.2"
 flate2 = "1.0"        # Gzip compression
 # Text processing
 regex = "1.10"        # Regular expressions for content sanitization
+# Cryptographic hashing
+blake3 = "1.5"        # Fast, secure hashing for token generation

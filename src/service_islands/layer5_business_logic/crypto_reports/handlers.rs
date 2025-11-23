@@ -1,5 +1,5 @@
 //! Crypto Reports HTTP Request Handlers
-//! 
+//!
 //! This module contains all HTTP request handlers related to crypto reports functionality.
 //! Based on archive_old_code/handlers/crypto.rs
 //! ONLY uses Template Engine - NO manual HTML creation
@@ -342,7 +342,8 @@ impl CryptoHandlers {
 
     /// Serve sandboxed report content for iframe
     ///
-    /// Delegates to ReportCreator for actual sandboxed content generation
+    /// Delegates to ReportCreator for actual sandboxed content generation.
+    /// Returns Layer5Result for proper error handling.
     pub async fn serve_sandboxed_report(
         &self,
         state: &Arc<AppState>,
@@ -351,22 +352,22 @@ impl CryptoHandlers {
         language: Option<&str>,
         chart_modules_content: Option<&str>
     ) -> Result<axum::response::Response, Box<dyn StdError + Send + Sync>> {
-        info!("🔒 CryptoHandlers: Delegating sandboxed content request to ReportCreator for report {} with token {}", report_id, sandbox_token);
+        info!("CryptoHandlers: Delegating sandboxed content request to ReportCreator for report {} with token {}", report_id, sandbox_token);
 
-        // Delegate to ReportCreator - proper separation of concerns
+        // Delegate to ReportCreator and map error for backward compatibility
         self.report_creator.serve_sandboxed_report(
             state,
             report_id,
             sandbox_token,
             language,
             chart_modules_content
-        ).await
+        ).await.map_err(|e| e.into_boxed())
     }
 
     /// Serve Shadow DOM content for Declarative Shadow DOM architecture
     ///
-    /// Delegates to ReportCreator for actual Shadow DOM content generation
-    /// This is the modern replacement for serve_sandboxed_report
+    /// Delegates to ReportCreator for actual Shadow DOM content generation.
+    /// This is the modern replacement for serve_sandboxed_report.
     pub async fn serve_shadow_dom_content(
         &self,
         state: &Arc<AppState>,
@@ -375,16 +376,16 @@ impl CryptoHandlers {
         language: Option<&str>,
         chart_modules_content: Option<&str>
     ) -> Result<axum::response::Response, Box<dyn StdError + Send + Sync>> {
-        info!("🌓 CryptoHandlers: Delegating Shadow DOM content request to ReportCreator for report {} with token {}", report_id, shadow_dom_token);
+        info!("CryptoHandlers: Delegating Shadow DOM content request to ReportCreator for report {} with token {}", report_id, shadow_dom_token);
 
-        // Delegate to ReportCreator - proper separation of concerns
+        // Delegate to ReportCreator and map error for backward compatibility
         self.report_creator.serve_shadow_dom_content(
             state,
             report_id,
             shadow_dom_token,
             language,
             chart_modules_content
-        ).await
+        ).await.map_err(|e| e.into_boxed())
     }
 
     // NOTE: Crypto handlers implementation following archive_old_code/handlers/crypto.rs

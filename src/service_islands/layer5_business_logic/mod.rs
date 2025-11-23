@@ -6,6 +6,7 @@
 //! Note: Market data fetching has been moved to the Web-server-Report-websocket service.
 //! This service now consumes data from Redis cache/streams.
 
+pub mod shared;
 pub mod dashboard;
 pub mod crypto_reports;
 

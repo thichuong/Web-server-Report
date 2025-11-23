@@ -7,11 +7,10 @@
 //! - IframeRenderer: Legacy iframe-based rendering
 //! - ShadowDomRenderer: Modern Declarative Shadow DOM rendering
 
-use std::{sync::Arc, error::Error as StdError};
-use tracing::{info, debug};
-use axum::{
-    response::Response,
-};
+use std::sync::Arc;
+use tracing::{info, debug, error};
+use axum::response::Response;
+use axum::http::StatusCode;
 
 // Import from current state - will be refactored when lower layers are implemented
 use crate::service_islands::layer1_infrastructure::AppState;
@@ -19,6 +18,13 @@ use crate::service_islands::layer1_infrastructure::AppState;
 use crate::service_islands::layer3_communication::data_communication::CryptoDataService;
 // Import Layer 1 infrastructure services
 use crate::service_islands::layer1_infrastructure::ChartModulesIsland;
+
+// Import shared utilities
+use super::super::shared::{
+    build_not_found_response,
+    build_error_response,
+    Layer5Result,
+};
 
 // Import rendering modules
 use super::rendering::{
@@ -61,73 +67,55 @@ impl ReportCreator {
 
     /// Fetch and cache latest report from database
     ///
-    /// Retrieves the most recent crypto report with full content using Layer 3 data service
+    /// Retrieves the most recent crypto report with full content using Layer 3 data service.
+    /// Uses From trait for automatic conversion from ReportData to Report.
     pub async fn fetch_and_cache_latest_report(
         &self,
         state: &Arc<AppState>,
     ) -> Result<Option<Report>, sqlx::Error> {
-        debug!("🔍 ReportCreator: Fetching latest crypto report from database via data service");
+        debug!("ReportCreator: Fetching latest crypto report from database via data service");
 
         // Use Layer 3 data service instead of direct database access
         let report_data = self.data_service.fetch_latest_report(state).await?;
 
         if let Some(data) = report_data {
-            // Convert data layer model to business layer model
-            let report = Report {
-                id: data.id,
-                html_content: data.html_content,
-                css_content: data.css_content,
-                js_content: data.js_content,
-                html_content_en: data.html_content_en,
-                js_content_en: data.js_content_en,
-                created_at: data.created_at,
-            };
+            // Use From trait for automatic conversion - zero boilerplate!
+            let report: Report = data.into();
 
             // Update latest id cache (business logic concern)
             state.cached_latest_id.store(report.id, std::sync::atomic::Ordering::Relaxed);
-            debug!("💾 ReportCreator: Cached latest crypto report {} from data service", report.id);
-
-            // TODO: Implement L1/L2 caching logic when cache layers are ready
+            debug!("ReportCreator: Cached latest crypto report {} from data service", report.id);
 
             Ok(Some(report))
         } else {
-            info!("📭 ReportCreator: No latest crypto report available");
+            info!("ReportCreator: No latest crypto report available");
             Ok(None)
         }
     }
 
     /// Fetch and cache specific report by ID
     ///
-    /// Retrieves a crypto report by its ID with full content using Layer 3 data service
+    /// Retrieves a crypto report by its ID with full content using Layer 3 data service.
+    /// Uses From trait for automatic conversion from ReportData to Report.
     pub async fn fetch_and_cache_report_by_id(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
     ) -> Result<Option<Report>, sqlx::Error> {
-        debug!("🔍 ReportCreator: Fetching crypto report {} via data service", report_id);
+        debug!("ReportCreator: Fetching crypto report {} via data service", report_id);
 
         // Use Layer 3 data service instead of direct database access
         let report_data = self.data_service.fetch_report_by_id(state, report_id).await?;
 
         if let Some(data) = report_data {
-            // Convert data layer model to business layer model
-            let report = Report {
-                id: data.id,
-                html_content: data.html_content,
-                css_content: data.css_content,
-                js_content: data.js_content,
-                html_content_en: data.html_content_en,
-                js_content_en: data.js_content_en,
-                created_at: data.created_at,
-            };
+            // Use From trait for automatic conversion - zero boilerplate!
+            let report: Report = data.into();
 
-            debug!("💾 ReportCreator: Successfully processed crypto report {} from data service", report.id);
-
-            // TODO: Implement L1/L2 caching logic when cache layers are ready
+            debug!("ReportCreator: Successfully processed crypto report {} from data service", report.id);
 
             Ok(Some(report))
         } else {
-            info!("📭 ReportCreator: Crypto report {} not found via data service", report_id);
+            info!("ReportCreator: Crypto report {} not found via data service", report_id);
             Ok(None)
         }
     }
@@ -137,7 +125,7 @@ impl ReportCreator {
     /// Delegates to Layer 1 ChartModulesIsland for proper architectural separation.
     /// This method provides a business logic wrapper around the infrastructure service.
     pub async fn get_chart_modules_content(&self) -> String {
-        debug!("📊 ReportCreator: Requesting chart modules from Layer 1 Infrastructure");
+        debug!("ReportCreator: Requesting chart modules from Layer 1 Infrastructure");
 
         // Delegate to Layer 1 infrastructure service
         self.chart_modules_island.get_cached_chart_modules_content().await
@@ -167,7 +155,19 @@ impl ReportCreator {
         self.shadow_dom_renderer.generate_shadow_dom_content(sandboxed_report, language, chart_modules_content)
     }
 
+    /// Helper to fetch report by ID (handles -1 for latest)
+    #[inline]
+    async fn fetch_report(&self, state: &Arc<AppState>, report_id: i32) -> Result<Option<Report>, sqlx::Error> {
+        if report_id == -1 {
+            self.fetch_and_cache_latest_report(state).await
+        } else {
+            self.fetch_and_cache_report_by_id(state, report_id).await
+        }
+    }
+
     /// Serve sandboxed report content for iframe (delegates to iframe renderer)
+    ///
+    /// Uses Layer5Result for proper error handling without Box<dyn Error>.
     pub async fn serve_sandboxed_report(
         &self,
         state: &Arc<AppState>,
@@ -175,48 +175,24 @@ impl ReportCreator {
         sandbox_token: &str,
         language: Option<&str>,
         chart_modules_content: Option<&str>
-    ) -> Result<Response, Box<dyn StdError + Send + Sync>> {
-        // Fetch report
-        let report_result = if report_id == -1 {
-            self.fetch_and_cache_latest_report(state).await
-        } else {
-            self.fetch_and_cache_report_by_id(state, report_id).await
-        };
-
-        match report_result {
+    ) -> Layer5Result<Response> {
+        match self.fetch_report(state, report_id).await {
             Ok(Some(report)) => {
                 self.iframe_renderer.serve_sandboxed_report(state, &report, sandbox_token, language, chart_modules_content).await
             }
             Ok(None) => {
-                use axum::http::StatusCode;
-                use axum::body::Body;
-                use axum::response::IntoResponse;
-                Ok(Response::builder()
-                    .status(StatusCode::NOT_FOUND)
-                    .header("content-type", "text/plain")
-                    .body(Body::from("Report not found"))
-                    .unwrap()
-                    .into_response()
-                )
+                Ok(build_not_found_response("Report not found"))
             }
             Err(e) => {
-                use axum::http::StatusCode;
-                use axum::body::Body;
-                use axum::response::IntoResponse;
-                use tracing::error;
-                error!("❌ ReportCreator: Database error: {}", e);
-                Ok(Response::builder()
-                    .status(StatusCode::INTERNAL_SERVER_ERROR)
-                    .header("content-type", "text/plain")
-                    .body(Body::from("Database error"))
-                    .unwrap()
-                    .into_response()
-                )
+                error!("ReportCreator: Database error: {}", e);
+                Ok(build_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Database error"))
             }
         }
     }
 
     /// Serve Shadow DOM content (delegates to shadow DOM renderer)
+    ///
+    /// Uses Layer5Result for proper error handling without Box<dyn Error>.
     pub async fn serve_shadow_dom_content(
         &self,
         state: &Arc<AppState>,
@@ -224,44 +200,24 @@ impl ReportCreator {
         shadow_dom_token: &str,
         language: Option<&str>,
         chart_modules_content: Option<&str>
-    ) -> Result<Response, Box<dyn StdError + Send + Sync>> {
-        // Fetch report
-        let report_result = if report_id == -1 {
-            self.fetch_and_cache_latest_report(state).await
-        } else {
-            self.fetch_and_cache_report_by_id(state, report_id).await
-        };
-
-        match report_result {
+    ) -> Layer5Result<Response> {
+        match self.fetch_report(state, report_id).await {
             Ok(Some(report)) => {
                 self.shadow_dom_renderer.serve_shadow_dom_content(state, &report, shadow_dom_token, language, chart_modules_content).await
             }
             Ok(None) => {
-                use axum::http::StatusCode;
-                use axum::body::Body;
-                use axum::response::IntoResponse;
-                Ok(Response::builder()
-                    .status(StatusCode::NOT_FOUND)
-                    .header("content-type", "text/plain")
-                    .body(Body::from("Report not found"))
-                    .unwrap()
-                    .into_response()
-                )
+                Ok(build_not_found_response("Report not found"))
             }
             Err(e) => {
-                use axum::http::StatusCode;
-                use axum::body::Body;
-                use axum::response::IntoResponse;
-                use tracing::error;
-                error!("❌ ReportCreator: Database error: {}", e);
-                Ok(Response::builder()
-                    .status(StatusCode::INTERNAL_SERVER_ERROR)
-                    .header("content-type", "text/plain")
-                    .body(Body::from("Database error"))
-                    .unwrap()
-                    .into_response()
-                )
+                error!("ReportCreator: Database error: {}", e);
+                Ok(build_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Database error"))
             }
         }
+    }
+}
+
+impl Default for ReportCreator {
+    fn default() -> Self {
+        Self::new()
     }
 }

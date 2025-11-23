@@ -9,16 +9,19 @@
 //! - Pre-loaded templates for optimal performance
 //! - Content sanitization for security
 
-use std::{sync::Arc, error::Error as StdError};
-use axum::{
-    response::{Response, IntoResponse},
-    http::StatusCode,
-    body::Body
-};
+use std::sync::Arc;
+use axum::response::Response;
 use lazy_static::lazy_static;
-use tracing::{info, warn, error, debug};
+use tracing::{info, warn, debug};
 
 use crate::service_islands::layer1_infrastructure::AppState;
+use crate::service_islands::layer5_business_logic::shared::{
+    generate_sandbox_token,
+    verify_sandbox_token,
+    build_sandboxed_response,
+    build_forbidden_response,
+    Layer5Result,
+};
 use super::shared::{Report, SandboxedReport, sanitize_html_content, sanitize_css_content, sanitize_js_content};
 
 lazy_static! {
@@ -50,30 +53,28 @@ impl IframeRenderer {
     ///
     /// Creates a secure sandboxed version of the report for iframe delivery.
     /// This method sanitizes content, generates a security token, and creates the complete HTML document.
-    /// ✅ OPTIMIZED: Minimizes unnecessary clones and string allocations
+    ///
+    /// # Security
+    /// Uses cryptographically secure blake3 hash for token generation.
+    /// Tokens cannot be predicted or forged.
     pub fn create_sandboxed_report(&self, report: &Report, chart_modules_content: Option<&str>) -> SandboxedReport {
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
+        // Generate cryptographically secure token
+        let sandbox_token = generate_sandbox_token(report.id, &report.created_at);
 
-        // Generate security token based on report ID and creation time
-        let mut hasher = DefaultHasher::new();
-        report.id.hash(&mut hasher);
-        report.created_at.hash(&mut hasher);
-        let sandbox_token = format!("sb_{:x}", hasher.finish());
-
-        info!("🔒 IframeRenderer: Generated sandbox token for report {}: {}", report.id, sandbox_token);
+        info!("IframeRenderer: Generated secure sandbox token for report {}: {}", report.id, sandbox_token);
 
         // Create sandboxed report with sanitized content
+        // Using .into_owned() on Cow only allocates when content was actually modified
         let mut sandboxed_report = SandboxedReport {
             id: report.id,
-            html_content: sanitize_html_content(&report.html_content),
-            css_content: report.css_content.as_ref().map(|css| sanitize_css_content(css)),
-            js_content: report.js_content.as_ref().map(|js| sanitize_js_content(js)),
-            html_content_en: report.html_content_en.as_ref().map(|html| sanitize_html_content(html)),
-            js_content_en: report.js_content_en.as_ref().map(|js| sanitize_js_content(js)),
+            html_content: sanitize_html_content(&report.html_content).into_owned(),
+            css_content: report.css_content.as_deref().map(sanitize_css_content),
+            js_content: report.js_content.as_deref().map(|js| sanitize_js_content(js).into_owned()),
+            html_content_en: report.html_content_en.as_deref().map(|html| sanitize_html_content(html).into_owned()),
+            js_content_en: report.js_content_en.as_deref().map(|js| sanitize_js_content(js).into_owned()),
             created_at: report.created_at,
-            sandbox_token,  // ✅ Move instead of clone - no unnecessary allocation
-            chart_modules_content: chart_modules_content.map(str::to_owned),  // ✅ Necessary conversion from &str to String
+            sandbox_token,
+            chart_modules_content: chart_modules_content.map(str::to_owned),
             complete_html_document: String::new(), // Will be populated below
         };
 
@@ -102,24 +103,25 @@ impl IframeRenderer {
 
     /// Generate complete sandboxed HTML document
     ///
-    /// Creates a self-contained HTML document for iframe embedding with isolated CSS
-    /// Now includes both languages, dynamic switching capability, and chart modules
-    /// Uses external HTML template file for better maintainability
+    /// Creates a self-contained HTML document for iframe embedding with isolated CSS.
+    /// Now includes both languages, dynamic switching capability, and chart modules.
+    /// Uses external HTML template file for better maintainability.
+    ///
+    /// # Performance
+    /// Uses as_deref() pattern for efficient Option<String> handling.
     pub fn generate_sandboxed_html_document(&self, sandboxed_report: &SandboxedReport, language: Option<&str>, chart_modules_content: Option<&str>) -> String {
         let default_lang = language.unwrap_or("vi");
 
-        // Create owned strings to avoid borrow checker issues
-        let empty_string = String::new();
+        // Use as_deref() pattern - zero allocations for defaults
         let default_html_vi = &sandboxed_report.html_content;
-        let default_html_en = sandboxed_report.html_content_en.as_ref().unwrap_or(default_html_vi);
-        let default_js_vi = sandboxed_report.js_content.as_ref().unwrap_or(&empty_string);
-        let default_js_en = sandboxed_report.js_content_en.as_ref().unwrap_or(default_js_vi);
-        let default_css = sandboxed_report.css_content.as_ref().unwrap_or(&empty_string);
+        let default_html_en = sandboxed_report.html_content_en.as_deref().unwrap_or(default_html_vi);
+        let default_js_vi = sandboxed_report.js_content.as_deref().unwrap_or("");
+        let default_js_en = sandboxed_report.js_content_en.as_deref().unwrap_or(default_js_vi);
+        let default_css = sandboxed_report.css_content.as_deref().unwrap_or("");
 
-        // Use chart modules from SandboxedReport if available, otherwise use parameter, otherwise empty
+        // Use chart modules from SandboxedReport if available, otherwise use parameter
         let chart_modules = sandboxed_report.chart_modules_content
-            .as_ref()
-            .map(|s| s.as_str())
+            .as_deref()
             .or(chart_modules_content)
             .unwrap_or("");
 
@@ -150,8 +152,11 @@ impl IframeRenderer {
 
     /// Serve sandboxed report content for iframe
     ///
-    /// Returns sanitized HTML content for secure iframe embedding
-    /// This method handles report fetching, token verification, and response generation
+    /// Returns sanitized HTML content for secure iframe embedding.
+    /// This method handles report fetching, token verification, and response generation.
+    ///
+    /// # Security
+    /// Uses constant-time token comparison to prevent timing attacks.
     pub async fn serve_sandboxed_report(
         &self,
         _state: &Arc<AppState>,
@@ -159,31 +164,19 @@ impl IframeRenderer {
         sandbox_token: &str,
         language: Option<&str>,
         chart_modules_content: Option<&str>
-    ) -> Result<Response, Box<dyn StdError + Send + Sync>> {
-        info!("🔒 IframeRenderer: Serving sandboxed content for report {} with token {}", report.id, sandbox_token);
+    ) -> Layer5Result<Response> {
+        info!("IframeRenderer: Serving sandboxed content for report {} with token {}", report.id, sandbox_token);
+
+        // Verify sandbox token using constant-time comparison
+        if !verify_sandbox_token(sandbox_token, report.id, &report.created_at) {
+            warn!("IframeRenderer: Invalid sandbox token for report {}", report.id);
+            return Ok(build_forbidden_response("Invalid sandbox token"));
+        }
 
         // Create sandboxed version with complete HTML document
         let sandboxed_report = self.create_sandboxed_report(report, chart_modules_content);
 
-        // Verify sandbox token
-        if sandboxed_report.sandbox_token != sandbox_token {
-            error!("❌ IframeRenderer: Invalid sandbox token for report {}", report.id);
-            return Ok(Response::builder()
-                .status(StatusCode::FORBIDDEN)
-                .header("content-type", "text/plain")
-                .body(Body::from("Invalid sandbox token"))
-                .unwrap_or_else(|e| {
-                    warn!("⚠️ Failed to build forbidden response: {}", e);
-                    Response::builder()
-                        .status(StatusCode::INTERNAL_SERVER_ERROR)
-                        .body(Body::from("Response build error"))
-                        .unwrap()  // This is guaranteed safe
-                })
-                .into_response()
-            );
-        }
-
-        // Use the pre-generated complete HTML document from cache
+        // Use the pre-generated complete HTML document
         // If a specific language is requested and it's different from default (vi), regenerate
         let sandboxed_html = match language {
             Some(lang) if lang != "vi" => {
@@ -191,36 +184,16 @@ impl IframeRenderer {
                 self.regenerate_html_document(&sandboxed_report, Some(lang))
             }
             _ => {
-                // ✅ IDIOMATIC: Move ownership instead of cloning 100-500KB HTML
-                // sandboxed_report is not used after this point
+                // Move ownership instead of cloning
                 sandboxed_report.complete_html_document
             }
         };
 
-        info!("✅ IframeRenderer: Serving HTML document for report {} with language {:?} ({} bytes)",
+        info!("IframeRenderer: Serving HTML document for report {} with language {:?} ({} bytes)",
                 report.id, language.unwrap_or("vi"), sandboxed_html.len());
 
-        // Return response with security headers
-        Ok(Response::builder()
-            .status(StatusCode::OK)
-            .header("content-type", "text/html; charset=utf-8")
-            .header("x-frame-options", "SAMEORIGIN")
-            .header("content-security-policy", "default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'")
-            .header("x-content-type-options", "nosniff")
-            .header("cache-control", "private, max-age=3600")
-            .header("access-control-allow-origin", "*")
-            .header("access-control-allow-methods", "GET, POST, OPTIONS")
-            .header("access-control-allow-headers", "Content-Type")
-            .body(Body::from(sandboxed_html))
-            .unwrap_or_else(|e| {
-                warn!("⚠️ Failed to build sandboxed response: {}", e);
-                Response::builder()
-                    .status(StatusCode::INTERNAL_SERVER_ERROR)
-                    .body(Body::from("Response build error"))
-                    .unwrap()  // This is guaranteed safe
-            })
-            .into_response()
-        )
+        // Return response with security headers using safe builder
+        Ok(build_sandboxed_response(sandboxed_html))
     }
 }
 
