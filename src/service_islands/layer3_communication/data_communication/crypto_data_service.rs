@@ -52,6 +52,15 @@ pub struct ReportSitemapData {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
+/// Report data for RSS feed generation
+/// Contains id, html_content for description extraction, and created_at for pubDate
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct ReportRssData {
+    pub id: i32,
+    pub html_content: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
 /// Crypto Data Service
 /// 
 /// Layer 3 service responsible for all crypto report database operations.
@@ -214,6 +223,61 @@ impl CryptoDataService {
                 "SELECT id, created_at FROM crypto_report WHERE id < $1 ORDER BY id DESC LIMIT $2",
             )
             .bind(current_id)
+            .bind(limit)
+            .fetch_all(&state.db)
+            .await
+        }
+    }
+
+    /// Fetch reports for RSS feed generation
+    ///
+    /// Returns a list of recent reports with html_content for description extraction.
+    /// Uses MediumTerm caching (1 hour) to balance freshness with performance.
+    ///
+    /// # Arguments
+    /// * `state` - Application state with database and cache
+    /// * `limit` - Maximum number of reports to fetch (default 20)
+    ///
+    /// # Returns
+    /// Vec<ReportRssData> with id, html_content, and created_at for RSS feed
+    pub async fn fetch_rss_reports(
+        &self,
+        state: &Arc<AppState>,
+        limit: i64,
+    ) -> Result<Vec<ReportRssData>, sqlx::Error> {
+        // Use type-safe caching if cache system is available
+        if let Some(ref cache_system) = state.cache_system {
+            let db = state.db.clone();
+
+            match cache_system.cache_manager.get_or_compute_typed(
+                &format!("rss_reports_{}", limit),
+                crate::service_islands::layer1_infrastructure::cache_system_island::CacheStrategy::MediumTerm, // 1 hour
+                || async move {
+                    info!("🗄️ CryptoDataService: Fetching {} reports for RSS feed from database", limit);
+
+                    let reports = sqlx::query_as::<_, ReportRssData>(
+                        "SELECT id, html_content, created_at FROM crypto_report ORDER BY created_at DESC LIMIT $1",
+                    )
+                    .bind(limit)
+                    .fetch_all(&db)
+                    .await?;
+
+                    debug!("📊 CryptoDataService: Retrieved {} reports for RSS feed", reports.len());
+                    Ok(reports)
+                }
+            ).await {
+                Ok(reports) => Ok(reports),
+                Err(e) => {
+                    warn!("⚠️ CryptoDataService: Cache/DB error for RSS reports: {}", e);
+                    Err(sqlx::Error::Protocol(format!("Cache or database error: {}", e)))
+                }
+            }
+        } else {
+            // Fallback: Direct database query if no cache
+            info!("🗄️ CryptoDataService: Fetching {} reports for RSS feed (no cache)", limit);
+            sqlx::query_as::<_, ReportRssData>(
+                "SELECT id, html_content, created_at FROM crypto_report ORDER BY created_at DESC LIMIT $1",
+            )
             .bind(limit)
             .fetch_all(&state.db)
             .await

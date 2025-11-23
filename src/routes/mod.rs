@@ -9,6 +9,7 @@ pub mod system;
 pub mod crypto_reports;
 pub mod api;
 pub mod seo;
+pub mod rss_feed;
 // WebSocket module moved to separate Web-server-Report-websocket service
 // pub mod websocket;
 
@@ -37,6 +38,9 @@ pub fn create_service_islands_router(service_islands: Arc<ServiceIslands>) -> Ro
 
         // SEO endpoints (sitemap.xml)
         .merge(seo::configure_seo_routes())
+
+        // RSS feed endpoint
+        .merge(rss_feed::configure_rss_routes())
 
         // Note: WebSocket endpoint has been moved to Web-server-Report-websocket service
         // Client should connect to separate websocket service (port 8081)

@@ -14,6 +14,7 @@ pub mod error;
 pub mod websocket;
 pub mod security;
 pub mod sitemap_creator;
+pub mod rss_creator;
 
 // Re-export commonly used items
 pub use compression::{compress_html_to_gzip, CompressionStats};
@@ -30,3 +31,4 @@ pub use error::{Layer5Error, Layer5Result};
 pub use websocket::get_websocket_url;
 pub use security::{generate_sandbox_token, verify_sandbox_token};
 pub use sitemap_creator::SitemapCreator;
+pub use rss_creator::RssCreator;
