@@ -4,7 +4,7 @@
 //! It serves assets, shared components, and dashboard-specific files.
 
 use axum::Router;
-use tower_http::services::ServeDir;
+use tower_http::services::{ServeDir, ServeFile};
 use std::sync::Arc;
 
 use crate::service_islands::ServiceIslands;
@@ -18,6 +18,9 @@ use crate::service_islands::ServiceIslands;
 /// - Test files
 pub fn configure_static_routes() -> Router<Arc<ServiceIslands>> {
     Router::new()
+        // SEO files
+        .route_service("/robots.txt", ServeFile::new("robots.txt"))
+
         // Crypto Dashboard static files
         .nest_service("/crypto_dashboard/shared", ServeDir::new("dashboards/crypto_dashboard/shared"))
         .nest_service("/crypto_dashboard/routes", ServeDir::new("dashboards/crypto_dashboard/routes"))
