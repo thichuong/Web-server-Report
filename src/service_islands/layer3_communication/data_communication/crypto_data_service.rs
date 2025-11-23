@@ -161,6 +161,65 @@ impl CryptoDataService {
         }
     }
 
+    /// Fetch related reports (older reports) for GEO optimization
+    ///
+    /// Returns a list of reports older than the current report for internal linking.
+    /// Uses ShortTerm caching (5 minutes) to balance freshness with performance.
+    ///
+    /// # Arguments
+    /// * `state` - Application state with database and cache
+    /// * `current_id` - The ID of the current report (fetch reports with id < current_id)
+    /// * `limit` - Maximum number of related reports to fetch
+    ///
+    /// # Returns
+    /// Vec<ReportSummaryData> with id and created_at for each related report
+    pub async fn fetch_related_reports(
+        &self,
+        state: &Arc<AppState>,
+        current_id: i32,
+        limit: i64,
+    ) -> Result<Vec<ReportSummaryData>, sqlx::Error> {
+        // Use type-safe caching if cache system is available
+        if let Some(ref cache_system) = state.cache_system {
+            let db = state.db.clone();
+
+            match cache_system.cache_manager.get_or_compute_typed(
+                &format!("related_reports_{}_{}", current_id, limit),
+                crate::service_islands::layer1_infrastructure::cache_system_island::CacheStrategy::ShortTerm, // 5 minutes
+                || async move {
+                    debug!("🗄️ CryptoDataService: Fetching related reports for report {} from database", current_id);
+
+                    let reports = sqlx::query_as::<_, ReportSummaryData>(
+                        "SELECT id, created_at FROM crypto_report WHERE id < $1 ORDER BY id DESC LIMIT $2",
+                    )
+                    .bind(current_id)
+                    .bind(limit)
+                    .fetch_all(&db)
+                    .await?;
+
+                    debug!("📊 CryptoDataService: Retrieved {} related reports for report {}", reports.len(), current_id);
+                    Ok(reports)
+                }
+            ).await {
+                Ok(reports) => Ok(reports),
+                Err(e) => {
+                    warn!("⚠️ CryptoDataService: Cache/DB error for related reports: {}", e);
+                    Err(sqlx::Error::Protocol(format!("Cache or database error: {}", e)))
+                }
+            }
+        } else {
+            // Fallback: Direct database query if no cache
+            debug!("🗄️ CryptoDataService: Fetching related reports for report {} (no cache)", current_id);
+            sqlx::query_as::<_, ReportSummaryData>(
+                "SELECT id, created_at FROM crypto_report WHERE id < $1 ORDER BY id DESC LIMIT $2",
+            )
+            .bind(current_id)
+            .bind(limit)
+            .fetch_all(&state.db)
+            .await
+        }
+    }
+
     /// Fetch crypto report by ID from database with intelligent caching (L1+L2)
     ///
     /// ✨ NEW: Uses type-safe automatic caching with get_or_compute_typed()

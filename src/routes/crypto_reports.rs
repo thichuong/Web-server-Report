@@ -17,7 +17,10 @@ use tracing::{info, warn, error, debug};
 
 use crate::service_islands::ServiceIslands;
 use crate::service_islands::layer5_business_logic::crypto_reports::handlers::CryptoHandlers;
-use crate::service_islands::layer5_business_logic::crypto_reports::rendering::generate_complete_geo_metadata;
+use crate::service_islands::layer5_business_logic::crypto_reports::rendering::{
+    generate_complete_geo_metadata,
+    generate_breadcrumbs_and_related,
+};
 
 /// Configure crypto reports routes
 pub fn configure_crypto_reports_routes() -> Router<Arc<ServiceIslands>> {
@@ -352,6 +355,26 @@ async fn crypto_index(
     );
     debug!("📊 [Route] GEO metadata generated for report {} - title: {}", report.id, geo_title);
 
+    // STEP 5.1: Fetch related reports for internal linking (GEO optimization)
+    let related_reports_data = match data_service.fetch_related_reports(
+        &service_islands.get_legacy_app_state(),
+        report.id,
+        3  // Limit to 3 related reports
+    ).await {
+        Ok(reports) => reports,
+        Err(e) => {
+            warn!("⚠️ [Route] Failed to fetch related reports: {}", e);
+            vec![]  // Fallback to empty list on error
+        }
+    };
+
+    // STEP 5.2: Generate breadcrumbs and related reports data
+    let (breadcrumb_items, breadcrumbs_schema, related_reports) = generate_breadcrumbs_and_related(
+        report.id,
+        &related_reports_data
+    );
+    debug!("📊 [Route] Breadcrumbs and {} related reports generated for report {}", related_reports.len(), report.id);
+
     // STEP 6: Render template with GEO metadata
     let mut context = tera::Context::new();
     context.insert("report", &report);
@@ -364,6 +387,10 @@ async fn crypto_index(
     context.insert("geo_meta_tags", &geo_meta_tags);
     context.insert("geo_json_ld", &geo_json_ld);
     context.insert("geo_title", &geo_title);
+    // Breadcrumbs and related reports for internal linking
+    context.insert("breadcrumb_items", &breadcrumb_items);
+    context.insert("breadcrumbs_schema", &breadcrumbs_schema);
+    context.insert("related_reports", &related_reports);
 
     let app_state = service_islands.get_legacy_app_state();
     let html = match app_state.tera.render("crypto/routes/reports/view_dsd.html", &context) {
@@ -514,6 +541,26 @@ async fn crypto_view_report(
     );
     debug!("📊 [Route] GEO metadata generated for report {} - title: {}", report_id, geo_title);
 
+    // STEP 5.1: Fetch related reports for internal linking (GEO optimization)
+    let related_reports_data = match data_service.fetch_related_reports(
+        &service_islands.get_legacy_app_state(),
+        report_id,
+        3  // Limit to 3 related reports
+    ).await {
+        Ok(reports) => reports,
+        Err(e) => {
+            warn!("⚠️ [Route] Failed to fetch related reports for report {}: {}", report_id, e);
+            vec![]  // Fallback to empty list on error
+        }
+    };
+
+    // STEP 5.2: Generate breadcrumbs and related reports data
+    let (breadcrumb_items, breadcrumbs_schema, related_reports) = generate_breadcrumbs_and_related(
+        report_id,
+        &related_reports_data
+    );
+    debug!("📊 [Route] Breadcrumbs and {} related reports generated for report {}", related_reports.len(), report_id);
+
     // STEP 6: Render template with GEO metadata
     let mut context = tera::Context::new();
     context.insert("report", &report);
@@ -526,6 +573,10 @@ async fn crypto_view_report(
     context.insert("geo_meta_tags", &geo_meta_tags);
     context.insert("geo_json_ld", &geo_json_ld);
     context.insert("geo_title", &geo_title);
+    // Breadcrumbs and related reports for internal linking
+    context.insert("breadcrumb_items", &breadcrumb_items);
+    context.insert("breadcrumbs_schema", &breadcrumbs_schema);
+    context.insert("related_reports", &related_reports);
 
     let app_state = service_islands.get_legacy_app_state();
     let html = match app_state.tera.render("crypto/routes/reports/view_dsd.html", &context) {

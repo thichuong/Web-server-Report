@@ -18,6 +18,9 @@
     <!-- Helps search engines and AI understand content semantically -->
     {{ geo_json_ld | safe }}
 
+    <!-- JSON-LD Breadcrumbs Schema for GEO optimization -->
+    {{ breadcrumbs_schema | safe }}
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
@@ -74,6 +77,43 @@
     </div>
 
     <div class="container mx-auto p-4 md:p-8 pt-20">
+        <!-- Breadcrumbs Navigation for GEO optimization -->
+        <nav aria-label="Breadcrumb" class="mb-6">
+            <ol class="flex flex-wrap items-center text-sm" style="color: var(--text-secondary);">
+                {% for item in breadcrumb_items %}
+                    {% if loop.first %}
+                        <li class="flex items-center">
+                            <a href="{{ item.url }}"
+                               class="hover:text-blue-600 transition-colors duration-200 flex items-center"
+                               data-i18n="breadcrumb-home">
+                                <i class="fas fa-home mr-1 text-xs"></i>
+                                <span class="breadcrumb-text-vi">{{ item.name_vi }}</span>
+                                <span class="breadcrumb-text-en hidden">{{ item.name_en }}</span>
+                            </a>
+                        </li>
+                    {% elif item.is_current %}
+                        <li class="flex items-center">
+                            <span class="mx-2 text-gray-400">/</span>
+                            <span class="font-medium" style="color: var(--text-primary);">
+                                <span class="breadcrumb-text-vi">{{ item.name_vi }}</span>
+                                <span class="breadcrumb-text-en hidden">{{ item.name_en }}</span>
+                            </span>
+                        </li>
+                    {% else %}
+                        <li class="flex items-center">
+                            <span class="mx-2 text-gray-400">/</span>
+                            <a href="{{ item.url }}"
+                               class="hover:text-blue-600 transition-colors duration-200"
+                               data-i18n="breadcrumb-reports">
+                                <span class="breadcrumb-text-vi">{{ item.name_vi }}</span>
+                                <span class="breadcrumb-text-en hidden">{{ item.name_en }}</span>
+                            </a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+            </ol>
+        </nav>
+
         <header class="text-center mb-12">
             <h1 class="text-4xl md:text-5xl font-extrabold mb-2">
                 <span data-i18n="site-title">Toàn Cảnh Thị Trường Tiền Mã Hóa</span>
@@ -224,6 +264,56 @@
                 </main>
             </div>
         </div>
+
+        <!-- Related Reports Section for GEO optimization and internal linking -->
+        {% if related_reports and related_reports | length > 0 %}
+        <section class="mt-12 mb-24" aria-labelledby="related-reports-heading">
+            <h2 id="related-reports-heading" class="text-xl font-bold mb-6 flex items-center" style="color: var(--text-primary);">
+                <i class="fas fa-history mr-2 text-blue-500"></i>
+                <span data-i18n="related-reports-title" class="related-title-vi">Bao cao truoc do</span>
+                <span data-i18n="related-reports-title-en" class="related-title-en hidden">Previous Reports</span>
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {% for related in related_reports %}
+                <a href="{{ related.url }}"
+                   class="card p-5 rounded-xl transition-all duration-300 hover:shadow-lg hover:scale-[1.02] group"
+                   style="background-color: var(--bg-secondary); border: 1px solid var(--border-color);">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <p class="font-semibold text-lg mb-1 group-hover:text-blue-600 transition-colors" style="color: var(--text-primary);">
+                                <span class="related-report-vi">Bao cao #{{ related.id }}</span>
+                                <span class="related-report-en hidden">Report #{{ related.id }}</span>
+                            </p>
+                            <p class="text-sm flex items-center" style="color: var(--text-secondary);">
+                                <i class="far fa-calendar-alt mr-2 text-gray-400"></i>
+                                {{ related.created_date_display }}
+                            </p>
+                            <p class="text-xs mt-1" style="color: var(--text-tertiary);">
+                                <i class="far fa-clock mr-1"></i>
+                                {{ related.created_time_display }}
+                            </p>
+                        </div>
+                        <div class="flex-shrink-0 ml-3">
+                            <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
+                                <i class="fas fa-arrow-right text-sm"></i>
+                            </span>
+                        </div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+
+            <!-- View all reports link -->
+            <div class="mt-6 text-center">
+                <a href="/crypto_reports_list"
+                   class="inline-flex items-center px-6 py-3 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors duration-200">
+                    <span data-i18n="view-all-reports" class="view-all-vi">Xem tat ca bao cao</span>
+                    <span data-i18n="view-all-reports-en" class="view-all-en hidden">View all reports</span>
+                    <i class="fas fa-chevron-right ml-2"></i>
+                </a>
+            </div>
+        </section>
+        {% endif %}
     </div>
 
     <!-- Chart modules will be injected here -->
@@ -253,6 +343,53 @@
     <script src="/crypto_dashboard/assets/dashboard-websocket.js" defer></script>
     <script src="/crypto_dashboard/assets/translations.js" defer></script>
     <script src="/shared_components/core/language-toggle.js" defer></script>
+
+    <!-- Breadcrumbs and Related Reports language toggle -->
+    <script>
+        // Language toggle handler for breadcrumbs and related reports
+        document.addEventListener('DOMContentLoaded', function() {
+            function updateBreadcrumbsLanguage(lang) {
+                const isEnglish = lang === 'en';
+
+                // Update breadcrumb items
+                document.querySelectorAll('.breadcrumb-text-vi').forEach(el => {
+                    el.classList.toggle('hidden', isEnglish);
+                });
+                document.querySelectorAll('.breadcrumb-text-en').forEach(el => {
+                    el.classList.toggle('hidden', !isEnglish);
+                });
+
+                // Update related reports section
+                document.querySelectorAll('.related-title-vi').forEach(el => {
+                    el.classList.toggle('hidden', isEnglish);
+                });
+                document.querySelectorAll('.related-title-en').forEach(el => {
+                    el.classList.toggle('hidden', !isEnglish);
+                });
+                document.querySelectorAll('.related-report-vi').forEach(el => {
+                    el.classList.toggle('hidden', isEnglish);
+                });
+                document.querySelectorAll('.related-report-en').forEach(el => {
+                    el.classList.toggle('hidden', !isEnglish);
+                });
+                document.querySelectorAll('.view-all-vi').forEach(el => {
+                    el.classList.toggle('hidden', isEnglish);
+                });
+                document.querySelectorAll('.view-all-en').forEach(el => {
+                    el.classList.toggle('hidden', !isEnglish);
+                });
+            }
+
+            // Listen for language changes
+            window.addEventListener('languageChanged', function(e) {
+                updateBreadcrumbsLanguage(e.detail.language);
+            });
+
+            // Initialize based on current language
+            const currentLang = localStorage.getItem('preferred_language') || 'vi';
+            updateBreadcrumbsLanguage(currentLang);
+        });
+    </script>
 
 </body>
 </html>
