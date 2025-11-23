@@ -8,6 +8,7 @@ pub mod homepage;
 pub mod system;
 pub mod crypto_reports;
 pub mod api;
+pub mod seo;
 // WebSocket module moved to separate Web-server-Report-websocket service
 // pub mod websocket;
 
@@ -33,6 +34,9 @@ pub fn create_service_islands_router(service_islands: Arc<ServiceIslands>) -> Ro
         
         // API endpoints
         .merge(api::configure_api_routes())
+
+        // SEO endpoints (sitemap.xml)
+        .merge(seo::configure_seo_routes())
 
         // Note: WebSocket endpoint has been moved to Web-server-Report-websocket service
         // Client should connect to separate websocket service (port 8081)

@@ -44,6 +44,14 @@ pub struct ReportSummaryData {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
+/// Report metadata for sitemap generation
+/// Contains only essential fields needed for sitemap XML
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct ReportSitemapData {
+    pub id: i32,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
 /// Crypto Data Service
 /// 
 /// Layer 3 service responsible for all crypto report database operations.
@@ -105,6 +113,51 @@ impl CryptoDataService {
             sqlx::query_as::<_, ReportData>(
                 "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report ORDER BY created_at DESC LIMIT 1",
             ).fetch_optional(&state.db).await
+        }
+    }
+
+    /// Fetch all report IDs and creation dates for sitemap generation
+    ///
+    /// Returns lightweight data for generating dynamic sitemap URLs.
+    /// Uses MediumTerm caching (1 hour) since sitemap doesn't need real-time updates.
+    pub async fn fetch_all_report_ids_for_sitemap(
+        &self,
+        state: &Arc<AppState>,
+    ) -> Result<Vec<ReportSitemapData>, sqlx::Error> {
+        // Use type-safe caching if cache system is available
+        if let Some(ref cache_system) = state.cache_system {
+            let db = state.db.clone();
+
+            match cache_system.cache_manager.get_or_compute_typed(
+                "sitemap_report_ids",
+                crate::service_islands::layer1_infrastructure::cache_system_island::CacheStrategy::MediumTerm, // 1 hour
+                || async move {
+                    info!("🗄️ CryptoDataService: Fetching all report IDs for sitemap from database");
+
+                    let reports = sqlx::query_as::<_, ReportSitemapData>(
+                        "SELECT id, created_at FROM crypto_report ORDER BY created_at DESC",
+                    )
+                    .fetch_all(&db)
+                    .await?;
+
+                    debug!("📊 CryptoDataService: Retrieved {} report IDs for sitemap", reports.len());
+                    Ok(reports)
+                }
+            ).await {
+                Ok(reports) => Ok(reports),
+                Err(e) => {
+                    warn!("⚠️ CryptoDataService: Cache/DB error for sitemap data: {}", e);
+                    Err(sqlx::Error::Protocol(format!("Cache or database error: {}", e)))
+                }
+            }
+        } else {
+            // Fallback: Direct database query if no cache
+            info!("🗄️ CryptoDataService: Fetching all report IDs for sitemap (no cache)");
+            sqlx::query_as::<_, ReportSitemapData>(
+                "SELECT id, created_at FROM crypto_report ORDER BY created_at DESC",
+            )
+            .fetch_all(&state.db)
+            .await
         }
     }
 
