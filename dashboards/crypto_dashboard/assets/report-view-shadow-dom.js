@@ -219,11 +219,11 @@ function createSidebarNavigation() {
             <h3 class="nav-title">
                 <span class="nav-title">${navTitle}</span>
             </h3>
-            <div class="scroll-progress-container mb-3">
-                <div class="scroll-progress-bar bg-gray-200 h-2 rounded-full relative overflow-hidden">
-                    <div class="scroll-indicator bg-blue-500 h-full rounded-full transition-all duration-300" style="width: 0%;"></div>
+            <div class="scroll-progress-container">
+                <div class="scroll-progress-bar">
+                    <div class="scroll-indicator" style="width: 0%;"></div>
+                    <span class="scroll-progress-text">0%</span>
                 </div>
-                <span class="scroll-progress-text text-xs text-gray-500 mt-1 block">Đọc: 0%</span>
             </div>
         </div>
         <div class="nav-content">
@@ -454,9 +454,7 @@ function updateScrollProgress() {
     }
 
     if (scrollProgressText) {
-        const isVietnamese = currentNavigationData && currentNavigationData.language === 'vi';
-        const progressText = isVietnamese ? 'Đọc' : 'Read';
-        scrollProgressText.textContent = `${progressText}: ${Math.round(scrollPercent)}%`;
+        scrollProgressText.textContent = `${Math.round(scrollPercent)}%`;
     }
 }
 
