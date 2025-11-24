@@ -28,9 +28,6 @@ pub fn configure_crypto_reports_routes() -> Router<Arc<ServiceIslands>> {
         .route("/crypto_report", get(crypto_index))
         .route("/crypto_report/:id", get(crypto_view_report))
         .route("/crypto_reports_list", get(crypto_reports_list))
-        // Legacy iframe-based routes
-        .route("/crypto_report_iframe", get(crypto_index_iframe))
-        .route("/crypto_report_iframe/:id", get(crypto_view_report_iframe))
 }
 
 /// Detect preferred language from request
@@ -90,43 +87,6 @@ fn detect_preferred_language(
     None // None means use default (vi) in generate_shadow_dom_content
 }
 
-/// Crypto reports index page (iframe-based) - Delegates to Crypto Reports Island with Tera engine
-/// Legacy route for backward compatibility
-async fn crypto_index_iframe(
-    State(service_islands): State<Arc<ServiceIslands>>,
-    Query(params): Query<HashMap<String, String>>
-) -> Response {
-    // Check if specific report ID is requested (like ?id=54)
-    let report_id = params.get("id");
-    if let Some(id) = report_id {
-        debug!("🚀 [Route] crypto_index_iframe called for report ID: {} - fetching from Service Islands Layer 5", id);
-    } else {
-        debug!("🚀 [Route] crypto_index_iframe called for latest report - fetching from Service Islands Layer 5");
-    }
-    
-
-
-    // Get pre-loaded chart modules content for optimal performance
-    let chart_modules_content = service_islands.get_chart_modules_content();
-
-    // Use AppState with Tera engine from Service Islands - Full L1/L2 caching
-    match service_islands.crypto_reports.handlers.crypto_index_with_tera(
-        &service_islands.get_legacy_app_state(),
-        Some(chart_modules_content) // Truyền pre-loaded chart modules
-    ).await {
-        Ok(compressed_data) => {
-            info!("✅ [Route] Compressed template rendered successfully from Layer 5");
-                        
-            // Use create_compressed_response for compressed data
-            CryptoHandlers::create_compressed_response(compressed_data)
-        }
-        Err(e) => {
-            error!("❌ [Route] Crypto index error: {}", e);
-            "Internal server error".into_response()
-        }
-    }
-}
-
 /// List all crypto reports with pagination
 async fn crypto_reports_list(
     Query(params): Query<HashMap<String, String>>,
@@ -167,78 +127,6 @@ async fn crypto_reports_list(
                 StatusCode::INTERNAL_SERVER_ERROR, 
                 "Failed to load reports list"
             ).into_response()
-        }
-    }
-}
-
-/// View specific crypto report by ID (iframe-based)
-/// Legacy route for backward compatibility
-async fn crypto_view_report_iframe(
-    Path(id): Path<String>,
-    State(service_islands): State<Arc<ServiceIslands>>
-) -> impl IntoResponse {
-    debug!("🚀 [Route] crypto_view_report_iframe called for ID: {} - fetching from Service Islands Layer 5", id);
-    
-    // Parse report ID
-    let report_id: i32 = match id.parse() {
-        Ok(id) => id,
-        Err(_) => {
-            error!("❌ [Route] Invalid report ID format: {}", id);
-            return (
-                StatusCode::BAD_REQUEST,
-                "Invalid report ID format"
-            ).into_response();
-        }
-    };
-
-    debug!("📄 [Route] Requesting report ID: {}", report_id);
-
-    // Get pre-loaded chart modules content for optimal performance
-    let chart_modules_content = service_islands.get_chart_modules_content();
-
-    // Use Service Islands architecture to get specific report
-    match service_islands.crypto_reports.handlers.crypto_report_by_id_with_tera(
-        &service_islands.get_legacy_app_state(), 
-        report_id, 
-        Some(chart_modules_content) // Truyền pre-loaded chart modules
-    ).await {
-        Ok(compressed_data) => {
-            info!("✅ [Route] Report ID: {} compressed template rendered successfully from Layer 5", report_id);            
-            
-            // Create compressed response with proper headers
-            Response::builder()
-                .status(StatusCode::OK)
-                .header("cache-control", "public, max-age=300") // 5min cache for individual reports
-                .header("content-type", "text/html; charset=utf-8")
-                .header("content-encoding", "gzip")
-                .header("x-cache", "Layer5-Generated-Compressed")
-                .header("x-report-id", report_id.to_string())
-                .body(Body::from(compressed_data))
-                .unwrap_or_else(|e| {
-                    warn!("⚠️ Failed to build report response: {}", e);
-                    Response::builder()
-                        .status(StatusCode::INTERNAL_SERVER_ERROR)
-                        .body(Body::from("Response build error"))
-                        .unwrap()  // This is guaranteed safe with literal body
-                })
-                .into_response()
-        }
-        Err(e) => {
-            error!("❌ [Route] Failed to render report ID: {} template from Layer 5: {}", report_id, e);
-            
-            // Check if it's a not found case or other error
-            let error_message = e.to_string();
-            if error_message.contains("not found") || error_message.contains("Database error") {
-                (
-                    StatusCode::NOT_FOUND,
-                    format!("Report #{} not found", report_id)
-                ).into_response()
-            } else {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("Failed to load report #{}", report_id)
-                ).into_response()
-            }
         }
     }
 }

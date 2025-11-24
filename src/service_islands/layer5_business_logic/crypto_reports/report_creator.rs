@@ -3,8 +3,7 @@
 //! This component handles report creation business logic for crypto reports,
 //! including report data fetching, processing, and chart modules management.
 //!
-//! Rendering strategies have been moved to the `rendering` module:
-//! - IframeRenderer: Legacy iframe-based rendering
+//! Rendering is handled by the `rendering` module:
 //! - ShadowDomRenderer: Modern Declarative Shadow DOM rendering
 
 use std::sync::Arc;
@@ -27,10 +26,7 @@ use super::super::shared::{
 };
 
 // Import rendering modules
-use super::rendering::{
-    IframeRenderer,
-    ShadowDomRenderer,
-};
+use super::rendering::ShadowDomRenderer;
 
 // Re-export for backward compatibility
 pub use super::rendering::{Report, SandboxedReport};
@@ -39,12 +35,11 @@ pub use super::rendering::{Report, SandboxedReport};
 ///
 /// Manages report creation business logic with market analysis capabilities.
 /// Uses Layer 3 data services and Layer 1 infrastructure services for proper architectural separation.
-/// Delegates rendering to specialized renderers (Iframe and Shadow DOM).
+/// Delegates rendering to ShadowDomRenderer for modern Declarative Shadow DOM rendering.
 #[derive(Clone)]
 pub struct ReportCreator {
     pub data_service: CryptoDataService,
     pub chart_modules_island: ChartModulesIsland,
-    pub iframe_renderer: IframeRenderer,
     pub shadow_dom_renderer: ShadowDomRenderer,
 }
 
@@ -54,7 +49,6 @@ impl ReportCreator {
         Self {
             data_service: CryptoDataService::new(),
             chart_modules_island: ChartModulesIsland::new(),
-            iframe_renderer: IframeRenderer::new(),
             shadow_dom_renderer: ShadowDomRenderer::new(),
         }
     }
@@ -143,11 +137,11 @@ impl ReportCreator {
     // Delegation Methods for Rendering
     // ========================================
 
-    /// Create sandboxed report (delegates to iframe renderer)
+    /// Create sandboxed report (delegates to shadow DOM renderer)
     ///
-    /// This maintains backward compatibility with existing code
+    /// Creates a secure sandboxed version of the report for Shadow DOM delivery.
     pub fn create_sandboxed_report(&self, report: &Report, chart_modules_content: Option<&str>) -> SandboxedReport {
-        self.iframe_renderer.create_sandboxed_report(report, chart_modules_content)
+        self.shadow_dom_renderer.create_sandboxed_report(report, chart_modules_content)
     }
 
     /// Generate Shadow DOM content (delegates to shadow DOM renderer)
@@ -165,9 +159,10 @@ impl ReportCreator {
         }
     }
 
-    /// Serve sandboxed report content for iframe (delegates to iframe renderer)
+    /// Serve sandboxed report content (delegates to shadow DOM renderer)
     ///
     /// Uses Layer5Result for proper error handling without Box<dyn Error>.
+    /// This method provides backward compatibility for the API endpoint.
     pub async fn serve_sandboxed_report(
         &self,
         state: &Arc<AppState>,
@@ -178,7 +173,7 @@ impl ReportCreator {
     ) -> Layer5Result<Response> {
         match self.fetch_report(state, report_id).await {
             Ok(Some(report)) => {
-                self.iframe_renderer.serve_sandboxed_report(state, &report, sandbox_token, language, chart_modules_content).await
+                self.shadow_dom_renderer.serve_shadow_dom_content(state, &report, sandbox_token, language, chart_modules_content).await
             }
             Ok(None) => {
                 Ok(build_not_found_response("Report not found"))
