@@ -112,6 +112,26 @@ cargo run --example http_load_benchmark
 cargo run --example performance_benchmark
 ```
 
+## Rust Idiomatic Guidelines (Strict)
+
+### Ownership & Borrowing
+- **Avoid `.clone()`:** Always check if a reference `&T` or `&mut T` suffices. Use `Cow<T>` if ownership is conditional.
+- **Lifetimes:** Elide lifetimes where possible. Only use explicit lifetimes when the compiler cannot infer them.
+
+### Control Flow & Data Structures
+- **Pattern Matching:** Use `match` extensively for control flow. Use `if let` for single-case matching.
+- **Iterators:** Prefer `Iterator` methods (`map`, `filter`, `fold`, `collect`) over raw `for` loops for better compiler optimization and readability.
+- **Clippy Compliance:** Code must ideally pass `clippy::pedantic`.
+
+### Error Handling
+- **No Panics:** Never use `.unwrap()` or `.expect()` in logic flow. Use the `?` operator to propagate errors.
+- **Types:** Use `Result<T, E>` for recoverable errors. Use crates like `thiserror` (libs) or `anyhow` (apps).
+
+### Third-Party Ecosystem
+- **Async:** Default to `tokio`.
+- **Logging:** Use `tracing` instead of `println!`.
+- **Serialization:** Use `serde`.
+
 ## Service Islands Architecture (5 Layers)
 
 The codebase uses a strict **5-layer Service Islands Architecture** with clear dependency flow from top to bottom:
