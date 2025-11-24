@@ -6,10 +6,10 @@
 //! - Sanitization functions for HTML, CSS, and JavaScript
 //! - From trait implementations for type conversions
 
-use serde::{Serialize, Deserialize};
-use sqlx::FromRow;
 use lazy_static::lazy_static;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
 use std::borrow::Cow;
 
 // Import Layer 3 data model for From trait
@@ -134,7 +134,8 @@ pub fn sanitize_html_content(html: &str) -> Cow<'_, str> {
 }
 
 /// CSS wrapper prefix for isolation
-const CSS_WRAPPER_PREFIX: &str = "/* CSS isolated within iframe sandbox */\n.sandboxed-report-container {\n";
+const CSS_WRAPPER_PREFIX: &str =
+    "/* CSS isolated within iframe sandbox */\n.sandboxed-report-container {\n";
 const CSS_WRAPPER_SUFFIX: &str = "\n}";
 
 /// Sanitize CSS content for sandbox
@@ -169,9 +170,8 @@ pub fn sanitize_css_content(css: &str) -> String {
     }
 
     // Wrap CSS for isolation - single allocation for final result
-    let mut wrapped = String::with_capacity(
-        CSS_WRAPPER_PREFIX.len() + result.len() + CSS_WRAPPER_SUFFIX.len()
-    );
+    let mut wrapped =
+        String::with_capacity(CSS_WRAPPER_PREFIX.len() + result.len() + CSS_WRAPPER_SUFFIX.len());
     wrapped.push_str(CSS_WRAPPER_PREFIX);
     wrapped.push_str(&result);
     wrapped.push_str(CSS_WRAPPER_SUFFIX);

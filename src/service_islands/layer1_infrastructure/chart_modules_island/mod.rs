@@ -4,13 +4,13 @@
 //! It handles the reading, concatenation, and serving of JavaScript chart modules
 //! from the shared_assets directory.
 
-use std::path::Path;
 use std::env;
+use std::path::Path;
 use tokio::fs::read_dir;
-use tracing::{info, warn, error, debug};
+use tracing::{debug, error, info, warn};
 
 /// Chart Modules Island
-/// 
+///
 /// Handles the loading and management of chart JavaScript modules.
 /// This is a foundational infrastructure service that provides chart modules
 /// to higher-level services in the architecture.
@@ -53,17 +53,20 @@ impl ChartModulesIsland {
     }
 
     /// Get chart modules content
-    /// 
+    ///
     /// Reads and concatenates all JavaScript chart modules from the configured directory.
     /// Returns a single string containing all chart modules wrapped in error handling.
-    /// 
+    ///
     /// Features:
     /// - Priority-based loading order
     /// - Concurrent file reading for performance
     /// - Error handling for individual modules
     /// - Debug mode support via environment variable
     pub async fn get_chart_modules_content(&self) -> String {
-        debug!("📊 ChartModulesIsland: Loading chart modules from {}", self.base_dir);
+        debug!(
+            "📊 ChartModulesIsland: Loading chart modules from {}",
+            self.base_dir
+        );
 
         // Check debug mode
         let _debug = env::var("DEBUG").unwrap_or_default() == "1";
@@ -74,7 +77,10 @@ impl ChartModulesIsland {
         let mut entries = match read_dir(&source_dir).await {
             Ok(rd) => rd,
             Err(e) => {
-                error!("❌ ChartModulesIsland: Error reading directory {}: {}", self.base_dir, e);
+                error!(
+                    "❌ ChartModulesIsland: Error reading directory {}: {}",
+                    self.base_dir, e
+                );
                 return "// No chart modules found".to_string();
             }
         };
@@ -94,7 +100,10 @@ impl ChartModulesIsland {
         }
 
         if all_files.is_empty() {
-            warn!("⚠️ ChartModulesIsland: No JavaScript files found in {}", self.base_dir);
+            warn!(
+                "⚠️ ChartModulesIsland: No JavaScript files found in {}",
+                self.base_dir
+            );
             return "// No chart modules found".to_string();
         }
 
@@ -108,7 +117,11 @@ impl ChartModulesIsland {
         all_files.sort();
         ordered.extend(all_files);
 
-        debug!("📋 ChartModulesIsland: Loading {} chart modules in order: {:?}", ordered.len(), ordered);
+        debug!(
+            "📋 ChartModulesIsland: Loading {} chart modules in order: {:?}",
+            ordered.len(),
+            ordered
+        );
 
         // Parallel file reading with concurrent futures
         // Use into_iter to take ownership and avoid clones
@@ -148,19 +161,22 @@ impl ChartModulesIsland {
         let parts = futures::future::join_all(file_futures).await;
 
         // Final concatenation in CPU thread pool to avoid blocking async runtime
-        let final_content = tokio::task::spawn_blocking(move || {
-            parts.join("\n\n")
-        }).await.unwrap_or_else(|e| {
-            error!("❌ ChartModulesIsland: Chart modules concatenation error: {:#?}", e);
-            "// Error loading chart modules".to_string()
-        });
+        let final_content = tokio::task::spawn_blocking(move || parts.join("\n\n"))
+            .await
+            .unwrap_or_else(|e| {
+                error!(
+                    "❌ ChartModulesIsland: Chart modules concatenation error: {:#?}",
+                    e
+                );
+                "// Error loading chart modules".to_string()
+            });
 
         info!("✅ ChartModulesIsland: Successfully loaded and concatenated all chart modules");
         final_content
     }
 
     /// Get chart modules content with caching support
-    /// 
+    ///
     /// This method will integrate with the caching system when implemented.
     /// For now, it delegates to the main loading method.
     pub async fn get_cached_chart_modules_content(&self) -> String {
@@ -170,7 +186,7 @@ impl ChartModulesIsland {
     }
 
     /// Get available chart module names
-    /// 
+    ///
     /// Returns a list of available chart module file names without loading content.
     #[allow(dead_code)]
     pub async fn get_available_modules(&self) -> Vec<String> {
@@ -232,6 +248,9 @@ impl Default for ChartModulesIsland {
 impl Drop for ChartModulesIsland {
     fn drop(&mut self) {
         // Cleanup confirmation for debugging
-        debug!("🧹 ChartModulesIsland: Cleanup completed (base_dir: {})", self.base_dir);
+        debug!(
+            "🧹 ChartModulesIsland: Cleanup completed (base_dir: {})",
+            self.base_dir
+        );
     }
 }

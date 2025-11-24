@@ -28,8 +28,9 @@ use super::shared::{
 /// Pre-loaded Shadow DOM template for modern DSD architecture.
 /// Replaces iframe-based approach with Declarative Shadow DOM.
 static VIEW_SHADOW_DOM_TEMPLATE: LazyLock<String> = LazyLock::new(|| {
-    std::fs::read_to_string("shared_components/view_shadow_dom.html")
-        .unwrap_or_else(|_| include_str!("../../../../../shared_components/view_shadow_dom.html").to_owned())
+    std::fs::read_to_string("shared_components/view_shadow_dom.html").unwrap_or_else(|_| {
+        include_str!("../../../../../shared_components/view_shadow_dom.html").to_owned()
+    })
 });
 
 /// Shadow DOM Renderer
@@ -69,9 +70,18 @@ impl ShadowDomRenderer {
             id: report.id,
             html_content: sanitize_html_content(&report.html_content).into_owned(),
             css_content: report.css_content.as_deref().map(sanitize_css_content),
-            js_content: report.js_content.as_deref().map(|js| sanitize_js_content(js).into_owned()),
-            html_content_en: report.html_content_en.as_deref().map(|h| sanitize_html_content(h).into_owned()),
-            js_content_en: report.js_content_en.as_deref().map(|js| sanitize_js_content(js).into_owned()),
+            js_content: report
+                .js_content
+                .as_deref()
+                .map(|js| sanitize_js_content(js).into_owned()),
+            html_content_en: report
+                .html_content_en
+                .as_deref()
+                .map(|h| sanitize_html_content(h).into_owned()),
+            js_content_en: report
+                .js_content_en
+                .as_deref()
+                .map(|js| sanitize_js_content(js).into_owned()),
             created_at: report.created_at,
             sandbox_token,
             chart_modules_content: chart_modules_content.map(ToOwned::to_owned),
@@ -97,7 +107,10 @@ impl ShadowDomRenderer {
 
         // Zero-allocation content resolution via as_deref()
         let html_vi = &sandboxed_report.html_content;
-        let html_en = sandboxed_report.html_content_en.as_deref().unwrap_or(html_vi);
+        let html_en = sandboxed_report
+            .html_content_en
+            .as_deref()
+            .unwrap_or(html_vi);
         let js_vi = sandboxed_report.js_content.as_deref().unwrap_or_default();
         let js_en = sandboxed_report.js_content_en.as_deref().unwrap_or(js_vi);
         let css = sandboxed_report.css_content.as_deref().unwrap_or_default();
@@ -110,7 +123,11 @@ impl ShadowDomRenderer {
             .unwrap_or_default();
 
         // Language-based active class assignment
-        let (vi_active, en_active) = if lang == "en" { ("", "active") } else { ("active", "") };
+        let (vi_active, en_active) = if lang == "en" {
+            ("", "active")
+        } else {
+            ("active", "")
+        };
 
         // Template substitution using pre-loaded template
         VIEW_SHADOW_DOM_TEMPLATE
@@ -149,12 +166,16 @@ impl ShadowDomRenderer {
 
         // Verify token with constant-time comparison
         if !verify_sandbox_token(shadow_dom_token, report.id, &report.created_at) {
-            warn!(report_id = report.id, "ShadowDomRenderer: Invalid shadow DOM token");
+            warn!(
+                report_id = report.id,
+                "ShadowDomRenderer: Invalid shadow DOM token"
+            );
             return Ok(build_forbidden_response("Invalid shadow DOM token"));
         }
 
         let sandboxed_report = self.create_sandboxed_report(report, chart_modules_content);
-        let shadow_dom_html = self.generate_shadow_dom_content(&sandboxed_report, language, chart_modules_content);
+        let shadow_dom_html =
+            self.generate_shadow_dom_content(&sandboxed_report, language, chart_modules_content);
 
         info!(
             report_id = report.id,

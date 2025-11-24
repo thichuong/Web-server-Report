@@ -1,7 +1,7 @@
 //! Health check response DTOs
 
-use serde::Serialize;
 use crate::dto::common::HealthStatus;
+use serde::Serialize;
 
 /// Response for GET /health endpoint
 #[derive(Debug, Serialize)]

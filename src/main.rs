@@ -1,10 +1,10 @@
 #![warn(clippy::pedantic)]
 use dotenvy::dotenv;
 use std::{env, net::SocketAddr, sync::Arc};
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 use tracing_subscriber::EnvFilter;
 
-use web_server_report::{ServiceIslands, routes::create_service_islands_router};
+use web_server_report::{routes::create_service_islands_router, ServiceIslands};
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -14,8 +14,7 @@ async fn main() -> Result<(), anyhow::Error> {
     // Use RUST_LOG environment variable (defaults to "info" if not set)
     tracing_subscriber::fmt()
         .with_env_filter(
-            EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new("info"))
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
         )
         .init();
 
@@ -48,12 +47,13 @@ async fn main() -> Result<(), anyhow::Error> {
             8000
         });
 
-    let addr: SocketAddr = format!("{host}:{port}")
-        .parse()
-        .unwrap_or_else(|e| {
-            warn!("⚠️ Invalid HOST/PORT combination, using 0.0.0.0:8000: {}", e);
-            "0.0.0.0:8000".parse().unwrap()  // This is guaranteed valid
-        });
+    let addr: SocketAddr = format!("{host}:{port}").parse().unwrap_or_else(|e| {
+        warn!(
+            "⚠️ Invalid HOST/PORT combination, using 0.0.0.0:8000: {}",
+            e
+        );
+        "0.0.0.0:8000".parse().unwrap() // This is guaranteed valid
+    });
     info!("🌐 Server listening on http://{}", addr);
 
     // Setup graceful shutdown signal handler

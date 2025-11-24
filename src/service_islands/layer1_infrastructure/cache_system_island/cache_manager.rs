@@ -5,4 +5,4 @@
 
 // Re-export from the library
 #[allow(unused_imports)]
-pub use multi_tier_cache::{CacheManager, CacheStrategy, CacheManagerStats};
+pub use multi_tier_cache::{CacheManager, CacheManagerStats, CacheStrategy};

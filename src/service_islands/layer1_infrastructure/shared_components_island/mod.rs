@@ -7,22 +7,22 @@
 //! - Configuration management
 //! - Chart modules pre-loading and caching
 
-use std::sync::Arc;
 use anyhow::Result;
-use tracing::{info, warn, debug};
+use std::sync::Arc;
+use tracing::{debug, info, warn};
 
-pub mod template_registry;
-pub mod model_registry;
-pub mod utility_functions;
 pub mod chart_modules_service;
+pub mod model_registry;
+pub mod template_registry;
+pub mod utility_functions;
 
-use template_registry::TemplateRegistry;
-use model_registry::ModelRegistry;
-use utility_functions::UtilityFunctions;
 use chart_modules_service::ChartModulesService;
+use model_registry::ModelRegistry;
+use template_registry::TemplateRegistry;
+use utility_functions::UtilityFunctions;
 
 /// Shared Components Island
-/// 
+///
 /// This service island manages all shared components and utilities that are used
 /// across the entire application. It serves as the foundation layer for all other islands.
 pub struct SharedComponentsIsland {
@@ -38,10 +38,9 @@ pub struct SharedComponentsIsland {
     pub chart_modules_content: Arc<String>,
 }
 
-
 impl SharedComponentsIsland {
     /// Initialize the Shared Components Island
-    /// 
+    ///
     /// This method sets up all the core shared components including:
     /// - Template engine initialization
     /// - Model registry setup
@@ -69,7 +68,7 @@ impl SharedComponentsIsland {
         info!("  ✅ Chart Modules Service initialized");
 
         info!("🧩 Shared Components Island initialization complete!");
-        
+
         Ok(Self {
             template_registry,
             model_registry,
@@ -78,9 +77,9 @@ impl SharedComponentsIsland {
             chart_modules_content,
         })
     }
-    
+
     /// Perform health check on the Shared Components Island
-    /// 
+    ///
     /// Returns true if all components are healthy and operational
     pub async fn health_check(&self) -> bool {
         debug!("🔍 Checking Shared Components Island health...");
@@ -90,16 +89,25 @@ impl SharedComponentsIsland {
         let utility_healthy = self.utility_functions.health_check().await;
         let chart_modules_healthy = self.chart_modules_service.health_check().await;
 
-        let all_healthy = template_healthy && model_healthy && utility_healthy && chart_modules_healthy;
+        let all_healthy =
+            template_healthy && model_healthy && utility_healthy && chart_modules_healthy;
 
         if all_healthy {
             debug!("✅ Shared Components Island is healthy!");
         } else {
             warn!("❌ Shared Components Island health issues detected:");
-            if !template_healthy { warn!("  ❌ Template Registry unhealthy"); }
-            if !model_healthy { warn!("  ❌ Model Registry unhealthy"); }
-            if !utility_healthy { warn!("  ❌ Utility Functions unhealthy"); }
-            if !chart_modules_healthy { warn!("  ❌ Chart Modules Service unhealthy"); }
+            if !template_healthy {
+                warn!("  ❌ Template Registry unhealthy");
+            }
+            if !model_healthy {
+                warn!("  ❌ Model Registry unhealthy");
+            }
+            if !utility_healthy {
+                warn!("  ❌ Utility Functions unhealthy");
+            }
+            if !chart_modules_healthy {
+                warn!("  ❌ Chart Modules Service unhealthy");
+            }
         }
 
         all_healthy

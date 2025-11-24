@@ -3,9 +3,9 @@
 //! Manages all data model definitions and provides model utilities.
 //! Central registry for data structures used across the application.
 
-use std::collections::HashMap;
 use anyhow::Result;
 use serde_json;
+use std::collections::HashMap;
 use tracing::{debug, error};
 
 /// Model Registry manages all data model definitions
@@ -23,15 +23,13 @@ impl ModelRegistry {
 
         debug!("  📊 Registered {} data models", models.len());
 
-        Ok(Self {
-            models,
-        })
+        Ok(Self { models })
     }
-    
+
     /// Initialize all model definitions
     async fn initialize_models() -> Result<HashMap<String, serde_json::Value>> {
         let mut models = HashMap::new();
-        
+
         // Register core models
         models.insert("Report".to_string(), serde_json::json!({
             "type": "object",
@@ -47,10 +45,10 @@ impl ModelRegistry {
             },
             "required": ["id", "title", "content", "report_type", "status"]
         }));
-        
+
         Ok(models)
     }
-    
+
     /// Health check for model registry
     pub async fn health_check(&self) -> bool {
         // Verify that core models are available

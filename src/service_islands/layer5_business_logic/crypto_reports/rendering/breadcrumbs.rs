@@ -7,8 +7,8 @@
 //!
 //! Part of Layer 5 Business Logic - Rendering strategies
 
-use serde::{Serialize, Deserialize};
 use crate::service_islands::layer3_communication::data_communication::ReportSummaryData;
+use serde::{Deserialize, Serialize};
 
 /// Base URL for the website (used in JSON-LD schema)
 const BASE_URL: &str = "https://cryptodashboard.io";

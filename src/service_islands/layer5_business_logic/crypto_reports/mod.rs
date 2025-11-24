@@ -9,11 +9,11 @@
 
 use tracing::info;
 
-pub mod handlers;
-pub mod report_creator;
 pub mod data_manager;
-pub mod template_orchestrator;
+pub mod handlers;
 pub mod rendering; // Rendering strategies (iframe and Shadow DOM)
+pub mod report_creator;
+pub mod template_orchestrator;
 #[cfg(test)]
 pub mod tests;
 
@@ -44,7 +44,8 @@ impl CryptoReportsIsland {
         let report_creator = report_creator::ReportCreator::new();
         let handlers = handlers::CryptoHandlers::new();
         let data_manager = data_manager::DataManager::new();
-        let template_orchestrator = template_orchestrator::TemplateOrchestrator::new(report_creator.clone());
+        let template_orchestrator =
+            template_orchestrator::TemplateOrchestrator::new(report_creator.clone());
 
         info!("✅ Crypto Reports Island initialized!");
 

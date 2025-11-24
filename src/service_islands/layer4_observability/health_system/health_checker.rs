@@ -1,11 +1,11 @@
 //! Health Checker Component
-//! 
+//!
 //! This component handles comprehensive system health monitoring and reporting.
 //! Originally located in src/handlers/health.rs, these functions have been moved to the
 //! Health System Island as part of the Service Islands Architecture.
 
 /// Health Checker
-/// 
+///
 /// Manages comprehensive health monitoring for the entire system.
 /// This component provides detailed health status including cache performance,
 /// request metrics, and system resource utilization.
@@ -26,7 +26,7 @@ impl HealthChecker {
             // Initialize component
         }
     }
-    
+
     /// Health check for health checker
     pub async fn health_check(&self) -> bool {
         // Verify health checker is working

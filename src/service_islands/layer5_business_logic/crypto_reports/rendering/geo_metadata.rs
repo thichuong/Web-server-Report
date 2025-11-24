@@ -90,14 +90,12 @@ impl GeoMetadata {
         let description_vi = format!(
             "Báo cáo phân tích thị trường tiền mã hóa #{} với dữ liệu Bitcoin, Ethereum, \
             chỉ số kỹ thuật RSI/MACD và chỉ số Fear & Greed. Cập nhật {}.",
-            report_id,
-            date_display_vi
+            report_id, date_display_vi
         );
         let description_en = format!(
             "Crypto market analysis report #{} featuring Bitcoin, Ethereum data, \
             RSI/MACD technical indicators, and Fear & Greed Index. Updated {}.",
-            report_id,
-            date_display_en
+            report_id, date_display_en
         );
         let description = description_vi.clone();
 
@@ -253,9 +251,18 @@ pub fn generate_json_ld(metadata: &GeoMetadata, language: Option<&str>) -> Strin
         },
         in_language: if lang == "en" { "en-US" } else { "vi-VN" }.to_string(),
         about: vec![
-            JsonLdThing { type_field: "Thing", name: "Bitcoin".to_string() },
-            JsonLdThing { type_field: "Thing", name: "Cryptocurrency".to_string() },
-            JsonLdThing { type_field: "Thing", name: "Market Analysis".to_string() },
+            JsonLdThing {
+                type_field: "Thing",
+                name: "Bitcoin".to_string(),
+            },
+            JsonLdThing {
+                type_field: "Thing",
+                name: "Cryptocurrency".to_string(),
+            },
+            JsonLdThing {
+                type_field: "Thing",
+                name: "Market Analysis".to_string(),
+            },
         ],
     };
 
@@ -284,7 +291,7 @@ pub fn generate_json_ld(metadata: &GeoMetadata, language: Option<&str>) -> Strin
 /// Tuple of (meta_tags_html, json_ld_html, dynamic_title)
 pub fn generate_complete_geo_metadata(
     report: &Report,
-    language: Option<&str>
+    language: Option<&str>,
 ) -> (String, String, String) {
     let metadata = GeoMetadata::from_report(report);
     let lang = language.unwrap_or("vi");
@@ -449,7 +456,10 @@ mod tests {
 
     #[test]
     fn test_escape_html_attr() {
-        assert_eq!(escape_html_attr("Test & \"quote\""), "Test &amp; &quot;quote&quot;");
+        assert_eq!(
+            escape_html_attr("Test & \"quote\""),
+            "Test &amp; &quot;quote&quot;"
+        );
         assert_eq!(escape_html_attr("<script>"), "&lt;script&gt;");
     }
 }

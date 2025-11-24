@@ -3,11 +3,11 @@
 //! This module provides functionality to read market data from Redis Streams.
 //! Replaces direct Layer 2 API calls with stream consumption for the main service.
 
+use crate::service_islands::layer1_infrastructure::cache_system_island::CacheSystemIsland;
 use anyhow::Result;
 use serde_json::Value;
 use std::sync::Arc;
 use tracing::info;
-use crate::service_islands::layer1_infrastructure::cache_system_island::CacheSystemIsland;
 
 /// Redis Stream Reader
 ///
@@ -72,7 +72,8 @@ impl RedisStreamReader {
     /// Reads the latest entry from the market_data_stream.
     async fn read_from_stream(&self) -> Result<Option<Value>> {
         // Use cache_manager's stream reading functionality
-        let entries = self.cache_system
+        let entries = self
+            .cache_system
             .cache_manager()
             .read_stream_latest(&self.stream_key, 1)
             .await?;
@@ -117,9 +118,10 @@ impl RedisStreamReader {
             } else if value == "false" {
                 Value::Bool(false)
             } else if let Ok(num) = value.parse::<f64>() {
-                Value::Number(serde_json::Number::from_f64(num).unwrap_or_else(|| {
-                    serde_json::Number::from(0)
-                }))
+                Value::Number(
+                    serde_json::Number::from_f64(num)
+                        .unwrap_or_else(|| serde_json::Number::from(0)),
+                )
             } else if let Ok(int) = value.parse::<i64>() {
                 Value::Number(serde_json::Number::from(int))
             } else if value.starts_with('{') || value.starts_with('[') {

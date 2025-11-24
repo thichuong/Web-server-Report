@@ -3,14 +3,17 @@
 //! Centralized application state management with Service Islands Architecture integration.
 //! Provides database connections, template engine (Tera), and core application counters.
 
-use std::sync::{Arc, atomic::{AtomicU64, AtomicI32}};
-use tera::Tera;
-use sqlx::PgPool;
 use anyhow::Result;
-use tracing::{info, warn, debug};
+use sqlx::PgPool;
+use std::sync::{
+    atomic::{AtomicI32, AtomicU64},
+    Arc,
+};
+use tera::Tera;
+use tracing::{debug, info, warn};
 
 /// App State Island - Centralized Application State
-/// 
+///
 /// This island manages core application state including:
 /// - Database connection pool (PostgreSQL)
 /// - Template engine (Tera) for rendering HTML templates
@@ -28,7 +31,7 @@ pub struct AppStateIsland {
 }
 
 /// Legacy AppState struct for backward compatibility
-/// 
+///
 /// This struct maintains compatibility with existing code while
 /// providing integration with Service Islands Architecture.
 pub struct AppState {
@@ -66,7 +69,7 @@ impl AppStateIsland {
             cached_latest_id: AtomicI32::new(0),
         })
     }
-    
+
     /// Initialize Tera template engine with all required templates
     async fn initialize_template_engine() -> Result<Tera> {
         debug!("📝 Initializing Tera template engine...");
@@ -80,29 +83,47 @@ impl AppStateIsland {
         };
 
         // Register crypto dashboard templates with logical names used across codebase
-        if let Err(e) = tera.add_template_file("dashboards/crypto_dashboard/routes/reports/view.html", Some("crypto/routes/reports/view.html")) {
+        if let Err(e) = tera.add_template_file(
+            "dashboards/crypto_dashboard/routes/reports/view.html",
+            Some("crypto/routes/reports/view.html"),
+        ) {
             warn!("Failed to load crypto reports view template: {}", e);
         }
 
         // ✨ Register DSD template
-        if let Err(e) = tera.add_template_file("dashboards/crypto_dashboard/routes/reports/view_dsd.html", Some("crypto/routes/reports/view_dsd.html")) {
+        if let Err(e) = tera.add_template_file(
+            "dashboards/crypto_dashboard/routes/reports/view_dsd.html",
+            Some("crypto/routes/reports/view_dsd.html"),
+        ) {
             warn!("Failed to load crypto reports DSD view template: {}", e);
         }
 
-        if let Err(e) = tera.add_template_file("dashboards/crypto_dashboard/routes/reports/list.html", Some("crypto/routes/reports/list.html")) {
+        if let Err(e) = tera.add_template_file(
+            "dashboards/crypto_dashboard/routes/reports/list.html",
+            Some("crypto/routes/reports/list.html"),
+        ) {
             warn!("Failed to load crypto reports list template: {}", e);
         }
 
         // Register shared components for backward compatibility
-        if let Err(e) = tera.add_template_file("shared_components/theme_toggle.html", Some("crypto/components/theme_toggle.html")) {
+        if let Err(e) = tera.add_template_file(
+            "shared_components/theme_toggle.html",
+            Some("crypto/components/theme_toggle.html"),
+        ) {
             warn!("Failed to load crypto theme toggle template: {}", e);
         }
-        if let Err(e) = tera.add_template_file("shared_components/language_toggle.html", Some("crypto/components/language_toggle.html")) {
+        if let Err(e) = tera.add_template_file(
+            "shared_components/language_toggle.html",
+            Some("crypto/components/language_toggle.html"),
+        ) {
             warn!("Failed to load crypto language toggle template: {}", e);
         }
 
         // Register market indicators component for homepage
-        if let Err(e) = tera.add_template_file("shared_components/market-indicators/market-indicators.html", Some("shared/components/market-indicators.html")) {
+        if let Err(e) = tera.add_template_file(
+            "shared_components/market-indicators/market-indicators.html",
+            Some("shared/components/market-indicators.html"),
+        ) {
             warn!("Failed to load market indicators component: {}", e);
         }
 
@@ -116,7 +137,7 @@ impl AppStateIsland {
         info!("✅ Tera template engine initialized with all templates");
         Ok(tera)
     }
-    
+
     /// Health check for the App State Island
     pub async fn health_check(&self) -> bool {
         // Check database connection
@@ -129,36 +150,51 @@ impl AppStateIsland {
         };
 
         // Check template engine
-        let tera_healthy = !self.tera.get_template_names().collect::<Vec<_>>().is_empty();
+        let tera_healthy = !self
+            .tera
+            .get_template_names()
+            .collect::<Vec<_>>()
+            .is_empty();
 
         if db_healthy && tera_healthy {
             debug!("  ✅ App State Island health check passed");
             true
         } else {
-            warn!("  ⚠️ App State Island health check failed - DB: {}, Templates: {}", db_healthy, tera_healthy);
+            warn!(
+                "  ⚠️ App State Island health check failed - DB: {}, Templates: {}",
+                db_healthy, tera_healthy
+            );
             false
         }
     }
-    
+
     /// Create legacy AppState for backward compatibility
-    /// 
+    ///
     /// This method creates an AppState instance that can be injected with
     /// a CacheSystemIsland reference during ServiceIslands initialization.
-    pub fn create_legacy_app_state(&self, cache_system: Option<Arc<crate::service_islands::layer1_infrastructure::CacheSystemIsland>>) -> AppState {
+    pub fn create_legacy_app_state(
+        &self,
+        cache_system: Option<Arc<crate::service_islands::layer1_infrastructure::CacheSystemIsland>>,
+    ) -> AppState {
         AppState {
             db: self.db.clone(),
             cache_system,
-            request_counter: AtomicU64::new(self.request_counter.load(std::sync::atomic::Ordering::Relaxed)),
-            cached_latest_id: AtomicI32::new(self.cached_latest_id.load(std::sync::atomic::Ordering::Relaxed)),
+            request_counter: AtomicU64::new(
+                self.request_counter
+                    .load(std::sync::atomic::Ordering::Relaxed),
+            ),
+            cached_latest_id: AtomicI32::new(
+                self.cached_latest_id
+                    .load(std::sync::atomic::Ordering::Relaxed),
+            ),
             tera: self.tera.clone(),
         }
     }
-    
 }
 
 impl AppState {
     /// Create a new AppState instance with Service Islands Integration
-    /// 
+    ///
     /// **DEPRECATED**: Use `AppStateIsland::new()` and `ServiceIslands::initialize()` instead.
     /// This method is kept for backward compatibility only.
     #[allow(dead_code)]
@@ -171,17 +207,18 @@ impl AppState {
         let db = PgPool::connect(&database_url).await?;
 
         // Initialize Cache System Island with Redis Streams
-        let cache_system = match crate::service_islands::layer1_infrastructure::CacheSystemIsland::new().await {
-            Ok(cache) => {
-                info!("✅ Cache System Island with Redis Streams initialized successfully");
-                Some(Arc::new(cache))
-            },
-            Err(e) => {
-                warn!("⚠️ Cache System Island initialization failed: {}", e);
-                warn!("   Continuing with minimal compatibility mode...");
-                None
-            }
-        };
+        let cache_system =
+            match crate::service_islands::layer1_infrastructure::CacheSystemIsland::new().await {
+                Ok(cache) => {
+                    info!("✅ Cache System Island with Redis Streams initialized successfully");
+                    Some(Arc::new(cache))
+                }
+                Err(e) => {
+                    warn!("⚠️ Cache System Island initialization failed: {}", e);
+                    warn!("   Continuing with minimal compatibility mode...");
+                    None
+                }
+            };
 
         // Initialize Tera template engine using the same logic as AppStateIsland
         let tera = AppStateIsland::initialize_template_engine().await?;

@@ -7,19 +7,19 @@
 //! and are optimized for daily content discovery by bots and crawlers.
 
 use axum::{
+    body::Body,
     extract::State,
+    http::{header, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
     Router,
-    http::{header, StatusCode},
-    body::Body,
 };
 use std::sync::Arc;
 use tracing::{error, info};
 
-use crate::service_islands::ServiceIslands;
 use crate::service_islands::layer3_communication::data_communication::crypto_data_service::CryptoDataService;
 use crate::service_islands::layer5_business_logic::shared::RssCreator;
+use crate::service_islands::ServiceIslands;
 
 /// Default number of reports to include in RSS feed
 const RSS_FEED_LIMIT: i64 = 20;
@@ -44,9 +44,7 @@ pub fn configure_rss_routes() -> Router<Arc<ServiceIslands>> {
 /// - RFC 822 date formatting for pubDate
 /// - HTML content extraction for descriptions
 /// - Atom namespace for self-referencing link
-async fn rss_feed(
-    State(service_islands): State<Arc<ServiceIslands>>,
-) -> impl IntoResponse {
+async fn rss_feed(State(service_islands): State<Arc<ServiceIslands>>) -> impl IntoResponse {
     info!("📡 Generating RSS feed");
 
     // Get legacy app state for database access
@@ -54,7 +52,9 @@ async fn rss_feed(
 
     // Layer 3: Fetch report data from database
     let data_service = CryptoDataService::new();
-    let reports_result = data_service.fetch_rss_reports(&app_state, RSS_FEED_LIMIT).await;
+    let reports_result = data_service
+        .fetch_rss_reports(&app_state, RSS_FEED_LIMIT)
+        .await;
 
     match reports_result {
         Ok(reports) => {

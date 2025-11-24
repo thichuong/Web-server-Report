@@ -1,7 +1,7 @@
 //! Cache-related response DTOs
 
-use serde::Serialize;
 use crate::dto::common::CacheOperationStatus;
+use serde::Serialize;
 
 /// Response for GET /admin/cache/clear endpoint
 #[derive(Debug, Serialize)]

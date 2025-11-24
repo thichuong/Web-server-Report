@@ -11,8 +11,8 @@
 //! - XML entity escaping
 //! - Atom namespace for self-referencing link
 
+use chrono::{DateTime, FixedOffset, Utc};
 use std::fmt::Write;
-use chrono::{DateTime, Utc, FixedOffset};
 use tracing::info;
 
 use super::error::{Layer5Error, Layer5Result};
@@ -68,8 +68,11 @@ impl RssCreator {
             .map_err(|e| Layer5Error::Internal(format!("Failed to write XML header: {}", e)))?;
 
         // RSS 2.0 opening tag with Atom namespace for self-referencing link
-        writeln!(xml, r#"<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">"#)
-            .map_err(|e| Layer5Error::Internal(format!("Failed to write rss tag: {}", e)))?;
+        writeln!(
+            xml,
+            r#"<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">"#
+        )
+        .map_err(|e| Layer5Error::Internal(format!("Failed to write rss tag: {}", e)))?;
 
         // Channel opening
         writeln!(xml, "  <channel>")
@@ -105,29 +108,48 @@ impl RssCreator {
         now: &DateTime<Utc>,
     ) -> Layer5Result<()> {
         // Required elements
-        writeln!(xml, "    <title>{}</title>", Self::escape_xml(metadata.title))
-            .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+        writeln!(
+            xml,
+            "    <title>{}</title>",
+            Self::escape_xml(metadata.title)
+        )
+        .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
 
         writeln!(xml, "    <link>{}</link>", metadata.link)
             .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
 
-        writeln!(xml, "    <description>{}</description>", Self::escape_xml(metadata.description))
-            .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+        writeln!(
+            xml,
+            "    <description>{}</description>",
+            Self::escape_xml(metadata.description)
+        )
+        .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
 
         // Optional but recommended elements
         writeln!(xml, "    <language>{}</language>", metadata.language)
             .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
 
-        writeln!(xml, "    <lastBuildDate>{}</lastBuildDate>", Self::format_rfc822_date(now))
-            .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+        writeln!(
+            xml,
+            "    <lastBuildDate>{}</lastBuildDate>",
+            Self::format_rfc822_date(now)
+        )
+        .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
 
         // Atom self-referencing link (recommended for feed readers)
-        writeln!(xml, r#"    <atom:link href="{}/rss.xml" rel="self" type="application/rss+xml"/>"#, BASE_URL)
-            .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+        writeln!(
+            xml,
+            r#"    <atom:link href="{}/rss.xml" rel="self" type="application/rss+xml"/>"#,
+            BASE_URL
+        )
+        .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
 
         // Generator
-        writeln!(xml, "    <generator>CryptoDashboard Rust Web Server</generator>")
-            .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+        writeln!(
+            xml,
+            "    <generator>CryptoDashboard Rust Web Server</generator>"
+        )
+        .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
 
         // TTL (time to live in minutes) - 60 minutes
         writeln!(xml, "    <ttl>60</ttl>")
@@ -160,13 +182,21 @@ impl RssCreator {
             .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
 
         // Publication date in RFC 822 format
-        writeln!(xml, "      <pubDate>{}</pubDate>", Self::format_rfc822_date(&report.created_at))
-            .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+        writeln!(
+            xml,
+            "      <pubDate>{}</pubDate>",
+            Self::format_rfc822_date(&report.created_at)
+        )
+        .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
 
         // Description - extract from HTML content
         let description = Self::extract_description(&report.html_content, MAX_DESCRIPTION_LENGTH);
-        writeln!(xml, "      <description>{}</description>", Self::escape_xml(&description))
-            .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+        writeln!(
+            xml,
+            "      <description>{}</description>",
+            Self::escape_xml(&description)
+        )
+        .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
 
         writeln!(xml, "    </item>")
             .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;

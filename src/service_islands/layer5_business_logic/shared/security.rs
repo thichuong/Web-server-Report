@@ -20,7 +20,10 @@ use std::fmt::Write;
 /// - ~1GB/s on modern CPUs
 /// - Minimal overhead compared to DefaultHasher
 #[inline]
-pub fn generate_sandbox_token(report_id: i32, created_at: &chrono::DateTime<chrono::Utc>) -> String {
+pub fn generate_sandbox_token(
+    report_id: i32,
+    created_at: &chrono::DateTime<chrono::Utc>,
+) -> String {
     // Create input data by combining report_id and timestamp
     let timestamp_nanos = created_at.timestamp_nanos_opt().unwrap_or(0);
     let input = format!("{}:{}", report_id, timestamp_nanos);

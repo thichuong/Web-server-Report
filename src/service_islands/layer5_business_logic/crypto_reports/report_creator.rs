@@ -6,10 +6,10 @@
 //! Rendering is handled by the `rendering` module:
 //! - ShadowDomRenderer: Modern Declarative Shadow DOM rendering
 
-use std::sync::Arc;
-use tracing::{info, debug, error};
-use axum::response::Response;
 use axum::http::StatusCode;
+use axum::response::Response;
+use std::sync::Arc;
+use tracing::{debug, error, info};
 
 // Import from current state - will be refactored when lower layers are implemented
 use crate::service_islands::layer1_infrastructure::AppState;
@@ -19,11 +19,7 @@ use crate::service_islands::layer3_communication::data_communication::CryptoData
 use crate::service_islands::layer1_infrastructure::ChartModulesIsland;
 
 // Import shared utilities
-use super::super::shared::{
-    build_not_found_response,
-    build_error_response,
-    Layer5Result,
-};
+use super::super::shared::{build_error_response, build_not_found_response, Layer5Result};
 
 // Import rendering modules
 use super::rendering::ShadowDomRenderer;
@@ -77,8 +73,13 @@ impl ReportCreator {
             let report: Report = data.into();
 
             // Update latest id cache (business logic concern)
-            state.cached_latest_id.store(report.id, std::sync::atomic::Ordering::Relaxed);
-            debug!("ReportCreator: Cached latest crypto report {} from data service", report.id);
+            state
+                .cached_latest_id
+                .store(report.id, std::sync::atomic::Ordering::Relaxed);
+            debug!(
+                "ReportCreator: Cached latest crypto report {} from data service",
+                report.id
+            );
 
             Ok(Some(report))
         } else {
@@ -96,20 +97,32 @@ impl ReportCreator {
         state: &Arc<AppState>,
         report_id: i32,
     ) -> Result<Option<Report>, sqlx::Error> {
-        debug!("ReportCreator: Fetching crypto report {} via data service", report_id);
+        debug!(
+            "ReportCreator: Fetching crypto report {} via data service",
+            report_id
+        );
 
         // Use Layer 3 data service instead of direct database access
-        let report_data = self.data_service.fetch_report_by_id(state, report_id).await?;
+        let report_data = self
+            .data_service
+            .fetch_report_by_id(state, report_id)
+            .await?;
 
         if let Some(data) = report_data {
             // Use From trait for automatic conversion - zero boilerplate!
             let report: Report = data.into();
 
-            debug!("ReportCreator: Successfully processed crypto report {} from data service", report.id);
+            debug!(
+                "ReportCreator: Successfully processed crypto report {} from data service",
+                report.id
+            );
 
             Ok(Some(report))
         } else {
-            info!("ReportCreator: Crypto report {} not found via data service", report_id);
+            info!(
+                "ReportCreator: Crypto report {} not found via data service",
+                report_id
+            );
             Ok(None)
         }
     }
@@ -122,7 +135,9 @@ impl ReportCreator {
         debug!("ReportCreator: Requesting chart modules from Layer 1 Infrastructure");
 
         // Delegate to Layer 1 infrastructure service
-        self.chart_modules_island.get_cached_chart_modules_content().await
+        self.chart_modules_island
+            .get_cached_chart_modules_content()
+            .await
     }
 
     /// Get available chart modules
@@ -140,18 +155,36 @@ impl ReportCreator {
     /// Create sandboxed report (delegates to shadow DOM renderer)
     ///
     /// Creates a secure sandboxed version of the report for Shadow DOM delivery.
-    pub fn create_sandboxed_report(&self, report: &Report, chart_modules_content: Option<&str>) -> SandboxedReport {
-        self.shadow_dom_renderer.create_sandboxed_report(report, chart_modules_content)
+    pub fn create_sandboxed_report(
+        &self,
+        report: &Report,
+        chart_modules_content: Option<&str>,
+    ) -> SandboxedReport {
+        self.shadow_dom_renderer
+            .create_sandboxed_report(report, chart_modules_content)
     }
 
     /// Generate Shadow DOM content (delegates to shadow DOM renderer)
-    pub fn generate_shadow_dom_content(&self, sandboxed_report: &SandboxedReport, language: Option<&str>, chart_modules_content: Option<&str>) -> String {
-        self.shadow_dom_renderer.generate_shadow_dom_content(sandboxed_report, language, chart_modules_content)
+    pub fn generate_shadow_dom_content(
+        &self,
+        sandboxed_report: &SandboxedReport,
+        language: Option<&str>,
+        chart_modules_content: Option<&str>,
+    ) -> String {
+        self.shadow_dom_renderer.generate_shadow_dom_content(
+            sandboxed_report,
+            language,
+            chart_modules_content,
+        )
     }
 
     /// Helper to fetch report by ID (handles -1 for latest)
     #[inline]
-    async fn fetch_report(&self, state: &Arc<AppState>, report_id: i32) -> Result<Option<Report>, sqlx::Error> {
+    async fn fetch_report(
+        &self,
+        state: &Arc<AppState>,
+        report_id: i32,
+    ) -> Result<Option<Report>, sqlx::Error> {
         if report_id == -1 {
             self.fetch_and_cache_latest_report(state).await
         } else {
@@ -169,18 +202,27 @@ impl ReportCreator {
         report_id: i32,
         sandbox_token: &str,
         language: Option<&str>,
-        chart_modules_content: Option<&str>
+        chart_modules_content: Option<&str>,
     ) -> Layer5Result<Response> {
         match self.fetch_report(state, report_id).await {
             Ok(Some(report)) => {
-                self.shadow_dom_renderer.serve_shadow_dom_content(state, &report, sandbox_token, language, chart_modules_content).await
+                self.shadow_dom_renderer
+                    .serve_shadow_dom_content(
+                        state,
+                        &report,
+                        sandbox_token,
+                        language,
+                        chart_modules_content,
+                    )
+                    .await
             }
-            Ok(None) => {
-                Ok(build_not_found_response("Report not found"))
-            }
+            Ok(None) => Ok(build_not_found_response("Report not found")),
             Err(e) => {
                 error!("ReportCreator: Database error: {}", e);
-                Ok(build_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Database error"))
+                Ok(build_error_response(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Database error",
+                ))
             }
         }
     }
@@ -194,18 +236,27 @@ impl ReportCreator {
         report_id: i32,
         shadow_dom_token: &str,
         language: Option<&str>,
-        chart_modules_content: Option<&str>
+        chart_modules_content: Option<&str>,
     ) -> Layer5Result<Response> {
         match self.fetch_report(state, report_id).await {
             Ok(Some(report)) => {
-                self.shadow_dom_renderer.serve_shadow_dom_content(state, &report, shadow_dom_token, language, chart_modules_content).await
+                self.shadow_dom_renderer
+                    .serve_shadow_dom_content(
+                        state,
+                        &report,
+                        shadow_dom_token,
+                        language,
+                        chart_modules_content,
+                    )
+                    .await
             }
-            Ok(None) => {
-                Ok(build_not_found_response("Report not found"))
-            }
+            Ok(None) => Ok(build_not_found_response("Report not found")),
             Err(e) => {
                 error!("ReportCreator: Database error: {}", e);
-                Ok(build_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Database error"))
+                Ok(build_error_response(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Database error",
+                ))
             }
         }
     }

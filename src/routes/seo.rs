@@ -7,24 +7,23 @@
 //! the Service Islands architecture (Layer 5 -> Layer 3 -> Layer 1).
 
 use axum::{
+    body::Body,
     extract::State,
+    http::{header, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
     Router,
-    http::{header, StatusCode},
-    body::Body,
 };
 use std::sync::Arc;
 use tracing::{error, info};
 
-use crate::service_islands::ServiceIslands;
 use crate::service_islands::layer3_communication::data_communication::crypto_data_service::CryptoDataService;
 use crate::service_islands::layer5_business_logic::shared::SitemapCreator;
+use crate::service_islands::ServiceIslands;
 
 /// Configure SEO routes
 pub fn configure_seo_routes() -> Router<Arc<ServiceIslands>> {
-    Router::new()
-        .route("/sitemap.xml", get(sitemap_xml))
+    Router::new().route("/sitemap.xml", get(sitemap_xml))
 }
 
 /// Generate and serve sitemap.xml
@@ -34,9 +33,7 @@ pub fn configure_seo_routes() -> Router<Arc<ServiceIslands>> {
 /// Response:
 /// - Content-Type: application/xml; charset=utf-8
 /// - Cache-Control: public, max-age=3600 (1 hour)
-async fn sitemap_xml(
-    State(service_islands): State<Arc<ServiceIslands>>,
-) -> impl IntoResponse {
+async fn sitemap_xml(State(service_islands): State<Arc<ServiceIslands>>) -> impl IntoResponse {
     info!("Generating sitemap.xml");
 
     // Get legacy app state for database access
@@ -44,15 +41,15 @@ async fn sitemap_xml(
 
     // Layer 3: Fetch report data from database
     let data_service = CryptoDataService::new();
-    let reports_result = data_service.fetch_all_report_ids_for_sitemap(&app_state).await;
+    let reports_result = data_service
+        .fetch_all_report_ids_for_sitemap(&app_state)
+        .await;
 
     match reports_result {
         Ok(reports) => {
             // Convert to tuple format expected by SitemapCreator
-            let report_data: Vec<(i32, chrono::DateTime<chrono::Utc>)> = reports
-                .into_iter()
-                .map(|r| (r.id, r.created_at))
-                .collect();
+            let report_data: Vec<(i32, chrono::DateTime<chrono::Utc>)> =
+                reports.into_iter().map(|r| (r.id, r.created_at)).collect();
 
             // Layer 5: Generate sitemap XML
             match SitemapCreator::generate_sitemap_xml(report_data) {

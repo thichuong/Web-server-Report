@@ -9,7 +9,6 @@
 //! Note: WebSocket, Layer2 adapters, and external APIs have been moved to
 //! the separate Web-server-Report-websocket service.
 
-pub mod data_communication;
 pub mod dashboard_communication;
+pub mod data_communication;
 pub mod redis_stream_reader;
-

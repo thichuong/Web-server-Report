@@ -6,27 +6,22 @@
 
 use std::{collections::HashMap, sync::Arc};
 use tera::Context;
-use tracing::{info, warn, error, debug};
+use tracing::{debug, error, info, warn};
 
 // Import from our specialized components
 use super::report_creator::{Report, ReportCreator};
 
 // Import shared utilities
-use super::super::shared::{
-    compress_html_to_gzip,
-    get_websocket_url,
-    Layer5Error,
-    Layer5Result,
-};
+use super::super::shared::{compress_html_to_gzip, get_websocket_url, Layer5Error, Layer5Result};
 
 /// Template Context Data
-/// 
+///
 /// Structured container for all template rendering context data
 /// Optimized to use Arc for heavy data to avoid expensive clones
 #[derive(Debug, Clone)]
 pub struct TemplateContext {
-    pub report: Arc<Report>,  // ✅ Use Arc to avoid cloning full Report data
-    pub chart_modules_content: Arc<String>,  // ✅ Use Arc to avoid string clones
+    pub report: Arc<Report>, // ✅ Use Arc to avoid cloning full Report data
+    pub chart_modules_content: Arc<String>, // ✅ Use Arc to avoid string clones
     pub current_route: String,
     pub current_lang: String,
     pub current_time: String,
@@ -35,7 +30,7 @@ pub struct TemplateContext {
 }
 
 /// Template Orchestrator
-/// 
+///
 /// Manages all template rendering operations for crypto reports.
 /// Separates template logic from HTTP handlers following Layer 5 architecture.
 pub struct TemplateOrchestrator {
@@ -46,11 +41,9 @@ pub struct TemplateOrchestrator {
 impl TemplateOrchestrator {
     /// Create a new TemplateOrchestrator
     pub fn new(report_creator: ReportCreator) -> Self {
-        Self {
-            report_creator,
-        }
+        Self { report_creator }
     }
-    
+
     /// Health check for template orchestrator
     pub async fn health_check(&self) -> bool {
         // Verify template orchestrator is functioning properly
@@ -83,9 +76,12 @@ impl TemplateOrchestrator {
         report: Report,
         template_type: &str,
         chart_modules_content: Option<Arc<String>>,
-        additional_context: Option<HashMap<String, serde_json::Value>>
+        additional_context: Option<HashMap<String, serde_json::Value>>,
     ) -> Layer5Result<TemplateContext> {
-        info!("TemplateOrchestrator: Preparing context for template type: {}", template_type);
+        info!(
+            "TemplateOrchestrator: Preparing context for template type: {}",
+            template_type
+        );
 
         // Use provided chart_modules_content or fetch from ReportCreator
         let chart_modules_content = match chart_modules_content {
@@ -100,10 +96,14 @@ impl TemplateOrchestrator {
         };
 
         // Generate sandbox token for iframe security
-        let sandboxed_report = self.report_creator.create_sandboxed_report(&report, Some(&chart_modules_content));
+        let sandboxed_report = self
+            .report_creator
+            .create_sandboxed_report(&report, Some(&chart_modules_content));
 
         // Prepare basic context
-        let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string();
+        let current_time = chrono::Utc::now()
+            .format("%Y-%m-%d %H:%M:%S UTC")
+            .to_string();
         let pdf_url = format!("/crypto_report/{}/pdf", report.id);
 
         let mut context = TemplateContext {
@@ -118,8 +118,14 @@ impl TemplateOrchestrator {
 
         // Add sandbox token and WebSocket URL to additional context
         let mut extra_context = context.additional_context.take().unwrap_or_default();
-        extra_context.insert("sandbox_token".to_string(), serde_json::Value::String(sandboxed_report.sandbox_token));
-        extra_context.insert("websocket_url".to_string(), serde_json::Value::String(get_websocket_url()));
+        extra_context.insert(
+            "sandbox_token".to_string(),
+            serde_json::Value::String(sandboxed_report.sandbox_token),
+        );
+        extra_context.insert(
+            "websocket_url".to_string(),
+            serde_json::Value::String(get_websocket_url()),
+        );
 
         context.additional_context = Some(extra_context);
 
@@ -138,9 +144,12 @@ impl TemplateOrchestrator {
         &self,
         tera: &tera::Tera,
         template_path: &str,
-        context: TemplateContext
+        context: TemplateContext,
     ) -> Layer5Result<String> {
-        info!("TemplateOrchestrator: Rendering template: {}", template_path);
+        info!(
+            "TemplateOrchestrator: Rendering template: {}",
+            template_path
+        );
 
         // Clone for spawn_blocking - lightweight due to Arc usage
         let tera_clone = tera.clone();
@@ -153,7 +162,10 @@ impl TemplateOrchestrator {
 
             // Insert core template data (dereference Arc)
             tera_context.insert("report", context_clone.report.as_ref());
-            tera_context.insert("chart_modules_content", context_clone.chart_modules_content.as_ref());
+            tera_context.insert(
+                "chart_modules_content",
+                context_clone.chart_modules_content.as_ref(),
+            );
             tera_context.insert("current_route", &context_clone.current_route);
             tera_context.insert("current_lang", &context_clone.current_lang);
             tera_context.insert("current_time", &context_clone.current_time);
@@ -168,8 +180,10 @@ impl TemplateOrchestrator {
 
             // Template-specific context adjustments
             if template_str.contains("pdf.html") {
-                let created_display = (context_clone.report.created_at + chrono::Duration::hours(7))
-                    .format("%d-%m-%Y %H:%M").to_string();
+                let created_display = (context_clone.report.created_at
+                    + chrono::Duration::hours(7))
+                .format("%d-%m-%Y %H:%M")
+                .to_string();
                 tera_context.insert("created_at_display", &created_display);
             }
 
@@ -186,7 +200,7 @@ impl TemplateOrchestrator {
     #[inline]
     async fn await_render_task(
         &self,
-        task: tokio::task::JoinHandle<Result<String, tera::Error>>
+        task: tokio::task::JoinHandle<Result<String, tera::Error>>,
     ) -> Layer5Result<String> {
         const RENDER_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
@@ -211,7 +225,9 @@ impl TemplateOrchestrator {
             }
             Err(_) => {
                 error!("TemplateOrchestrator: Template rendering timeout after 30s");
-                Err(Layer5Error::Timeout("Template rendering took longer than 30 seconds".to_string()))
+                Err(Layer5Error::Timeout(
+                    "Template rendering took longer than 30 seconds".to_string(),
+                ))
             }
         }
     }
@@ -228,24 +244,24 @@ impl TemplateOrchestrator {
         tera: &tera::Tera,
         report: Report,
         chart_modules_content: Option<Arc<String>>,
-        additional_context: Option<HashMap<String, serde_json::Value>>
+        additional_context: Option<HashMap<String, serde_json::Value>>,
     ) -> Layer5Result<Vec<u8>> {
         debug!("TemplateOrchestrator: Rendering crypto report view with compression");
 
         // Step 1: Prepare template context (moves report ownership)
-        let context = self.prepare_crypto_report_context(
-            report,
-            "view",
-            chart_modules_content,
-            additional_context
-        ).await?;
+        let context = self
+            .prepare_crypto_report_context(
+                report,
+                "view",
+                chart_modules_content,
+                additional_context,
+            )
+            .await?;
 
         // Step 2: Render template
-        let html = self.render_template(
-            tera,
-            "crypto/routes/reports/view.html",
-            context
-        ).await?;
+        let html = self
+            .render_template(tera, "crypto/routes/reports/view.html", context)
+            .await?;
 
         // Step 3: Compress HTML
         let compressed_data = self.compress_html(&html)?;
@@ -257,10 +273,7 @@ impl TemplateOrchestrator {
     /// Render empty template for no reports case
     ///
     /// Handles the case when no reports are found in database.
-    pub async fn render_empty_template(
-        &self,
-        tera: &tera::Tera
-    ) -> Layer5Result<String> {
+    pub async fn render_empty_template(&self, tera: &tera::Tera) -> Layer5Result<String> {
         warn!("TemplateOrchestrator: Rendering empty template");
 
         // Create empty report for template
@@ -275,22 +288,16 @@ impl TemplateOrchestrator {
         };
 
         // Prepare context
-        let mut context = self.prepare_crypto_report_context(
-            empty_report,
-            "empty",
-            None,
-            None
-        ).await?;
+        let mut context = self
+            .prepare_crypto_report_context(empty_report, "empty", None, None)
+            .await?;
 
         // Override PDF URL for empty case
         context.pdf_url = "#".to_string();
 
         // Render template
-        self.render_template(
-            tera,
-            "crypto/routes/reports/view.html",
-            context
-        ).await
+        self.render_template(tera, "crypto/routes/reports/view.html", context)
+            .await
     }
 
     /// Render 404 not found template
@@ -300,9 +307,12 @@ impl TemplateOrchestrator {
     pub async fn render_not_found_template(
         &self,
         tera: &tera::Tera,
-        report_id: i32
+        report_id: i32,
     ) -> Layer5Result<String> {
-        debug!("TemplateOrchestrator: Rendering 404 template for report ID: {}", report_id);
+        debug!(
+            "TemplateOrchestrator: Rendering 404 template for report ID: {}",
+            report_id
+        );
 
         // Create not found report with error messages
         let not_found_report = Report {
@@ -323,22 +333,16 @@ impl TemplateOrchestrator {
         };
 
         // Prepare context
-        let mut context = self.prepare_crypto_report_context(
-            not_found_report,
-            "404",
-            None,
-            None
-        ).await?;
+        let mut context = self
+            .prepare_crypto_report_context(not_found_report, "404", None, None)
+            .await?;
 
         // Override PDF URL for 404 case
         context.pdf_url = "#".to_string();
 
         // Render template
-        self.render_template(
-            tera,
-            "crypto/routes/reports/view.html",
-            context
-        ).await
+        self.render_template(tera, "crypto/routes/reports/view.html", context)
+            .await
     }
 }
 

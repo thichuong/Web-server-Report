@@ -1,5 +1,5 @@
 //! Dashboard Communication Module
-//! 
+//!
 //! Layer 3 communication services for dashboard functionality.
 //! Provides data services and caching for dashboard operations.
 

@@ -74,10 +74,12 @@ pub fn compress_html_to_gzip(html: &str) -> Layer5Result<(Vec<u8>, CompressionSt
     let estimated_size = original_size / 3;
     let mut encoder = GzEncoder::new(Vec::with_capacity(estimated_size), Compression::default());
 
-    encoder.write_all(html.as_bytes())
+    encoder
+        .write_all(html.as_bytes())
         .map_err(|e| Layer5Error::Compression(format!("Failed to write to encoder: {}", e)))?;
 
-    let compressed_data = encoder.finish()
+    let compressed_data = encoder
+        .finish()
         .map_err(|e| Layer5Error::Compression(format!("Failed to finish compression: {}", e)))?;
 
     let stats = CompressionStats::new(original_size, compressed_data.len());

@@ -3,35 +3,18 @@
 //! This module handles all health checks, system monitoring, and administrative routes.
 //! Routes are handled through the Service Islands Architecture.
 
-use axum::{
-    routing::get,
-    Router,
-    http::StatusCode,
-    response::Json,
-    extract::State
-};
+use axum::{extract::State, http::StatusCode, response::Json, routing::get, Router};
 use std::sync::Arc;
 
-use crate::service_islands::ServiceIslands;
 use crate::dto::{
-    HealthStatus,
-    CacheOperationStatus,
     responses::{
-        HealthCheckResponse,
-        ServiceIslandsInfo,
-        PerformanceMetricsResponse,
-        PerformanceInfo,
-        CacheClearResponse,
-        CacheStatsResponse,
-        CacheStatsAvailable,
-        CacheStatsUnavailable,
-        CacheSystemInfo,
-        CacheStatistics,
-        CacheConfiguration,
-        CacheHealth,
-        CacheStatusOnly,
+        CacheClearResponse, CacheConfiguration, CacheHealth, CacheStatistics, CacheStatsAvailable,
+        CacheStatsResponse, CacheStatsUnavailable, CacheStatusOnly, CacheSystemInfo,
+        HealthCheckResponse, PerformanceInfo, PerformanceMetricsResponse, ServiceIslandsInfo,
     },
+    CacheOperationStatus, HealthStatus,
 };
+use crate::service_islands::ServiceIslands;
 
 /// Configure health and system monitoring routes
 pub fn configure_system_routes() -> Router<Arc<ServiceIslands>> {
@@ -44,12 +27,16 @@ pub fn configure_system_routes() -> Router<Arc<ServiceIslands>> {
 
 /// Health check endpoint - delegates to Service Islands
 async fn health_check(
-    State(service_islands): State<Arc<ServiceIslands>>
+    State(service_islands): State<Arc<ServiceIslands>>,
 ) -> Result<Json<HealthCheckResponse>, StatusCode> {
     let health_status = service_islands.health_check().await;
 
     let response = HealthCheckResponse {
-        status: if health_status { HealthStatus::Healthy } else { HealthStatus::Unhealthy },
+        status: if health_status {
+            HealthStatus::Healthy
+        } else {
+            HealthStatus::Unhealthy
+        },
         service_islands: ServiceIslandsInfo {
             total: 7,
             operational: if health_status { 7 } else { 0 },
@@ -64,7 +51,7 @@ async fn health_check(
 /// Performance metrics endpoint
 /// ✅ PRODUCTION-READY: Queries actual cache statistics from multi-tier-cache library
 async fn performance_metrics(
-    State(service_islands): State<Arc<ServiceIslands>>
+    State(service_islands): State<Arc<ServiceIslands>>,
 ) -> Json<PerformanceMetricsResponse> {
     // Get actual cache statistics from library
     use crate::service_islands::layer3_communication::data_communication::CryptoDataService;
@@ -87,7 +74,7 @@ async fn performance_metrics(
 
 /// Clear cache endpoint - delegates to Cache System Island
 async fn clear_cache(
-    State(_service_islands): State<Arc<ServiceIslands>>
+    State(_service_islands): State<Arc<ServiceIslands>>,
 ) -> Json<CacheClearResponse> {
     // TODO: Implement cache clearing via Service Islands
     let response = CacheClearResponse {
@@ -101,7 +88,7 @@ async fn clear_cache(
 /// Cache statistics endpoint - delegates to Cache System Island
 /// ✅ PRODUCTION-READY: Queries detailed statistics from multi-tier-cache library
 async fn cache_stats(
-    State(service_islands): State<Arc<ServiceIslands>>
+    State(service_islands): State<Arc<ServiceIslands>>,
 ) -> Json<CacheStatsResponse> {
     let legacy_state = service_islands.get_legacy_app_state();
 
@@ -134,7 +121,8 @@ async fn cache_stats(
             },
             health: CacheHealth {
                 status: "healthy".to_string(),
-                recommendation: "Cache operating normally with automatic memory management".to_string(),
+                recommendation: "Cache operating normally with automatic memory management"
+                    .to_string(),
             },
         }))
     } else {

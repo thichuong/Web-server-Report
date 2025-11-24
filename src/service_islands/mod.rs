@@ -12,26 +12,15 @@ pub mod layer4_observability;
 pub mod layer5_business_logic;
 
 use std::sync::Arc;
-use tracing::{info, warn, debug};
+use tracing::{debug, info, warn};
 
-use layer1_infrastructure::{
-    AppStateIsland,
-    SharedComponentsIsland,
-    CacheSystemIsland,
-};
-use layer3_communication::{
-    redis_stream_reader::RedisStreamReader,
-};
-use layer4_observability::{
-    health_system::HealthSystemIsland,
-};
-use layer5_business_logic::{
-    dashboard::DashboardIsland,
-    crypto_reports::CryptoReportsIsland,
-};
+use layer1_infrastructure::{AppStateIsland, CacheSystemIsland, SharedComponentsIsland};
+use layer3_communication::redis_stream_reader::RedisStreamReader;
+use layer4_observability::health_system::HealthSystemIsland;
+use layer5_business_logic::{crypto_reports::CryptoReportsIsland, dashboard::DashboardIsland};
 
 /// Main Service Islands Registry
-/// 
+///
 /// This struct holds references to all service islands and provides
 /// unified initialization and health checking capabilities.
 pub struct ServiceIslands {
@@ -55,7 +44,7 @@ pub struct ServiceIslands {
 
 impl ServiceIslands {
     /// Initialize all Service Islands
-    /// 
+    ///
     /// This method initializes all service islands in the proper dependency order.
     /// Layer 1 (Infrastructure) first, then Layer 2 (External Services), then Layer 4 (Observability), then Layer 3 (Communication), then Layer 5 (Business Logic).
     pub async fn initialize() -> Result<Self, anyhow::Error> {
@@ -107,12 +96,12 @@ impl ServiceIslands {
             crypto_reports,
         })
     }
-    
+
     // Note: initialize_unified_streaming and initialize_stream_integration methods
     // have been removed as WebSocket functionality is now in a separate service
-    
+
     /// Perform health check on all Service Islands
-    /// 
+    ///
     /// Returns true if all islands are healthy, false otherwise.
     pub async fn health_check(&self) -> bool {
         debug!("🔍 Performing Service Islands health check (Main Service)...");
@@ -120,42 +109,84 @@ impl ServiceIslands {
         let shared_components_healthy = self.shared_components.health_check().await;
         let app_state_healthy = self.app_state.health_check().await;
         let cache_system_healthy = self.cache_system.health_check().await;
-        let redis_stream_reader_healthy = self.redis_stream_reader.health_check().await.unwrap_or(false);
+        let redis_stream_reader_healthy = self
+            .redis_stream_reader
+            .health_check()
+            .await
+            .unwrap_or(false);
         let health_system_healthy = self.health_system.health_check().await;
         let dashboard_healthy = self.dashboard.health_check().await;
         let crypto_reports_healthy = self.crypto_reports.health_check().await;
 
-        let all_healthy = shared_components_healthy && app_state_healthy && cache_system_healthy && redis_stream_reader_healthy && health_system_healthy && dashboard_healthy && crypto_reports_healthy;
+        let all_healthy = shared_components_healthy
+            && app_state_healthy
+            && cache_system_healthy
+            && redis_stream_reader_healthy
+            && health_system_healthy
+            && dashboard_healthy
+            && crypto_reports_healthy;
 
         if all_healthy {
             info!("✅ All Service Islands are healthy!");
         } else {
             warn!("❌ Some Service Islands are unhealthy!");
-            warn!("   Shared Components Island: {}", if shared_components_healthy { "✅" } else { "❌" });
-            warn!("   App State Island: {}", if app_state_healthy { "✅" } else { "❌" });
-            warn!("   Cache System Island: {}", if cache_system_healthy { "✅" } else { "❌" });
-            warn!("   Redis Stream Reader: {}", if redis_stream_reader_healthy { "✅" } else { "❌" });
-            warn!("   Health System Island: {}", if health_system_healthy { "✅" } else { "❌" });
-            warn!("   Dashboard Island: {}", if dashboard_healthy { "✅" } else { "❌" });
-            warn!("   Crypto Reports Island: {}", if crypto_reports_healthy { "✅" } else { "❌" });
+            warn!(
+                "   Shared Components Island: {}",
+                if shared_components_healthy {
+                    "✅"
+                } else {
+                    "❌"
+                }
+            );
+            warn!(
+                "   App State Island: {}",
+                if app_state_healthy { "✅" } else { "❌" }
+            );
+            warn!(
+                "   Cache System Island: {}",
+                if cache_system_healthy { "✅" } else { "❌" }
+            );
+            warn!(
+                "   Redis Stream Reader: {}",
+                if redis_stream_reader_healthy {
+                    "✅"
+                } else {
+                    "❌"
+                }
+            );
+            warn!(
+                "   Health System Island: {}",
+                if health_system_healthy { "✅" } else { "❌" }
+            );
+            warn!(
+                "   Dashboard Island: {}",
+                if dashboard_healthy { "✅" } else { "❌" }
+            );
+            warn!(
+                "   Crypto Reports Island: {}",
+                if crypto_reports_healthy { "✅" } else { "❌" }
+            );
         }
 
         all_healthy
     }
-    
+
     /// Get pre-loaded chart modules content for optimal performance
     /// Direct access to Layer 1 SharedComponentsIsland
     pub fn get_chart_modules_content(&self) -> Arc<String> {
         Arc::clone(&self.shared_components.chart_modules_content)
     }
-    
+
     /// Get legacy AppState for backward compatibility
     ///
     /// This method creates a legacy AppState instance with cache system integration
     /// for components that haven't been fully migrated to Service Islands.
     pub fn get_legacy_app_state(&self) -> Arc<layer1_infrastructure::AppState> {
         Arc::clone(self.legacy_app_state.get_or_init(|| {
-            Arc::new(self.app_state.create_legacy_app_state(Some(Arc::clone(&self.cache_system))))
+            Arc::new(
+                self.app_state
+                    .create_legacy_app_state(Some(Arc::clone(&self.cache_system))),
+            )
         }))
     }
 

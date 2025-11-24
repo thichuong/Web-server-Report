@@ -11,8 +11,8 @@
 use tracing::info;
 
 pub mod handlers;
-pub mod template_renderer;
 pub mod report_manager;
+pub mod template_renderer;
 pub mod ui_components;
 
 /// Dashboard Island

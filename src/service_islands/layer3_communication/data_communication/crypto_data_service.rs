@@ -1,15 +1,15 @@
 //! Crypto Data Service
-//! 
+//!
 //! Layer 3 data communication service for crypto reports.
 //! Handles all database operations for crypto reports, isolating business logic
 //! from infrastructure concerns.
-//! 
+//!
 //! ✅ PRODUCTION-READY: Includes memory limits and safety guards
 
-use serde::{Serialize, Deserialize};
-use sqlx::{FromRow};
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
 use std::sync::Arc;
-use tracing::{info, warn, error, debug};
+use tracing::{debug, error, info, warn};
 
 // Import from current state - will be refactored when lower layers are implemented
 use crate::service_islands::layer1_infrastructure::AppState;
@@ -62,7 +62,7 @@ pub struct ReportRssData {
 }
 
 /// Crypto Data Service
-/// 
+///
 /// Layer 3 service responsible for all crypto report database operations.
 /// Acts as the communication layer between business logic and infrastructure.
 #[derive(Clone)]
@@ -224,7 +224,10 @@ impl CryptoDataService {
             }
         } else {
             // Fallback: Direct database query if no cache
-            debug!("🗄️ CryptoDataService: Fetching related reports for report {} (no cache)", current_id);
+            debug!(
+                "🗄️ CryptoDataService: Fetching related reports for report {} (no cache)",
+                current_id
+            );
             sqlx::query_as::<_, ReportSummaryData>(
                 "SELECT id, created_at FROM crypto_report WHERE id < $1 ORDER BY id DESC LIMIT $2",
             )
@@ -280,7 +283,10 @@ impl CryptoDataService {
             }
         } else {
             // Fallback: Direct database query if no cache
-            info!("🗄️ CryptoDataService: Fetching {} reports for RSS feed (no cache)", limit);
+            info!(
+                "🗄️ CryptoDataService: Fetching {} reports for RSS feed (no cache)",
+                limit
+            );
             sqlx::query_as::<_, ReportRssData>(
                 "SELECT id, html_content, created_at FROM crypto_report ORDER BY created_at DESC LIMIT $1",
             )
@@ -333,7 +339,10 @@ impl CryptoDataService {
             }
         } else {
             // Fallback: Direct database query if no cache
-            info!("🗄️ CryptoDataService: Fetching crypto report {} from database (no cache)", report_id);
+            info!(
+                "🗄️ CryptoDataService: Fetching crypto report {} from database (no cache)",
+                report_id
+            );
             sqlx::query_as::<_, ReportData>(
                 "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report WHERE id = $1",
             )
@@ -344,14 +353,25 @@ impl CryptoDataService {
 
     /// Lấy nội dung compressed data của một report từ cache.
     /// ✅ PRODUCTION-SAFE: No size limits on read - only on write
-    pub async fn get_rendered_report_compressed(&self, state: &Arc<AppState>, report_id: i32) -> Result<Option<Vec<u8>>, anyhow::Error> {
+    pub async fn get_rendered_report_compressed(
+        &self,
+        state: &Arc<AppState>,
+        report_id: i32,
+    ) -> Result<Option<Vec<u8>>, anyhow::Error> {
         if let Some(ref cache_system) = state.cache_system {
             let cache_key = format!("compressed_report_{}", report_id);
             if let Ok(Some(cached_value)) = cache_system.cache_manager.get(&cache_key).await {
                 if let Ok(compressed_bytes) = serde_json::from_value::<Vec<u8>>(cached_value) {
-                    let report_type = if report_id == -1 { "latest report" } else { &format!("report #{}", report_id) };
+                    let report_type = if report_id == -1 {
+                        "latest report"
+                    } else {
+                        &format!("report #{}", report_id)
+                    };
                     let size_kb = compressed_bytes.len() / 1024;
-                    info!("🔥 Layer 3: Cache HIT cho compressed data của {} ({}KB)", report_type, size_kb);
+                    info!(
+                        "🔥 Layer 3: Cache HIT cho compressed data của {} ({}KB)",
+                        report_type, size_kb
+                    );
                     return Ok(Some(compressed_bytes));
                 }
             }
@@ -367,20 +387,33 @@ impl CryptoDataService {
     ///
     /// ✅ MEMORY OPTIMIZED: Accepts &[u8] reference instead of owned Vec<u8> to avoid
     /// unnecessary clones. The data is serialized for cache storage anyway.
-    pub async fn cache_rendered_report_compressed(&self, state: &Arc<AppState>, report_id: i32, compressed_data: &[u8]) -> Result<(), anyhow::Error> {
+    pub async fn cache_rendered_report_compressed(
+        &self,
+        state: &Arc<AppState>,
+        report_id: i32,
+        compressed_data: &[u8],
+    ) -> Result<(), anyhow::Error> {
         let data_size = compressed_data.len();
         let size_kb = data_size / 1024;
         let size_mb = data_size as f64 / (1024.0 * 1024.0);
-        let report_type = if report_id == -1 { "latest report" } else { &format!("report #{}", report_id) };
+        let report_type = if report_id == -1 {
+            "latest report"
+        } else {
+            &format!("report #{}", report_id)
+        };
 
         // 🛡️ GUARD: Warn if individual entry size is very large (soft limit for logging)
         if data_size > MAX_COMPRESSED_ENTRY_SIZE {
             warn!("⚠️  Layer 3: Very large compressed data for {} ({:.1}MB) - may impact cache performance",
                      report_type, size_mb);
-            error!("   Note: Cache library will handle storage, but consider optimizing entry size");
+            error!(
+                "   Note: Cache library will handle storage, but consider optimizing entry size"
+            );
         } else if data_size > WARN_COMPRESSED_ENTRY_SIZE {
-            warn!("⚠️  Layer 3: Large compressed entry for {} ({:.1}MB) - consider optimization",
-                    report_type, size_mb);
+            warn!(
+                "⚠️  Layer 3: Large compressed entry for {} ({:.1}MB) - consider optimization",
+                report_type, size_mb
+            );
         }
 
         // ✅ Cache the data - library handles memory management automatically
@@ -390,9 +423,15 @@ impl CryptoDataService {
             // Serialize the slice - this creates a temporary Vec internally, but that's required for JSON serialization
             let compressed_json = serde_json::to_value(compressed_data).unwrap_or_default();
 
-            cache_system.cache_manager.set_with_strategy(&cache_key, compressed_json, strategy).await?;
+            cache_system
+                .cache_manager
+                .set_with_strategy(&cache_key, compressed_json, strategy)
+                .await?;
 
-            debug!("💾 Layer 3: Cached compressed data for {} ({}KB)", report_type, size_kb);
+            debug!(
+                "💾 Layer 3: Cached compressed data for {} ({}KB)",
+                report_type, size_kb
+            );
         }
         Ok(())
     }
@@ -405,7 +444,7 @@ impl CryptoDataService {
     pub async fn get_rendered_report_dsd_compressed(
         &self,
         state: &Arc<AppState>,
-        report_id: i32
+        report_id: i32,
     ) -> Result<Option<Vec<u8>>, anyhow::Error> {
         if let Some(ref cache_system) = state.cache_system {
             let cache_key = format!("compressed_report_dsd_{}", report_id);
@@ -437,7 +476,7 @@ impl CryptoDataService {
         &self,
         state: &Arc<AppState>,
         report_id: i32,
-        compressed_data: &[u8]
+        compressed_data: &[u8],
     ) -> Result<(), anyhow::Error> {
         let data_size = compressed_data.len();
         let size_kb = data_size / 1024;
@@ -450,12 +489,18 @@ impl CryptoDataService {
 
         // 🛡️ GUARD: Warn if individual entry size is very large (soft limit for logging)
         if data_size > MAX_COMPRESSED_ENTRY_SIZE {
-            warn!("⚠️  Layer 3: Very large DSD compressed data for {} ({:.1}MB)",
-                     report_type, size_mb);
-            error!("   Note: Cache library will handle storage, but consider optimizing entry size");
+            warn!(
+                "⚠️  Layer 3: Very large DSD compressed data for {} ({:.1}MB)",
+                report_type, size_mb
+            );
+            error!(
+                "   Note: Cache library will handle storage, but consider optimizing entry size"
+            );
         } else if data_size > WARN_COMPRESSED_ENTRY_SIZE {
-            warn!("⚠️  Layer 3: Large DSD compressed entry for {} ({:.1}MB)",
-                    report_type, size_mb);
+            warn!(
+                "⚠️  Layer 3: Large DSD compressed entry for {} ({:.1}MB)",
+                report_type, size_mb
+            );
         }
 
         // ✅ Cache the data - library handles memory management automatically
@@ -465,10 +510,15 @@ impl CryptoDataService {
             // Serialize the slice - this creates a temporary Vec internally, but that's required for JSON serialization
             let compressed_json = serde_json::to_value(compressed_data).unwrap_or_default();
 
-            cache_system.cache_manager.set_with_strategy(&cache_key, compressed_json, strategy).await?;
+            cache_system
+                .cache_manager
+                .set_with_strategy(&cache_key, compressed_json, strategy)
+                .await?;
 
-            debug!("💾 Layer 3: Cached DSD compressed data for {} ({}KB)",
-                   report_type, size_kb);
+            debug!(
+                "💾 Layer 3: Cached DSD compressed data for {} ({}KB)",
+                report_type, size_kb
+            );
         }
         Ok(())
     }
@@ -483,10 +533,7 @@ impl CryptoDataService {
             let stats = cache_system.cache_manager.get_stats();
             Some(format!(
                 "L1 Hits: {} | L2 Hits: {} | Misses: {} | Hit Rate: {:.1}%",
-                stats.l1_hits,
-                stats.l2_hits,
-                stats.misses,
-                stats.hit_rate
+                stats.l1_hits, stats.l2_hits, stats.misses, stats.hit_rate
             ))
         } else {
             None
@@ -505,7 +552,8 @@ impl CryptoDataService {
     ) -> anyhow::Result<(i64, Vec<ReportSummaryData>)> {
         let offset = (page - 1) * per_page;
 
-        let total_fut = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM crypto_report").fetch_one(db);
+        let total_fut =
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM crypto_report").fetch_one(db);
         let rows_fut = sqlx::query_as::<_, ReportSummaryData>(
             "SELECT id, created_at FROM crypto_report ORDER BY created_at DESC LIMIT $1 OFFSET $2",
         )
@@ -525,13 +573,20 @@ impl CryptoDataService {
             anyhow::anyhow!("Database error: {}", e)
         })?;
 
-        debug!("📊 Layer 3: Fetched {} reports for page {}, total: {}", list.len(), page, total);
+        debug!(
+            "📊 Layer 3: Fetched {} reports for page {}, total: {}",
+            list.len(),
+            page,
+            total
+        );
         Ok((total, list))
     }
 
     /// Step 2: Format report items with rayon
     /// ✅ PRODUCTION-READY: Added 10s timeout to prevent hanging tasks
-    async fn format_report_items(list: Vec<ReportSummaryData>) -> anyhow::Result<Vec<serde_json::Value>> {
+    async fn format_report_items(
+        list: Vec<ReportSummaryData>,
+    ) -> anyhow::Result<Vec<serde_json::Value>> {
         let task = tokio::task::spawn_blocking(move || {
             use rayon::prelude::*;
 
@@ -557,7 +612,9 @@ impl CryptoDataService {
             }
             Err(_) => {
                 error!("❌ Layer 3: Date formatting timeout after 10s");
-                Err(anyhow::anyhow!("Date formatting timeout - operation took longer than 10 seconds"))
+                Err(anyhow::anyhow!(
+                    "Date formatting timeout - operation took longer than 10 seconds"
+                ))
             }
         }
     }
@@ -570,7 +627,11 @@ impl CryptoDataService {
         per_page: i64,
     ) -> anyhow::Result<(i64, Vec<Option<i64>>)> {
         let task = tokio::task::spawn_blocking(move || {
-            let pages = if total == 0 { 1 } else { ((total as f64) / (per_page as f64)).ceil() as i64 };
+            let pages = if total == 0 {
+                1
+            } else {
+                ((total as f64) / (per_page as f64)).ceil() as i64
+            };
 
             let mut page_numbers: Vec<Option<i64>> = Vec::new();
             if pages <= 10 {
@@ -579,7 +640,9 @@ impl CryptoDataService {
                 }
             } else {
                 let mut added = std::collections::HashSet::new();
-                let push = |vec: &mut Vec<Option<i64>>, v: i64, added: &mut std::collections::HashSet<i64>| {
+                let push = |vec: &mut Vec<Option<i64>>,
+                            v: i64,
+                            added: &mut std::collections::HashSet<i64>| {
                     if !added.contains(&v) && v > 0 && v <= pages {
                         vec.push(Some(v));
                         added.insert(v);
@@ -588,12 +651,12 @@ impl CryptoDataService {
 
                 push(&mut page_numbers, 1, &mut added);
                 push(&mut page_numbers, 2, &mut added);
-                for v in (page-2)..=(page+2) {
-                    if v > 2 && v < pages-1 {
+                for v in (page - 2)..=(page + 2) {
+                    if v > 2 && v < pages - 1 {
                         push(&mut page_numbers, v, &mut added);
                     }
                 }
-                push(&mut page_numbers, pages-1, &mut added);
+                push(&mut page_numbers, pages - 1, &mut added);
                 push(&mut page_numbers, pages, &mut added);
 
                 let mut nums: Vec<i64> = page_numbers.iter().filter_map(|o| *o).collect();
@@ -622,7 +685,9 @@ impl CryptoDataService {
             }
             Err(_) => {
                 error!("❌ Layer 3: Pagination timeout after 5s");
-                Err(anyhow::anyhow!("Pagination timeout - operation took longer than 5 seconds"))
+                Err(anyhow::anyhow!(
+                    "Pagination timeout - operation took longer than 5 seconds"
+                ))
             }
         }
     }
@@ -680,24 +745,32 @@ impl CryptoDataService {
             }
             Err(_) => {
                 error!("❌ Layer 3: Reports list template rendering timeout after 15s");
-                Err(anyhow::anyhow!("Template rendering timeout - operation took longer than 15 seconds"))
+                Err(anyhow::anyhow!(
+                    "Template rendering timeout - operation took longer than 15 seconds"
+                ))
             }
         }
     }
 
     /// Step 6: Compress HTML
     fn compress_html(html: String, page: i64) -> anyhow::Result<Vec<u8>> {
-        use flate2::{Compression, write::GzEncoder};
+        use flate2::{write::GzEncoder, Compression};
         use std::io::Write;
 
         let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
         encoder.write_all(html.as_bytes()).map_err(|e| {
-            error!("❌ Layer 3: Compression write error for reports list page {}: {}", page, e);
+            error!(
+                "❌ Layer 3: Compression write error for reports list page {}: {}",
+                page, e
+            );
             anyhow::anyhow!("Compression error: {}", e)
         })?;
 
         let compressed_data = encoder.finish().map_err(|e| {
-            error!("❌ Layer 3: Compression finish error for reports list page {}: {}", page, e);
+            error!(
+                "❌ Layer 3: Compression finish error for reports list page {}: {}",
+                page, e
+            );
             anyhow::anyhow!("Compression error: {}", e)
         })?;
 
@@ -766,11 +839,15 @@ impl CryptoDataService {
             }
         } else {
             // Fallback: Direct database query + render if no cache
-            info!("🗄️ CryptoDataService: Generating reports list page {} (no cache)", page);
+            info!(
+                "🗄️ CryptoDataService: Generating reports list page {} (no cache)",
+                page
+            );
 
             let offset = (page - 1) * per_page;
 
-            let total_fut = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM crypto_report").fetch_one(&state.db);
+            let total_fut = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM crypto_report")
+                .fetch_one(&state.db);
             let rows_fut = sqlx::query_as::<_, ReportSummaryData>(
                 "SELECT id, created_at FROM crypto_report ORDER BY created_at DESC LIMIT $1 OFFSET $2",
             )

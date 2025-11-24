@@ -1,5 +1,5 @@
 //! Dashboard Data Service
-//! 
+//!
 //! Layer 3 data communication service for dashboard functionality.
 //! Handles caching and data operations for dashboard pages, isolating business logic
 //! from infrastructure concerns.
@@ -11,7 +11,7 @@ use tracing::info;
 use crate::service_islands::layer1_infrastructure::AppState;
 
 /// Dashboard Data Service
-/// 
+///
 /// Layer 3 service responsible for all dashboard data operations.
 /// Acts as the communication layer between business logic and infrastructure.
 #[derive(Clone)]
@@ -34,28 +34,29 @@ impl DashboardDataService {
     }
 
     /// Get cached rendered homepage HTML with compression
-    /// 
+    ///
     /// Checks cache for pre-rendered and compressed homepage HTML
     pub async fn get_rendered_homepage_compressed(
         &self,
         state: &Arc<AppState>,
     ) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
         let cache_key = "dashboard_homepage_compressed";
-        
+
         // Try cache first if available (L1 then L2 fallback with promotion) - OPTIMIZED
         if let Some(ref cache_system) = state.cache_system {
             match cache_system.cache_manager.get(cache_key).await {
-                Ok(Some(cached_data)) => {
-                    match serde_json::from_value::<Vec<u8>>(cached_data) {
-                        Ok(cached_compressed) => {
-                            info!("🔥 DashboardDataService: L1 Cache HIT for compressed homepage");
-                            return Ok(Some(cached_compressed));
-                        }
-                        Err(e) => {
-                            info!("⚠️ DashboardDataService: L1 Cache deserialization error: {}", e);
-                        }
+                Ok(Some(cached_data)) => match serde_json::from_value::<Vec<u8>>(cached_data) {
+                    Ok(cached_compressed) => {
+                        info!("🔥 DashboardDataService: L1 Cache HIT for compressed homepage");
+                        return Ok(Some(cached_compressed));
                     }
-                }
+                    Err(e) => {
+                        info!(
+                            "⚠️ DashboardDataService: L1 Cache deserialization error: {}",
+                            e
+                        );
+                    }
+                },
                 Ok(None) => {
                     info!("🔍 DashboardDataService: L1 Cache MISS for homepage");
                 }
@@ -64,12 +65,12 @@ impl DashboardDataService {
                 }
             }
         }
-        
+
         Ok(None)
     }
 
     /// Cache rendered homepage HTML with compression
-    /// 
+    ///
     /// Stores pre-rendered and compressed homepage HTML in cache
     pub async fn cache_rendered_homepage_compressed(
         &self,
@@ -77,12 +78,12 @@ impl DashboardDataService {
         compressed_data: &[u8],
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let cache_key = "dashboard_homepage_compressed";
-        
+
         // Cache the compressed data for 5 minutes in both L1 and L2
         if let Some(ref cache_system) = state.cache_system {
             if let Ok(compressed_json) = serde_json::to_value(compressed_data) {
                 match cache_system.cache_manager.set_with_strategy(
-                    cache_key, 
+                    cache_key,
                     compressed_json,
                     crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm // 5 minutes
                 ).await {
@@ -94,7 +95,7 @@ impl DashboardDataService {
                 }
             }
         }
-        
+
         Ok(())
     }
 

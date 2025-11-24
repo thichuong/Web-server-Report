@@ -1,26 +1,25 @@
 //! Crypto Reports Routes
-//! 
+//!
 //! This module defines all HTTP routes for crypto reports functionality including
 //! report viewing and listing.
 
 use axum::{
+    body::Body,
     extract::{Path, Query, State},
-    http::{StatusCode, HeaderMap},
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
     Router,
-    body::Body
 };
-use std::sync::Arc;
 use std::collections::HashMap;
-use tracing::{info, warn, error, debug};
+use std::sync::Arc;
+use tracing::{debug, error, info, warn};
 
-use crate::service_islands::ServiceIslands;
 use crate::service_islands::layer5_business_logic::crypto_reports::handlers::CryptoHandlers;
 use crate::service_islands::layer5_business_logic::crypto_reports::rendering::{
-    generate_complete_geo_metadata,
-    generate_breadcrumbs_and_related,
+    generate_breadcrumbs_and_related, generate_complete_geo_metadata,
 };
+use crate::service_islands::ServiceIslands;
 
 /// Configure crypto reports routes
 pub fn configure_crypto_reports_routes() -> Router<Arc<ServiceIslands>> {
@@ -34,7 +33,7 @@ pub fn configure_crypto_reports_routes() -> Router<Arc<ServiceIslands>> {
 /// Priority: Query param > Cookie > Accept-Language header > Default (vi)
 fn detect_preferred_language(
     query_params: &HashMap<String, String>,
-    headers: &HeaderMap
+    headers: &HeaderMap,
 ) -> Option<String> {
     // 1. Check query parameter (?lang=en or ?lang=vi)
     if let Some(lang) = query_params.get("lang") {
@@ -90,20 +89,25 @@ fn detect_preferred_language(
 /// List all crypto reports with pagination
 async fn crypto_reports_list(
     Query(params): Query<HashMap<String, String>>,
-    State(service_islands): State<Arc<ServiceIslands>>
+    State(service_islands): State<Arc<ServiceIslands>>,
 ) -> impl IntoResponse {
     debug!("🚀 [Route] crypto_reports_list called - fetching from Service Islands Layer 5");
-    
+
     // Parse pagination parameter
     let page: i64 = params.get("page").and_then(|p| p.parse().ok()).unwrap_or(1);
     debug!("📄 [Route] Requesting page: {}", page);
 
     // Use Service Islands architecture to get reports list (compressed)
-    match service_islands.crypto_reports.handlers.crypto_reports_list_with_tera(&service_islands.get_legacy_app_state(), page).await {
+    match service_islands
+        .crypto_reports
+        .handlers
+        .crypto_reports_list_with_tera(&service_islands.get_legacy_app_state(), page)
+        .await
+    {
         Ok(compressed_data) => {
             let size_kb = compressed_data.len() / 1024;
             info!("✅ [Route] Reports list template rendered successfully from Layer 5 - compressed ({}KB)", size_kb);
-            
+
             // Create compressed response with proper headers
             Response::builder()
                 .status(StatusCode::OK)
@@ -117,16 +121,20 @@ async fn crypto_reports_list(
                     Response::builder()
                         .status(StatusCode::INTERNAL_SERVER_ERROR)
                         .body(Body::from("Response build error"))
-                        .unwrap()  // This is guaranteed safe with literal body
+                        .unwrap() // This is guaranteed safe with literal body
                 })
                 .into_response()
         }
         Err(e) => {
-            error!("❌ [Route] Failed to render reports list template from Layer 5: {}", e);
+            error!(
+                "❌ [Route] Failed to render reports list template from Layer 5: {}",
+                e
+            );
             (
-                StatusCode::INTERNAL_SERVER_ERROR, 
-                "Failed to load reports list"
-            ).into_response()
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to load reports list",
+            )
+                .into_response()
         }
     }
 }
@@ -137,13 +145,13 @@ async fn crypto_reports_list(
 async fn crypto_index(
     State(service_islands): State<Arc<ServiceIslands>>,
     Query(params): Query<HashMap<String, String>>,
-    headers: HeaderMap
+    headers: HeaderMap,
 ) -> Response {
     debug!("🌓 [Route] crypto_index called - using Declarative Shadow DOM architecture");
 
     // Detect preferred language from request
-    let preferred_language = detect_preferred_language(&params, &headers)
-        .unwrap_or_else(|| "vi".to_string());
+    let preferred_language =
+        detect_preferred_language(&params, &headers).unwrap_or_else(|| "vi".to_string());
 
     // Check if specific report ID is requested
     let report_id = params.get("id");
@@ -159,19 +167,34 @@ async fn crypto_index(
         -1 // Latest report sentinel
     };
 
-    debug!("🚀 [Route] crypto_index called for {} (language: {})",
-           if report_id_value == -1 { "latest report".to_string() } else { format!("report ID: {}", report_id_value) },
-           preferred_language);
+    debug!(
+        "🚀 [Route] crypto_index called for {} (language: {})",
+        if report_id_value == -1 {
+            "latest report".to_string()
+        } else {
+            format!("report ID: {}", report_id_value)
+        },
+        preferred_language
+    );
 
     // STEP 1: Check cache for compressed DSD HTML
     let data_service = &service_islands.crypto_reports.report_creator.data_service;
-    if let Ok(Some(cached_compressed)) = data_service.get_rendered_report_dsd_compressed(
-        &service_islands.get_legacy_app_state(),
-        report_id_value
-    ).await {
-        info!("✅ [Route] DSD cache HIT - returning compressed HTML for {} (language: {})",
-              if report_id_value == -1 { "latest".to_string() } else { format!("#{}", report_id_value) },
-              preferred_language);
+    if let Ok(Some(cached_compressed)) = data_service
+        .get_rendered_report_dsd_compressed(
+            &service_islands.get_legacy_app_state(),
+            report_id_value,
+        )
+        .await
+    {
+        info!(
+            "✅ [Route] DSD cache HIT - returning compressed HTML for {} (language: {})",
+            if report_id_value == -1 {
+                "latest".to_string()
+            } else {
+                format!("#{}", report_id_value)
+            },
+            preferred_language
+        );
 
         return Response::builder()
             .status(StatusCode::OK)
@@ -195,11 +218,17 @@ async fn crypto_index(
 
     // STEP 2: Fetch report from database (uses existing data cache)
     let report_result = if report_id_value == -1 {
-        service_islands.crypto_reports.report_creator
-            .fetch_and_cache_latest_report(&service_islands.get_legacy_app_state()).await
+        service_islands
+            .crypto_reports
+            .report_creator
+            .fetch_and_cache_latest_report(&service_islands.get_legacy_app_state())
+            .await
     } else {
-        service_islands.crypto_reports.report_creator
-            .fetch_and_cache_report_by_id(&service_islands.get_legacy_app_state(), report_id_value).await
+        service_islands
+            .crypto_reports
+            .report_creator
+            .fetch_and_cache_report_by_id(&service_islands.get_legacy_app_state(), report_id_value)
+            .await
     };
 
     let report = match report_result {
@@ -224,44 +253,56 @@ async fn crypto_index(
 
     // STEP 4: Get chart modules content and generate shadow DOM content
     let chart_modules_content = service_islands.get_chart_modules_content();
-    let sandboxed_report = service_islands.crypto_reports.report_creator.create_sandboxed_report(
-        &report,
-        Some(chart_modules_content.as_str())
-    );
-    let shadow_dom_content = service_islands.crypto_reports.report_creator.generate_shadow_dom_content(
-        &sandboxed_report,
-        Some(&preferred_language),
-        Some(chart_modules_content.as_str())
-    );
+    let sandboxed_report = service_islands
+        .crypto_reports
+        .report_creator
+        .create_sandboxed_report(&report, Some(chart_modules_content.as_str()));
+    let shadow_dom_content = service_islands
+        .crypto_reports
+        .report_creator
+        .generate_shadow_dom_content(
+            &sandboxed_report,
+            Some(&preferred_language),
+            Some(chart_modules_content.as_str()),
+        );
 
-    info!("🌐 [Route] crypto_index rendering with language: {}", preferred_language);
+    info!(
+        "🌐 [Route] crypto_index rendering with language: {}",
+        preferred_language
+    );
 
     // STEP 5: Generate GEO metadata for AI bots (Grok, GPT, Claude)
-    let (geo_meta_tags, geo_json_ld, geo_title) = generate_complete_geo_metadata(
-        &report,
-        Some(&preferred_language)
+    let (geo_meta_tags, geo_json_ld, geo_title) =
+        generate_complete_geo_metadata(&report, Some(&preferred_language));
+    debug!(
+        "📊 [Route] GEO metadata generated for report {} - title: {}",
+        report.id, geo_title
     );
-    debug!("📊 [Route] GEO metadata generated for report {} - title: {}", report.id, geo_title);
 
     // STEP 5.1: Fetch related reports for internal linking (GEO optimization)
-    let related_reports_data = match data_service.fetch_related_reports(
-        &service_islands.get_legacy_app_state(),
-        report.id,
-        3  // Limit to 3 related reports
-    ).await {
+    let related_reports_data = match data_service
+        .fetch_related_reports(
+            &service_islands.get_legacy_app_state(),
+            report.id,
+            3, // Limit to 3 related reports
+        )
+        .await
+    {
         Ok(reports) => reports,
         Err(e) => {
             warn!("⚠️ [Route] Failed to fetch related reports: {}", e);
-            vec![]  // Fallback to empty list on error
+            vec![] // Fallback to empty list on error
         }
     };
 
     // STEP 5.2: Generate breadcrumbs and related reports data
-    let (breadcrumb_items, breadcrumbs_schema, related_reports) = generate_breadcrumbs_and_related(
-        report.id,
-        &related_reports_data
+    let (breadcrumb_items, breadcrumbs_schema, related_reports) =
+        generate_breadcrumbs_and_related(report.id, &related_reports_data);
+    debug!(
+        "📊 [Route] Breadcrumbs and {} related reports generated for report {}",
+        related_reports.len(),
+        report.id
     );
-    debug!("📊 [Route] Breadcrumbs and {} related reports generated for report {}", related_reports.len(), report.id);
 
     // STEP 6: Render template with GEO metadata
     let mut context = tera::Context::new();
@@ -269,8 +310,11 @@ async fn crypto_index(
     context.insert("shadow_dom_token", &shadow_dom_token);
     context.insert("shadow_dom_content", &shadow_dom_content);
     context.insert("chart_modules_content", chart_modules_content.as_ref());
-    context.insert("websocket_url", &std::env::var("WEBSOCKET_SERVICE_URL")
-        .unwrap_or_else(|_| "ws://localhost:8081/ws".to_string()));
+    context.insert(
+        "websocket_url",
+        &std::env::var("WEBSOCKET_SERVICE_URL")
+            .unwrap_or_else(|_| "ws://localhost:8081/ws".to_string()),
+    );
     // GEO metadata for AI optimization
     context.insert("geo_meta_tags", &geo_meta_tags);
     context.insert("geo_json_ld", &geo_json_ld);
@@ -281,7 +325,10 @@ async fn crypto_index(
     context.insert("related_reports", &related_reports);
 
     let app_state = service_islands.get_legacy_app_state();
-    let html = match app_state.tera.render("crypto/routes/reports/view_dsd.html", &context) {
+    let html = match app_state
+        .tera
+        .render("crypto/routes/reports/view_dsd.html", &context)
+    {
         Ok(html) => html,
         Err(e) => {
             error!("❌ [Route] Failed to render DSD template: {}", e);
@@ -299,16 +346,21 @@ async fn crypto_index(
     };
 
     // STEP 8: Cache the compressed HTML
-    if let Err(e) = data_service.cache_rendered_report_dsd_compressed(
-        &service_islands.get_legacy_app_state(),
-        report_id_value,
-        &compressed_data
-    ).await {
+    if let Err(e) = data_service
+        .cache_rendered_report_dsd_compressed(
+            &service_islands.get_legacy_app_state(),
+            report_id_value,
+            &compressed_data,
+        )
+        .await
+    {
         warn!("⚠️ [Route] Failed to cache DSD compressed HTML: {}", e);
     }
 
-    info!("✅ [Route] DSD template rendered successfully for report {} (language: {})",
-          report.id, preferred_language);
+    info!(
+        "✅ [Route] DSD template rendered successfully for report {} (language: {})",
+        report.id, preferred_language
+    );
 
     // STEP 9: Return compressed response
     Response::builder()
@@ -336,13 +388,13 @@ async fn crypto_view_report(
     Path(id): Path<String>,
     State(service_islands): State<Arc<ServiceIslands>>,
     Query(params): Query<HashMap<String, String>>,
-    headers: HeaderMap
+    headers: HeaderMap,
 ) -> Response {
     debug!("🌓 [Route] crypto_view_report called for ID: {}", id);
 
     // Detect preferred language from request
-    let preferred_language = detect_preferred_language(&params, &headers)
-        .unwrap_or_else(|| "vi".to_string());
+    let preferred_language =
+        detect_preferred_language(&params, &headers).unwrap_or_else(|| "vi".to_string());
 
     // Parse report ID
     let report_id: i32 = match id.parse() {
@@ -353,16 +405,21 @@ async fn crypto_view_report(
         }
     };
 
-    debug!("🚀 [Route] crypto_view_report called for report #{} (language: {})", report_id, preferred_language);
+    debug!(
+        "🚀 [Route] crypto_view_report called for report #{} (language: {})",
+        report_id, preferred_language
+    );
 
     // STEP 1: Check cache for compressed DSD HTML
     let data_service = &service_islands.crypto_reports.report_creator.data_service;
-    if let Ok(Some(cached_compressed)) = data_service.get_rendered_report_dsd_compressed(
-        &service_islands.get_legacy_app_state(),
-        report_id
-    ).await {
-        info!("✅ [Route] DSD cache HIT - returning compressed HTML for report #{} (language: {})",
-              report_id, preferred_language);
+    if let Ok(Some(cached_compressed)) = data_service
+        .get_rendered_report_dsd_compressed(&service_islands.get_legacy_app_state(), report_id)
+        .await
+    {
+        info!(
+            "✅ [Route] DSD cache HIT - returning compressed HTML for report #{} (language: {})",
+            report_id, preferred_language
+        );
 
         return Response::builder()
             .status(StatusCode::OK)
@@ -383,19 +440,32 @@ async fn crypto_view_report(
             .into_response();
     }
 
-    debug!("🔍 [Route] DSD cache MISS - generating fresh HTML for report #{}", report_id);
+    debug!(
+        "🔍 [Route] DSD cache MISS - generating fresh HTML for report #{}",
+        report_id
+    );
 
     // STEP 2: Fetch report from database (uses existing data cache)
-    let report = match service_islands.crypto_reports.report_creator
-        .fetch_and_cache_report_by_id(&service_islands.get_legacy_app_state(), report_id).await
+    let report = match service_islands
+        .crypto_reports
+        .report_creator
+        .fetch_and_cache_report_by_id(&service_islands.get_legacy_app_state(), report_id)
+        .await
     {
         Ok(Some(report)) => report,
         Ok(None) => {
             warn!("⚠️ [Route] Report {} not found for DSD view", report_id);
-            return (StatusCode::NOT_FOUND, format!("Report #{} not found", report_id)).into_response();
+            return (
+                StatusCode::NOT_FOUND,
+                format!("Report #{} not found", report_id),
+            )
+                .into_response();
         }
         Err(e) => {
-            error!("❌ [Route] Database error fetching report {}: {}", report_id, e);
+            error!(
+                "❌ [Route] Database error fetching report {}: {}",
+                report_id, e
+            );
             return (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
         }
     };
@@ -410,44 +480,59 @@ async fn crypto_view_report(
 
     // STEP 4: Get chart modules content and generate shadow DOM content
     let chart_modules_content = service_islands.get_chart_modules_content();
-    let sandboxed_report = service_islands.crypto_reports.report_creator.create_sandboxed_report(
-        &report,
-        Some(chart_modules_content.as_str())
-    );
-    let shadow_dom_content = service_islands.crypto_reports.report_creator.generate_shadow_dom_content(
-        &sandboxed_report,
-        Some(&preferred_language),
-        Some(chart_modules_content.as_str())
-    );
+    let sandboxed_report = service_islands
+        .crypto_reports
+        .report_creator
+        .create_sandboxed_report(&report, Some(chart_modules_content.as_str()));
+    let shadow_dom_content = service_islands
+        .crypto_reports
+        .report_creator
+        .generate_shadow_dom_content(
+            &sandboxed_report,
+            Some(&preferred_language),
+            Some(chart_modules_content.as_str()),
+        );
 
-    info!("🌐 [Route] crypto_view_report rendering with language: {}", preferred_language);
+    info!(
+        "🌐 [Route] crypto_view_report rendering with language: {}",
+        preferred_language
+    );
 
     // STEP 5: Generate GEO metadata for AI bots (Grok, GPT, Claude)
-    let (geo_meta_tags, geo_json_ld, geo_title) = generate_complete_geo_metadata(
-        &report,
-        Some(&preferred_language)
+    let (geo_meta_tags, geo_json_ld, geo_title) =
+        generate_complete_geo_metadata(&report, Some(&preferred_language));
+    debug!(
+        "📊 [Route] GEO metadata generated for report {} - title: {}",
+        report_id, geo_title
     );
-    debug!("📊 [Route] GEO metadata generated for report {} - title: {}", report_id, geo_title);
 
     // STEP 5.1: Fetch related reports for internal linking (GEO optimization)
-    let related_reports_data = match data_service.fetch_related_reports(
-        &service_islands.get_legacy_app_state(),
-        report_id,
-        3  // Limit to 3 related reports
-    ).await {
+    let related_reports_data = match data_service
+        .fetch_related_reports(
+            &service_islands.get_legacy_app_state(),
+            report_id,
+            3, // Limit to 3 related reports
+        )
+        .await
+    {
         Ok(reports) => reports,
         Err(e) => {
-            warn!("⚠️ [Route] Failed to fetch related reports for report {}: {}", report_id, e);
-            vec![]  // Fallback to empty list on error
+            warn!(
+                "⚠️ [Route] Failed to fetch related reports for report {}: {}",
+                report_id, e
+            );
+            vec![] // Fallback to empty list on error
         }
     };
 
     // STEP 5.2: Generate breadcrumbs and related reports data
-    let (breadcrumb_items, breadcrumbs_schema, related_reports) = generate_breadcrumbs_and_related(
-        report_id,
-        &related_reports_data
+    let (breadcrumb_items, breadcrumbs_schema, related_reports) =
+        generate_breadcrumbs_and_related(report_id, &related_reports_data);
+    debug!(
+        "📊 [Route] Breadcrumbs and {} related reports generated for report {}",
+        related_reports.len(),
+        report_id
     );
-    debug!("📊 [Route] Breadcrumbs and {} related reports generated for report {}", related_reports.len(), report_id);
 
     // STEP 6: Render template with GEO metadata
     let mut context = tera::Context::new();
@@ -455,8 +540,11 @@ async fn crypto_view_report(
     context.insert("shadow_dom_token", &shadow_dom_token);
     context.insert("shadow_dom_content", &shadow_dom_content);
     context.insert("chart_modules_content", chart_modules_content.as_ref());
-    context.insert("websocket_url", &std::env::var("WEBSOCKET_SERVICE_URL")
-        .unwrap_or_else(|_| "ws://localhost:8081/ws".to_string()));
+    context.insert(
+        "websocket_url",
+        &std::env::var("WEBSOCKET_SERVICE_URL")
+            .unwrap_or_else(|_| "ws://localhost:8081/ws".to_string()),
+    );
     // GEO metadata for AI optimization
     context.insert("geo_meta_tags", &geo_meta_tags);
     context.insert("geo_json_ld", &geo_json_ld);
@@ -467,10 +555,16 @@ async fn crypto_view_report(
     context.insert("related_reports", &related_reports);
 
     let app_state = service_islands.get_legacy_app_state();
-    let html = match app_state.tera.render("crypto/routes/reports/view_dsd.html", &context) {
+    let html = match app_state
+        .tera
+        .render("crypto/routes/reports/view_dsd.html", &context)
+    {
         Ok(html) => html,
         Err(e) => {
-            error!("❌ [Route] Failed to render DSD template for report {}: {}", report_id, e);
+            error!(
+                "❌ [Route] Failed to render DSD template for report {}: {}",
+                report_id, e
+            );
             return (StatusCode::INTERNAL_SERVER_ERROR, "Template render error").into_response();
         }
     };
@@ -479,22 +573,33 @@ async fn crypto_view_report(
     let compressed_data = match CryptoHandlers::compress_html_to_gzip(&html) {
         Ok(data) => data,
         Err(e) => {
-            error!("❌ [Route] Failed to compress DSD HTML for report {}: {}", report_id, e);
+            error!(
+                "❌ [Route] Failed to compress DSD HTML for report {}: {}",
+                report_id, e
+            );
             return (StatusCode::INTERNAL_SERVER_ERROR, "Compression error").into_response();
         }
     };
 
     // STEP 8: Cache the compressed HTML
-    if let Err(e) = data_service.cache_rendered_report_dsd_compressed(
-        &service_islands.get_legacy_app_state(),
-        report_id,
-        &compressed_data
-    ).await {
-        warn!("⚠️ [Route] Failed to cache DSD compressed HTML for report {}: {}", report_id, e);
+    if let Err(e) = data_service
+        .cache_rendered_report_dsd_compressed(
+            &service_islands.get_legacy_app_state(),
+            report_id,
+            &compressed_data,
+        )
+        .await
+    {
+        warn!(
+            "⚠️ [Route] Failed to cache DSD compressed HTML for report {}: {}",
+            report_id, e
+        );
     }
 
-    info!("✅ [Route] DSD template rendered successfully for report {} (language: {})",
-          report_id, preferred_language);
+    info!(
+        "✅ [Route] DSD template rendered successfully for report {} (language: {})",
+        report_id, preferred_language
+    );
 
     // STEP 9: Return compressed response
     Response::builder()

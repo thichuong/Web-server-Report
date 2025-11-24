@@ -7,8 +7,8 @@
 //!
 //! Reference: https://www.sitemaps.org/protocol.html
 
-use std::fmt::Write;
 use chrono::{DateTime, Utc};
+use std::fmt::Write;
 use tracing::info;
 
 use super::error::{Layer5Error, Layer5Result};
@@ -67,9 +67,7 @@ impl SitemapCreator {
     ///
     /// # Returns
     /// Complete sitemap XML string
-    pub fn generate_sitemap_xml(
-        report_data: Vec<(i32, DateTime<Utc>)>,
-    ) -> Layer5Result<String> {
+    pub fn generate_sitemap_xml(report_data: Vec<(i32, DateTime<Utc>)>) -> Layer5Result<String> {
         let today = Utc::now().format("%Y-%m-%d").to_string();
 
         // Pre-calculate capacity to minimize allocations
@@ -80,8 +78,11 @@ impl SitemapCreator {
         // XML declaration and urlset opening tag
         writeln!(xml, r#"<?xml version="1.0" encoding="UTF-8"?>"#)
             .map_err(|e| Layer5Error::Internal(format!("Failed to write XML header: {}", e)))?;
-        writeln!(xml, r#"<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">"#)
-            .map_err(|e| Layer5Error::Internal(format!("Failed to write urlset: {}", e)))?;
+        writeln!(
+            xml,
+            r#"<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">"#
+        )
+        .map_err(|e| Layer5Error::Internal(format!("Failed to write urlset: {}", e)))?;
 
         // Static entries
         let static_entries = Self::get_static_entries(&today);
@@ -169,8 +170,12 @@ impl SitemapCreator {
         }
 
         // Change frequency (optional)
-        writeln!(xml, "    <changefreq>{}</changefreq>", entry.changefreq.as_str())
-            .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+        writeln!(
+            xml,
+            "    <changefreq>{}</changefreq>",
+            entry.changefreq.as_str()
+        )
+        .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
 
         // Priority (optional)
         writeln!(xml, "    <priority>{:.1}</priority>", entry.priority)

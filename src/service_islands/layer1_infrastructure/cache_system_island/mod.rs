@@ -5,17 +5,13 @@
 //!
 //! Maintains compatibility with existing API aggregator interface.
 
-use std::sync::Arc;
 use anyhow::Result;
+use std::sync::Arc;
 use tracing::info;
 
 // Import and re-export from multi-tier-cache library
 pub use multi_tier_cache::{
-    CacheSystem as LibraryCacheSystem,
-    CacheManager,
-    CacheStrategy,
-    L1Cache,
-    L2Cache,
+    CacheManager, CacheStrategy, CacheSystem as LibraryCacheSystem, L1Cache, L2Cache,
 };
 
 // Re-export stats struct for backward compatibility if needed
@@ -23,9 +19,9 @@ pub use multi_tier_cache::{
 pub use multi_tier_cache::CacheManagerStats;
 
 // Module declarations (now just re-export files that themselves re-export from library)
+pub mod cache_manager;
 pub mod l1_cache;
 pub mod l2_cache;
-pub mod cache_manager;
 
 /// Cache System Island - Two-tier caching system
 ///
@@ -55,8 +51,18 @@ impl CacheSystemIsland {
 
         // Extract Arc references for backward compatibility
         let cache_manager = Arc::clone(&inner.cache_manager);
-        let l1_cache = Arc::clone(inner.l1_cache.as_ref().expect("L1 cache should be initialized"));
-        let l2_cache = Arc::clone(inner.l2_cache.as_ref().expect("L2 cache should be initialized"));
+        let l1_cache = Arc::clone(
+            inner
+                .l1_cache
+                .as_ref()
+                .expect("L1 cache should be initialized"),
+        );
+        let l2_cache = Arc::clone(
+            inner
+                .l2_cache
+                .as_ref()
+                .expect("L2 cache should be initialized"),
+        );
 
         info!("✅ Cache System Island initialized successfully (library-backed)");
 
