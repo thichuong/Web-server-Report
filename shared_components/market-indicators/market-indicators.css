@@ -20,14 +20,15 @@
     padding: 1.5rem;
     box-shadow: var(--card-shadow);
     border: 1px solid var(--card-border);
-    transition: border-color 0.15s ease; /* Only border color transition */
+    transition: all 0.3s ease;
+    will-change: border-color, box-shadow;
     position: relative;
     overflow: hidden;
     backdrop-filter: blur(8px);
 }
 
 .market-card:hover {
-    /* Removed transform and box-shadow - only border color change */
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
     border-color: var(--accent-color);
 }
 
@@ -39,9 +40,11 @@
     border-radius: 50%;
     background-color: var(--positive-color);
     margin-right: 0.5rem;
-    /* animation: pulse-dot 2s infinite; */ /* Disabled for performance - real-time updates already indicate live data */
+    /* animation: pulse-dot 2s infinite; */
+    /* Disabled for performance - real-time updates already indicate live data */
     box-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
 }
+
 .market-card:hover::before {
     opacity: 1;
 }
@@ -60,7 +63,8 @@
     padding: 1rem;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
     border: 1px solid var(--border-color);
-    transition: border-color 0.1s ease; /* Only border color transition */
+    transition: border-color 0.1s ease;
+    /* Only border color transition */
 }
 
 .market-mini-card:hover {
@@ -168,12 +172,15 @@
 }
 
 @keyframes pulse-dot {
-    0%, 100% { 
-        opacity: 1; 
+
+    0%,
+    100% {
+        opacity: 1;
         transform: scale(1);
     }
-    50% { 
-        opacity: 0.6; 
+
+    50% {
+        opacity: 0.6;
         transform: scale(1.1);
     }
 }
@@ -182,7 +189,8 @@
 .skeleton-loader {
     background: linear-gradient(90deg, var(--skeleton-base) 25%, var(--skeleton-highlight) 50%, var(--skeleton-base) 75%);
     background-size: 200% 100%;
-    /* animation: skeleton-loading 1.5s infinite; */ /* Disabled for performance - static shimmer sufficient */
+    /* animation: skeleton-loading 1.5s infinite; */
+    /* Disabled for performance - static shimmer sufficient */
     border-radius: 4px;
     height: 2rem;
     width: 70%;
@@ -201,6 +209,7 @@
     0% {
         background-position: 200% 0;
     }
+
     100% {
         background-position: -200% 0;
     }
@@ -308,19 +317,19 @@
     .market-indicators-container {
         padding: 0.5rem;
     }
-    
+
     .market-card {
         padding: 1rem;
     }
-    
+
     .market-value {
         font-size: 1.75rem;
     }
-    
+
     .index-value {
         font-size: 1.5rem;
     }
-    
+
     .market-mini-card {
         padding: 0.75rem;
     }
@@ -330,7 +339,7 @@
     .market-value {
         font-size: 1.5rem;
     }
-    
+
     .index-value {
         font-size: 2.5rem;
     }
@@ -344,13 +353,14 @@
 }
 
 @keyframes fadeIn {
-    from { 
-        opacity: 0; 
-        transform: translateY(10px); 
+    from {
+        opacity: 0;
+        transform: translateY(10px);
     }
-    to { 
-        opacity: 1; 
-        transform: translateY(0); 
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }
 
@@ -359,16 +369,18 @@
 }
 
 @keyframes pulseUpdate {
-    0% { 
-        transform: scale(1); 
+    0% {
+        transform: scale(1);
         box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
     }
-    50% { 
-        transform: scale(1.02); 
+
+    50% {
+        transform: scale(1.02);
         box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.2);
     }
-    100% { 
-        transform: scale(1); 
+
+    100% {
+        transform: scale(1);
         box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
     }
 }
@@ -383,10 +395,11 @@
 .us-stock-card:hover {
     border-left-color: var(--primary-blue-dark);
     background: linear-gradient(135deg, var(--background-light) 0%, var(--card-hover) 100%);
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
 }
 
 /* Horizontal layout for stock cards */
-.us-stock-card > div {
+.us-stock-card>div {
     width: 100%;
 }
 
@@ -551,15 +564,15 @@
     .market-indicators-container {
         padding: 1.5rem 1rem;
     }
-    
+
     .market-indicators-container .grid {
         gap: 0.75rem;
     }
-    
+
     .market-card {
         padding: 1.25rem;
     }
-    
+
     .market-value {
         font-size: 1.5rem;
     }
@@ -572,20 +585,20 @@
         max-height: none;
         overflow-y: visible;
     }
-    
+
     .market-indicators-container h2 {
         font-size: 1.5rem;
         margin-bottom: 1rem;
     }
-    
+
     .market-indicators-container h3 {
         font-size: 1.125rem;
     }
-    
+
     .market-card {
         padding: 1rem;
     }
-    
+
     .market-value {
         font-size: 1.5rem;
     }
@@ -610,11 +623,11 @@
 }
 
 /* Enhanced spacing for better visual hierarchy */
-.market-indicators-container > div.mb-8 {
+.market-indicators-container>div.mb-8 {
     margin-bottom: 2rem;
 }
 
-.market-indicators-container > div.mb-8:last-child {
+.market-indicators-container>div.mb-8:last-child {
     margin-bottom: 1.5rem;
 }
 
@@ -675,11 +688,12 @@
     border-radius: 8px;
     padding: 0.5rem;
     border: 1px solid var(--border-color);
-    transition: border-color 0.15s ease; /* Only border color transition */
+    transition: all 0.3s ease;
+    will-change: border-color, box-shadow;
 }
 
 .binance-price-card:hover {
-    /* Removed transform and box-shadow - only border color change */
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
     border-color: var(--accent-color);
 }
 
@@ -750,11 +764,13 @@
     gap: 0.75rem;
     align-items: center;
     justify-content: space-between;
-    flex-wrap: nowrap; /* Không cho xuống hàng */
+    flex-wrap: nowrap;
+    /* Không cho xuống hàng */
 }
 
 .gauge-info {
-    flex: 0 0 55%; /* Chiếm 55% chiều rộng */
+    flex: 0 0 55%;
+    /* Chiếm 55% chiều rộng */
     min-width: 0;
 }
 
@@ -763,14 +779,16 @@
 }
 
 .gauge-chart-wrapper {
-    flex: 0 0 40%; /* Chiếm 40% chiều rộng */
+    flex: 0 0 40%;
+    /* Chiếm 40% chiều rộng */
     display: flex;
     align-items: center;
     justify-content: flex-end;
 }
 
 .gauge-chart-large {
-    width: 100%; /* Chiếm toàn bộ wrapper */
+    width: 100%;
+    /* Chiếm toàn bộ wrapper */
     height: auto;
     display: block;
 }
@@ -778,21 +796,25 @@
 /* Responsive adjustments for gauge cards */
 @media (max-width: 768px) {
     .gauge-info {
-        flex: 0 0 50%; /* 50% trên tablet */
+        flex: 0 0 50%;
+        /* 50% trên tablet */
     }
-    
+
     .gauge-chart-wrapper {
-        flex: 0 0 45%; /* 45% trên tablet */
+        flex: 0 0 45%;
+        /* 45% trên tablet */
     }
 }
 
 @media (max-width: 480px) {
     .gauge-info {
-        flex: 0 0 52%; /* 52% trên mobile */
+        flex: 0 0 52%;
+        /* 52% trên mobile */
     }
-    
+
     .gauge-chart-wrapper {
-        flex: 0 0 43%; /* 43% trên mobile */
+        flex: 0 0 43%;
+        /* 43% trên mobile */
     }
 }
 
@@ -801,11 +823,13 @@
     gap: 0.75rem;
     align-items: center;
     justify-content: space-between;
-    flex-wrap: nowrap; /* Không cho xuống hàng */
+    flex-wrap: nowrap;
+    /* Không cho xuống hàng */
 }
 
 .dominance-info {
-    flex: 0 0 55%; /* Chiếm 55% chiều rộng */
+    flex: 0 0 55%;
+    /* Chiếm 55% chiều rộng */
     min-width: 0;
 }
 
@@ -814,14 +838,16 @@
 }
 
 .dominance-chart-wrapper {
-    flex: 0 0 40%; /* Chiếm 40% chiều rộng */
+    flex: 0 0 40%;
+    /* Chiếm 40% chiều rộng */
     display: flex;
     align-items: center;
     justify-content: flex-end;
 }
 
 .dominance-chart-large {
-    width: 100%; /* Chiếm toàn bộ wrapper */
+    width: 100%;
+    /* Chiếm toàn bộ wrapper */
     height: auto;
     display: block;
 }
@@ -855,21 +881,25 @@
 /* Responsive adjustments for dominance cards */
 @media (max-width: 768px) {
     .dominance-info {
-        flex: 0 0 50%; /* 50% trên tablet */
+        flex: 0 0 50%;
+        /* 50% trên tablet */
     }
-    
+
     .dominance-chart-wrapper {
-        flex: 0 0 45%; /* 45% trên tablet */
+        flex: 0 0 45%;
+        /* 45% trên tablet */
     }
 }
 
 @media (max-width: 480px) {
     .dominance-info {
-        flex: 0 0 52%; /* 52% trên mobile */
+        flex: 0 0 52%;
+        /* 52% trên mobile */
     }
-    
+
     .dominance-chart-wrapper {
-        flex: 0 0 43%; /* 43% trên mobile */
+        flex: 0 0 43%;
+        /* 43% trên mobile */
     }
 }
 
@@ -957,6 +987,7 @@
     from {
         stroke-dashoffset: 1000;
     }
+
     to {
         stroke-dashoffset: 0;
     }
