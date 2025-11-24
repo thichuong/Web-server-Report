@@ -13,6 +13,12 @@ pub struct HealthChecker {
     // Component state will be added here as we implement lower layers
 }
 
+impl Default for HealthChecker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HealthChecker {
     /// Create a new HealthChecker
     pub fn new() -> Self {

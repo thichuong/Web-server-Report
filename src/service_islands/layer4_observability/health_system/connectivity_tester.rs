@@ -13,6 +13,12 @@ pub struct ConnectivityTester {
     // Component state will be added here
 }
 
+impl Default for ConnectivityTester {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ConnectivityTester {
     /// Create a new ConnectivityTester
     pub fn new() -> Self {

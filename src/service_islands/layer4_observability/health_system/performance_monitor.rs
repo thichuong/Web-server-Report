@@ -14,6 +14,12 @@ pub struct PerformanceMonitor {
     // Component state will be added here
 }
 
+impl Default for PerformanceMonitor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PerformanceMonitor {
     /// Create a new PerformanceMonitor
     pub fn new() -> Self {

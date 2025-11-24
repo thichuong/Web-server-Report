@@ -11,6 +11,12 @@ pub struct TemplateRenderer {
     // Component state will be added here
 }
 
+impl Default for TemplateRenderer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TemplateRenderer {
     /// Create a new TemplateRenderer
     pub fn new() -> Self {

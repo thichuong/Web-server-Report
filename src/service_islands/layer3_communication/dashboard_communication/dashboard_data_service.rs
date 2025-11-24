@@ -19,6 +19,12 @@ pub struct DashboardDataService {
     // Service state will be added here when needed
 }
 
+impl Default for DashboardDataService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DashboardDataService {
     /// Create a new DashboardDataService
     pub fn new() -> Self {
@@ -74,7 +80,7 @@ impl DashboardDataService {
         
         // Cache the compressed data for 5 minutes in both L1 and L2
         if let Some(ref cache_system) = state.cache_system {
-            if let Ok(compressed_json) = serde_json::to_value(&compressed_data) {
+            if let Ok(compressed_json) = serde_json::to_value(compressed_data) {
                 match cache_system.cache_manager.set_with_strategy(
                     cache_key, 
                     compressed_json,

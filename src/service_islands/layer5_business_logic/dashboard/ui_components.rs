@@ -9,6 +9,12 @@ pub struct UIComponents {
     // Component state will be added here
 }
 
+impl Default for UIComponents {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl UIComponents {
     /// Create a new UIComponents instance
     pub fn new() -> Self {

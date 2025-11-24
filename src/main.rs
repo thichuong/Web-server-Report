@@ -1,3 +1,4 @@
+#![warn(clippy::pedantic)]
 use dotenvy::dotenv;
 use std::{env, net::SocketAddr, sync::Arc};
 use tracing::{info, warn, error};
@@ -47,7 +48,7 @@ async fn main() -> Result<(), anyhow::Error> {
             8000
         });
 
-    let addr: SocketAddr = format!("{}:{}", host, port)
+    let addr: SocketAddr = format!("{host}:{port}")
         .parse()
         .unwrap_or_else(|e| {
             warn!("⚠️ Invalid HOST/PORT combination, using 0.0.0.0:8000: {}", e);

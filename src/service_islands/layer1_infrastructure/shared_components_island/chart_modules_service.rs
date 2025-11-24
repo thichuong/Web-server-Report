@@ -62,7 +62,7 @@ impl ChartModulesService {
         
         while let Some(entry) = dir_entries.next_entry().await? {
             let path = entry.path();
-            if path.is_file() && path.extension().map_or(false, |ext| ext == "js") {
+            if path.is_file() && path.extension().is_some_and(|ext| ext == "js") {
                 if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
                     all_files.push(file_name.to_string());
                 }

@@ -10,6 +10,12 @@ pub struct ReportManager {
     // Component state will be added here
 }
 
+impl Default for ReportManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ReportManager {
     /// Create a new ReportManager
     pub fn new() -> Self {

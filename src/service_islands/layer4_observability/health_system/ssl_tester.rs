@@ -12,6 +12,12 @@ pub struct SslTester {
     // Component state will be added here
 }
 
+impl Default for SslTester {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SslTester {
     /// Create a new SslTester
     pub fn new() -> Self {

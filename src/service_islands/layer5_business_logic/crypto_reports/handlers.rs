@@ -30,6 +30,12 @@ pub struct CryptoHandlers {
     pub template_orchestrator: TemplateOrchestrator,
 }
 
+impl Default for CryptoHandlers {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CryptoHandlers {
     /// Create a new CryptoHandlers instance
     pub fn new() -> Self {
@@ -131,7 +137,7 @@ impl CryptoHandlers {
         let request_count = state.request_counter.fetch_add(1, Ordering::Relaxed);
         
         // Log every 100 requests for monitoring
-        if request_count % 100 == 0 {
+        if request_count.is_multiple_of(100) {
             info!("Processed {} requests to crypto_index", request_count);
         }
 
@@ -225,7 +231,7 @@ impl CryptoHandlers {
         let request_count = state.request_counter.fetch_add(1, Ordering::Relaxed);
         
         // Log every 100 requests for monitoring
-        if request_count % 100 == 0 {
+        if request_count.is_multiple_of(100) {
             info!("Processed {} requests to crypto_report_by_id", request_count);
         }
 
@@ -315,7 +321,7 @@ impl CryptoHandlers {
         let request_count = state.request_counter.fetch_add(1, Ordering::Relaxed);
         
         // Log every 50 requests for monitoring
-        if request_count % 50 == 0 {
+        if request_count.is_multiple_of(50) {
             info!("Processed {} requests to crypto_reports_list", request_count);
         }
 

@@ -70,6 +70,12 @@ pub struct CryptoDataService {
     // Service state will be added here when needed
 }
 
+impl Default for CryptoDataService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CryptoDataService {
     /// Create a new CryptoDataService
     pub fn new() -> Self {

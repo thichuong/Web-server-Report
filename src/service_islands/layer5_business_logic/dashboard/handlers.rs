@@ -25,6 +25,12 @@ pub struct DashboardHandlers {
     pub data_service: DashboardDataService,
 }
 
+impl Default for DashboardHandlers {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DashboardHandlers {
     /// Create a new DashboardHandlers instance
     pub fn new() -> Self {

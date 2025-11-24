@@ -10,6 +10,12 @@ pub struct DataManager {
     // Component state will be added here
 }
 
+impl Default for DataManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DataManager {
     /// Create a new DataManager
     pub fn new() -> Self {
