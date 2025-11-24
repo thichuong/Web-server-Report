@@ -31,7 +31,7 @@ pub struct PerformanceInfo {
 #[derive(Debug, Serialize)]
 #[serde(untagged)]
 pub enum CacheStatsResponse {
-    Available(CacheStatsAvailable),
+    Available(Box<CacheStatsAvailable>),
     Unavailable(CacheStatsUnavailable),
 }
 

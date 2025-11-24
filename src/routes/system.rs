@@ -108,7 +108,7 @@ async fn cache_stats(
     // Get actual cache statistics from the multi-tier-cache library
     let response = if let Some(ref cache_system) = legacy_state.cache_system {
         let stats = cache_system.cache_manager.get_stats();
-        CacheStatsResponse::Available(CacheStatsAvailable {
+        CacheStatsResponse::Available(Box::new(CacheStatsAvailable {
             cache: CacheSystemInfo {
                 system: "multi-tier-cache library v0.5.2".to_string(),
                 l1_cache: "active (moka)".to_string(),
@@ -136,7 +136,7 @@ async fn cache_stats(
                 status: "healthy".to_string(),
                 recommendation: "Cache operating normally with automatic memory management".to_string(),
             },
-        })
+        }))
     } else {
         CacheStatsResponse::Unavailable(CacheStatsUnavailable {
             error: "Cache system not available".to_string(),
