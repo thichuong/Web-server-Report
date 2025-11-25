@@ -79,3 +79,10 @@ flate2 = "1.0"        # Gzip compression
 regex = "1.10"        # Regular expressions for content sanitization
 # Cryptographic hashing
 blake3 = "1.5"        # Fast, secure hashing for token generation
+
+[lints.clippy]
+pedantic = "warn"
+
+unwrap_used = "warn"
+expect_used = "warn"
+indexing_slicing = "warn"
