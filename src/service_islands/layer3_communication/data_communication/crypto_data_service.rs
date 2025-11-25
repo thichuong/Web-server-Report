@@ -439,15 +439,16 @@ impl CryptoDataService {
     /// Get cached DSD rendered report
     ///
     /// Retrieves compressed HTML for Declarative Shadow DOM routes.
-    /// Cache key format: compressed_report_dsd_{report_id}
+    /// Cache key format: compressed_report_dsd_{report_id}_{language}
     /// ✅ PRODUCTION-SAFE: No size limits on read - only on write
     pub async fn get_rendered_report_dsd_compressed(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
+        language: &str,
     ) -> Result<Option<Vec<u8>>, anyhow::Error> {
         if let Some(ref cache_system) = state.cache_system {
-            let cache_key = format!("compressed_report_dsd_{}", report_id);
+            let cache_key = format!("compressed_report_dsd_{}_{}", report_id, language);
             if let Ok(Some(cached_value)) = cache_system.cache_manager.get(&cache_key).await {
                 if let Ok(compressed_bytes) = serde_json::from_value::<Vec<u8>>(cached_value) {
                     let report_type = if report_id == -1 {
@@ -456,7 +457,7 @@ impl CryptoDataService {
                         &format!("DSD report #{}", report_id)
                     };
                     let size_kb = compressed_bytes.len() / 1024;
-                    info!("🔥 Layer 3: Cache HIT for {} ({}KB)", report_type, size_kb);
+                    info!("🔥 Layer 3: Cache HIT for {} (lang: {}) ({}KB)", report_type, language, size_kb);
                     return Ok(Some(compressed_bytes));
                 }
             }
@@ -477,6 +478,7 @@ impl CryptoDataService {
         state: &Arc<AppState>,
         report_id: i32,
         compressed_data: &[u8],
+        language: &str,
     ) -> Result<(), anyhow::Error> {
         let data_size = compressed_data.len();
         let size_kb = data_size / 1024;
@@ -490,22 +492,22 @@ impl CryptoDataService {
         // 🛡️ GUARD: Warn if individual entry size is very large (soft limit for logging)
         if data_size > MAX_COMPRESSED_ENTRY_SIZE {
             warn!(
-                "⚠️  Layer 3: Very large DSD compressed data for {} ({:.1}MB)",
-                report_type, size_mb
+                "⚠️  Layer 3: Very large DSD compressed data for {} (lang: {}) ({:.1}MB)",
+                report_type, language, size_mb
             );
             error!(
                 "   Note: Cache library will handle storage, but consider optimizing entry size"
             );
         } else if data_size > WARN_COMPRESSED_ENTRY_SIZE {
             warn!(
-                "⚠️  Layer 3: Large DSD compressed entry for {} ({:.1}MB)",
-                report_type, size_mb
+                "⚠️  Layer 3: Large DSD compressed entry for {} (lang: {}) ({:.1}MB)",
+                report_type, language, size_mb
             );
         }
 
         // ✅ Cache the data - library handles memory management automatically
         if let Some(ref cache_system) = state.cache_system {
-            let cache_key = format!("compressed_report_dsd_{}", report_id);
+            let cache_key = format!("compressed_report_dsd_{}_{}", report_id, language);
             let strategy = crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm;
             // Serialize the slice - this creates a temporary Vec internally, but that's required for JSON serialization
             let compressed_json = serde_json::to_value(compressed_data).unwrap_or_default();
@@ -516,8 +518,8 @@ impl CryptoDataService {
                 .await?;
 
             debug!(
-                "💾 Layer 3: Cached DSD compressed data for {} ({}KB)",
-                report_type, size_kb
+                "💾 Layer 3: Cached DSD compressed data for {} (lang: {}) ({}KB)",
+                report_type, language, size_kb
             );
         }
         Ok(())

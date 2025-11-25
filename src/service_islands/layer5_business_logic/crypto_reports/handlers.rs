@@ -4,14 +4,23 @@
 //! Based on archive_old_code/handlers/crypto.rs
 //! ONLY uses Template Engine - NO manual HTML creation
 
+use std::collections::HashMap;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+use std::sync::{atomic::Ordering, Arc};
+use std::io::Write;
+use std::error::Error as StdError;
 use axum::{
     body::Body,
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
 use flate2::{write::GzEncoder, Compression};
-use std::{error::Error as StdError, io::Write, sync::atomic::Ordering, sync::Arc};
 use tracing::{debug, error, info, warn};
+
+use crate::service_islands::layer5_business_logic::crypto_reports::rendering::{
+    generate_breadcrumbs_and_related, generate_complete_geo_metadata,
+};
 
 // Import from current state - will be refactored when lower layers are implemented
 use crate::service_islands::layer1_infrastructure::AppState;
@@ -467,13 +476,297 @@ impl CryptoHandlers {
             .map_err(|e| e.into_boxed())
     }
 
-    // NOTE: Crypto handlers implementation following archive_old_code/handlers/crypto.rs
-    // Key requirements:
-    // 1. MUST use Tera template engine - NO manual HTML creation
-    // 2. MUST use "crypto/routes/reports/view.html" template
-    // 3. Template variables: {{ report.css_content }}, {{ report.js_content }}, {{ chart_modules_content }}
-    // 4. Implement L1/L2 caching logic like original
-    // 5. Parallel chart modules fetching
-    //
-    // Current status: Template engine access needed from Service Islands architecture
+    /// Detect preferred language from request
+    /// Priority: Query param > Cookie > Accept-Language header > Default (vi)
+    pub fn detect_preferred_language(
+        query_params: &HashMap<String, String>,
+        headers: &HeaderMap,
+    ) -> Option<String> {
+        // 1. Check query parameter (?lang=en or ?lang=vi)
+        if let Some(lang) = query_params.get("lang") {
+            let lang = lang.to_lowercase();
+            if lang == "en" || lang == "vi" {
+                debug!("🌐 [Language] Detected from query param: {}", lang);
+                return Some(lang);
+            }
+        }
+
+        // 2. Check Cookie header for preferred_language or language
+        if let Some(cookie_header) = headers.get("cookie") {
+            if let Ok(cookie_str) = cookie_header.to_str() {
+                // Parse cookies manually
+                for cookie in cookie_str.split(';') {
+                    let parts: Vec<&str> = cookie.trim().splitn(2, '=').collect();
+                    if parts.len() == 2 {
+                        let (name, value) = (parts[0].trim(), parts[1].trim());
+                        if name == "preferred_language" || name == "language" {
+                            let lang = value.to_lowercase();
+                            if lang == "en" || lang == "vi" {
+                                debug!("🌐 [Language] Detected from cookie: {}", lang);
+                                return Some(lang);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Check Accept-Language header
+        if let Some(accept_lang) = headers.get("accept-language") {
+            if let Ok(lang_str) = accept_lang.to_str() {
+                // Parse Accept-Language: "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7"
+                for lang_tag in lang_str.split(',') {
+                    let lang = lang_tag.split(';').next().unwrap_or("").trim();
+                    if lang.starts_with("en") {
+                        debug!("🌐 [Language] Detected from Accept-Language: en");
+                        return Some("en".to_string());
+                    } else if lang.starts_with("vi") {
+                        debug!("🌐 [Language] Detected from Accept-Language: vi");
+                        return Some("vi".to_string());
+                    }
+                }
+            }
+        }
+
+        // 4. Default to Vietnamese
+        debug!("🌐 [Language] Using default: vi");
+        None // None means use default (vi) in generate_shadow_dom_content
+    }
+
+    /// Render Crypto Index DSD (Latest Report)
+    /// Encapsulates all logic for the crypto_index route
+    pub async fn render_crypto_index_dsd(
+        &self,
+        state: &Arc<AppState>,
+        params: &HashMap<String, String>,
+        headers: &HeaderMap,
+        chart_modules_content: Arc<String>,
+        report_id_opt: Option<i32>, // Optional specific ID, defaults to latest if None
+    ) -> Response {
+        debug!("🌓 [Handler] render_crypto_index_dsd called - using Declarative Shadow DOM architecture");
+
+        // Detect preferred language from request
+        let preferred_language =
+            Self::detect_preferred_language(params, headers).unwrap_or_else(|| "vi".to_string());
+
+        // Determine report ID value (use provided or -1 for latest)
+        let report_id_value = report_id_opt.unwrap_or(-1);
+
+        debug!(
+            "🚀 [Handler] render_crypto_index_dsd called for {} (language: {})",
+            if report_id_value == -1 {
+                "latest report".to_string()
+            } else {
+                format!("report ID: {}", report_id_value)
+            },
+            preferred_language
+        );
+
+        // STEP 1: Check cache for compressed DSD HTML
+        let data_service = &self.report_creator.data_service;
+        if let Ok(Some(cached_compressed)) = data_service
+            .get_rendered_report_dsd_compressed(
+                state,
+                report_id_value,
+                &preferred_language,
+            )
+            .await
+        {
+            info!(
+                "✅ [Handler] DSD cache HIT - returning compressed HTML for {} (language: {})",
+                if report_id_value == -1 {
+                    "latest".to_string()
+                } else {
+                    format!("#{}", report_id_value)
+                },
+                preferred_language
+            );
+
+            return Response::builder()
+                .status(StatusCode::OK)
+                .header("cache-control", "public, max-age=300")
+                .header("content-type", "text/html; charset=utf-8")
+                .header("content-encoding", "gzip")
+                .header("x-render-mode", "declarative-shadow-dom")
+                .header("x-cache", "HIT")
+                .body(Body::from(cached_compressed))
+                .unwrap_or_else(|e| {
+                    warn!("⚠️ Failed to build cached DSD response: {}", e);
+                    Response::builder()
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .body(Body::from("Response build error"))
+                        .unwrap()
+                })
+                .into_response();
+        }
+
+        debug!("🔍 [Handler] DSD cache MISS - generating fresh HTML");
+
+        // STEP 2: Fetch report from database (uses existing data cache)
+        let report_result = if report_id_value == -1 {
+            self.report_creator
+                .fetch_and_cache_latest_report(state)
+                .await
+        } else {
+            self.report_creator
+                .fetch_and_cache_report_by_id(state, report_id_value)
+                .await
+        };
+
+        let report = match report_result {
+            Ok(Some(report)) => report,
+            Ok(None) => {
+                warn!("⚠️ [Handler] No report found for DSD view");
+                return (StatusCode::NOT_FOUND, "Report not found").into_response();
+            }
+            Err(e) => {
+                error!("❌ [Handler] Database error fetching report for DSD: {}", e);
+                return (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
+            }
+        };
+
+        // STEP 3: Generate shadow_dom_token
+        let mut hasher = DefaultHasher::new();
+        report.id.hash(&mut hasher);
+        report.created_at.hash(&mut hasher);
+        let shadow_dom_token = format!("sb_{:x}", hasher.finish());
+
+        // STEP 4: Get chart modules content and generate shadow DOM content
+        let sandboxed_report = self.report_creator
+            .create_sandboxed_report(&report, Some(chart_modules_content.as_str()));
+        let shadow_dom_content = self.report_creator
+            .generate_shadow_dom_content(
+                &sandboxed_report,
+                Some(&preferred_language),
+                Some(chart_modules_content.as_str()),
+            );
+
+        info!(
+            "🌐 [Handler] render_crypto_index_dsd rendering with language: {}",
+            preferred_language
+        );
+
+        // STEP 5: Generate GEO metadata for AI bots (Grok, GPT, Claude)
+        let (geo_meta_tags, geo_json_ld, geo_title) =
+            generate_complete_geo_metadata(&report, Some(&preferred_language));
+        debug!(
+            "📊 [Handler] GEO metadata generated for report {} - title: {}",
+            report.id, geo_title
+        );
+
+        // STEP 5.1: Fetch related reports for internal linking (GEO optimization)
+        let related_reports_data = match data_service
+            .fetch_related_reports(
+                state,
+                report.id,
+                3, // Limit to 3 related reports
+            )
+            .await
+        {
+            Ok(reports) => reports,
+            Err(e) => {
+                warn!("⚠️ [Handler] Failed to fetch related reports: {}", e);
+                vec![] // Fallback to empty list on error
+            }
+        };
+
+        // STEP 5.2: Generate breadcrumbs and related reports data
+        let (breadcrumb_items, breadcrumbs_schema, related_reports) =
+            generate_breadcrumbs_and_related(report.id, &related_reports_data);
+        debug!(
+            "📊 [Handler] Breadcrumbs and {} related reports generated for report {}",
+            related_reports.len(),
+            report.id
+        );
+
+        // STEP 6: Render template with GEO metadata
+        let mut context = tera::Context::new();
+        context.insert("report", &report);
+        context.insert("shadow_dom_token", &shadow_dom_token);
+        context.insert("shadow_dom_content", &shadow_dom_content);
+        context.insert("chart_modules_content", chart_modules_content.as_ref());
+        context.insert(
+            "websocket_url",
+            &std::env::var("WEBSOCKET_SERVICE_URL")
+                .unwrap_or_else(|_| "ws://localhost:8081/ws".to_string()),
+        );
+        // GEO metadata for AI optimization
+        context.insert("geo_meta_tags", &geo_meta_tags);
+        context.insert("geo_json_ld", &geo_json_ld);
+        context.insert("geo_title", &geo_title);
+        // Breadcrumbs and related reports for internal linking
+        context.insert("breadcrumb_items", &breadcrumb_items);
+        context.insert("breadcrumbs_schema", &breadcrumbs_schema);
+        context.insert("related_reports", &related_reports);
+
+        let html = match state
+            .tera
+            .render("crypto/routes/reports/view_dsd.html", &context)
+        {
+            Ok(html) => html,
+            Err(e) => {
+                error!("❌ [Handler] Failed to render DSD template: {}", e);
+                return (StatusCode::INTERNAL_SERVER_ERROR, "Template render error").into_response();
+            }
+        };
+
+        // STEP 7: Compress HTML
+        let compressed_data = match Self::compress_html_to_gzip(&html) {
+            Ok(data) => data,
+            Err(e) => {
+                error!("❌ [Handler] Failed to compress DSD HTML: {}", e);
+                return (StatusCode::INTERNAL_SERVER_ERROR, "Compression error").into_response();
+            }
+        };
+
+        // STEP 8: Cache the compressed HTML
+        if let Err(e) = data_service
+            .cache_rendered_report_dsd_compressed(
+                state,
+                report_id_value,
+                &compressed_data,
+                &preferred_language,
+            )
+            .await
+        {
+            warn!("⚠️ [Handler] Failed to cache DSD compressed HTML: {}", e);
+        }
+
+        info!(
+            "✅ [Handler] DSD template rendered successfully for report {} (language: {})",
+            report.id, preferred_language
+        );
+
+        // STEP 9: Return compressed response
+        Response::builder()
+            .status(StatusCode::OK)
+            .header("cache-control", "public, max-age=300")
+            .header("content-type", "text/html; charset=utf-8")
+            .header("content-encoding", "gzip")
+            .header("x-render-mode", "declarative-shadow-dom")
+            .header("x-cache", "MISS")
+            .body(Body::from(compressed_data))
+            .unwrap_or_else(|e| {
+                warn!("⚠️ Failed to build DSD response: {}", e);
+                Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .body(Body::from("Response build error"))
+                    .unwrap()
+            })
+            .into_response()
+    }
+
+    /// Render Crypto Report by ID DSD
+    /// Encapsulates all logic for the crypto_view_report route
+    pub async fn render_crypto_report_dsd(
+        &self,
+        state: &Arc<AppState>,
+        report_id: i32,
+        params: &HashMap<String, String>,
+        headers: &HeaderMap,
+        chart_modules_content: Arc<String>,
+    ) -> Response {
+        // Reuse the logic from render_crypto_index_dsd but with specific ID
+        self.render_crypto_index_dsd(state, params, headers, chart_modules_content, Some(report_id)).await
+    }
 }
