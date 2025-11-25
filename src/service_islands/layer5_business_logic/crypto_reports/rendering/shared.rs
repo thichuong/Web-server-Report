@@ -6,7 +6,7 @@
 //! - Sanitization functions for HTML, CSS, and JavaScript
 //! - From trait implementations for type conversions
 
-use lazy_static::lazy_static;
+use std::sync::LazyLock;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
@@ -18,42 +18,41 @@ use crate::service_islands::layer3_communication::data_communication::ReportData
 // ✅ PERFORMANCE OPTIMIZATION: Pre-compiled regex patterns for sanitization
 // These regexes are compiled once at startup instead of on every request,
 // eliminating ~386,867 regex compilations/second at 16,829+ RPS
-lazy_static! {
-    /// Pre-compiled HTML sanitization patterns
-    pub static ref HTML_SANITIZE_PATTERNS: Vec<Regex> = vec![
-        Regex::new(r"<script[^>]*>.*?</script>").unwrap(),  // Remove inline scripts
-        Regex::new(r"<iframe[^>]*>.*?</iframe>").unwrap(),  // Remove nested iframes
-        Regex::new(r"<object[^>]*>.*?</object>").unwrap(),  // Remove objects
-        Regex::new(r"<embed[^>]*>.*?</embed>").unwrap(),    // Remove embeds
-        Regex::new(r"<applet[^>]*>.*?</applet>").unwrap(),  // Remove applets
-        Regex::new(r"javascript:").unwrap(),                 // Remove javascript: URLs
-        Regex::new(r"on\w+\s*=").unwrap(),                   // Remove event handlers
-    ];
 
-    /// Pre-compiled CSS sanitization patterns
-    pub static ref CSS_SANITIZE_PATTERNS: Vec<Regex> = vec![
-        Regex::new(r"expression\s*\(").unwrap(),            // Remove CSS expressions
-        Regex::new(r"javascript\s*:").unwrap(),             // Remove javascript URLs in CSS
-        Regex::new(r"@import").unwrap(),                    // Remove imports
-        Regex::new(r"behavior\s*:").unwrap(),               // Remove IE behaviors
-        Regex::new(r"position\s*:\s*fixed").unwrap(),       // Prevent fixed positioning
-        Regex::new(r"position\s*:\s*absolute").unwrap(),    // Be careful with absolute
-        Regex::new(r"z-index\s*:\s*[0-9]{4,}").unwrap(),    // Prevent high z-index
-        Regex::new(r"!important\s*;").unwrap(),             // Remove !important
-    ];
+/// Pre-compiled HTML sanitization patterns
+pub static HTML_SANITIZE_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| vec![
+    Regex::new(r"<script[^>]*>.*?</script>").unwrap(),  // Remove inline scripts
+    Regex::new(r"<iframe[^>]*>.*?</iframe>").unwrap(),  // Remove nested iframes
+    Regex::new(r"<object[^>]*>.*?</object>").unwrap(),  // Remove objects
+    Regex::new(r"<embed[^>]*>.*?</embed>").unwrap(),    // Remove embeds
+    Regex::new(r"<applet[^>]*>.*?</applet>").unwrap(),  // Remove applets
+    Regex::new(r"javascript:").unwrap(),                 // Remove javascript: URLs
+    Regex::new(r"on\w+\s*=").unwrap(),                   // Remove event handlers
+]);
 
-    /// Pre-compiled JavaScript sanitization patterns
-    pub static ref JS_SANITIZE_PATTERNS: Vec<Regex> = vec![
-        Regex::new(r"eval\s*\(").unwrap(),                  // Remove eval calls
-        Regex::new(r"Function\s*\(").unwrap(),              // Remove Function constructor
-        Regex::new(r"setTimeout\s*\(").unwrap(),            // Remove setTimeout
-        Regex::new(r"setInterval\s*\(").unwrap(),           // Remove setInterval
-        Regex::new(r"document\.write").unwrap(),            // Remove document.write
-        Regex::new(r"window\.location").unwrap(),           // Remove location changes
-        Regex::new(r"parent\.").unwrap(),                   // Remove parent access
-        Regex::new(r"top\.").unwrap(),                      // Remove top access
-    ];
-}
+/// Pre-compiled CSS sanitization patterns
+pub static CSS_SANITIZE_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| vec![
+    Regex::new(r"expression\s*\(").unwrap(),            // Remove CSS expressions
+    Regex::new(r"javascript\s*:").unwrap(),             // Remove javascript URLs in CSS
+    Regex::new(r"@import").unwrap(),                    // Remove imports
+    Regex::new(r"behavior\s*:").unwrap(),               // Remove IE behaviors
+    Regex::new(r"position\s*:\s*fixed").unwrap(),       // Prevent fixed positioning
+    Regex::new(r"position\s*:\s*absolute").unwrap(),    // Be careful with absolute
+    Regex::new(r"z-index\s*:\s*[0-9]{4,}").unwrap(),    // Prevent high z-index
+    Regex::new(r"!important\s*;").unwrap(),             // Remove !important
+]);
+
+/// Pre-compiled JavaScript sanitization patterns
+pub static JS_SANITIZE_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| vec![
+    Regex::new(r"eval\s*\(").unwrap(),                  // Remove eval calls
+    Regex::new(r"Function\s*\(").unwrap(),              // Remove Function constructor
+    Regex::new(r"setTimeout\s*\(").unwrap(),            // Remove setTimeout
+    Regex::new(r"setInterval\s*\(").unwrap(),           // Remove setInterval
+    Regex::new(r"document\.write").unwrap(),            // Remove document.write
+    Regex::new(r"window\.location").unwrap(),           // Remove location changes
+    Regex::new(r"parent\.").unwrap(),                   // Remove parent access
+    Regex::new(r"top\.").unwrap(),                      // Remove top access
+]);
 
 /// Report model - exactly from archive_old_code/models.rs with iframe sandboxing support
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -144,7 +143,7 @@ const CSS_WRAPPER_SUFFIX: &str = "\n}";
 /// Enhanced to prevent CSS from affecting parent page.
 ///
 /// # Performance Optimizations
-/// - Uses pre-compiled regex patterns from lazy_static
+/// - Uses pre-compiled regex patterns from LazyLock
 /// - Single-pass with Cow to minimize allocations
 /// - Wrapping done only once at the end
 #[inline]
@@ -183,7 +182,7 @@ pub fn sanitize_css_content(css: &str) -> String {
 /// Applies basic JavaScript sanitization for sandbox environment.
 ///
 /// # Performance Optimizations
-/// - Uses pre-compiled regex patterns from lazy_static
+/// - Uses pre-compiled regex patterns from LazyLock
 /// - Single-pass with Cow to minimize allocations
 #[inline]
 pub fn sanitize_js_content(js: &str) -> Cow<'_, str> {

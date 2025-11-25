@@ -3257,7 +3257,6 @@ dependencies = [
  "dotenvy",
  "flate2",
  "futures",
- "lazy_static",
  "moka",
  "multi-tier-cache",
  "num_cpus",

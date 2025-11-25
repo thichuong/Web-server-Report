@@ -67,7 +67,7 @@ base64ct = "=1.6.0"    # Pin to avoid edition2024 requirement
 backon = "=1.5.0"      # Pin to 1.5.0 to avoid edition2024 requirement
 futures = "0.3"        # Async utilities cho concurrent operations
 # Performance optimization dependencies
-lazy_static = "1.4"    # Static initialization
+
 threadpool = "1.8"     # Dedicated thread pool cho CPU tasks
 parking_lot = "0.12"   # Fast synchronization primitives
 ahash = "0.8"         # Faster hash function
