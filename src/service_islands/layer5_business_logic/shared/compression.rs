@@ -20,7 +20,8 @@ pub struct CompressionStats {
 impl CompressionStats {
     /// Calculate compression statistics
     #[inline]
-    #[must_use] 
+    #[must_use]
+    #[allow(clippy::cast_precision_loss)]
     pub fn new(original_size: usize, compressed_size: usize) -> Self {
         let ratio_percent = if original_size > 0 {
             (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0
@@ -70,6 +71,9 @@ impl CompressionStats {
 /// let (compressed, stats) = compress_html_to_gzip(html)?;
 /// info!("Compressed {}KB -> {}KB ({:.1}%)", stats.original_kb(), stats.compressed_kb(), stats.ratio_percent);
 /// ```
+/// # Errors
+///
+/// Returns error if compression fails (write or finish).
 #[inline]
 pub fn compress_html_to_gzip(html: &str) -> Layer5Result<(Vec<u8>, CompressionStats)> {
     let original_size = html.len();
@@ -101,6 +105,9 @@ pub fn compress_html_to_gzip(html: &str) -> Layer5Result<(Vec<u8>, CompressionSt
 /// Compress HTML and return only the compressed data (convenience wrapper)
 ///
 /// Use this when you don't need compression statistics.
+/// # Errors
+///
+/// Returns error if compression fails.
 #[inline]
 pub fn compress_html(html: &str) -> Layer5Result<Vec<u8>> {
     compress_html_to_gzip(html).map(|(data, _)| data)

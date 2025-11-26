@@ -84,11 +84,11 @@ impl RedisStreamReader {
         }
 
         // Get the first (and only) entry
-        let (entry_id, fields) = entries.get(0).ok_or_else(|| anyhow::anyhow!("Stream entry missing"))?;
+        let (entry_id, fields) = entries.first().ok_or_else(|| anyhow::anyhow!("Stream entry missing"))?;
         info!("📨 Stream entry ID: {}", entry_id);
 
         // Convert stream fields back to JSON
-        let json_data = Self::stream_fields_to_json(fields)?;
+        let json_data = Self::stream_fields_to_json(fields);
 
         Ok(Some(json_data))
     }
@@ -97,14 +97,14 @@ impl RedisStreamReader {
     ///
     /// Transforms the flat key-value pairs from Redis Streams back into JSON.
     /// Special handling: If there's a single "data" field containing JSON, unwrap it.
-    fn stream_fields_to_json(fields: &Vec<(String, String)>) -> Result<Value> {
+    fn stream_fields_to_json(fields: &Vec<(String, String)>) -> Value {
         // Special case: If there's only one field named "data" containing JSON string
         if fields.len() == 1 {
             if let Some((key, value)) = fields.first() {
                 if key == "data" {
                     if let Ok(data) = serde_json::from_str::<Value>(value) {
                         info!("📦 Unwrapped nested 'data' field from Redis Stream");
-                        return Ok(data);
+                        return data;
                     }
                 }
             }
@@ -138,10 +138,14 @@ impl RedisStreamReader {
             map.insert(key.clone(), json_value);
         }
 
-        Ok(Value::Object(map))
+        Value::Object(map)
     }
 
     /// Health check
+    ///
+    /// # Errors
+    ///
+    /// Returns error if Redis connection fails (though currently it returns Ok(false) on error)
     pub async fn health_check(&self) -> Result<bool> {
         // Try to connect to Redis via cache_system
         match self.cache_system.cache_manager().get("_health_check").await {
@@ -158,6 +162,10 @@ impl RedisStreamReader {
     /// ✅ PRODUCTION-READY: Graceful cleanup for Redis Stream Reader
     /// Note: Redis connections are managed by the `cache_system` library and will
     /// be automatically cleaned up when `cache_system` is dropped.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if cleanup fails
     pub async fn cleanup(&self) -> Result<()> {
         info!("🧹 RedisStreamReader: Starting cleanup...");
 
@@ -185,7 +193,7 @@ mod tests {
             ("partial_failure".to_string(), "false".to_string()),
         ];
 
-        let result = RedisStreamReader::stream_fields_to_json(&fields).expect("Failed to parse stream fields");
+        let result = RedisStreamReader::stream_fields_to_json(&fields);
 
         assert_eq!(result["btc_price_usd"], 45000.5);
         assert_eq!(result["btc_change_24h"], 2.5);

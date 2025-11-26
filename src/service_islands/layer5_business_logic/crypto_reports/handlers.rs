@@ -115,6 +115,10 @@ impl CryptoHandlers {
     ///
     /// Helper function to compress HTML strings for templates that don't use compression
     /// ✅ PUBLIC: Can be called from route handlers for DSD routes
+    ///
+    /// # Errors
+    ///
+    /// Returns error if compression fails
     pub fn compress_html_to_gzip(html: &str) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
         let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
         encoder.write_all(html.as_bytes())?;
@@ -122,6 +126,7 @@ impl CryptoHandlers {
 
         let original_size = html.len();
         let compressed_size = compressed_data.len();
+        #[allow(clippy::cast_precision_loss)]
         let compression_ratio = (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0;
 
         info!(
@@ -140,6 +145,10 @@ impl CryptoHandlers {
     /// Enhanced with pre-loaded chart modules and HTML caching for optimal performance
     /// Now returns compressed data for optimal transfer speed
     /// ✅ OPTIMIZED: Uses Arc<String> to avoid cloning chart modules content
+    ///
+    /// # Errors
+    ///
+    /// Returns error if database fetch or template rendering fails
     pub async fn crypto_index_with_tera(
         &self,
         state: &Arc<AppState>,
@@ -254,6 +263,10 @@ impl CryptoHandlers {
     /// Enhanced with rendered HTML caching for optimal performance
     /// Now returns compressed data for optimal transfer speed
     /// ✅ OPTIMIZED: Uses Arc<String> to avoid cloning chart modules content
+    ///
+    /// # Errors
+    ///
+    /// Returns error if database fetch or template rendering fails
     pub async fn crypto_report_by_id_with_tera(
         &self,
         state: &Arc<AppState>,
@@ -371,6 +384,10 @@ impl CryptoHandlers {
     ///
     /// Delegated to Layer 3 with cache integration - similar to `crypto_index_with_tera` pattern
     /// Returns compressed data (Vec<u8>) for optimal transfer speed
+    ///
+    /// # Errors
+    ///
+    /// Returns error if database fetch fails
     pub async fn crypto_reports_list_with_tera(
         &self,
         state: &Arc<AppState>,
@@ -429,6 +446,10 @@ impl CryptoHandlers {
     ///
     /// Delegates to `ReportCreator` for actual sandboxed content generation.
     /// Returns `Layer5Result` for proper error handling.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if report generation fails
     pub async fn serve_sandboxed_report(
         &self,
         state: &Arc<AppState>,
@@ -456,6 +477,10 @@ impl CryptoHandlers {
     ///
     /// Delegates to `ReportCreator` for actual Shadow DOM content generation.
     /// This is the modern replacement for `serve_sandboxed_report`.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if report generation fails
     pub async fn serve_shadow_dom_content(
         &self,
         state: &Arc<AppState>,
@@ -538,6 +563,7 @@ impl CryptoHandlers {
 
     /// Render Crypto Index DSD (Latest Report)
     /// Encapsulates all logic for the `crypto_index` route
+    #[allow(clippy::too_many_lines)] // Orchestration function requiring multiple steps (cache, DB, DSD, metadata, rendering)
     pub async fn render_crypto_index_dsd(
         &self,
         state: &Arc<AppState>,

@@ -146,7 +146,9 @@ pub fn generate_meta_tags(metadata: &GeoMetadata, language: Option<&str>) -> Str
     let mut html = String::with_capacity(2048);
 
     // Essential meta tags
-    html.push_str(&format!(
+    // Essential meta tags
+    // Use write! to avoid intermediate string allocation
+    let _ = std::fmt::Write::write_fmt(&mut html, format_args!(
         r#"<meta name="description" content="{description}" />
     <link rel="canonical" href="{canonical}" />
 

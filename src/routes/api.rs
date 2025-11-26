@@ -255,7 +255,7 @@ async fn api_sandboxed_report(
     let initial_language = params.get("lang").map(std::string::String::as_str);
 
     // Get chart modules content for iframe inclusion
-    let chart_modules = if params.get("chart_modules").is_some() {
+    let chart_modules = if params.contains_key("chart_modules") {
         // If chart_modules parameter is present, load actual chart modules
         debug!("📊 [API] Loading chart modules for iframe");
         Some(
@@ -330,7 +330,7 @@ async fn api_shadow_dom_content(
     let initial_language = params.get("lang").map(std::string::String::as_str);
 
     // Get chart modules content for Shadow DOM inclusion
-    let chart_modules = if params.get("chart_modules").is_some() {
+    let chart_modules = if params.contains_key("chart_modules") {
         // If chart_modules parameter is present, load actual chart modules
         debug!("📊 [API] Loading chart modules for Shadow DOM");
         Some(

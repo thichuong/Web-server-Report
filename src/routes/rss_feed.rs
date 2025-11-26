@@ -61,7 +61,7 @@ async fn rss_feed(State(service_islands): State<Arc<ServiceIslands>>) -> impl In
             let report_count = reports.len();
 
             // Layer 5: Generate RSS XML
-            match RssCreator::generate_rss_xml(reports) {
+            match RssCreator::generate_rss_xml(&reports) {
                 Ok(xml) => {
                     info!(
                         "✅ RSS feed generated successfully: {} items, {} bytes",

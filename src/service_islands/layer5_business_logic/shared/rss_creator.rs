@@ -53,8 +53,13 @@ impl RssCreator {
     /// * `reports` - Vector of `ReportRssData` from database
     ///
     /// # Returns
+    /// # Returns
     /// Complete RSS 2.0 XML string
-    pub fn generate_rss_xml(reports: Vec<ReportRssData>) -> Layer5Result<String> {
+    ///
+    /// # Errors
+    ///
+    /// Returns error if XML writing fails
+    pub fn generate_rss_xml(reports: &[ReportRssData]) -> Layer5Result<String> {
         let metadata = FeedMetadata::default();
         let now = Utc::now();
 
@@ -82,7 +87,7 @@ impl RssCreator {
         Self::write_channel_metadata(&mut xml, &metadata, &now)?;
 
         // Write items
-        for report in &reports {
+        for report in reports {
             Self::write_item(&mut xml, report)?;
         }
 
@@ -163,7 +168,7 @@ impl RssCreator {
             .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
 
         // Title with date in Vietnamese timezone (UTC+7)
-        let vn_offset = FixedOffset::east_opt(7 * 3600).unwrap();
+        let vn_offset = FixedOffset::east_opt(7 * 3600).expect("FixedOffset::east_opt(7 * 3600) should always be valid");
         let vn_time = report.created_at.with_timezone(&vn_offset);
         let date_str = vn_time.format("%d/%m/%Y").to_string();
         let title = format!("Báo cáo Thị trường Crypto #{} - {}", report.id, date_str);
@@ -209,7 +214,7 @@ impl RssCreator {
     /// RSS 2.0 requires dates in RFC 822 format
     fn format_rfc822_date(dt: &DateTime<Utc>) -> String {
         // Convert to Vietnam timezone (UTC+7) for display
-        let vn_offset = FixedOffset::east_opt(7 * 3600).unwrap();
+        let vn_offset = FixedOffset::east_opt(7 * 3600).expect("FixedOffset::east_opt(7 * 3600) should always be valid");
         let vn_time = dt.with_timezone(&vn_offset);
 
         // RFC 822 format: "Sun, 23 Nov 2025 14:00:00 +0700"
@@ -303,7 +308,7 @@ mod tests {
             },
         ];
 
-        let xml = RssCreator::generate_rss_xml(reports).unwrap();
+        let xml = RssCreator::generate_rss_xml(&reports).unwrap();
 
         // Verify XML structure
         assert!(xml.starts_with(r#"<?xml version="1.0" encoding="UTF-8"?>"#));
@@ -327,7 +332,7 @@ mod tests {
 
     #[test]
     fn test_generate_rss_empty_reports() {
-        let xml = RssCreator::generate_rss_xml(vec![]).unwrap();
+        let xml = RssCreator::generate_rss_xml(&[]).unwrap();
 
         // Should still have valid channel
         assert!(xml.contains("<channel>"));

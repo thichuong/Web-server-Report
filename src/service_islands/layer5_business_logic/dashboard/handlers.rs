@@ -63,7 +63,7 @@ impl DashboardHandlers {
                 Response::builder()
                     .status(StatusCode::INTERNAL_SERVER_ERROR)
                     .body(Body::from("Response build error"))
-                    .unwrap() // This is guaranteed safe with literal body
+                    .unwrap_or_else(|_| Response::new(Body::from("Response build error")))
             })
             .into_response()
     }
@@ -71,6 +71,10 @@ impl DashboardHandlers {
     /// Compress HTML string to gzip format
     ///
     /// Helper function to compress HTML strings for optimized transfer
+    ///
+    /// # Errors
+    ///
+    /// Returns error if compression fails
     fn compress_html(&self, html: &str) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
         let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
         encoder.write_all(html.as_bytes())?;
@@ -78,6 +82,7 @@ impl DashboardHandlers {
 
         let original_size = html.len();
         let compressed_size = compressed_data.len();
+        #[allow(clippy::cast_precision_loss)]
         let compression_ratio = (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0;
 
         info!("🗜️  DashboardHandlers: HTML compressed - Original: {}KB, Compressed: {}KB, Ratio: {:.1}%",
@@ -91,6 +96,10 @@ impl DashboardHandlers {
     ///
     /// Uses Tera template engine to render home.html with market indicators component included.
     /// This replaces the simple file reading with proper template rendering.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if file reading fails
     pub async fn homepage(&self) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         match fs::read_to_string("dashboards/home.html").await {
             Ok(content) => Ok(content),
@@ -103,6 +112,10 @@ impl DashboardHandlers {
     /// Renders homepage using Tera template engine with proper context and intelligent caching.
     /// This includes the market indicators component and any dynamic data.
     /// Returns compressed HTML for optimal performance, similar to `crypto_index_with_tera`.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if template rendering or compression fails
     pub async fn homepage_with_tera(
         &self,
         state: &Arc<AppState>,
