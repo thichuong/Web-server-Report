@@ -85,7 +85,7 @@ impl SharedComponentsIsland {
     /// Perform health check on the Shared Components Island
     ///
     /// Returns true if all components are healthy and operational
-    pub async fn health_check(&self) -> bool {
+    pub fn health_check(&self) -> bool {
         debug!("🔍 Checking Shared Components Island health...");
 
         let template_healthy = self.template_registry.health_check();

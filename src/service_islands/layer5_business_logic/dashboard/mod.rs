@@ -37,7 +37,7 @@ impl DashboardIsland {
     /// # Errors
     ///
     /// Returns error if any component initialization fails
-    pub async fn new() -> Result<Self, anyhow::Error> {
+    pub fn new() -> Result<Self, anyhow::Error> {
         info!("🎯 Initializing Dashboard Island...");
 
         let handlers = handlers::DashboardHandlers::new();
@@ -58,9 +58,10 @@ impl DashboardIsland {
     /// Health check for Dashboard Island
     ///
     /// Verifies that all components of the Dashboard Island are functioning properly.
-    pub async fn health_check(&self) -> bool {
+    #[must_use]
+    pub fn health_check(&self) -> bool {
         // Check all components
-        let handlers_ok = self.handlers.health_check().await;
+        let handlers_ok = self.handlers.health_check();
         let renderer_ok = self.template_renderer.health_check();
         let manager_ok = self.report_manager.health_check();
         let ui_ok = self.ui_components.health_check();

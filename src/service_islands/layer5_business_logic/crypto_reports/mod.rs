@@ -42,7 +42,7 @@ impl CryptoReportsIsland {
     /// # Errors
     ///
     /// Returns error if any component initialization fails
-    pub async fn new() -> Result<Self, anyhow::Error> {
+    pub fn new() -> Result<Self, anyhow::Error> {
         info!("📊 Initializing Crypto Reports Island...");
 
         let report_creator = report_creator::ReportCreator::new();
@@ -64,12 +64,13 @@ impl CryptoReportsIsland {
     /// Health check for Crypto Reports Island
     ///
     /// Verifies that all components of the Crypto Reports Island are functioning properly.
-    pub async fn health_check(&self) -> bool {
+    #[must_use]
+    pub fn health_check(&self) -> bool {
         // Check all components
-        let handlers_ok = self.handlers.health_check().await;
-        let creator_ok = self.report_creator.health_check().await;
+        let handlers_ok = self.handlers.health_check();
+        let creator_ok = self.report_creator.health_check();
         let manager_ok = self.data_manager.health_check();
-        let orchestrator_ok = self.template_orchestrator.health_check().await;
+        let orchestrator_ok = self.template_orchestrator.health_check();
 
         handlers_ok && creator_ok && manager_ok && orchestrator_ok
     }

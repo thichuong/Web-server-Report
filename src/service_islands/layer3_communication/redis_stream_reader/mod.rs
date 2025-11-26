@@ -38,9 +38,9 @@ impl RedisStreamReader {
     ///
     /// Returns error if Redis Stream read fails or cache operation fails
     pub async fn read_latest_market_data(&self) -> Result<Option<Value>> {
-        info!("📖 Reading latest market data (cache-first with auto-fallback)...");
-
         use crate::service_islands::layer1_infrastructure::cache_system_island::CacheStrategy;
+
+        info!("📖 Reading latest market data (cache-first with auto-fallback)...");
 
         // ✅ IDIOMATIC: Use get_or_compute_typed for automatic cache management
         // This provides cache-first behavior + stampede protection + automatic caching

@@ -59,10 +59,11 @@ impl CryptoHandlers {
     }
 
     /// Health check for crypto handlers
-    pub async fn health_check(&self) -> bool {
+    #[must_use]
+    pub fn health_check(&self) -> bool {
         // Verify handlers are functioning properly
-        let report_creator_ok = self.report_creator.health_check().await;
-        let template_orchestrator_ok = self.template_orchestrator.health_check().await;
+        let report_creator_ok = self.report_creator.health_check();
+        let template_orchestrator_ok = self.template_orchestrator.health_check();
 
         report_creator_ok && template_orchestrator_ok
     }

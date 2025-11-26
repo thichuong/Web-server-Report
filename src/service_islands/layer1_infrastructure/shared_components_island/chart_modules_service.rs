@@ -103,7 +103,8 @@ impl ChartModulesService {
             let file_path = source_dir.join(file_name);
             match read_to_string(&file_path).await {
                 Ok(content) => {
-                    final_content.push_str(&format!("// === {file_name} ===\n"));
+                    use std::fmt::Write;
+                    writeln!(final_content, "// === {file_name} ===").ok();
                     final_content.push_str(&content);
                     final_content.push_str("\n\n");
                     debug!("  ✅ Loaded: {} ({} bytes)", file_name, content.len());

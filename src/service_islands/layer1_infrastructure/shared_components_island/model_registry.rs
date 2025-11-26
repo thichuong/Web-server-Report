@@ -23,7 +23,7 @@ impl ModelRegistry {
     pub fn new() -> Result<Self> {
         debug!("📊 Initializing Model Registry...");
 
-        let models = Self::initialize_models()?;
+        let models = Self::initialize_models();
 
         debug!("  📊 Registered {} data models", models.len());
 
@@ -31,7 +31,9 @@ impl ModelRegistry {
     }
 
     /// Initialize all model definitions
-    fn initialize_models() -> Result<HashMap<String, serde_json::Value>> {
+    ///
+    /// Returns a `HashMap` of model definitions used throughout the application.
+    fn initialize_models() -> HashMap<String, serde_json::Value> {
         let mut models = HashMap::new();
 
         // Register core models
@@ -50,7 +52,7 @@ impl ModelRegistry {
             "required": ["id", "title", "content", "report_type", "status"]
         }));
 
-        Ok(models)
+        models
     }
 
     /// Health check for model registry

@@ -199,9 +199,8 @@ impl ChartModulesIsland {
     pub async fn get_available_modules(&self) -> Vec<String> {
         let source_dir = Path::new(&self.base_dir);
 
-        let mut entries = match read_dir(&source_dir).await {
-            Ok(rd) => rd,
-            Err(_) => return Vec::new(),
+        let Ok(mut entries) = read_dir(&source_dir).await else {
+            return Vec::new();
         };
 
         let mut modules = Vec::new();

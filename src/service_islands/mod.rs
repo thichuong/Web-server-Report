@@ -72,8 +72,8 @@ impl ServiceIslands {
         // Initialize Layer 5: Business Logic
         // Note: Layer 5 now reads from cache/streams instead of calling external APIs directly
         info!("📊 Initializing Layer 5: Business Logic Islands...");
-        let dashboard = Arc::new(DashboardIsland::new().await?);
-        let crypto_reports = Arc::new(CryptoReportsIsland::new().await?);
+        let dashboard = Arc::new(DashboardIsland::new()?);
+        let crypto_reports = Arc::new(CryptoReportsIsland::new()?);
 
         info!("✅ Layer 1 Infrastructure Islands initialized!");
         info!("✅ Layer 3 Communication Islands initialized!");
@@ -110,7 +110,7 @@ impl ServiceIslands {
     pub async fn health_check(&self) -> bool {
         debug!("🔍 Performing Service Islands health check (Main Service)...");
 
-        let shared_components_healthy = self.shared_components.health_check().await;
+        let shared_components_healthy = self.shared_components.health_check();
         let app_state_healthy = self.app_state.health_check().await;
         let cache_system_healthy = self.cache_system.health_check().await;
         let redis_stream_reader_healthy = self
@@ -119,8 +119,8 @@ impl ServiceIslands {
             .await
             .unwrap_or(false);
         let health_system_healthy = self.health_system.health_check();
-        let dashboard_healthy = self.dashboard.health_check().await;
-        let crypto_reports_healthy = self.crypto_reports.health_check().await;
+        let dashboard_healthy = self.dashboard.health_check();
+        let crypto_reports_healthy = self.crypto_reports.health_check();
 
         let all_healthy = shared_components_healthy
             && app_state_healthy

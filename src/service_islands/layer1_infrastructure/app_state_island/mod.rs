@@ -62,7 +62,7 @@ impl AppStateIsland {
         let db = PgPool::connect(&database_url).await?;
 
         // Initialize Tera template engine
-        let tera = Self::initialize_template_engine()?;
+        let tera = Self::initialize_template_engine();
 
         info!("✅ App State Island initialized successfully");
 
@@ -76,10 +76,8 @@ impl AppStateIsland {
 
     /// Initialize Tera template engine with all required templates
     ///
-    /// # Errors
-    ///
-    /// Returns error if template files cannot be loaded or parsed
-    fn initialize_template_engine() -> Result<Tera> {
+    /// Handles template loading errors gracefully by logging warnings and continuing.
+    fn initialize_template_engine() -> Tera {
         debug!("📝 Initializing Tera template engine...");
 
         let mut tera = match Tera::new("dashboards/**/*.html") {
@@ -143,7 +141,7 @@ impl AppStateIsland {
         tera.autoescape_on(vec![]); // Disable auto-escaping for safe content
 
         info!("✅ Tera template engine initialized with all templates");
-        Ok(tera)
+        tera
     }
 
     /// Health check for the App State Island
@@ -233,7 +231,7 @@ impl AppState {
             };
 
         // Initialize Tera template engine using the same logic as AppStateIsland
-        let tera = AppStateIsland::initialize_template_engine()?;
+        let tera = AppStateIsland::initialize_template_engine();
 
         Ok(Self {
             db,

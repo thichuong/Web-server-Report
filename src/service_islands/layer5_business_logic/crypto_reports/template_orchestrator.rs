@@ -46,9 +46,10 @@ impl TemplateOrchestrator {
     }
 
     /// Health check for template orchestrator
-    pub async fn health_check(&self) -> bool {
+    #[must_use]
+    pub fn health_check(&self) -> bool {
         // Verify template orchestrator is functioning properly
-        self.report_creator.health_check().await
+        self.report_creator.health_check()
     }
 
     /// Compress HTML content using shared compression utility
@@ -57,7 +58,7 @@ impl TemplateOrchestrator {
     ///
     /// Returns error if gzip compression fails
     #[inline]
-    fn compress_html(&self, html: &str) -> Layer5Result<Vec<u8>> {
+    fn compress_html(html: &str) -> Layer5Result<Vec<u8>> {
         let (data, stats) = compress_html_to_gzip(html)?;
         info!(
             "TemplateOrchestrator: Compression completed - Original: {}KB, Compressed: {}KB, Ratio: {:.1}%",
@@ -278,7 +279,7 @@ impl TemplateOrchestrator {
             .await?;
 
         // Step 3: Compress HTML
-        let compressed_data = self.compress_html(&html)?;
+        let compressed_data = Self::compress_html(&html)?;
 
         info!("TemplateOrchestrator: HTML compression completed successfully");
         Ok(compressed_data)

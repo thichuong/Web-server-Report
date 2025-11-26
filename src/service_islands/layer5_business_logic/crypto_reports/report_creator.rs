@@ -51,7 +51,8 @@ impl ReportCreator {
     }
 
     /// Health check for report creator
-    pub async fn health_check(&self) -> bool {
+    #[must_use]
+    pub fn health_check(&self) -> bool {
         // Verify report creation is working and chart modules are accessible
         self.chart_modules_island.health_check()
     }
@@ -229,7 +230,6 @@ impl ReportCreator {
                         language,
                         chart_modules_content,
                     )
-                    .await
             }
             Ok(None) => Ok(build_not_found_response("Report not found")),
             Err(e) => {
@@ -267,7 +267,6 @@ impl ReportCreator {
                         language,
                         chart_modules_content,
                     )
-                    .await
             }
             Ok(None) => Ok(build_not_found_response("Report not found")),
             Err(e) => {

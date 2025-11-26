@@ -41,7 +41,8 @@ impl DashboardHandlers {
     }
 
     /// Health check for dashboard handlers
-    pub async fn health_check(&self) -> bool {
+    #[must_use]
+    pub fn health_check(&self) -> bool {
         // Verify handlers are functioning properly
         self.data_service.health_check()
     }
@@ -75,7 +76,7 @@ impl DashboardHandlers {
     /// # Errors
     ///
     /// Returns error if compression fails
-    fn compress_html(&self, html: &str) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
+    fn compress_html(html: &str) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
         let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
         encoder.write_all(html.as_bytes())?;
         let compressed_data = encoder.finish()?;
@@ -180,7 +181,7 @@ impl DashboardHandlers {
                 info!("   - Market indicators component included");
 
                 // BƯỚC 3: COMPRESS HTML VÀ CACHE RESULT
-                match self.compress_html(&html) {
+                match Self::compress_html(&html) {
                     Ok(compressed_data) => {
                         // ✅ IDIOMATIC: Pass reference instead of cloning entire Vec<u8>
                         // At 16,829 RPS, this saves 840MB-3.3GB/sec of allocations
@@ -209,7 +210,7 @@ impl DashboardHandlers {
                 match fs::read_to_string("dashboards/home.html").await {
                     Ok(html_content) => {
                         info!("   Using fallback file reading (components won't work)");
-                        match self.compress_html(&html_content) {
+                        match Self::compress_html(&html_content) {
                             Ok(compressed_data) => Ok(compressed_data),
                             Err(compress_err) => {
                                 error!("❌ Failed to compress fallback HTML: {}", compress_err);

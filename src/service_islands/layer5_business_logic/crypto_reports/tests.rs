@@ -7,10 +7,10 @@
 mod tests {
     use crate::service_islands::layer5_business_logic::crypto_reports::report_creator::ReportCreator;
 
-    #[tokio::test]
-    async fn test_layer_separation() {
+    #[test]
+    fn test_layer_separation() {
         // Test that ReportCreator (Layer 5) uses data service (Layer 3) properly
         let report_creator = ReportCreator::new();
-        assert!(report_creator.health_check().await);
+        assert!(report_creator.health_check());
     }
 }

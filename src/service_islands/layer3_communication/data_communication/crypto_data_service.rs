@@ -796,7 +796,7 @@ impl CryptoDataService {
     }
 
     /// Step 6: Compress HTML
-    fn compress_html(html: String, page: i64) -> anyhow::Result<Vec<u8>> {
+    fn compress_html(html: &str, page: i64) -> anyhow::Result<Vec<u8>> {
         use flate2::{write::GzEncoder, Compression};
         use std::io::Write;
 
@@ -879,7 +879,7 @@ impl CryptoDataService {
                     info!("✅ Layer 3: Reports list template rendered successfully - {} items, page {} of {}", items_count, page, pages);
 
                     // Step 6: Compress HTML
-                    let compressed_data = Self::compress_html(html, page)?;
+                    let compressed_data = Self::compress_html(&html, page)?;
 
                     Ok(Some(compressed_data))
                 }

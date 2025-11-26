@@ -43,7 +43,7 @@ pub enum ChangeFrequency {
 
 impl ChangeFrequency {
     /// Convert to sitemap XML value
-    fn as_str(&self) -> &'static str {
+    fn as_str(self) -> &'static str {
         match self {
             Self::Always => "always",
             Self::Hourly => "hourly",
