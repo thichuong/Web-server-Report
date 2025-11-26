@@ -368,11 +368,7 @@ impl CryptoDataService {
                     } else {
                         &format!("report #{report_id}")
                     };
-                    let size_kb = compressed_bytes.len() / 1024;
-                    info!(
-                        "🔥 Layer 3: Cache HIT cho compressed data của {} ({}KB)",
-                        report_type, size_kb
-                    );
+                    info!("🔥 Layer 3: Cache HIT cho compressed data của {}", report_type);
                     return Ok(Some(compressed_bytes));
                 }
             }
@@ -395,9 +391,9 @@ impl CryptoDataService {
         compressed_data: &[u8],
     ) -> Result<(), anyhow::Error> {
         let data_size = compressed_data.len();
-        let size_kb = data_size / 1024;
-        #[allow(clippy::cast_precision_loss, clippy::similar_names)]
-        let size_mb = data_size as f64 / (1024.0 * 1024.0);
+        let kilobytes = data_size / 1024;
+        #[allow(clippy::cast_precision_loss)] // f64 conversion for MB display
+        let megabytes = data_size as f64 / (1024.0 * 1024.0);
         let report_type = if report_id == -1 {
             "latest report"
         } else {
@@ -407,14 +403,14 @@ impl CryptoDataService {
         // 🛡️ GUARD: Warn if individual entry size is very large (soft limit for logging)
         if data_size > MAX_COMPRESSED_ENTRY_SIZE {
             warn!("⚠️  Layer 3: Very large compressed data for {} ({:.1}MB) - may impact cache performance",
-                     report_type, size_mb);
+                     report_type, megabytes);
             error!(
                 "   Note: Cache library will handle storage, but consider optimizing entry size"
             );
         } else if data_size > WARN_COMPRESSED_ENTRY_SIZE {
             warn!(
                 "⚠️  Layer 3: Large compressed entry for {} ({:.1}MB) - consider optimization",
-                report_type, size_mb
+                report_type, megabytes
             );
         }
 
@@ -432,7 +428,7 @@ impl CryptoDataService {
 
             debug!(
                 "💾 Layer 3: Cached compressed data for {} ({}KB)",
-                report_type, size_kb
+                report_type, kilobytes
             );
         }
         Ok(())
@@ -458,8 +454,7 @@ impl CryptoDataService {
                     } else {
                         &format!("DSD report #{report_id}")
                     };
-                    let size_kb = compressed_bytes.len() / 1024;
-                    info!("🔥 Layer 3: Cache HIT for {} (lang: {}) ({}KB)", report_type, language, size_kb);
+                    info!("🔥 Layer 3: Cache HIT for {} (lang: {})", report_type, language);
                     return Ok(Some(compressed_bytes));
                 }
             }
@@ -483,9 +478,9 @@ impl CryptoDataService {
         language: &str,
     ) -> Result<(), anyhow::Error> {
         let data_size = compressed_data.len();
-        let size_kb = data_size / 1024;
-        #[allow(clippy::cast_precision_loss, clippy::similar_names)]
-        let size_mb = data_size as f64 / (1024.0 * 1024.0);
+        let kilobytes = data_size / 1024;
+        #[allow(clippy::cast_precision_loss)] // f64 conversion for MB display
+        let megabytes = data_size as f64 / (1024.0 * 1024.0);
         let report_type = if report_id == -1 {
             "latest DSD report"
         } else {
@@ -496,7 +491,7 @@ impl CryptoDataService {
         if data_size > MAX_COMPRESSED_ENTRY_SIZE {
             warn!(
                 "⚠️  Layer 3: Very large DSD compressed data for {} (lang: {}) ({:.1}MB)",
-                report_type, language, size_mb
+                report_type, language, megabytes
             );
             error!(
                 "   Note: Cache library will handle storage, but consider optimizing entry size"
@@ -504,7 +499,7 @@ impl CryptoDataService {
         } else if data_size > WARN_COMPRESSED_ENTRY_SIZE {
             warn!(
                 "⚠️  Layer 3: Large DSD compressed entry for {} (lang: {}) ({:.1}MB)",
-                report_type, language, size_mb
+                report_type, language, megabytes
             );
         }
 
@@ -522,7 +517,7 @@ impl CryptoDataService {
 
             debug!(
                 "💾 Layer 3: Cached DSD compressed data for {} (lang: {}) ({}KB)",
-                report_type, language, size_kb
+                report_type, language, kilobytes
             );
         }
         Ok(())
@@ -699,12 +694,12 @@ impl CryptoDataService {
 
     /// Step 4: Build reports context
     fn build_reports_context(
-        items: Vec<serde_json::Value>,
+        items: &[serde_json::Value],
         total: i64,
         page: i64,
         per_page: i64,
         pages: i64,
-        page_numbers: Vec<Option<i64>>,
+        page_numbers: &[Option<i64>],
     ) -> serde_json::Value {
         let offset = (page - 1) * per_page;
         let display_start = if total == 0 { 0 } else { offset + 1 };
@@ -822,9 +817,8 @@ impl CryptoDataService {
                     let (pages, page_numbers) = Self::calculate_pagination(total, page, per_page).await?;
 
                     // Step 4: Build reports context
-                    // ✅ IDIOMATIC: Capture length before moving ownership to avoid clone
                     let items_count = items.len();
-                    let reports = Self::build_reports_context(items, total, page, per_page, pages, page_numbers);
+                    let reports = Self::build_reports_context(&items, total, page, per_page, pages, &page_numbers);
 
                     // Step 5: Render template
                     let html = Self::render_reports_template(tera, reports).await?;

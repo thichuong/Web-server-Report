@@ -11,7 +11,7 @@
 //! - XML entity escaping
 //! - Atom namespace for self-referencing link
 
-use chrono::{DateTime, FixedOffset, Utc};
+use chrono::{DateTime, FixedOffset, Offset, Utc};
 use std::fmt::Write;
 use tracing::info;
 
@@ -168,7 +168,11 @@ impl RssCreator {
             .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
 
         // Title with date in Vietnamese timezone (UTC+7)
-        let vn_offset = FixedOffset::east_opt(7 * 3600).expect("FixedOffset::east_opt(7 * 3600) should always be valid");
+        // Safe: 7 * 3600 = 25200 seconds is well within the valid range (±86400 seconds)
+        // Double fallback: first to UTC (offset 0), then to a compile-time verified UTC offset
+        let vn_offset = FixedOffset::east_opt(7 * 3600)
+            .or_else(|| FixedOffset::east_opt(0))
+            .unwrap_or_else(|| Utc.fix());
         let vn_time = report.created_at.with_timezone(&vn_offset);
         let date_str = vn_time.format("%d/%m/%Y").to_string();
         let title = format!("Báo cáo Thị trường Crypto #{} - {}", report.id, date_str);

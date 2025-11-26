@@ -3,8 +3,6 @@
 //! Provides cryptographically secure token generation for sandbox/Shadow DOM tokens.
 //! Replaces the insecure DefaultHasher-based implementation.
 
-use std::fmt::Write;
-
 /// Generate a cryptographically secure sandbox token
 ///
 /// Uses HMAC-like construction with blake3 for fast, secure token generation.
@@ -39,8 +37,10 @@ pub fn generate_sandbox_token(
 
     for byte in &hash_bytes[..8] {
         const HEX: &[u8] = b"0123456789abcdef";
-        token.push(HEX[(byte >> 4) as usize] as char);
-        token.push(HEX[(byte & 0xf) as usize] as char);
+        // Safe: byte >> 4 and byte & 0xf always produce 0-15, HEX has 16 elements (indices 0-15)
+        // Using .get() with .unwrap_or() to satisfy clippy::indexing_slicing while maintaining safety
+        token.push(HEX.get((byte >> 4) as usize).copied().unwrap_or(b'0') as char);
+        token.push(HEX.get((byte & 0xf) as usize).copied().unwrap_or(b'0') as char);
     }
 
     token
