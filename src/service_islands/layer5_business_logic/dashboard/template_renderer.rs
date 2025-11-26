@@ -27,7 +27,8 @@ impl TemplateRenderer {
     }
 
     /// Health check for template renderer
-    pub async fn health_check(&self) -> bool {
+    #[must_use] 
+    pub fn health_check(&self) -> bool {
         // Verify template rendering is working
         true // Will implement actual health check
     }

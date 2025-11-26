@@ -29,7 +29,8 @@ impl HealthChecker {
     }
 
     /// Health check for health checker
-    pub async fn health_check(&self) -> bool {
+    #[must_use] 
+    pub fn health_check(&self) -> bool {
         // Verify health checker is working
         true // Will implement actual health check
     }

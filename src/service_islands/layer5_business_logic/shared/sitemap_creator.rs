@@ -67,6 +67,10 @@ impl SitemapCreator {
     ///
     /// # Returns
     /// Complete sitemap XML string
+    ///
+    /// # Errors
+    ///
+    /// Returns error if XML writing fails or string formatting fails
     pub fn generate_sitemap_xml(report_data: Vec<(i32, DateTime<Utc>)>) -> Layer5Result<String> {
         let today = Utc::now().format("%Y-%m-%d").to_string();
 

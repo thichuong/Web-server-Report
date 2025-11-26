@@ -46,6 +46,10 @@ impl SharedComponentsIsland {
     /// - Model registry setup
     /// - Utility functions preparation
     /// - Chart modules pre-loading and caching
+    ///
+    /// # Errors
+    ///
+    /// Returns error if any component initialization fails (templates, models, utilities, or chart modules)
     pub async fn new() -> Result<Self> {
         info!("🧩 Initializing Shared Components Island...");
 
@@ -54,11 +58,11 @@ impl SharedComponentsIsland {
         debug!("  ✅ Template Registry initialized");
 
         // Initialize model registry
-        let model_registry = Arc::new(ModelRegistry::new().await?);
+        let model_registry = Arc::new(ModelRegistry::new()?);
         debug!("  ✅ Model Registry initialized");
 
         // Initialize utility functions
-        let utility_functions = Arc::new(UtilityFunctions::new().await?);
+        let utility_functions = Arc::new(UtilityFunctions::new()?);
         debug!("  ✅ Utility Functions initialized");
 
         // Initialize chart modules service with pre-loading
@@ -84,10 +88,10 @@ impl SharedComponentsIsland {
     pub async fn health_check(&self) -> bool {
         debug!("🔍 Checking Shared Components Island health...");
 
-        let template_healthy = self.template_registry.health_check().await;
-        let model_healthy = self.model_registry.health_check().await;
-        let utility_healthy = self.utility_functions.health_check().await;
-        let chart_modules_healthy = self.chart_modules_service.health_check().await;
+        let template_healthy = self.template_registry.health_check();
+        let model_healthy = self.model_registry.health_check();
+        let utility_healthy = self.utility_functions.health_check();
+        let chart_modules_healthy = self.chart_modules_service.health_check();
 
         let all_healthy =
             template_healthy && model_healthy && utility_healthy && chart_modules_healthy;

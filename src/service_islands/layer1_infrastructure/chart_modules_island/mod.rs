@@ -48,7 +48,8 @@ impl ChartModulesIsland {
     }
 
     /// Health check for chart modules island
-    pub async fn health_check(&self) -> bool {
+    #[must_use] 
+    pub fn health_check(&self) -> bool {
         // Check if the base directory exists and is accessible
         let source_dir = Path::new(&self.base_dir);
         source_dir.exists()
@@ -87,13 +88,17 @@ impl ChartModulesIsland {
             }
         };
 
-        // Collect all JavaScript files
+        // Collect all JavaScript files (case-insensitive check)
         let mut all_files = Vec::new();
         while let Ok(Some(entry)) = entries.next_entry().await {
             if let Ok(ft) = entry.file_type().await {
                 if ft.is_file() {
                     if let Some(name) = entry.file_name().to_str() {
-                        if name.ends_with(".js") {
+                        // Use Path::extension() for proper case-insensitive extension checking
+                        if std::path::Path::new(name)
+                            .extension()
+                            .is_some_and(|ext| ext.eq_ignore_ascii_case("js"))
+                        {
                             all_files.push(name.to_string());
                         }
                     }
@@ -204,7 +209,11 @@ impl ChartModulesIsland {
             if let Ok(ft) = entry.file_type().await {
                 if ft.is_file() {
                     if let Some(name) = entry.file_name().to_str() {
-                        if name.ends_with(".js") {
+                        // Use Path::extension() for proper case-insensitive extension checking
+                        if std::path::Path::new(name)
+                            .extension()
+                            .is_some_and(|ext| ext.eq_ignore_ascii_case("js"))
+                        {
                             modules.push(name.to_string());
                         }
                     }

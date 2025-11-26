@@ -38,6 +38,10 @@ impl CryptoReportsIsland {
     /// Initialize Crypto Reports Island
     ///
     /// Reads market data from Redis Stream (populated by WebSocket service)
+    ///
+    /// # Errors
+    ///
+    /// Returns error if any component initialization fails
     pub async fn new() -> Result<Self, anyhow::Error> {
         info!("📊 Initializing Crypto Reports Island...");
 
@@ -64,7 +68,7 @@ impl CryptoReportsIsland {
         // Check all components
         let handlers_ok = self.handlers.health_check().await;
         let creator_ok = self.report_creator.health_check().await;
-        let manager_ok = self.data_manager.health_check().await;
+        let manager_ok = self.data_manager.health_check();
         let orchestrator_ok = self.template_orchestrator.health_check().await;
 
         handlers_ok && creator_ok && manager_ok && orchestrator_ok

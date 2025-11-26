@@ -43,6 +43,10 @@ impl CacheSystemIsland {
     /// Initialize the Cache System Island
     ///
     /// Now uses the multi-tier-cache library internally.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if Redis connection fails or cache initialization fails
     pub async fn new() -> Result<Self> {
         info!("🏗️ Initializing Cache System Island (using multi-tier-cache library)...");
 

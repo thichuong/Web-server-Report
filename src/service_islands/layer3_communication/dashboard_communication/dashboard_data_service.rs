@@ -37,6 +37,10 @@ impl DashboardDataService {
     /// Get cached rendered homepage HTML with compression
     ///
     /// Checks cache for pre-rendered and compressed homepage HTML
+    ///
+    /// # Errors
+    ///
+    /// Returns error if cache retrieval fails or deserialization fails
     pub async fn get_rendered_homepage_compressed(
         &self,
         state: &Arc<AppState>,
@@ -73,6 +77,10 @@ impl DashboardDataService {
     /// Cache rendered homepage HTML with compression
     ///
     /// Stores pre-rendered and compressed homepage HTML in cache
+    ///
+    /// # Errors
+    ///
+    /// Returns error if cache storage fails or serialization fails
     pub async fn cache_rendered_homepage_compressed(
         &self,
         state: &Arc<AppState>,
@@ -101,7 +109,8 @@ impl DashboardDataService {
     }
 
     /// Health check for dashboard data service
-    pub async fn health_check(&self) -> bool {
+    #[must_use] 
+    pub fn health_check(&self) -> bool {
         // Verify service is functioning properly
         true // Will implement actual health checks
     }

@@ -33,6 +33,10 @@ impl DashboardIsland {
     /// Initialize Dashboard Island
     ///
     /// Reads market data from Redis Stream (populated by WebSocket service)
+    ///
+    /// # Errors
+    ///
+    /// Returns error if any component initialization fails
     pub async fn new() -> Result<Self, anyhow::Error> {
         info!("🎯 Initializing Dashboard Island...");
 
@@ -57,9 +61,9 @@ impl DashboardIsland {
     pub async fn health_check(&self) -> bool {
         // Check all components
         let handlers_ok = self.handlers.health_check().await;
-        let renderer_ok = self.template_renderer.health_check().await;
-        let manager_ok = self.report_manager.health_check().await;
-        let ui_ok = self.ui_components.health_check().await;
+        let renderer_ok = self.template_renderer.health_check();
+        let manager_ok = self.report_manager.health_check();
+        let ui_ok = self.ui_components.health_check();
 
         handlers_ok && renderer_ok && manager_ok && ui_ok
     }

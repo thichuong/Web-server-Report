@@ -25,7 +25,8 @@ impl UIComponents {
     }
 
     /// Health check for UI components
-    pub async fn health_check(&self) -> bool {
+    #[must_use] 
+    pub fn health_check(&self) -> bool {
         // Verify UI components are working
         true // Will implement actual health check
     }

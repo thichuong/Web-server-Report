@@ -10,13 +10,17 @@ pub struct TemplateRegistry;
 
 impl TemplateRegistry {
     /// Create new template registry
+    ///
+    /// # Errors
+    ///
+    /// Returns error if template registry initialization fails
     pub fn new() -> Result<Self> {
         debug!("📋 Template Registry initialized");
         Ok(TemplateRegistry)
     }
 
     /// Health check for template registry
-    pub async fn health_check(&self) -> bool {
+    pub fn health_check(&self) -> bool {
         debug!("✅ Template Registry health check passed");
         true
     }

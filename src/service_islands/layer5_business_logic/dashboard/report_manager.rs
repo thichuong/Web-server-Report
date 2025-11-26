@@ -26,7 +26,8 @@ impl ReportManager {
     }
 
     /// Health check for report manager
-    pub async fn health_check(&self) -> bool {
+    #[must_use] 
+    pub fn health_check(&self) -> bool {
         // Verify report management is working
         true // Will implement actual health check
     }

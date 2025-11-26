@@ -16,10 +16,14 @@ pub struct ModelRegistry {
 
 impl ModelRegistry {
     /// Initialize the Model Registry
-    pub async fn new() -> Result<Self> {
+    ///
+    /// # Errors
+    ///
+    /// Returns error if model initialization fails
+    pub fn new() -> Result<Self> {
         debug!("📊 Initializing Model Registry...");
 
-        let models = Self::initialize_models().await?;
+        let models = Self::initialize_models()?;
 
         debug!("  📊 Registered {} data models", models.len());
 
@@ -27,7 +31,7 @@ impl ModelRegistry {
     }
 
     /// Initialize all model definitions
-    async fn initialize_models() -> Result<HashMap<String, serde_json::Value>> {
+    fn initialize_models() -> Result<HashMap<String, serde_json::Value>> {
         let mut models = HashMap::new();
 
         // Register core models
@@ -50,7 +54,7 @@ impl ModelRegistry {
     }
 
     /// Health check for model registry
-    pub async fn health_check(&self) -> bool {
+    pub fn health_check(&self) -> bool {
         // Verify that core models are available
         let core_models = vec!["Report"];
 

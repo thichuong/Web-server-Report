@@ -53,13 +53,17 @@ impl ReportCreator {
     /// Health check for report creator
     pub async fn health_check(&self) -> bool {
         // Verify report creation is working and chart modules are accessible
-        self.chart_modules_island.health_check().await
+        self.chart_modules_island.health_check()
     }
 
     /// Fetch and cache latest report from database
     ///
     /// Retrieves the most recent crypto report with full content using Layer 3 data service.
     /// Uses From trait for automatic conversion from `ReportData` to Report.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if database query fails or connection is lost
     pub async fn fetch_and_cache_latest_report(
         &self,
         state: &Arc<AppState>,
@@ -93,6 +97,10 @@ impl ReportCreator {
     ///
     /// Retrieves a crypto report by its ID with full content using Layer 3 data service.
     /// Uses From trait for automatic conversion from `ReportData` to Report.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if database query fails or connection is lost
     pub async fn fetch_and_cache_report_by_id(
         &self,
         state: &Arc<AppState>,
@@ -199,6 +207,10 @@ impl ReportCreator {
     ///
     /// Uses `Layer5Result` for proper error handling without Box<dyn Error>.
     /// This method provides backward compatibility for the API endpoint.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if database query fails, report not found, or rendering fails
     pub async fn serve_sandboxed_report(
         &self,
         state: &Arc<AppState>,
@@ -233,6 +245,10 @@ impl ReportCreator {
     /// Serve Shadow DOM content (delegates to shadow DOM renderer)
     ///
     /// Uses `Layer5Result` for proper error handling without Box<dyn Error>.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if database query fails, report not found, or rendering fails
     pub async fn serve_shadow_dom_content(
         &self,
         state: &Arc<AppState>,

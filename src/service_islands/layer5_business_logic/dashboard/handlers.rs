@@ -43,7 +43,7 @@ impl DashboardHandlers {
     /// Health check for dashboard handlers
     pub async fn health_check(&self) -> bool {
         // Verify handlers are functioning properly
-        self.data_service.health_check().await
+        self.data_service.health_check()
     }
 
     /// Create compressed HTTP response with proper headers
@@ -99,7 +99,7 @@ impl DashboardHandlers {
     ///
     /// # Errors
     ///
-    /// Returns error if file reading fails
+    /// Returns error if file reading fails or template parsing fails
     pub async fn homepage(&self) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         match fs::read_to_string("dashboards/home.html").await {
             Ok(content) => Ok(content),
@@ -115,7 +115,7 @@ impl DashboardHandlers {
     ///
     /// # Errors
     ///
-    /// Returns error if template rendering or compression fails
+    /// Returns error if cache retrieval fails, template rendering fails, HTML compression fails, or fallback file reading fails
     pub async fn homepage_with_tera(
         &self,
         state: &Arc<AppState>,
@@ -207,9 +207,9 @@ impl DashboardHandlers {
                 info!("   Error details: {:?}", e);
                 // Fallback to simple file reading and compression
                 match fs::read_to_string("dashboards/home.html").await {
-                    Ok(content) => {
+                    Ok(html_content) => {
                         info!("   Using fallback file reading (components won't work)");
-                        match self.compress_html(&content) {
+                        match self.compress_html(&html_content) {
                             Ok(compressed_data) => Ok(compressed_data),
                             Err(compress_err) => {
                                 error!("❌ Failed to compress fallback HTML: {}", compress_err);

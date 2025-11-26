@@ -49,6 +49,10 @@ pub struct AppState {
 
 impl AppStateIsland {
     /// Initialize the App State Island
+    ///
+    /// # Errors
+    ///
+    /// Returns error if database connection fails or template engine initialization fails
     pub async fn new() -> Result<Self> {
         info!("🏗️ Initializing App State Island...");
 
@@ -58,7 +62,7 @@ impl AppStateIsland {
         let db = PgPool::connect(&database_url).await?;
 
         // Initialize Tera template engine
-        let tera = Self::initialize_template_engine().await?;
+        let tera = Self::initialize_template_engine()?;
 
         info!("✅ App State Island initialized successfully");
 
@@ -71,7 +75,11 @@ impl AppStateIsland {
     }
 
     /// Initialize Tera template engine with all required templates
-    async fn initialize_template_engine() -> Result<Tera> {
+    ///
+    /// # Errors
+    ///
+    /// Returns error if template files cannot be loaded or parsed
+    fn initialize_template_engine() -> Result<Tera> {
         debug!("📝 Initializing Tera template engine...");
 
         let mut tera = match Tera::new("dashboards/**/*.html") {
@@ -197,6 +205,10 @@ impl AppState {
     ///
     /// **DEPRECATED**: Use `AppStateIsland::new()` and `ServiceIslands::initialize()` instead.
     /// This method is kept for backward compatibility only.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if database connection fails, cache system initialization fails, or template engine initialization fails
     #[allow(dead_code)]
     pub async fn new() -> Result<Self, anyhow::Error> {
         warn!("⚠️ Using deprecated AppState::new() - consider migrating to ServiceIslands architecture");
@@ -221,7 +233,7 @@ impl AppState {
             };
 
         // Initialize Tera template engine using the same logic as AppStateIsland
-        let tera = AppStateIsland::initialize_template_engine().await?;
+        let tera = AppStateIsland::initialize_template_engine()?;
 
         Ok(Self {
             db,

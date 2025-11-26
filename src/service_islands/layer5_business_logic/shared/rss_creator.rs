@@ -297,7 +297,6 @@ impl RssCreator {
 }
 
 #[cfg(test)]
-#[cfg(test)]
 mod tests {
     use super::*;
     use chrono::TimeZone;

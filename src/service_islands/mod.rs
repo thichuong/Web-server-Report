@@ -47,6 +47,10 @@ impl ServiceIslands {
     ///
     /// This method initializes all service islands in the proper dependency order.
     /// Layer 1 (Infrastructure) first, then Layer 2 (External Services), then Layer 4 (Observability), then Layer 3 (Communication), then Layer 5 (Business Logic).
+    ///
+    /// # Errors
+    ///
+    /// Returns error if any island initialization fails (database, cache, templates, etc.)
     pub async fn initialize() -> Result<Self, anyhow::Error> {
         info!("🏝️ Initializing Service Islands Architecture...");
 
@@ -63,7 +67,7 @@ impl ServiceIslands {
 
         // Initialize Layer 4: Observability
         info!("🔍 Initializing Layer 4: Observability Islands...");
-        let health_system = Arc::new(HealthSystemIsland::new().await?);
+        let health_system = Arc::new(HealthSystemIsland::new()?);
 
         // Initialize Layer 5: Business Logic
         // Note: Layer 5 now reads from cache/streams instead of calling external APIs directly
@@ -114,7 +118,7 @@ impl ServiceIslands {
             .health_check()
             .await
             .unwrap_or(false);
-        let health_system_healthy = self.health_system.health_check().await;
+        let health_system_healthy = self.health_system.health_check();
         let dashboard_healthy = self.dashboard.health_check().await;
         let crypto_reports_healthy = self.crypto_reports.health_check().await;
 
@@ -194,6 +198,10 @@ impl ServiceIslands {
     ///
     /// ✅ PRODUCTION-READY: Properly closes all resources in reverse dependency order
     /// Ensures database connections and Redis connections are cleanly closed.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if resource cleanup fails (database close, cache cleanup, etc.)
     pub async fn shutdown(&self) -> Result<(), anyhow::Error> {
         info!("🛑 Initiating graceful shutdown of Service Islands...");
 
@@ -207,7 +215,7 @@ impl ServiceIslands {
 
         // Layer 3: Communication Islands
         info!("📡 Layer 3: Cleaning up Communication Islands...");
-        if let Err(e) = self.redis_stream_reader.cleanup().await {
+        if let Err(e) = self.redis_stream_reader.cleanup() {
             warn!("   ⚠️  Redis Stream Reader cleanup error: {}", e);
         }
 

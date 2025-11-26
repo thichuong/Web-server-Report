@@ -30,7 +30,8 @@ impl PerformanceMonitor {
     }
 
     /// Health check for performance monitor
-    pub async fn health_check(&self) -> bool {
+    #[must_use] 
+    pub fn health_check(&self) -> bool {
         // Verify performance monitoring is working
         true // Will implement actual health check
     }

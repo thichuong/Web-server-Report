@@ -30,7 +30,11 @@ impl HealthSystemIsland {
     /// Initialize the Health System Island
     ///
     /// Creates a new Health System Island with all its components properly initialized.
-    pub async fn new() -> Result<Self, anyhow::Error> {
+    ///
+    /// # Errors
+    ///
+    /// Returns error if health system component initialization fails
+    pub fn new() -> Result<Self, anyhow::Error> {
         info!("🔍 Initializing Health System Island...");
 
         let health_checker = health_checker::HealthChecker::new();
@@ -51,12 +55,13 @@ impl HealthSystemIsland {
     /// Health check for Health System Island
     ///
     /// Verifies that all components of the Health System Island are functioning properly.
-    pub async fn health_check(&self) -> bool {
+    #[must_use] 
+    pub fn health_check(&self) -> bool {
         // Check all components
-        let checker_ok = self.health_checker.health_check().await;
-        let ssl_ok = self.ssl_tester.health_check().await;
-        let monitor_ok = self.performance_monitor.health_check().await;
-        let connectivity_ok = self.connectivity_tester.health_check().await;
+        let checker_ok = self.health_checker.health_check();
+        let ssl_ok = self.ssl_tester.health_check();
+        let monitor_ok = self.performance_monitor.health_check();
+        let connectivity_ok = self.connectivity_tester.health_check();
 
         checker_ok && ssl_ok && monitor_ok && connectivity_ok
     }

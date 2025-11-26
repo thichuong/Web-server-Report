@@ -29,7 +29,8 @@ impl ConnectivityTester {
     }
 
     /// Health check for connectivity tester
-    pub async fn health_check(&self) -> bool {
+    #[must_use] 
+    pub fn health_check(&self) -> bool {
         // Verify connectivity testing is working
         true // Will implement actual health check
     }

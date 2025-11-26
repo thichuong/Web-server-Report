@@ -28,7 +28,8 @@ impl SslTester {
     }
 
     /// Health check for SSL tester
-    pub async fn health_check(&self) -> bool {
+    #[must_use] 
+    pub fn health_check(&self) -> bool {
         // Verify SSL testing is working
         true // Will implement actual health check
     }

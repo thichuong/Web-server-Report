@@ -33,6 +33,10 @@ impl RedisStreamReader {
     /// - Cache hit: Returns immediately (L1 <1ms, L2 2-5ms)
     /// - Cache miss: Reads from Redis Stream, caches result, then returns
     /// - Built-in cache stampede protection prevents multiple concurrent stream reads
+    ///
+    /// # Errors
+    ///
+    /// Returns error if Redis Stream read fails or cache operation fails
     pub async fn read_latest_market_data(&self) -> Result<Option<Value>> {
         info!("📖 Reading latest market data (cache-first with auto-fallback)...");
 
@@ -166,7 +170,7 @@ impl RedisStreamReader {
     /// # Errors
     ///
     /// Returns error if cleanup fails
-    pub async fn cleanup(&self) -> Result<()> {
+    pub fn cleanup(&self) -> Result<()> {
         info!("🧹 RedisStreamReader: Starting cleanup...");
 
         // Note: If using Redis consumer groups, we would acknowledge pending messages here

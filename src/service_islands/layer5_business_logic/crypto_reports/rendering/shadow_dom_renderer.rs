@@ -150,6 +150,10 @@ impl ShadowDomRenderer {
     ///
     /// # Security
     /// Uses constant-time token comparison to prevent timing attacks.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if token validation fails or content generation fails
     pub async fn serve_shadow_dom_content(
         &self,
         _state: &Arc<AppState>,

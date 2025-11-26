@@ -89,6 +89,10 @@ impl CryptoDataService {
     ///
     /// ✨ NEW: Uses type-safe automatic caching with `get_or_compute_typed()`
     /// Pure data layer operation with dual cache integration - checks L1 cache first, then L2, then database
+    ///
+    /// # Errors
+    ///
+    /// Returns `sqlx::Error` if database connection fails or query execution fails
     pub async fn fetch_latest_report(
         &self,
         state: &Arc<AppState>,
@@ -136,6 +140,10 @@ impl CryptoDataService {
     ///
     /// Returns lightweight data for generating dynamic sitemap URLs.
     /// Uses `MediumTerm` caching (1 hour) since sitemap doesn't need real-time updates.
+    ///
+    /// # Errors
+    ///
+    /// Returns `sqlx::Error` if database connection fails or query execution fails
     pub async fn fetch_all_report_ids_for_sitemap(
         &self,
         state: &Arc<AppState>,
@@ -189,6 +197,10 @@ impl CryptoDataService {
     ///
     /// # Returns
     /// Vec<ReportSummaryData> with id and `created_at` for each related report
+    ///
+    /// # Errors
+    ///
+    /// Returns `sqlx::Error` if database connection fails or query execution fails
     pub async fn fetch_related_reports(
         &self,
         state: &Arc<AppState>,
@@ -250,6 +262,10 @@ impl CryptoDataService {
     ///
     /// # Returns
     /// Vec<ReportRssData> with id, `html_content`, and `created_at` for RSS feed
+    ///
+    /// # Errors
+    ///
+    /// Returns `sqlx::Error` if database connection fails or query execution fails
     pub async fn fetch_rss_reports(
         &self,
         state: &Arc<AppState>,
@@ -301,6 +317,10 @@ impl CryptoDataService {
     ///
     /// ✨ NEW: Uses type-safe automatic caching with `get_or_compute_typed()`
     /// Pure data layer operation with dual cache integration - retrieves specific report by ID
+    ///
+    /// # Errors
+    ///
+    /// Returns `sqlx::Error` if database connection fails or query execution fails
     pub async fn fetch_report_by_id(
         &self,
         state: &Arc<AppState>,
@@ -354,6 +374,10 @@ impl CryptoDataService {
 
     /// Lấy nội dung compressed data của một report từ cache.
     /// ✅ PRODUCTION-SAFE: No size limits on read - only on write
+    ///
+    /// # Errors
+    ///
+    /// Returns error if cache retrieval fails or deserialization fails
     pub async fn get_rendered_report_compressed(
         &self,
         state: &Arc<AppState>,
@@ -384,6 +408,10 @@ impl CryptoDataService {
     ///
     /// ✅ MEMORY OPTIMIZED: Accepts &[u8] reference instead of owned Vec<u8> to avoid
     /// unnecessary clones. The data is serialized for cache storage anyway.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if cache storage fails or serialization fails
     pub async fn cache_rendered_report_compressed(
         &self,
         state: &Arc<AppState>,
@@ -439,6 +467,10 @@ impl CryptoDataService {
     /// Retrieves compressed HTML for Declarative Shadow DOM routes.
     /// Cache key format: `compressed_report_dsd`_{`report_id`}_{language}
     /// ✅ PRODUCTION-SAFE: No size limits on read - only on write
+    ///
+    /// # Errors
+    ///
+    /// Returns error if cache retrieval fails or deserialization fails
     pub async fn get_rendered_report_dsd_compressed(
         &self,
         state: &Arc<AppState>,
@@ -470,6 +502,10 @@ impl CryptoDataService {
     ///
     /// ✅ MEMORY OPTIMIZED: Accepts &[u8] reference instead of owned Vec<u8> to avoid
     /// unnecessary clones. The data is serialized for cache storage anyway.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if cache storage fails or serialization fails
     pub async fn cache_rendered_report_dsd_compressed(
         &self,
         state: &Arc<AppState>,
@@ -530,10 +566,10 @@ impl CryptoDataService {
     /// automatic evictions.
     pub fn get_cache_stats(state: &Arc<AppState>) -> Option<String> {
         if let Some(ref cache_system) = state.cache_system {
-            let stats = cache_system.cache_manager.get_stats();
+            let cache_stats = cache_system.cache_manager.get_stats();
             Some(format!(
                 "L1 Hits: {} | L2 Hits: {} | Misses: {} | Hit Rate: {:.1}%",
-                stats.l1_hits, stats.l2_hits, stats.misses, stats.hit_rate
+                cache_stats.l1_hits, cache_stats.l2_hits, cache_stats.misses, cache_stats.hit_rate
             ))
         } else {
             None
@@ -627,10 +663,12 @@ impl CryptoDataService {
         per_page: i64,
     ) -> anyhow::Result<(i64, Vec<Option<i64>>)> {
         let task = tokio::task::spawn_blocking(move || {
+            // Safe integer division with ceiling - avoids float precision loss
             let pages = if total == 0 {
                 1
             } else {
-                ((total as f64) / (per_page as f64)).ceil() as i64
+                // Integer ceiling division: (a + b - 1) / b
+                (total + per_page - 1) / per_page
             };
 
             let mut page_numbers: Vec<Option<i64>> = Vec::new();
@@ -703,7 +741,8 @@ impl CryptoDataService {
     ) -> serde_json::Value {
         let offset = (page - 1) * per_page;
         let display_start = if total == 0 { 0 } else { offset + 1 };
-        let display_end = offset + (items.len() as i64);
+        // Safe conversion: items.len() is bounded by per_page which is i64
+        let display_end = offset + i64::try_from(items.len()).unwrap_or(0);
 
         serde_json::json!({
             "items": items,
@@ -723,6 +762,10 @@ impl CryptoDataService {
 
     /// Step 5: Render template
     /// ✅ PRODUCTION-READY: Added 15s timeout to prevent hanging tasks
+    ///
+    /// # Errors
+    ///
+    /// Returns error if template rendering fails, task panics, or timeout (15s) is exceeded
     async fn render_reports_template(
         tera: Arc<tera::Tera>,
         reports: serde_json::Value,
@@ -776,7 +819,14 @@ impl CryptoDataService {
 
         let original_size = html.len();
         let compressed_size = compressed_data.len();
-        let compression_ratio = (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0;
+        // Safe f64 conversion for display purposes only (compression ratio)
+        // Using saturating conversion to handle edge cases gracefully
+        #[allow(clippy::cast_precision_loss)]
+        let compression_ratio = if original_size > 0 {
+            (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0
+        } else {
+            0.0
+        };
 
         info!("🗜️  Layer 3: Reports list compressed - Original: {}KB, Compressed: {}KB, Ratio: {:.1}%",
                  original_size / 1024,
@@ -790,6 +840,10 @@ impl CryptoDataService {
     ///
     /// ✨ NEW: Uses type-safe automatic caching with `get_or_compute_typed()`
     /// Caches compressed HTML (Vec<u8>) for fast pagination responses
+    ///
+    /// # Errors
+    ///
+    /// Returns error if database query fails, template rendering fails, HTML compression fails, or cache operation fails
     pub async fn fetch_reports_list_with_cache(
         &self,
         state: &Arc<AppState>,

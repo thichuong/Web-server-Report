@@ -52,6 +52,10 @@ impl TemplateOrchestrator {
     }
 
     /// Compress HTML content using shared compression utility
+    ///
+    /// # Errors
+    ///
+    /// Returns error if gzip compression fails
     #[inline]
     fn compress_html(&self, html: &str) -> Layer5Result<Vec<u8>> {
         let (data, stats) = compress_html_to_gzip(html)?;
@@ -72,6 +76,10 @@ impl TemplateOrchestrator {
     ///
     /// # Memory Optimization
     /// Takes Report by value (move) and wraps in Arc without cloning.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if chart modules content retrieval fails
     pub async fn prepare_crypto_report_context(
         &self,
         report: Report,
@@ -138,6 +146,10 @@ impl TemplateOrchestrator {
     ///
     /// # Performance
     /// `TemplateContext` uses Arc internally, so clone is lightweight (only pointers cloned).
+    ///
+    /// # Errors
+    ///
+    /// Returns error if template rendering fails, task join fails, or operation times out
     pub async fn render_template(
         &self,
         tera: &tera::Tera,
@@ -237,6 +249,10 @@ impl TemplateOrchestrator {
     ///
     /// # Memory Optimization
     /// Takes Report by value (move) to avoid cloning.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if context preparation, template rendering, or HTML compression fails
     pub async fn render_crypto_report_view(
         &self,
         tera: &tera::Tera,
@@ -271,6 +287,10 @@ impl TemplateOrchestrator {
     /// Render empty template for no reports case
     ///
     /// Handles the case when no reports are found in database.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if context preparation or template rendering fails
     pub async fn render_empty_template(&self, tera: &tera::Tera) -> Layer5Result<String> {
         warn!("TemplateOrchestrator: Rendering empty template");
 
@@ -301,6 +321,10 @@ impl TemplateOrchestrator {
     /// Render 404 not found template
     ///
     /// Handles the case when a specific report ID is not found.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if context preparation or template rendering fails
     #[allow(dead_code)]
     pub async fn render_not_found_template(
         &self,

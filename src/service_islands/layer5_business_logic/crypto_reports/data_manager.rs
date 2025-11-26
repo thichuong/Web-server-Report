@@ -26,7 +26,8 @@ impl DataManager {
     }
 
     /// Health check for data manager
-    pub async fn health_check(&self) -> bool {
+    #[must_use] 
+    pub fn health_check(&self) -> bool {
         // Verify data management is working
         true // Will implement actual health check
     }

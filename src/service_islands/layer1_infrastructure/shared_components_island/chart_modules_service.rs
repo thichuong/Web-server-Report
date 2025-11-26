@@ -22,6 +22,10 @@ pub struct ChartModulesService {
 
 impl ChartModulesService {
     /// Create a new `ChartModulesService` and pre-load all chart modules
+    ///
+    /// # Errors
+    ///
+    /// Returns error if chart module files cannot be read or directory access fails
     pub async fn new() -> Result<Self> {
         debug!("📦 Layer 1: Khởi tạo ChartModulesService...");
 
@@ -120,7 +124,8 @@ impl ChartModulesService {
     }
 
     /// Health check
-    pub async fn health_check(&self) -> bool {
+    #[must_use] 
+    pub fn health_check(&self) -> bool {
         !self.chart_modules_content.is_empty()
     }
 }
