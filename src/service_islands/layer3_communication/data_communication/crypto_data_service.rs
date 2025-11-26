@@ -396,6 +396,7 @@ impl CryptoDataService {
     ) -> Result<(), anyhow::Error> {
         let data_size = compressed_data.len();
         let size_kb = data_size / 1024;
+        #[allow(clippy::cast_precision_loss, clippy::similar_names)]
         let size_mb = data_size as f64 / (1024.0 * 1024.0);
         let report_type = if report_id == -1 {
             "latest report"
@@ -483,6 +484,7 @@ impl CryptoDataService {
     ) -> Result<(), anyhow::Error> {
         let data_size = compressed_data.len();
         let size_kb = data_size / 1024;
+        #[allow(clippy::cast_precision_loss, clippy::similar_names)]
         let size_mb = data_size as f64 / (1024.0 * 1024.0);
         let report_type = if report_id == -1 {
             "latest DSD report"

@@ -1,0 +1,2 @@
+    Checking web-server-report v0.1.0 (/home/tchuong/Màn hình nền/Code-Server-Report-Crypto-AI/Web-server-Report)
+    Finished `dev` profile [optimized + debuginfo] target(s) in 1.10s

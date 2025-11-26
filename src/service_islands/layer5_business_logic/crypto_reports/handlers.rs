@@ -84,7 +84,7 @@ impl CryptoHandlers {
                 Response::builder()
                     .status(StatusCode::INTERNAL_SERVER_ERROR)
                     .body("Response build error".to_string())
-                    .unwrap() // This is guaranteed safe with literal body
+                    .unwrap_or_else(|_| Response::new("Response build error".to_string()))
             })
             .into_response()
     }
@@ -106,7 +106,7 @@ impl CryptoHandlers {
                 Response::builder()
                     .status(StatusCode::INTERNAL_SERVER_ERROR)
                     .body(Body::from("Response build error"))
-                    .unwrap() // This is guaranteed safe with literal body
+                    .unwrap_or_else(|_| Response::new(Body::from("Response build error")))
             })
             .into_response()
     }
@@ -500,8 +500,8 @@ impl CryptoHandlers {
                 // Parse cookies manually
                 for cookie in cookie_str.split(';') {
                     let parts: Vec<&str> = cookie.trim().splitn(2, '=').collect();
-                    if parts.len() == 2 {
-                        let (name, value) = (parts[0].trim(), parts[1].trim());
+                    if let [name_part, value_part] = parts.as_slice() {
+                        let (name, value) = (name_part.trim(), value_part.trim());
                         if name == "preferred_language" || name == "language" {
                             let lang = value.to_lowercase();
                             if lang == "en" || lang == "vi" {
@@ -598,7 +598,7 @@ impl CryptoHandlers {
                     Response::builder()
                         .status(StatusCode::INTERNAL_SERVER_ERROR)
                         .body(Body::from("Response build error"))
-                        .unwrap()
+                        .unwrap_or_else(|_| Response::new(Body::from("Response build error")))
                 })
                 .into_response();
         }
@@ -754,7 +754,7 @@ impl CryptoHandlers {
                 Response::builder()
                     .status(StatusCode::INTERNAL_SERVER_ERROR)
                     .body(Body::from("Response build error"))
-                    .unwrap()
+                    .unwrap_or_else(|_| Response::new(Body::from("Response build error")))
             })
             .into_response()
     }

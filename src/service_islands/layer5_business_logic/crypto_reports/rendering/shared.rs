@@ -20,38 +20,41 @@ use crate::service_islands::layer3_communication::data_communication::ReportData
 // eliminating ~386,867 regex compilations/second at 16,829+ RPS
 
 /// Pre-compiled HTML sanitization patterns
+#[allow(clippy::expect_used)] // Safe: Regex patterns are hardcoded and verified
 pub static HTML_SANITIZE_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| vec![
-    Regex::new(r"<script[^>]*>.*?</script>").unwrap(),  // Remove inline scripts
-    Regex::new(r"<iframe[^>]*>.*?</iframe>").unwrap(),  // Remove nested iframes
-    Regex::new(r"<object[^>]*>.*?</object>").unwrap(),  // Remove objects
-    Regex::new(r"<embed[^>]*>.*?</embed>").unwrap(),    // Remove embeds
-    Regex::new(r"<applet[^>]*>.*?</applet>").unwrap(),  // Remove applets
-    Regex::new(r"javascript:").unwrap(),                 // Remove javascript: URLs
-    Regex::new(r"on\w+\s*=").unwrap(),                   // Remove event handlers
+    Regex::new(r"<script[^>]*>.*?</script>").expect("Invalid regex"),  // Remove inline scripts
+    Regex::new(r"<iframe[^>]*>.*?</iframe>").expect("Invalid regex"),  // Remove nested iframes
+    Regex::new(r"<object[^>]*>.*?</object>").expect("Invalid regex"),  // Remove objects
+    Regex::new(r"<embed[^>]*>.*?</embed>").expect("Invalid regex"),    // Remove embeds
+    Regex::new(r"<applet[^>]*>.*?</applet>").expect("Invalid regex"),  // Remove applets
+    Regex::new(r"javascript:").expect("Invalid regex"),                 // Remove javascript: URLs
+    Regex::new(r"on\w+\s*=").expect("Invalid regex"),                   // Remove event handlers
 ]);
 
 /// Pre-compiled CSS sanitization patterns
+#[allow(clippy::expect_used)] // Safe: Regex patterns are hardcoded and verified
 pub static CSS_SANITIZE_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| vec![
-    Regex::new(r"expression\s*\(").unwrap(),            // Remove CSS expressions
-    Regex::new(r"javascript\s*:").unwrap(),             // Remove javascript URLs in CSS
-    Regex::new(r"@import").unwrap(),                    // Remove imports
-    Regex::new(r"behavior\s*:").unwrap(),               // Remove IE behaviors
-    Regex::new(r"position\s*:\s*fixed").unwrap(),       // Prevent fixed positioning
-    Regex::new(r"position\s*:\s*absolute").unwrap(),    // Be careful with absolute
-    Regex::new(r"z-index\s*:\s*[0-9]{4,}").unwrap(),    // Prevent high z-index
-    Regex::new(r"!important\s*;").unwrap(),             // Remove !important
+    Regex::new(r"expression\s*\(").expect("Invalid regex"),            // Remove CSS expressions
+    Regex::new(r"javascript\s*:").expect("Invalid regex"),             // Remove javascript URLs in CSS
+    Regex::new(r"@import").expect("Invalid regex"),                    // Remove imports
+    Regex::new(r"behavior\s*:").expect("Invalid regex"),               // Remove IE behaviors
+    Regex::new(r"position\s*:\s*fixed").expect("Invalid regex"),       // Prevent fixed positioning
+    Regex::new(r"position\s*:\s*absolute").expect("Invalid regex"),    // Be careful with absolute
+    Regex::new(r"z-index\s*:\s*[0-9]{4,}").expect("Invalid regex"),    // Prevent high z-index
+    Regex::new(r"!important\s*;").expect("Invalid regex"),             // Remove !important
 ]);
 
 /// Pre-compiled JavaScript sanitization patterns
+#[allow(clippy::expect_used)] // Safe: Regex patterns are hardcoded and verified
 pub static JS_SANITIZE_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| vec![
-    Regex::new(r"eval\s*\(").unwrap(),                  // Remove eval calls
-    Regex::new(r"Function\s*\(").unwrap(),              // Remove Function constructor
-    Regex::new(r"setTimeout\s*\(").unwrap(),            // Remove setTimeout
-    Regex::new(r"setInterval\s*\(").unwrap(),           // Remove setInterval
-    Regex::new(r"document\.write").unwrap(),            // Remove document.write
-    Regex::new(r"window\.location").unwrap(),           // Remove location changes
-    Regex::new(r"parent\.").unwrap(),                   // Remove parent access
-    Regex::new(r"top\.").unwrap(),                      // Remove top access
+    Regex::new(r"eval\s*\(").expect("Invalid regex"),                  // Remove eval calls
+    Regex::new(r"Function\s*\(").expect("Invalid regex"),              // Remove Function constructor
+    Regex::new(r"setTimeout\s*\(").expect("Invalid regex"),            // Remove setTimeout
+    Regex::new(r"setInterval\s*\(").expect("Invalid regex"),           // Remove setInterval
+    Regex::new(r"document\.write").expect("Invalid regex"),            // Remove document.write
+    Regex::new(r"window\.location").expect("Invalid regex"),           // Remove location changes
+    Regex::new(r"parent\.").expect("Invalid regex"),                   // Remove parent access
+    Regex::new(r"top\.").expect("Invalid regex"),                      // Remove top access
 ]);
 
 /// Report model - exactly from `archive_old_code/models.rs` with iframe sandboxing support

@@ -1,0 +1,49 @@
+   Compiling web-server-report v0.1.0 (/home/tchuong/Màn hình nền/Code-Server-Report-Crypto-AI/Web-server-Report)
+    Finished `test` profile [optimized + debuginfo] target(s) in 4.19s
+     Running unittests src/lib.rs (target/debug/deps/web_server_report-11269b2a264619e3)
+
+running 28 tests
+test service_islands::layer3_communication::redis_stream_reader::tests::test_stream_fields_to_json ... ok
+test service_islands::layer5_business_logic::crypto_reports::rendering::breadcrumbs::tests::test_generate_breadcrumb_items ... ok
+test service_islands::layer5_business_logic::crypto_reports::rendering::geo_metadata::tests::test_escape_html_attr ... ok
+test service_islands::layer5_business_logic::crypto_reports::rendering::breadcrumbs::tests::test_generate_breadcrumbs_schema ... ok
+test service_islands::layer5_business_logic::crypto_reports::rendering::geo_metadata::tests::test_generate_json_ld ... ok
+test service_islands::layer5_business_logic::crypto_reports::rendering::geo_metadata::tests::test_generate_meta_tags_en ... ok
+test service_islands::layer5_business_logic::crypto_reports::rendering::geo_metadata::tests::test_generate_meta_tags_vi ... ok
+test service_islands::layer5_business_logic::crypto_reports::rendering::geo_metadata::tests::test_geo_metadata_from_report ... ok
+test service_islands::layer5_business_logic::shared::compression::tests::test_compression_stats ... ok
+test service_islands::layer5_business_logic::crypto_reports::tests::tests::test_layer_separation ... ok
+test service_islands::layer5_business_logic::shared::response_builder::tests::test_build_error_response ... ok
+test service_islands::layer5_business_logic::shared::response_builder::tests::test_build_compressed_response ... ok
+test service_islands::layer5_business_logic::shared::rss_creator::tests::test_escape_xml ... ok
+test service_islands::layer5_business_logic::shared::rss_creator::tests::test_extract_description ... ok
+test service_islands::layer5_business_logic::shared::rss_creator::tests::test_extract_description_truncation ... ok
+test service_islands::layer5_business_logic::shared::rss_creator::tests::test_format_rfc822_date ... ok
+test service_islands::layer5_business_logic::shared::compression::tests::test_compress_html ... ok
+test service_islands::layer5_business_logic::shared::rss_creator::tests::test_generate_rss_empty_reports ... ok
+test service_islands::layer5_business_logic::shared::rss_creator::tests::test_generate_rss_with_reports ... ok
+test service_islands::layer5_business_logic::shared::security::tests::test_constant_time_compare ... ok
+test service_islands::layer5_business_logic::shared::security::tests::test_generate_sandbox_token ... ok
+test service_islands::layer5_business_logic::shared::security::tests::test_verify_sandbox_token ... ok
+test service_islands::layer5_business_logic::shared::sitemap_creator::tests::test_change_frequency_as_str ... ok
+test service_islands::layer5_business_logic::shared::sitemap_creator::tests::test_escape_xml ... ok
+test service_islands::layer5_business_logic::shared::sitemap_creator::tests::test_generate_sitemap_empty_reports ... ok
+test service_islands::layer5_business_logic::shared::sitemap_creator::tests::test_generate_sitemap_with_reports ... ok
+test service_islands::layer5_business_logic::shared::websocket::tests::test_get_websocket_url_default ... ok
+test service_islands::layer5_business_logic::shared::websocket::tests::test_get_websocket_url_from_env ... ok
+
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/web_server_report-fa38209f3abb6b9a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests web_server_report
+
+running 1 test
+test src/service_islands/layer5_business_logic/shared/compression.rs - service_islands::layer5_business_logic::shared::compression::compress_html_to_gzip (line 69) ... ignored
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

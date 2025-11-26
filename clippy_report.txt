@@ -1,0 +1,1987 @@
+    Checking web-server-report v0.1.0 (/home/tchuong/Màn hình nền/Code-Server-Report-Crypto-AI/Web-server-Report)
+error: long literal lacking separators
+   --> src/routes/api.rs:104:25
+    |
+104 |         market_cap_usd: 3340000000000.0,
+    |                         ^^^^^^^^^^^^^^^ help: consider: `3_340_000_000_000.0`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unreadable_literal
+    = note: `-D clippy::unreadable-literal` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::unreadable_literal)]`
+
+error: long literal lacking separators
+   --> src/routes/api.rs:106:25
+    |
+106 |         volume_24h_usd: 260000000000.0,
+    |                         ^^^^^^^^^^^^^^ help: consider: `260_000_000_000.0`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/routes/api.rs:188:25
+    |
+188 |         market_cap_usd: 3340000000000.0,
+    |                         ^^^^^^^^^^^^^^^ help: consider: `3_340_000_000_000.0`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unreadable_literal
+
+error: long literal lacking separators
+   --> src/routes/api.rs:190:25
+    |
+190 |         volume_24h_usd: 260000000000.0,
+    |                         ^^^^^^^^^^^^^^ help: consider: `260_000_000_000.0`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unreadable_literal
+
+error: binding's name is too similar to existing binding
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:399:13
+    |
+399 |         let size_mb = data_size as f64 / (1024.0 * 1024.0);
+    |             ^^^^^^^
+    |
+note: existing binding defined here
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:398:13
+    |
+398 |         let size_kb = data_size / 1024;
+    |             ^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#similar_names
+    = note: `-D clippy::similar-names` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::similar_names)]`
+
+error: binding's name is too similar to existing binding
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:486:13
+    |
+486 |         let size_mb = data_size as f64 / (1024.0 * 1024.0);
+    |             ^^^^^^^
+    |
+note: existing binding defined here
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:485:13
+    |
+485 |         let size_kb = data_size / 1024;
+    |             ^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#similar_names
+
+error: binding's name is too similar to existing binding
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:536:17
+    |
+536 |             let stats = cache_system.cache_manager.get_stats();
+    |                 ^^^^^
+    |
+note: existing binding defined here
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:534:28
+    |
+534 |     pub fn get_cache_stats(state: &Arc<AppState>) -> Option<String> {
+    |                            ^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#similar_names
+
+error: binding's name is too similar to existing binding
+   --> src/service_islands/layer5_business_logic/dashboard/handlers.rs:197:24
+    |
+197 |                     Ok(content) => {
+    |                        ^^^^^^^
+    |
+note: existing binding defined here
+   --> src/service_islands/layer5_business_logic/dashboard/handlers.rs:126:17
+    |
+126 |         let mut context = Context::new();
+    |                 ^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#similar_names
+
+error: this `else { if .. }` block can be collapsed
+   --> src/routes/api.rs:240:12
+    |
+240 |       } else {
+    |  ____________^
+241 | |         if let Ok(id) = id.parse() { id } else {
+242 | |             error!("❌ [API] Invalid report ID format for sandboxing: {}", id);
+243 | |             return "Invalid report ID format".into_response();
+244 | |         }
+245 | |     };
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#collapsible_else_if
+    = note: `-D clippy::collapsible-else-if` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::collapsible_else_if)]`
+help: collapse nested if block
+    |
+240 ~     } else if let Ok(id) = id.parse() { id } else {
+241 ~         error!("❌ [API] Invalid report ID format for sandboxing: {}", id);
+242 +         return "Invalid report ID format".into_response();
+243 ~     };
+    |
+
+error: this could be rewritten as `let...else`
+   --> src/routes/api.rs:248:5
+    |
+248 | /     let sandbox_token = if let Some(token) = params.get("token") { token } else {
+249 | |         warn!("❌ [API] Missing sandbox token for report {}", report_id);
+250 | |         return "Missing sandbox token".into_response();
+251 | |     };
+    | |______^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#manual_let_else
+    = note: `-D clippy::manual-let-else` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::manual_let_else)]`
+help: consider writing
+    |
+248 ~     let Some(sandbox_token) = params.get("token") else {
+249 ~         warn!("❌ [API] Missing sandbox token for report {}", report_id);
+250 +         return "Missing sandbox token".into_response();
+251 +     };
+    |
+
+error: redundant pattern matching, consider using `is_some()`
+   --> src/routes/api.rs:258:32
+    |
+258 |     let chart_modules = if let Some(_) = params.get("chart_modules") {
+    |                         -------^^^^^^^------------------------------ help: try: `if params.get("chart_modules").is_some()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#redundant_pattern_matching
+    = note: `-D clippy::redundant-pattern-matching` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::redundant_pattern_matching)]`
+
+error: this `else { if .. }` block can be collapsed
+   --> src/routes/api.rs:316:12
+    |
+316 |       } else {
+    |  ____________^
+317 | |         if let Ok(id) = id.parse() { id } else {
+318 | |             error!("❌ [API] Invalid report ID format for Shadow DOM: {}", id);
+319 | |             return "Invalid report ID format".into_response();
+320 | |         }
+321 | |     };
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#collapsible_else_if
+help: collapse nested if block
+    |
+316 ~     } else if let Ok(id) = id.parse() { id } else {
+317 ~         error!("❌ [API] Invalid report ID format for Shadow DOM: {}", id);
+318 +         return "Invalid report ID format".into_response();
+319 ~     };
+    |
+
+error: this could be rewritten as `let...else`
+   --> src/routes/api.rs:324:5
+    |
+324 | /     let shadow_dom_token = if let Some(token) = params.get("token") { token } else {
+325 | |         warn!("❌ [API] Missing shadow DOM token for report {}", report_id);
+326 | |         return "Missing shadow DOM token".into_response();
+327 | |     };
+    | |______^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#manual_let_else
+help: consider writing
+    |
+324 ~     let Some(shadow_dom_token) = params.get("token") else {
+325 ~         warn!("❌ [API] Missing shadow DOM token for report {}", report_id);
+326 +         return "Missing shadow DOM token".into_response();
+327 +     };
+    |
+
+error: redundant pattern matching, consider using `is_some()`
+   --> src/routes/api.rs:333:32
+    |
+333 |     let chart_modules = if let Some(_) = params.get("chart_modules") {
+    |                         -------^^^^^^^------------------------------ help: try: `if params.get("chart_modules").is_some()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#redundant_pattern_matching
+
+error: used `unwrap()` on a `Result` value
+  --> src/routes/crypto_reports.rs:62:21
+   |
+62 | /                     Response::builder()
+63 | |                         .status(StatusCode::INTERNAL_SERVER_ERROR)
+64 | |                         .body(Body::from("Response build error"))
+65 | |                         .unwrap() // This is guaranteed safe with literal body
+   | |_________________________________^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+   = note: `-D clippy::unwrap-used` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::unwrap_used)]`
+
+error: used `unwrap()` on a `Result` value
+  --> src/routes/rss_feed.rs:80:29
+   |
+80 | / ...                   Response::builder()
+81 | | ...                       .status(StatusCode::INTERNAL_SERVER_ERROR)
+82 | | ...                       .body(Body::from("Failed to generate RSS feed"))
+83 | | ...                       .unwrap()
+   | |___________________________________^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+  --> src/routes/seo.rs:67:29
+   |
+67 | / ...                   Response::builder()
+68 | | ...                       .status(StatusCode::INTERNAL_SERVER_ERROR)
+69 | | ...                       .body(Body::from("Failed to generate sitemap"))
+70 | | ...                       .unwrap()
+   | |___________________________________^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> src/service_islands/layer1_infrastructure/app_state_island/mod.rs:52:5
+   |
+52 |     pub async fn new() -> Result<Self> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+   = note: `-D clippy::missing-errors-doc` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::missing_errors_doc)]`
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer1_infrastructure/app_state_island/mod.rs:201:5
+    |
+201 |     pub async fn new() -> Result<Self, anyhow::Error> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function which may panic missing `# Panics` section
+  --> src/service_islands/layer1_infrastructure/cache_system_island/mod.rs:46:5
+   |
+46 |     pub async fn new() -> Result<Self> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: first possible panic found here
+  --> src/service_islands/layer1_infrastructure/cache_system_island/mod.rs:55:13
+   |
+55 | /             inner
+56 | |                 .l1_cache
+57 | |                 .as_ref()
+58 | |                 .expect("L1 cache should be initialized"),
+   | |_________________________________________________________^
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_panics_doc
+   = note: `-D clippy::missing-panics-doc` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::missing_panics_doc)]`
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> src/service_islands/layer1_infrastructure/cache_system_island/mod.rs:46:5
+   |
+46 |     pub async fn new() -> Result<Self> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: used `expect()` on an `Option` value
+  --> src/service_islands/layer1_infrastructure/cache_system_island/mod.rs:55:13
+   |
+55 | /             inner
+56 | |                 .l1_cache
+57 | |                 .as_ref()
+58 | |                 .expect("L1 cache should be initialized"),
+   | |_________________________________________________________^
+   |
+   = note: if this value is `None`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#expect_used
+   = note: `-D clippy::expect-used` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::expect_used)]`
+
+error: used `expect()` on an `Option` value
+  --> src/service_islands/layer1_infrastructure/cache_system_island/mod.rs:61:13
+   |
+61 | /             inner
+62 | |                 .l2_cache
+63 | |                 .as_ref()
+64 | |                 .expect("L2 cache should be initialized"),
+   | |_________________________________________________________^
+   |
+   = note: if this value is `None`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#expect_used
+
+error: case-sensitive file extension comparison
+  --> src/service_islands/layer1_infrastructure/chart_modules_island/mod.rs:96:28
+   |
+96 |                         if name.ends_with(".js") {
+   |                            ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: consider using a case-insensitive comparison instead
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#case_sensitive_file_extension_comparisons
+   = note: `-D clippy::case-sensitive-file-extension-comparisons` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::case_sensitive_file_extension_comparisons)]`
+help: use std::path::Path
+   |
+96 ~                         if std::path::Path::new(name)
+97 +                             .extension()
+98 ~                             .is_some_and(|ext| ext.eq_ignore_ascii_case("js")) {
+   |
+
+error: this could be rewritten as `let...else`
+   --> src/service_islands/layer1_infrastructure/chart_modules_island/mod.rs:197:9
+    |
+197 | /         let mut entries = match read_dir(&source_dir).await {
+198 | |             Ok(rd) => rd,
+199 | |             Err(_) => return Vec::new(),
+200 | |         };
+    | |__________^ help: consider writing: `let Ok(mut entries) = read_dir(&source_dir).await else { return Vec::new() };`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#manual_let_else
+
+error: case-sensitive file extension comparison
+   --> src/service_islands/layer1_infrastructure/chart_modules_island/mod.rs:207:28
+    |
+207 |                         if name.ends_with(".js") {
+    |                            ^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using a case-insensitive comparison instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#case_sensitive_file_extension_comparisons
+help: use std::path::Path
+    |
+207 ~                         if std::path::Path::new(name)
+208 +                             .extension()
+209 ~                             .is_some_and(|ext| ext.eq_ignore_ascii_case("js")) {
+    |
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> src/service_islands/layer1_infrastructure/shared_components_island/chart_modules_service.rs:25:5
+   |
+25 |     pub async fn new() -> Result<Self> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: `format!(..)` appended to existing `String`
+   --> src/service_islands/layer1_infrastructure/shared_components_island/chart_modules_service.rs:102:21
+    |
+102 |                     final_content.push_str(&format!("// === {file_name} ===\n"));
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `write!` to avoid the extra allocation
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#format_push_string
+    = note: `-D clippy::format-push-string` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::format_push_string)]`
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> src/service_islands/layer1_infrastructure/shared_components_island/model_registry.rs:19:5
+   |
+19 |     pub async fn new() -> Result<Self> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> src/service_islands/layer1_infrastructure/shared_components_island/template_registry.rs:13:5
+   |
+13 |     pub fn new() -> Result<Self> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> src/service_islands/layer1_infrastructure/shared_components_island/utility_functions.rs:13:5
+   |
+13 |     pub async fn new() -> anyhow::Result<Self> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> src/service_islands/layer1_infrastructure/shared_components_island/mod.rs:49:5
+   |
+49 |     pub async fn new() -> Result<Self> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> src/service_islands/layer3_communication/dashboard_communication/dashboard_data_service.rs:40:5
+   |
+40 | /     pub async fn get_rendered_homepage_compressed(
+41 | |         &self,
+42 | |         state: &Arc<AppState>,
+43 | |     ) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
+   | |__________________________________________________________________________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> src/service_islands/layer3_communication/dashboard_communication/dashboard_data_service.rs:76:5
+   |
+76 | /     pub async fn cache_rendered_homepage_compressed(
+77 | |         &self,
+78 | |         state: &Arc<AppState>,
+79 | |         compressed_data: &[u8],
+80 | |     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+   | |_____________________________________________________________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:92:5
+   |
+92 | /     pub async fn fetch_latest_report(
+93 | |         &self,
+94 | |         state: &Arc<AppState>,
+95 | |     ) -> Result<Option<ReportData>, sqlx::Error> {
+   | |________________________________________________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:139:5
+    |
+139 | /     pub async fn fetch_all_report_ids_for_sitemap(
+140 | |         &self,
+141 | |         state: &Arc<AppState>,
+142 | |     ) -> Result<Vec<ReportSitemapData>, sqlx::Error> {
+    | |____________________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:192:5
+    |
+192 | /     pub async fn fetch_related_reports(
+193 | |         &self,
+194 | |         state: &Arc<AppState>,
+195 | |         current_id: i32,
+196 | |         limit: i64,
+197 | |     ) -> Result<Vec<ReportSummaryData>, sqlx::Error> {
+    | |____________________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:253:5
+    |
+253 | /     pub async fn fetch_rss_reports(
+254 | |         &self,
+255 | |         state: &Arc<AppState>,
+256 | |         limit: i64,
+257 | |     ) -> Result<Vec<ReportRssData>, sqlx::Error> {
+    | |________________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:304:5
+    |
+304 | /     pub async fn fetch_report_by_id(
+305 | |         &self,
+306 | |         state: &Arc<AppState>,
+307 | |         report_id: i32,
+308 | |     ) -> Result<Option<ReportData>, sqlx::Error> {
+    | |________________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:357:5
+    |
+357 | /     pub async fn get_rendered_report_compressed(
+358 | |         &self,
+359 | |         state: &Arc<AppState>,
+360 | |         report_id: i32,
+361 | |     ) -> Result<Option<Vec<u8>>, anyhow::Error> {
+    | |_______________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:391:5
+    |
+391 | /     pub async fn cache_rendered_report_compressed(
+392 | |         &self,
+393 | |         state: &Arc<AppState>,
+394 | |         report_id: i32,
+395 | |         compressed_data: &[u8],
+396 | |     ) -> Result<(), anyhow::Error> {
+    | |__________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: casting `usize` to `f64` causes a loss of precision on targets with 64-bit wide pointers (`usize` is 64 bits wide, but `f64`'s mantissa is only 52 bits wide)
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:399:23
+    |
+399 |         let size_mb = data_size as f64 / (1024.0 * 1024.0);
+    |                       ^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#cast_precision_loss
+    = note: `-D clippy::cast-precision-loss` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::cast_precision_loss)]`
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:445:5
+    |
+445 | /     pub async fn get_rendered_report_dsd_compressed(
+446 | |         &self,
+447 | |         state: &Arc<AppState>,
+448 | |         report_id: i32,
+449 | |         language: &str,
+450 | |     ) -> Result<Option<Vec<u8>>, anyhow::Error> {
+    | |_______________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:477:5
+    |
+477 | /     pub async fn cache_rendered_report_dsd_compressed(
+478 | |         &self,
+479 | |         state: &Arc<AppState>,
+480 | |         report_id: i32,
+481 | |         compressed_data: &[u8],
+482 | |         language: &str,
+483 | |     ) -> Result<(), anyhow::Error> {
+    | |__________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: casting `usize` to `f64` causes a loss of precision on targets with 64-bit wide pointers (`usize` is 64 bits wide, but `f64`'s mantissa is only 52 bits wide)
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:486:23
+    |
+486 |         let size_mb = data_size as f64 / (1024.0 * 1024.0);
+    |                       ^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#cast_precision_loss
+
+error: casting `f64` to `i64` may truncate the value
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:636:17
+    |
+636 |                 ((total as f64) / (per_page as f64)).ceil() as i64
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#cast_possible_truncation
+    = note: `-D clippy::cast-possible-truncation` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::cast_possible_truncation)]`
+
+error: casting `i64` to `f64` causes a loss of precision (`i64` is 64 bits wide, but `f64`'s mantissa is only 52 bits wide)
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:636:18
+    |
+636 |                 ((total as f64) / (per_page as f64)).ceil() as i64
+    |                  ^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#cast_precision_loss
+
+error: casting `i64` to `f64` causes a loss of precision (`i64` is 64 bits wide, but `f64`'s mantissa is only 52 bits wide)
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:636:35
+    |
+636 |                 ((total as f64) / (per_page as f64)).ceil() as i64
+    |                                   ^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#cast_precision_loss
+
+error: this argument is passed by value, but not consumed in the function body
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:700:16
+    |
+700 |         items: Vec<serde_json::Value>,
+    |                ^^^^^^^^^^^^^^^^^^^^^^ help: consider changing the type to: `&[serde_json::Value]`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#needless_pass_by_value
+    = note: `-D clippy::needless-pass-by-value` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::needless_pass_by_value)]`
+
+error: this argument is passed by value, but not consumed in the function body
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:705:23
+    |
+705 |         page_numbers: Vec<Option<i64>>,
+    |                       ^^^^^^^^^^^^^^^^ help: consider changing the type to: `&[Option<i64>]`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#needless_pass_by_value
+
+error: casting `usize` to `i64` may wrap around the value on targets with 64-bit wide pointers
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:709:36
+    |
+709 |         let display_end = offset + (items.len() as i64);
+    |                                    ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#cast_possible_wrap
+    = note: `-D clippy::cast-possible-wrap` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::cast_possible_wrap)]`
+
+error: this argument is passed by value, but not consumed in the function body
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:759:28
+    |
+759 |     fn compress_html(html: String, page: i64) -> anyhow::Result<Vec<u8>> {
+    |                            ^^^^^^ help: consider changing the type to: `&str`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#needless_pass_by_value
+
+error: casting `usize` to `f64` causes a loss of precision on targets with 64-bit wide pointers (`usize` is 64 bits wide, but `f64`'s mantissa is only 52 bits wide)
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:782:41
+    |
+782 |         let compression_ratio = (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0;
+    |                                         ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#cast_precision_loss
+
+error: casting `usize` to `f64` causes a loss of precision on targets with 64-bit wide pointers (`usize` is 64 bits wide, but `f64`'s mantissa is only 52 bits wide)
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:782:66
+    |
+782 |         let compression_ratio = (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0;
+    |                                                                  ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#cast_precision_loss
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer3_communication/data_communication/crypto_data_service.rs:796:5
+    |
+796 | /     pub async fn fetch_reports_list_with_cache(
+797 | |         &self,
+798 | |         state: &Arc<AppState>,
+799 | |         page: i64,
+800 | |         per_page: i64,
+801 | |     ) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
+    | |__________________________________________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> src/service_islands/layer3_communication/redis_stream_reader/mod.rs:36:5
+   |
+36 |     pub async fn read_latest_market_data(&self) -> Result<Option<Value>> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: adding items after statements is confusing, since items exist from the start of the scope
+  --> src/service_islands/layer3_communication/redis_stream_reader/mod.rs:39:9
+   |
+39 |         use crate::service_islands::layer1_infrastructure::cache_system_island::CacheStrategy;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#items_after_statements
+   = note: `-D clippy::items-after-statements` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::items_after_statements)]`
+
+error: indexing may panic
+  --> src/service_islands/layer3_communication/redis_stream_reader/mod.rs:87:35
+   |
+87 |         let (entry_id, fields) = &entries[0];
+   |                                   ^^^^^^^^^^
+   |
+   = help: consider using `.get(n)` or `.get_mut(n)` instead
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#indexing_slicing
+   = note: `-D clippy::indexing-slicing` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::indexing_slicing)]`
+
+error: unused `self` argument
+   --> src/service_islands/layer3_communication/redis_stream_reader/mod.rs:100:30
+    |
+100 |     fn stream_fields_to_json(&self, fields: &Vec<(String, String)>) -> Result<Value> {
+    |                              ^^^^^
+    |
+    = help: consider refactoring to an associated function
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unused_self
+    = note: `-D clippy::unused-self` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::unused_self)]`
+
+error: this function's return value is unnecessarily wrapped by `Result`
+   --> src/service_islands/layer3_communication/redis_stream_reader/mod.rs:100:5
+    |
+100 |     fn stream_fields_to_json(&self, fields: &Vec<(String, String)>) -> Result<Value> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unnecessary_wraps
+    = note: `-D clippy::unnecessary-wraps` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::unnecessary_wraps)]`
+help: remove `Result` from the return type...
+    |
+100 -     fn stream_fields_to_json(&self, fields: &Vec<(String, String)>) -> Result<Value> {
+100 +     fn stream_fields_to_json(&self, fields: &Vec<(String, String)>) -> serde_json::Value {
+    |
+help: ...and then remove the surrounding `Ok()` from returning expressions
+    |
+106 ~                 return data;
+107 |             }
+...
+137 |
+138 ~         Value::Object(map)
+    |
+
+error: indexing may panic
+   --> src/service_islands/layer3_communication/redis_stream_reader/mod.rs:102:33
+    |
+102 |         if fields.len() == 1 && fields[0].0 == "data" {
+    |                                 ^^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#indexing_slicing
+
+error: indexing may panic
+   --> src/service_islands/layer3_communication/redis_stream_reader/mod.rs:103:29
+    |
+103 |             let data_str = &fields[0].1;
+    |                             ^^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#indexing_slicing
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer3_communication/redis_stream_reader/mod.rs:142:5
+    |
+142 |     pub async fn health_check(&self) -> Result<bool> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer3_communication/redis_stream_reader/mod.rs:158:5
+    |
+158 |     pub async fn cleanup(&self) -> Result<()> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> src/service_islands/layer4_observability/health_system/mod.rs:33:5
+   |
+33 |     pub async fn new() -> Result<Self, anyhow::Error> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function which may panic missing `# Panics` section
+  --> src/service_islands/layer5_business_logic/crypto_reports/handlers.rs:75:5
+   |
+75 |     pub fn create_cached_response(&self, html: String, cache_status: &str) -> Response {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: first possible panic found here
+  --> src/service_islands/layer5_business_logic/crypto_reports/handlers.rs:84:17
+   |
+84 | /                 Response::builder()
+85 | |                     .status(StatusCode::INTERNAL_SERVER_ERROR)
+86 | |                     .body("Response build error".to_string())
+87 | |                     .unwrap() // This is guaranteed safe with literal body
+   | |_____________________________^
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_panics_doc
+
+error: used `unwrap()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/crypto_reports/handlers.rs:84:17
+   |
+84 | /                 Response::builder()
+85 | |                     .status(StatusCode::INTERNAL_SERVER_ERROR)
+86 | |                     .body("Response build error".to_string())
+87 | |                     .unwrap() // This is guaranteed safe with literal body
+   | |_____________________________^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: docs for function which may panic missing `# Panics` section
+   --> src/service_islands/layer5_business_logic/crypto_reports/handlers.rs:96:5
+    |
+ 96 |     pub fn create_compressed_response(compressed_data: Vec<u8>) -> Response {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: first possible panic found here
+   --> src/service_islands/layer5_business_logic/crypto_reports/handlers.rs:106:17
+    |
+106 | /                 Response::builder()
+107 | |                     .status(StatusCode::INTERNAL_SERVER_ERROR)
+108 | |                     .body(Body::from("Response build error"))
+109 | |                     .unwrap() // This is guaranteed safe with literal body
+    | |_____________________________^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_panics_doc
+
+error: used `unwrap()` on a `Result` value
+   --> src/service_islands/layer5_business_logic/crypto_reports/handlers.rs:106:17
+    |
+106 | /                 Response::builder()
+107 | |                     .status(StatusCode::INTERNAL_SERVER_ERROR)
+108 | |                     .body(Body::from("Response build error"))
+109 | |                     .unwrap() // This is guaranteed safe with literal body
+    | |_____________________________^
+    |
+    = note: if this value is an `Err`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer5_business_logic/crypto_reports/handlers.rs:118:5
+    |
+118 |     pub fn compress_html_to_gzip(html: &str) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: casting `usize` to `f64` causes a loss of precision on targets with 64-bit wide pointers (`usize` is 64 bits wide, but `f64`'s mantissa is only 52 bits wide)
+   --> src/service_islands/layer5_business_logic/crypto_reports/handlers.rs:125:41
+    |
+125 |         let compression_ratio = (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0;
+    |                                         ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#cast_precision_loss
+
+error: casting `usize` to `f64` causes a loss of precision on targets with 64-bit wide pointers (`usize` is 64 bits wide, but `f64`'s mantissa is only 52 bits wide)
+   --> src/service_islands/layer5_business_logic/crypto_reports/handlers.rs:125:66
+    |
+125 |         let compression_ratio = (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0;
+    |                                                                  ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#cast_precision_loss
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer5_business_logic/crypto_reports/handlers.rs:143:5
+    |
+143 | /     pub async fn crypto_index_with_tera(
+144 | |         &self,
+145 | |         state: &Arc<AppState>,
+146 | |         chart_modules_content: Option<Arc<String>>, // ✅ Already Arc, no clone needed
+147 | |     ) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
+    | |_________________________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: used `unwrap()` on a `Result` value
+   --> src/service_islands/layer3_communication/redis_stream_reader/mod.rs:190:22
+    |
+190 |         let result = reader.stream_fields_to_json(&fields).unwrap();
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is an `Err`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: indexing may panic
+   --> src/service_islands/layer3_communication/redis_stream_reader/mod.rs:192:20
+    |
+192 |         assert_eq!(result["btc_price_usd"], 45000.5);
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#indexing_slicing
+
+error: indexing may panic
+   --> src/service_islands/layer3_communication/redis_stream_reader/mod.rs:193:20
+    |
+193 |         assert_eq!(result["btc_change_24h"], 2.5);
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#indexing_slicing
+
+error: indexing may panic
+   --> src/service_islands/layer3_communication/redis_stream_reader/mod.rs:194:20
+    |
+194 |         assert_eq!(result["fng_value"], 75);
+    |                    ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#indexing_slicing
+
+error: indexing may panic
+   --> src/service_islands/layer3_communication/redis_stream_reader/mod.rs:195:20
+    |
+195 |         assert_eq!(result["partial_failure"], false);
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#indexing_slicing
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer5_business_logic/crypto_reports/handlers.rs:257:5
+    |
+257 | /     pub async fn crypto_report_by_id_with_tera(
+258 | |         &self,
+259 | |         state: &Arc<AppState>,
+260 | |         report_id: i32,
+261 | |         chart_modules_content: Option<Arc<String>>, // ✅ Already Arc, no clone needed
+262 | |     ) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
+    | |_________________________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer5_business_logic/crypto_reports/handlers.rs:374:5
+    |
+374 | /     pub async fn crypto_reports_list_with_tera(
+375 | |         &self,
+376 | |         state: &Arc<AppState>,
+377 | |         page: i64,
+378 | |     ) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
+    | |_________________________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer5_business_logic/crypto_reports/handlers.rs:432:5
+    |
+432 | /     pub async fn serve_sandboxed_report(
+433 | |         &self,
+434 | |         state: &Arc<AppState>,
+435 | |         report_id: i32,
+...   |
+438 | |         chart_modules_content: Option<&str>,
+439 | |     ) -> Result<axum::response::Response, Box<dyn StdError + Send + Sync>> {
+    | |__________________________________________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer5_business_logic/crypto_reports/handlers.rs:459:5
+    |
+459 | /     pub async fn serve_shadow_dom_content(
+460 | |         &self,
+461 | |         state: &Arc<AppState>,
+462 | |         report_id: i32,
+...   |
+465 | |         chart_modules_content: Option<&str>,
+466 | |     ) -> Result<axum::response::Response, Box<dyn StdError + Send + Sync>> {
+    | |__________________________________________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: indexing may panic
+   --> src/service_islands/layer5_business_logic/crypto_reports/handlers.rs:504:46
+    |
+504 |                         let (name, value) = (parts[0].trim(), parts[1].trim());
+    |                                              ^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#indexing_slicing
+
+error: indexing may panic
+   --> src/service_islands/layer5_business_logic/crypto_reports/handlers.rs:504:63
+    |
+504 |                         let (name, value) = (parts[0].trim(), parts[1].trim());
+    |                                                               ^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#indexing_slicing
+
+error: docs for function which may panic missing `# Panics` section
+   --> src/service_islands/layer5_business_logic/crypto_reports/handlers.rs:541:5
+    |
+541 | /     pub async fn render_crypto_index_dsd(
+542 | |         &self,
+543 | |         state: &Arc<AppState>,
+544 | |         params: &HashMap<String, String>,
+...   |
+547 | |         report_id_opt: Option<i32>, // Optional specific ID, defaults to latest if None
+548 | |     ) -> Response {
+    | |_________________^
+    |
+note: first possible panic found here
+   --> src/service_islands/layer5_business_logic/crypto_reports/handlers.rs:598:21
+    |
+598 | /                     Response::builder()
+599 | |                         .status(StatusCode::INTERNAL_SERVER_ERROR)
+600 | |                         .body(Body::from("Response build error"))
+601 | |                         .unwrap()
+    | |_________________________________^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_panics_doc
+
+error: this function has too many lines (178/100)
+   --> src/service_islands/layer5_business_logic/crypto_reports/handlers.rs:541:5
+    |
+541 | /     pub async fn render_crypto_index_dsd(
+542 | |         &self,
+543 | |         state: &Arc<AppState>,
+544 | |         params: &HashMap<String, String>,
+...   |
+547 | |         report_id_opt: Option<i32>, // Optional specific ID, defaults to latest if None
+548 | |     ) -> Response {
+    | |_________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#too_many_lines
+    = note: `-D clippy::too-many-lines` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::too_many_lines)]`
+
+error: used `unwrap()` on a `Result` value
+   --> src/service_islands/layer5_business_logic/crypto_reports/handlers.rs:598:21
+    |
+598 | /                     Response::builder()
+599 | |                         .status(StatusCode::INTERNAL_SERVER_ERROR)
+600 | |                         .body(Body::from("Response build error"))
+601 | |                         .unwrap()
+    | |_________________________________^
+    |
+    = note: if this value is an `Err`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+   --> src/service_islands/layer5_business_logic/crypto_reports/handlers.rs:754:17
+    |
+754 | /                 Response::builder()
+755 | |                     .status(StatusCode::INTERNAL_SERVER_ERROR)
+756 | |                     .body(Body::from("Response build error"))
+757 | |                     .unwrap()
+    | |_____________________________^
+    |
+    = note: if this value is an `Err`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: `format!(..)` appended to existing `String`
+   --> src/service_islands/layer5_business_logic/crypto_reports/rendering/geo_metadata.rs:149:5
+    |
+149 | /     html.push_str(&format!(
+150 | |         r#"<meta name="description" content="{description}" />
+151 | |     <link rel="canonical" href="{canonical}" />
+...   |
+187 | |         published = &metadata.date_published,
+188 | |     ));
+    | |______^
+    |
+    = help: consider using `write!` to avoid the extra allocation
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#format_push_string
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer5_business_logic/crypto_reports/rendering/shadow_dom_renderer.rs:153:5
+    |
+153 | /     pub async fn serve_shadow_dom_content(
+154 | |         &self,
+155 | |         _state: &Arc<AppState>,
+156 | |         report: &Report,
+...   |
+159 | |         chart_modules_content: Option<&str>,
+160 | |     ) -> Layer5Result<Response> {
+    | |_______________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: used `unwrap()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/crypto_reports/rendering/shared.rs:24:5
+   |
+24 |     Regex::new(r"<script[^>]*>.*?</script>").unwrap(),  // Remove inline scripts
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/crypto_reports/rendering/shared.rs:25:5
+   |
+25 |     Regex::new(r"<iframe[^>]*>.*?</iframe>").unwrap(),  // Remove nested iframes
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/crypto_reports/rendering/shared.rs:26:5
+   |
+26 |     Regex::new(r"<object[^>]*>.*?</object>").unwrap(),  // Remove objects
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/crypto_reports/rendering/shared.rs:27:5
+   |
+27 |     Regex::new(r"<embed[^>]*>.*?</embed>").unwrap(),    // Remove embeds
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/crypto_reports/rendering/shared.rs:28:5
+   |
+28 |     Regex::new(r"<applet[^>]*>.*?</applet>").unwrap(),  // Remove applets
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/crypto_reports/rendering/shared.rs:29:5
+   |
+29 |     Regex::new(r"javascript:").unwrap(),                 // Remove javascript: URLs
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/crypto_reports/rendering/shared.rs:30:5
+   |
+30 |     Regex::new(r"on\w+\s*=").unwrap(),                   // Remove event handlers
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/crypto_reports/rendering/shared.rs:35:5
+   |
+35 |     Regex::new(r"expression\s*\(").unwrap(),            // Remove CSS expressions
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/crypto_reports/rendering/shared.rs:36:5
+   |
+36 |     Regex::new(r"javascript\s*:").unwrap(),             // Remove javascript URLs in CSS
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/crypto_reports/rendering/shared.rs:37:5
+   |
+37 |     Regex::new(r"@import").unwrap(),                    // Remove imports
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/crypto_reports/rendering/shared.rs:38:5
+   |
+38 |     Regex::new(r"behavior\s*:").unwrap(),               // Remove IE behaviors
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/crypto_reports/rendering/shared.rs:39:5
+   |
+39 |     Regex::new(r"position\s*:\s*fixed").unwrap(),       // Prevent fixed positioning
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/crypto_reports/rendering/shared.rs:40:5
+   |
+40 |     Regex::new(r"position\s*:\s*absolute").unwrap(),    // Be careful with absolute
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/crypto_reports/rendering/shared.rs:41:5
+   |
+41 |     Regex::new(r"z-index\s*:\s*[0-9]{4,}").unwrap(),    // Prevent high z-index
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/crypto_reports/rendering/shared.rs:42:5
+   |
+42 |     Regex::new(r"!important\s*;").unwrap(),             // Remove !important
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/crypto_reports/rendering/shared.rs:47:5
+   |
+47 |     Regex::new(r"eval\s*\(").unwrap(),                  // Remove eval calls
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/crypto_reports/rendering/shared.rs:48:5
+   |
+48 |     Regex::new(r"Function\s*\(").unwrap(),              // Remove Function constructor
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/crypto_reports/rendering/shared.rs:49:5
+   |
+49 |     Regex::new(r"setTimeout\s*\(").unwrap(),            // Remove setTimeout
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/crypto_reports/rendering/shared.rs:50:5
+   |
+50 |     Regex::new(r"setInterval\s*\(").unwrap(),           // Remove setInterval
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/crypto_reports/rendering/shared.rs:51:5
+   |
+51 |     Regex::new(r"document\.write").unwrap(),            // Remove document.write
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/crypto_reports/rendering/shared.rs:52:5
+   |
+52 |     Regex::new(r"window\.location").unwrap(),           // Remove location changes
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/crypto_reports/rendering/shared.rs:53:5
+   |
+53 |     Regex::new(r"parent\.").unwrap(),                   // Remove parent access
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/crypto_reports/rendering/shared.rs:54:5
+   |
+54 |     Regex::new(r"top\.").unwrap(),                      // Remove top access
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: indexing may panic
+   --> src/service_islands/layer5_business_logic/crypto_reports/rendering/breadcrumbs.rs:151:20
+    |
+151 |         assert_eq!(items[0].url, "/");
+    |                    ^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#indexing_slicing
+
+error: indexing may panic
+   --> src/service_islands/layer5_business_logic/crypto_reports/rendering/breadcrumbs.rs:152:20
+    |
+152 |         assert_eq!(items[1].url, "/crypto_reports_list");
+    |                    ^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#indexing_slicing
+
+error: indexing may panic
+   --> src/service_islands/layer5_business_logic/crypto_reports/rendering/breadcrumbs.rs:153:20
+    |
+153 |         assert_eq!(items[2].url, "/crypto_report/123");
+    |                    ^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#indexing_slicing
+
+error: indexing may panic
+   --> src/service_islands/layer5_business_logic/crypto_reports/rendering/breadcrumbs.rs:154:17
+    |
+154 |         assert!(items[2].is_current);
+    |                 ^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#indexing_slicing
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> src/service_islands/layer5_business_logic/crypto_reports/report_creator.rs:63:5
+   |
+63 | /     pub async fn fetch_and_cache_latest_report(
+64 | |         &self,
+65 | |         state: &Arc<AppState>,
+66 | |     ) -> Result<Option<Report>, sqlx::Error> {
+   | |____________________________________________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer5_business_logic/crypto_reports/report_creator.rs:96:5
+    |
+ 96 | /     pub async fn fetch_and_cache_report_by_id(
+ 97 | |         &self,
+ 98 | |         state: &Arc<AppState>,
+ 99 | |         report_id: i32,
+100 | |     ) -> Result<Option<Report>, sqlx::Error> {
+    | |____________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer5_business_logic/crypto_reports/report_creator.rs:202:5
+    |
+202 | /     pub async fn serve_sandboxed_report(
+203 | |         &self,
+204 | |         state: &Arc<AppState>,
+205 | |         report_id: i32,
+...   |
+208 | |         chart_modules_content: Option<&str>,
+209 | |     ) -> Layer5Result<Response> {
+    | |_______________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer5_business_logic/crypto_reports/report_creator.rs:236:5
+    |
+236 | /     pub async fn serve_shadow_dom_content(
+237 | |         &self,
+238 | |         state: &Arc<AppState>,
+239 | |         report_id: i32,
+...   |
+242 | |         chart_modules_content: Option<&str>,
+243 | |     ) -> Layer5Result<Response> {
+    | |_______________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: unused `self` argument
+  --> src/service_islands/layer5_business_logic/crypto_reports/template_orchestrator.rs:56:22
+   |
+56 |     fn compress_html(&self, html: &str) -> Layer5Result<Vec<u8>> {
+   |                      ^^^^^
+   |
+   = help: consider refactoring to an associated function
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unused_self
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> src/service_islands/layer5_business_logic/crypto_reports/template_orchestrator.rs:75:5
+   |
+75 | /     pub async fn prepare_crypto_report_context(
+76 | |         &self,
+77 | |         report: Report,
+78 | |         template_type: &str,
+79 | |         chart_modules_content: Option<Arc<String>>,
+80 | |         additional_context: Option<HashMap<String, serde_json::Value>>,
+81 | |     ) -> Layer5Result<TemplateContext> {
+   | |______________________________________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer5_business_logic/crypto_reports/template_orchestrator.rs:141:5
+    |
+141 | /     pub async fn render_template(
+142 | |         &self,
+143 | |         tera: &tera::Tera,
+144 | |         template_path: &str,
+145 | |         context: TemplateContext,
+146 | |     ) -> Layer5Result<String> {
+    | |_____________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer5_business_logic/crypto_reports/template_orchestrator.rs:240:5
+    |
+240 | /     pub async fn render_crypto_report_view(
+241 | |         &self,
+242 | |         tera: &tera::Tera,
+243 | |         report: Report,
+244 | |         chart_modules_content: Option<Arc<String>>,
+245 | |         additional_context: Option<HashMap<String, serde_json::Value>>,
+246 | |     ) -> Layer5Result<Vec<u8>> {
+    | |______________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer5_business_logic/crypto_reports/template_orchestrator.rs:274:5
+    |
+274 |     pub async fn render_empty_template(&self, tera: &tera::Tera) -> Layer5Result<String> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer5_business_logic/crypto_reports/template_orchestrator.rs:305:5
+    |
+305 | /     pub async fn render_not_found_template(
+306 | |         &self,
+307 | |         tera: &tera::Tera,
+308 | |         report_id: i32,
+309 | |     ) -> Layer5Result<String> {
+    | |_____________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> src/service_islands/layer5_business_logic/crypto_reports/mod.rs:41:5
+   |
+41 |     pub async fn new() -> Result<Self, anyhow::Error> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function which may panic missing `# Panics` section
+  --> src/service_islands/layer5_business_logic/dashboard/handlers.rs:53:5
+   |
+53 |     pub fn create_compressed_response(compressed_data: Vec<u8>) -> Response {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: first possible panic found here
+  --> src/service_islands/layer5_business_logic/dashboard/handlers.rs:63:17
+   |
+63 | /                 Response::builder()
+64 | |                     .status(StatusCode::INTERNAL_SERVER_ERROR)
+65 | |                     .body(Body::from("Response build error"))
+66 | |                     .unwrap() // This is guaranteed safe with literal body
+   | |_____________________________^
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_panics_doc
+
+error: used `unwrap()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/dashboard/handlers.rs:63:17
+   |
+63 | /                 Response::builder()
+64 | |                     .status(StatusCode::INTERNAL_SERVER_ERROR)
+65 | |                     .body(Body::from("Response build error"))
+66 | |                     .unwrap() // This is guaranteed safe with literal body
+   | |_____________________________^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: unused `self` argument
+  --> src/service_islands/layer5_business_logic/dashboard/handlers.rs:74:22
+   |
+74 |     fn compress_html(&self, html: &str) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
+   |                      ^^^^^
+   |
+   = help: consider refactoring to an associated function
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unused_self
+
+error: casting `usize` to `f64` causes a loss of precision on targets with 64-bit wide pointers (`usize` is 64 bits wide, but `f64`'s mantissa is only 52 bits wide)
+  --> src/service_islands/layer5_business_logic/dashboard/handlers.rs:81:41
+   |
+81 |         let compression_ratio = (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0;
+   |                                         ^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#cast_precision_loss
+
+error: casting `usize` to `f64` causes a loss of precision on targets with 64-bit wide pointers (`usize` is 64 bits wide, but `f64`'s mantissa is only 52 bits wide)
+  --> src/service_islands/layer5_business_logic/dashboard/handlers.rs:81:66
+   |
+81 |         let compression_ratio = (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0;
+   |                                                                  ^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#cast_precision_loss
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> src/service_islands/layer5_business_logic/dashboard/handlers.rs:94:5
+   |
+94 |     pub async fn homepage(&self) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer5_business_logic/dashboard/handlers.rs:106:5
+    |
+106 | /     pub async fn homepage_with_tera(
+107 | |         &self,
+108 | |         state: &Arc<AppState>,
+109 | |     ) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
+    | |_________________________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: module has the same name as its containing module
+  --> src/service_islands/layer5_business_logic/crypto_reports/tests.rs:7:1
+   |
+ 7 | / mod tests {
+ 8 | |     use crate::service_islands::layer5_business_logic::crypto_reports::report_creator::ReportCreator;
+ 9 | |
+10 | |     #[tokio::test]
+...  |
+16 | | }
+   | |_^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#module_inception
+   = note: `-D clippy::module-inception` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::module_inception)]`
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> src/service_islands/layer5_business_logic/dashboard/mod.rs:36:5
+   |
+36 |     pub async fn new() -> Result<Self, anyhow::Error> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: casting `usize` to `f64` causes a loss of precision on targets with 64-bit wide pointers (`usize` is 64 bits wide, but `f64`'s mantissa is only 52 bits wide)
+  --> src/service_islands/layer5_business_logic/shared/compression.rs:26:21
+   |
+26 |             (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0
+   |                     ^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#cast_precision_loss
+
+error: casting `usize` to `f64` causes a loss of precision on targets with 64-bit wide pointers (`usize` is 64 bits wide, but `f64`'s mantissa is only 52 bits wide)
+  --> src/service_islands/layer5_business_logic/shared/compression.rs:26:46
+   |
+26 |             (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0
+   |                                              ^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#cast_precision_loss
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> src/service_islands/layer5_business_logic/shared/compression.rs:74:1
+   |
+74 | pub fn compress_html_to_gzip(html: &str) -> Layer5Result<(Vec<u8>, CompressionStats)> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/layer5_business_logic/shared/compression.rs:105:1
+    |
+105 | pub fn compress_html(html: &str) -> Layer5Result<Vec<u8>> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: used `expect()` on a `Result` value
+   --> src/service_islands/layer5_business_logic/shared/response_builder.rs:134:5
+    |
+134 | /     Response::builder()
+135 | |         .status(StatusCode::INTERNAL_SERVER_ERROR)
+136 | |         .body(Body::from("Internal Server Error"))
+137 | |         .expect("fallback response construction should never fail")
+    | |___________________________________________________________________^
+    |
+    = note: if this value is an `Err`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#expect_used
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> src/service_islands/layer5_business_logic/shared/rss_creator.rs:57:5
+   |
+57 |     pub fn generate_rss_xml(reports: Vec<ReportRssData>) -> Layer5Result<String> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: this argument is passed by value, but not consumed in the function body
+  --> src/service_islands/layer5_business_logic/shared/rss_creator.rs:57:38
+   |
+57 |     pub fn generate_rss_xml(reports: Vec<ReportRssData>) -> Layer5Result<String> {
+   |                                      ^^^^^^^^^^^^^^^^^^ help: consider changing the type to: `&[ReportRssData]`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#needless_pass_by_value
+
+error: used `unwrap()` on an `Option` value
+   --> src/service_islands/layer5_business_logic/shared/rss_creator.rs:166:25
+    |
+166 |         let vn_offset = FixedOffset::east_opt(7 * 3600).unwrap();
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is `None`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on an `Option` value
+   --> src/service_islands/layer5_business_logic/shared/rss_creator.rs:212:25
+    |
+212 |         let vn_offset = FixedOffset::east_opt(7 * 3600).unwrap();
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is `None`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `expect()` on a `Result` value
+  --> src/service_islands/layer5_business_logic/shared/security.rs:41:9
+   |
+41 |         write!(token, "{byte:02x}").expect("writing to String never fails");
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#expect_used
+
+error: this argument (1 byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
+  --> src/service_islands/layer5_business_logic/shared/sitemap_creator.rs:46:15
+   |
+46 |     fn as_str(&self) -> &'static str {
+   |               ^^^^^ help: consider passing by value instead: `self`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#trivially_copy_pass_by_ref
+   = note: `-D clippy::trivially-copy-pass-by-ref` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::trivially_copy_pass_by_ref)]`
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> src/service_islands/layer5_business_logic/shared/sitemap_creator.rs:70:5
+   |
+70 |     pub fn generate_sitemap_xml(report_data: Vec<(i32, DateTime<Utc>)>) -> Layer5Result<String> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> src/service_islands/mod.rs:50:5
+   |
+50 |     pub async fn initialize() -> Result<Self, anyhow::Error> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: used `unwrap()` on a `Result` value
+   --> src/service_islands/layer5_business_logic/shared/compression.rs:142:29
+    |
+142 |         let (data, stats) = result.unwrap();
+    |                             ^^^^^^^^^^^^^^^
+    |
+    = note: if this value is an `Err`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: length comparison to zero
+   --> src/service_islands/layer5_business_logic/shared/compression.rs:146:17
+    |
+146 |         assert!(data.len() > 0);
+    |                 ^^^^^^^^^^^^^^ help: using `!is_empty` is clearer and more explicit: `!data.is_empty()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#len_zero
+    = note: `-D clippy::len-zero` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::len_zero)]`
+
+error: used `unwrap()` on a `Result` value
+   --> src/service_islands/layer5_business_logic/shared/rss_creator.rs:306:19
+    |
+306 |         let xml = RssCreator::generate_rss_xml(reports).unwrap();
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is an `Err`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+   --> src/service_islands/layer5_business_logic/shared/rss_creator.rs:330:19
+    |
+330 |         let xml = RssCreator::generate_rss_xml(vec![]).unwrap();
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is an `Err`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+   --> src/service_islands/layer5_business_logic/shared/sitemap_creator.rs:226:19
+    |
+226 |         let xml = SitemapCreator::generate_sitemap_xml(reports).unwrap();
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is an `Err`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: used `unwrap()` on a `Result` value
+   --> src/service_islands/layer5_business_logic/shared/sitemap_creator.rs:249:19
+    |
+249 |         let xml = SitemapCreator::generate_sitemap_xml(vec![]).unwrap();
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is an `Err`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unwrap_used
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> src/service_islands/mod.rs:197:5
+    |
+197 |     pub async fn shutdown(&self) -> Result<(), anyhow::Error> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#missing_errors_doc
+
+error: unused `async` for function with no await statements
+   --> src/service_islands/layer1_infrastructure/app_state_island/mod.rs:74:5
+    |
+ 74 | /     async fn initialize_template_engine() -> Result<Tera> {
+ 75 | |         debug!("📝 Initializing Tera template engine...");
+ 76 | |
+ 77 | |         let mut tera = match Tera::new("dashboards/**/*.html") {
+...   |
+138 | |         Ok(tera)
+139 | |     }
+    | |_____^
+    |
+    = help: consider removing the `async` from this function
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unused_async
+    = note: `-D clippy::unused-async` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::unused_async)]`
+
+error: unused `async` for function with no await statements
+  --> src/service_islands/layer1_infrastructure/chart_modules_island/mod.rs:51:5
+   |
+51 | /     pub async fn health_check(&self) -> bool {
+52 | |         // Check if the base directory exists and is accessible
+53 | |         let source_dir = Path::new(&self.base_dir);
+54 | |         source_dir.exists()
+55 | |     }
+   | |_____^
+   |
+   = help: consider removing the `async` from this function
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unused_async
+
+error: unused `async` for function with no await statements
+   --> src/service_islands/layer1_infrastructure/shared_components_island/chart_modules_service.rs:123:5
+    |
+123 | /     pub async fn health_check(&self) -> bool {
+124 | |         !self.chart_modules_content.is_empty()
+125 | |     }
+    | |_____^
+    |
+    = help: consider removing the `async` from this function
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unused_async
+
+error: unused `async` for function with no await statements
+  --> src/service_islands/layer1_infrastructure/shared_components_island/model_registry.rs:30:5
+   |
+30 | /     async fn initialize_models() -> Result<HashMap<String, serde_json::Value>> {
+31 | |         let mut models = HashMap::new();
+...  |
+49 | |         Ok(models)
+50 | |     }
+   | |_____^
+   |
+   = help: consider removing the `async` from this function
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unused_async
+
+error: unused `async` for function with no await statements
+  --> src/service_islands/layer1_infrastructure/shared_components_island/model_registry.rs:53:5
+   |
+53 | /     pub async fn health_check(&self) -> bool {
+54 | |         // Verify that core models are available
+55 | |         let core_models = vec!["Report"];
+...  |
+65 | |         true
+66 | |     }
+   | |_____^
+   |
+   = help: consider removing the `async` from this function
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unused_async
+
+error: unused `async` for function with no await statements
+  --> src/service_islands/layer1_infrastructure/shared_components_island/template_registry.rs:19:5
+   |
+19 | /     pub async fn health_check(&self) -> bool {
+20 | |         debug!("✅ Template Registry health check passed");
+21 | |         true
+22 | |     }
+   | |_____^
+   |
+   = help: consider removing the `async` from this function
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unused_async
+
+error: unused `async` for function with no await statements
+  --> src/service_islands/layer1_infrastructure/shared_components_island/utility_functions.rs:13:5
+   |
+13 | /     pub async fn new() -> anyhow::Result<Self> {
+14 | |         debug!("🛠️  Initializing Utility Functions...");
+15 | |         Ok(Self)
+16 | |     }
+   | |_____^
+   |
+   = help: consider removing the `async` from this function
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unused_async
+
+error: unused `async` for function with no await statements
+  --> src/service_islands/layer1_infrastructure/shared_components_island/utility_functions.rs:19:5
+   |
+19 | /     pub async fn health_check(&self) -> bool {
+20 | |         debug!("✅ Utility Functions health check passed");
+21 | |         true
+22 | |     }
+   | |_____^
+   |
+   = help: consider removing the `async` from this function
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unused_async
+
+error: unused `async` for function with no await statements
+   --> src/service_islands/layer3_communication/dashboard_communication/dashboard_data_service.rs:104:5
+    |
+104 | /     pub async fn health_check(&self) -> bool {
+105 | |         // Verify service is functioning properly
+106 | |         true // Will implement actual health checks
+107 | |     }
+    | |_____^
+    |
+    = help: consider removing the `async` from this function
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unused_async
+
+error: unused `async` for function with no await statements
+   --> src/service_islands/layer3_communication/redis_stream_reader/mod.rs:158:5
+    |
+158 | /     pub async fn cleanup(&self) -> Result<()> {
+159 | |         info!("🧹 RedisStreamReader: Starting cleanup...");
+...   |
+168 | |         Ok(())
+169 | |     }
+    | |_____^
+    |
+    = help: consider removing the `async` from this function
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unused_async
+
+error: unused `async` for function with no await statements
+  --> src/service_islands/layer4_observability/health_system/connectivity_tester.rs:32:5
+   |
+32 | /     pub async fn health_check(&self) -> bool {
+33 | |         // Verify connectivity testing is working
+34 | |         true // Will implement actual health check
+35 | |     }
+   | |_____^
+   |
+   = help: consider removing the `async` from this function
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unused_async
+
+error: unused `async` for function with no await statements
+  --> src/service_islands/layer4_observability/health_system/health_checker.rs:32:5
+   |
+32 | /     pub async fn health_check(&self) -> bool {
+33 | |         // Verify health checker is working
+34 | |         true // Will implement actual health check
+35 | |     }
+   | |_____^
+   |
+   = help: consider removing the `async` from this function
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unused_async
+
+error: unused `async` for function with no await statements
+  --> src/service_islands/layer4_observability/health_system/performance_monitor.rs:33:5
+   |
+33 | /     pub async fn health_check(&self) -> bool {
+34 | |         // Verify performance monitoring is working
+35 | |         true // Will implement actual health check
+36 | |     }
+   | |_____^
+   |
+   = help: consider removing the `async` from this function
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unused_async
+
+error: unused `async` for function with no await statements
+  --> src/service_islands/layer4_observability/health_system/ssl_tester.rs:31:5
+   |
+31 | /     pub async fn health_check(&self) -> bool {
+32 | |         // Verify SSL testing is working
+33 | |         true // Will implement actual health check
+34 | |     }
+   | |_____^
+   |
+   = help: consider removing the `async` from this function
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unused_async
+
+error: unused `async` for function with no await statements
+  --> src/service_islands/layer4_observability/health_system/mod.rs:33:5
+   |
+33 | /     pub async fn new() -> Result<Self, anyhow::Error> {
+34 | |         info!("🔍 Initializing Health System Island...");
+35 | |
+36 | |         let health_checker = health_checker::HealthChecker::new();
+...  |
+48 | |         })
+49 | |     }
+   | |_____^
+   |
+   = help: consider removing the `async` from this function
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unused_async
+
+error: unused `async` for function with no await statements
+  --> src/service_islands/layer5_business_logic/crypto_reports/data_manager.rs:29:5
+   |
+29 | /     pub async fn health_check(&self) -> bool {
+30 | |         // Verify data management is working
+31 | |         true // Will implement actual health check
+32 | |     }
+   | |_____^
+   |
+   = help: consider removing the `async` from this function
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unused_async
+
+error: unused `async` for function with no await statements
+   --> src/service_islands/layer5_business_logic/crypto_reports/rendering/shadow_dom_renderer.rs:153:5
+    |
+153 | /     pub async fn serve_shadow_dom_content(
+154 | |         &self,
+155 | |         _state: &Arc<AppState>,
+156 | |         report: &Report,
+...   |
+187 | |         Ok(build_shadow_dom_response(shadow_dom_html))
+188 | |     }
+    | |_____^
+    |
+    = help: consider removing the `async` from this function
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unused_async
+
+error: unused `async` for function with no await statements
+  --> src/service_islands/layer5_business_logic/crypto_reports/mod.rs:41:5
+   |
+41 | /     pub async fn new() -> Result<Self, anyhow::Error> {
+42 | |         info!("📊 Initializing Crypto Reports Island...");
+43 | |
+44 | |         let report_creator = report_creator::ReportCreator::new();
+...  |
+57 | |         })
+58 | |     }
+   | |_____^
+   |
+   = help: consider removing the `async` from this function
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unused_async
+
+error: unused `async` for function with no await statements
+  --> src/service_islands/layer5_business_logic/dashboard/report_manager.rs:29:5
+   |
+29 | /     pub async fn health_check(&self) -> bool {
+30 | |         // Verify report management is working
+31 | |         true // Will implement actual health check
+32 | |     }
+   | |_____^
+   |
+   = help: consider removing the `async` from this function
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unused_async
+
+error: unused `async` for function with no await statements
+  --> src/service_islands/layer5_business_logic/dashboard/template_renderer.rs:30:5
+   |
+30 | /     pub async fn health_check(&self) -> bool {
+31 | |         // Verify template rendering is working
+32 | |         true // Will implement actual health check
+33 | |     }
+   | |_____^
+   |
+   = help: consider removing the `async` from this function
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unused_async
+
+error: unused `async` for function with no await statements
+  --> src/service_islands/layer5_business_logic/dashboard/ui_components.rs:28:5
+   |
+28 | /     pub async fn health_check(&self) -> bool {
+29 | |         // Verify UI components are working
+30 | |         true // Will implement actual health check
+31 | |     }
+   | |_____^
+   |
+   = help: consider removing the `async` from this function
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unused_async
+
+error: unused `async` for function with no await statements
+  --> src/service_islands/layer5_business_logic/dashboard/mod.rs:36:5
+   |
+36 | /     pub async fn new() -> Result<Self, anyhow::Error> {
+37 | |         info!("🎯 Initializing Dashboard Island...");
+38 | |
+39 | |         let handlers = handlers::DashboardHandlers::new();
+...  |
+51 | |         })
+52 | |     }
+   | |_____^
+   |
+   = help: consider removing the `async` from this function
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.91.0/index.html#unused_async
+
+error: could not compile `web-server-report` (lib) due to 163 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: the type `service_islands::layer1_infrastructure::cache_system_island::CacheSystemIsland` does not permit zero-initialization
+   --> src/service_islands/layer3_communication/redis_stream_reader/mod.rs:179:45
+    |
+179 |             cache_system: Arc::new(unsafe { std::mem::zeroed() }), // Mock for test
+    |                                             ^^^^^^^^^^^^^^^^^^
+    |                                             |
+    |                                             this code causes undefined behavior when executed
+    |                                             help: use `MaybeUninit<T>` instead, and only call `assume_init` after initialization is done
+    |
+note: `std::sync::Arc<multi_tier_cache::CacheManager>` must be non-null (in this struct field)
+   --> src/service_islands/layer1_infrastructure/cache_system_island/mod.rs:31:5
+    |
+ 31 |     inner: LibraryCacheSystem,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: because `std::ptr::NonNull<alloc::sync::ArcInner<multi_tier_cache::CacheManager>>` must be non-null
+    = note: `-D invalid-value` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(invalid_value)]`
+
+error: could not compile `web-server-report` (lib test) due to 180 previous errors

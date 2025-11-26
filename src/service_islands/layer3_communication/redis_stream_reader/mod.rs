@@ -84,11 +84,11 @@ impl RedisStreamReader {
         }
 
         // Get the first (and only) entry
-        let (entry_id, fields) = &entries[0];
+        let (entry_id, fields) = entries.get(0).ok_or_else(|| anyhow::anyhow!("Stream entry missing"))?;
         info!("📨 Stream entry ID: {}", entry_id);
 
         // Convert stream fields back to JSON
-        let json_data = self.stream_fields_to_json(fields)?;
+        let json_data = Self::stream_fields_to_json(fields)?;
 
         Ok(Some(json_data))
     }
@@ -97,13 +97,16 @@ impl RedisStreamReader {
     ///
     /// Transforms the flat key-value pairs from Redis Streams back into JSON.
     /// Special handling: If there's a single "data" field containing JSON, unwrap it.
-    fn stream_fields_to_json(&self, fields: &Vec<(String, String)>) -> Result<Value> {
+    fn stream_fields_to_json(fields: &Vec<(String, String)>) -> Result<Value> {
         // Special case: If there's only one field named "data" containing JSON string
-        if fields.len() == 1 && fields[0].0 == "data" {
-            let data_str = &fields[0].1;
-            if let Ok(data) = serde_json::from_str::<Value>(data_str) {
-                info!("📦 Unwrapped nested 'data' field from Redis Stream");
-                return Ok(data);
+        if fields.len() == 1 {
+            if let Some((key, value)) = fields.first() {
+                if key == "data" {
+                    if let Ok(data) = serde_json::from_str::<Value>(value) {
+                        info!("📦 Unwrapped nested 'data' field from Redis Stream");
+                        return Ok(data);
+                    }
+                }
             }
         }
 
@@ -118,13 +121,13 @@ impl RedisStreamReader {
                 Value::Bool(true)
             } else if value == "false" {
                 Value::Bool(false)
+            } else if let Ok(int) = value.parse::<i64>() {
+                Value::Number(serde_json::Number::from(int))
             } else if let Ok(num) = value.parse::<f64>() {
                 Value::Number(
                     serde_json::Number::from_f64(num)
                         .unwrap_or_else(|| serde_json::Number::from(0)),
                 )
-            } else if let Ok(int) = value.parse::<i64>() {
-                Value::Number(serde_json::Number::from(int))
             } else if value.starts_with('{') || value.starts_with('[') {
                 // Try to parse as JSON object or array
                 serde_json::from_str(value).unwrap_or_else(|_| Value::String(value.clone()))
@@ -175,11 +178,6 @@ mod tests {
 
     #[test]
     fn test_stream_fields_to_json() {
-        let reader = RedisStreamReader {
-            cache_system: Arc::new(unsafe { std::mem::zeroed() }), // Mock for test
-            stream_key: "test_stream".to_string(),
-        };
-
         let fields = vec![
             ("btc_price_usd".to_string(), "45000.5".to_string()),
             ("btc_change_24h".to_string(), "2.5".to_string()),
@@ -187,7 +185,7 @@ mod tests {
             ("partial_failure".to_string(), "false".to_string()),
         ];
 
-        let result = reader.stream_fields_to_json(&fields).unwrap();
+        let result = RedisStreamReader::stream_fields_to_json(&fields).expect("Failed to parse stream fields");
 
         assert_eq!(result["btc_price_usd"], 45000.5);
         assert_eq!(result["btc_change_24h"], 2.5);

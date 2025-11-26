@@ -67,7 +67,7 @@ async fn sitemap_xml(State(service_islands): State<Arc<ServiceIslands>>) -> impl
                             Response::builder()
                                 .status(StatusCode::INTERNAL_SERVER_ERROR)
                                 .body(Body::from("Failed to generate sitemap"))
-                                .unwrap()
+                                .unwrap_or_else(|_| Response::new(Body::from("Failed to generate sitemap")))
                         })
                         .into_response()
                 }

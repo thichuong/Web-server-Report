@@ -62,7 +62,7 @@ async fn crypto_reports_list(
                     Response::builder()
                         .status(StatusCode::INTERNAL_SERVER_ERROR)
                         .body(Body::from("Response build error"))
-                        .unwrap() // This is guaranteed safe with literal body
+                        .unwrap_or_else(|_| Response::new(Body::from("Response build error")))
                 })
                 .into_response()
         }

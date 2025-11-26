@@ -141,6 +141,7 @@ pub fn generate_breadcrumbs_and_related(
 }
 
 #[cfg(test)]
+#[allow(clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

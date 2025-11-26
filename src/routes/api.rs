@@ -101,9 +101,9 @@ async fn api_dashboard_data(
         link_change_24h: 0.0,
 
         // Market metrics
-        market_cap_usd: 3340000000000.0,
+        market_cap_usd: 3_340_000_000_000.0,
         market_cap_change_percentage_24h_usd: 0.0,
-        volume_24h_usd: 260000000000.0,
+        volume_24h_usd: 260_000_000_000.0,
 
         // Fear & Greed Index
         fng_value: 50,
@@ -185,9 +185,9 @@ async fn api_dashboard_summary(
         link_change_24h: 0.0,
 
         // Market metrics
-        market_cap_usd: 3340000000000.0,
+        market_cap_usd: 3_340_000_000_000.0,
         market_cap_change_percentage_24h_usd: 0.0,
-        volume_24h_usd: 260000000000.0,
+        volume_24h_usd: 260_000_000_000.0,
 
         // Fear & Greed Index
         fng_value: 50,
@@ -237,15 +237,15 @@ async fn api_sandboxed_report(
     // Parse report ID (-1 for latest)
     let report_id: i32 = if id == "latest" {
         -1
+    } else if let Ok(id) = id.parse() {
+        id
     } else {
-        if let Ok(id) = id.parse() { id } else {
-            error!("❌ [API] Invalid report ID format for sandboxing: {}", id);
-            return "Invalid report ID format".into_response();
-        }
+        error!("❌ [API] Invalid report ID format for sandboxing: {}", id);
+        return "Invalid report ID format".into_response();
     };
 
     // Get sandbox token from query parameters
-    let sandbox_token = if let Some(token) = params.get("token") { token } else {
+    let Some(sandbox_token) = params.get("token") else {
         warn!("❌ [API] Missing sandbox token for report {}", report_id);
         return "Missing sandbox token".into_response();
     };
@@ -255,7 +255,7 @@ async fn api_sandboxed_report(
     let initial_language = params.get("lang").map(std::string::String::as_str);
 
     // Get chart modules content for iframe inclusion
-    let chart_modules = if let Some(_) = params.get("chart_modules") {
+    let chart_modules = if params.get("chart_modules").is_some() {
         // If chart_modules parameter is present, load actual chart modules
         debug!("📊 [API] Loading chart modules for iframe");
         Some(
@@ -313,15 +313,15 @@ async fn api_shadow_dom_content(
     // Parse report ID (-1 for latest)
     let report_id: i32 = if id == "latest" {
         -1
+    } else if let Ok(id) = id.parse() {
+        id
     } else {
-        if let Ok(id) = id.parse() { id } else {
-            error!("❌ [API] Invalid report ID format for Shadow DOM: {}", id);
-            return "Invalid report ID format".into_response();
-        }
+        error!("❌ [API] Invalid report ID format for Shadow DOM: {}", id);
+        return "Invalid report ID format".into_response();
     };
 
     // Get shadow DOM token from query parameters
-    let shadow_dom_token = if let Some(token) = params.get("token") { token } else {
+    let Some(shadow_dom_token) = params.get("token") else {
         warn!("❌ [API] Missing shadow DOM token for report {}", report_id);
         return "Missing shadow DOM token".into_response();
     };
@@ -330,7 +330,7 @@ async fn api_shadow_dom_content(
     let initial_language = params.get("lang").map(std::string::String::as_str);
 
     // Get chart modules content for Shadow DOM inclusion
-    let chart_modules = if let Some(_) = params.get("chart_modules") {
+    let chart_modules = if params.get("chart_modules").is_some() {
         // If chart_modules parameter is present, load actual chart modules
         debug!("📊 [API] Loading chart modules for Shadow DOM");
         Some(

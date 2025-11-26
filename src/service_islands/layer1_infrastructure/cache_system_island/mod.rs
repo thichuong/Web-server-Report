@@ -55,13 +55,13 @@ impl CacheSystemIsland {
             inner
                 .l1_cache
                 .as_ref()
-                .expect("L1 cache should be initialized"),
+                .ok_or_else(|| anyhow::anyhow!("L1 cache should be initialized"))?,
         );
         let l2_cache = Arc::clone(
             inner
                 .l2_cache
                 .as_ref()
-                .expect("L2 cache should be initialized"),
+                .ok_or_else(|| anyhow::anyhow!("L2 cache should be initialized"))?,
         );
 
         info!("✅ Cache System Island initialized successfully (library-backed)");

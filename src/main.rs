@@ -52,7 +52,7 @@ async fn main() -> Result<(), anyhow::Error> {
             "⚠️ Invalid HOST/PORT combination, using 0.0.0.0:8000: {}",
             e
         );
-        "0.0.0.0:8000".parse().unwrap() // This is guaranteed valid
+        SocketAddr::from(([0, 0, 0, 0], 8000))
     });
     info!("🌐 Server listening on http://{}", addr);
 
