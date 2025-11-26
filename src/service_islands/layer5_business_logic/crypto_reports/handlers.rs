@@ -574,41 +574,38 @@ impl CryptoHandlers {
     ) -> Response {
         debug!("🌓 [Handler] render_crypto_index_dsd called - using Declarative Shadow DOM architecture");
 
-        // Detect preferred language from request
-        let preferred_language =
-            Self::detect_preferred_language(params, headers).unwrap_or_else(|| "vi".to_string());
-
         // Determine report ID value (use provided or -1 for latest)
         let report_id_value = report_id_opt.unwrap_or(-1);
 
         debug!(
-            "🚀 [Handler] render_crypto_index_dsd called for {} (language: {})",
+            "🚀 [Handler] render_crypto_index_dsd called for {}",
             if report_id_value == -1 {
                 "latest report".to_string()
             } else {
                 format!("report ID: {report_id_value}")
-            },
-            preferred_language
+            }
         );
 
-        // STEP 1: Check cache for compressed DSD HTML
+        // STEP 1: Quick cache check with default language (Vietnamese - 90% of traffic)
+        // This avoids expensive language detection for cache hits
         let data_service = &self.report_creator.data_service;
+        let default_language = "vi";
+
         if let Ok(Some(cached_compressed)) = data_service
             .get_rendered_report_dsd_compressed(
                 state,
                 report_id_value,
-                &preferred_language,
+                default_language,
             )
             .await
         {
             info!(
-                "✅ [Handler] DSD cache HIT - returning compressed HTML for {} (language: {})",
+                "✅ [Handler] DSD cache HIT (default language) - returning compressed HTML for {}",
                 if report_id_value == -1 {
                     "latest".to_string()
                 } else {
                     format!("#{report_id_value}")
-                },
-                preferred_language
+                }
             );
 
             return Response::builder()
@@ -627,6 +624,54 @@ impl CryptoHandlers {
                         .unwrap_or_else(|_| Response::new(Body::from("Response build error")))
                 })
                 .into_response();
+        }
+
+        // STEP 1.1: Cache miss with default language - now detect preferred language for rendering
+        let preferred_language =
+            Self::detect_preferred_language(params, headers).unwrap_or_else(|| "vi".to_string());
+
+        debug!(
+            "🔍 [Handler] DSD cache MISS (default language) - detected preferred language: {}",
+            preferred_language
+        );
+
+        // STEP 1.2: If preferred language differs from default, try cache with preferred language
+        if preferred_language != default_language {
+            if let Ok(Some(cached_compressed)) = data_service
+                .get_rendered_report_dsd_compressed(
+                    state,
+                    report_id_value,
+                    &preferred_language,
+                )
+                .await
+            {
+                info!(
+                    "✅ [Handler] DSD cache HIT (preferred language: {}) - returning compressed HTML for {}",
+                    preferred_language,
+                    if report_id_value == -1 {
+                        "latest".to_string()
+                    } else {
+                        format!("#{report_id_value}")
+                    }
+                );
+
+                return Response::builder()
+                    .status(StatusCode::OK)
+                    .header("cache-control", "public, max-age=300")
+                    .header("content-type", "text/html; charset=utf-8")
+                    .header("content-encoding", "gzip")
+                    .header("x-render-mode", "declarative-shadow-dom")
+                    .header("x-cache", "HIT")
+                    .body(Body::from(cached_compressed))
+                    .unwrap_or_else(|e| {
+                        warn!("⚠️ Failed to build cached DSD response: {}", e);
+                        Response::builder()
+                            .status(StatusCode::INTERNAL_SERVER_ERROR)
+                            .body(Body::from("Response build error"))
+                            .unwrap_or_else(|_| Response::new(Body::from("Response build error")))
+                    })
+                    .into_response();
+            }
         }
 
         debug!("🔍 [Handler] DSD cache MISS - generating fresh HTML");
