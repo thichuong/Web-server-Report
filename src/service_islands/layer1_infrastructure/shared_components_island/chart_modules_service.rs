@@ -21,7 +21,7 @@ pub struct ChartModulesService {
 }
 
 impl ChartModulesService {
-    /// Create a new ChartModulesService and pre-load all chart modules
+    /// Create a new `ChartModulesService` and pre-load all chart modules
     pub async fn new() -> Result<Self> {
         debug!("📦 Layer 1: Khởi tạo ChartModulesService...");
 
@@ -99,7 +99,7 @@ impl ChartModulesService {
             let file_path = source_dir.join(file_name);
             match read_to_string(&file_path).await {
                 Ok(content) => {
-                    final_content.push_str(&format!("// === {} ===\n", file_name));
+                    final_content.push_str(&format!("// === {file_name} ===\n"));
                     final_content.push_str(&content);
                     final_content.push_str("\n\n");
                     debug!("  ✅ Loaded: {} ({} bytes)", file_name, content.len());
@@ -114,6 +114,7 @@ impl ChartModulesService {
     }
 
     /// Get the pre-loaded chart modules content
+    #[must_use] 
     pub fn get_content(&self) -> Arc<String> {
         self.chart_modules_content.clone()
     }

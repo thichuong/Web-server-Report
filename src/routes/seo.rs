@@ -28,7 +28,7 @@ pub fn configure_seo_routes() -> Router<Arc<ServiceIslands>> {
 
 /// Generate and serve sitemap.xml
 ///
-/// Flow: Route Handler -> Layer 5 (SitemapCreator) -> Layer 3 (CryptoDataService)
+/// Flow: Route Handler -> Layer 5 (`SitemapCreator`) -> Layer 3 (`CryptoDataService`)
 ///
 /// Response:
 /// - Content-Type: application/xml; charset=utf-8

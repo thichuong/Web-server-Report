@@ -17,7 +17,8 @@ impl Default for DataManager {
 }
 
 impl DataManager {
-    /// Create a new DataManager
+    /// Create a new `DataManager`
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             // Initialize component

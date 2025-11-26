@@ -1,6 +1,6 @@
 //! Safe HTTP Response Builder Utilities
 //!
-//! Provides safe response construction without panic-inducing .unwrap() calls.
+//! Provides safe response construction without panic-inducing .`unwrap()` calls.
 //! All response builders are guaranteed to succeed or return a safe fallback.
 
 use axum::{
@@ -34,6 +34,7 @@ pub mod security_headers {
 /// This function is guaranteed to never panic. If response building fails
 /// (which should never happen with valid inputs), it returns a safe error response.
 #[inline]
+#[must_use] 
 pub fn build_compressed_response(compressed_data: Vec<u8>, cache_status: &str) -> Response {
     Response::builder()
         .status(StatusCode::OK)
@@ -48,6 +49,7 @@ pub fn build_compressed_response(compressed_data: Vec<u8>, cache_status: &str) -
 
 /// Build a standard HTML response (uncompressed)
 #[inline]
+#[must_use] 
 pub fn build_html_response(html: String, cache_status: &str) -> Response {
     Response::builder()
         .status(StatusCode::OK)
@@ -61,6 +63,7 @@ pub fn build_html_response(html: String, cache_status: &str) -> Response {
 
 /// Build an error response with the given status code and message
 #[inline]
+#[must_use] 
 pub fn build_error_response(status: StatusCode, message: &str) -> Response {
     Response::builder()
         .status(status)
@@ -72,18 +75,21 @@ pub fn build_error_response(status: StatusCode, message: &str) -> Response {
 
 /// Build a forbidden response (403)
 #[inline]
+#[must_use] 
 pub fn build_forbidden_response(message: &str) -> Response {
     build_error_response(StatusCode::FORBIDDEN, message)
 }
 
 /// Build a not found response (404)
 #[inline]
+#[must_use] 
 pub fn build_not_found_response(message: &str) -> Response {
     build_error_response(StatusCode::NOT_FOUND, message)
 }
 
 /// Build a sandboxed HTML response with security headers
 #[inline]
+#[must_use] 
 pub fn build_sandboxed_response(html: String) -> Response {
     Response::builder()
         .status(StatusCode::OK)
@@ -102,6 +108,7 @@ pub fn build_sandboxed_response(html: String) -> Response {
 
 /// Build a Shadow DOM response with appropriate headers
 #[inline]
+#[must_use] 
 pub fn build_shadow_dom_response(html: String) -> Response {
     Response::builder()
         .status(StatusCode::OK)

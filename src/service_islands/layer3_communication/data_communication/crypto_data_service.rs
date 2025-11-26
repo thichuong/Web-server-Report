@@ -53,7 +53,7 @@ pub struct ReportSitemapData {
 }
 
 /// Report data for RSS feed generation
-/// Contains id, html_content for description extraction, and created_at for pubDate
+/// Contains id, `html_content` for description extraction, and `created_at` for pubDate
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct ReportRssData {
     pub id: i32,
@@ -77,7 +77,8 @@ impl Default for CryptoDataService {
 }
 
 impl CryptoDataService {
-    /// Create a new CryptoDataService
+    /// Create a new `CryptoDataService`
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             // Initialize service
@@ -86,7 +87,7 @@ impl CryptoDataService {
 
     /// Fetch latest crypto report from database with intelligent caching (L1+L2)
     ///
-    /// ✨ NEW: Uses type-safe automatic caching with get_or_compute_typed()
+    /// ✨ NEW: Uses type-safe automatic caching with `get_or_compute_typed()`
     /// Pure data layer operation with dual cache integration - checks L1 cache first, then L2, then database
     pub async fn fetch_latest_report(
         &self,
@@ -119,7 +120,7 @@ impl CryptoDataService {
                 Err(e) => {
                     // Convert anyhow::Error to sqlx::Error
                     warn!("⚠️ CryptoDataService: Cache/DB error: {}", e);
-                    Err(sqlx::Error::Protocol(format!("Cache or database error: {}", e)))
+                    Err(sqlx::Error::Protocol(format!("Cache or database error: {e}")))
                 }
             }
         } else {
@@ -134,7 +135,7 @@ impl CryptoDataService {
     /// Fetch all report IDs and creation dates for sitemap generation
     ///
     /// Returns lightweight data for generating dynamic sitemap URLs.
-    /// Uses MediumTerm caching (1 hour) since sitemap doesn't need real-time updates.
+    /// Uses `MediumTerm` caching (1 hour) since sitemap doesn't need real-time updates.
     pub async fn fetch_all_report_ids_for_sitemap(
         &self,
         state: &Arc<AppState>,
@@ -162,7 +163,7 @@ impl CryptoDataService {
                 Ok(reports) => Ok(reports),
                 Err(e) => {
                     warn!("⚠️ CryptoDataService: Cache/DB error for sitemap data: {}", e);
-                    Err(sqlx::Error::Protocol(format!("Cache or database error: {}", e)))
+                    Err(sqlx::Error::Protocol(format!("Cache or database error: {e}")))
                 }
             }
         } else {
@@ -179,15 +180,15 @@ impl CryptoDataService {
     /// Fetch related reports (older reports) for GEO optimization
     ///
     /// Returns a list of reports older than the current report for internal linking.
-    /// Uses ShortTerm caching (5 minutes) to balance freshness with performance.
+    /// Uses `ShortTerm` caching (5 minutes) to balance freshness with performance.
     ///
     /// # Arguments
     /// * `state` - Application state with database and cache
-    /// * `current_id` - The ID of the current report (fetch reports with id < current_id)
+    /// * `current_id` - The ID of the current report (fetch reports with id < `current_id`)
     /// * `limit` - Maximum number of related reports to fetch
     ///
     /// # Returns
-    /// Vec<ReportSummaryData> with id and created_at for each related report
+    /// Vec<ReportSummaryData> with id and `created_at` for each related report
     pub async fn fetch_related_reports(
         &self,
         state: &Arc<AppState>,
@@ -199,7 +200,7 @@ impl CryptoDataService {
             let db = state.db.clone();
 
             match cache_system.cache_manager.get_or_compute_typed(
-                &format!("related_reports_{}_{}", current_id, limit),
+                &format!("related_reports_{current_id}_{limit}"),
                 crate::service_islands::layer1_infrastructure::cache_system_island::CacheStrategy::ShortTerm, // 5 minutes
                 || async move {
                     debug!("🗄️ CryptoDataService: Fetching related reports for report {} from database", current_id);
@@ -219,7 +220,7 @@ impl CryptoDataService {
                 Ok(reports) => Ok(reports),
                 Err(e) => {
                     warn!("⚠️ CryptoDataService: Cache/DB error for related reports: {}", e);
-                    Err(sqlx::Error::Protocol(format!("Cache or database error: {}", e)))
+                    Err(sqlx::Error::Protocol(format!("Cache or database error: {e}")))
                 }
             }
         } else {
@@ -240,15 +241,15 @@ impl CryptoDataService {
 
     /// Fetch reports for RSS feed generation
     ///
-    /// Returns a list of recent reports with html_content for description extraction.
-    /// Uses MediumTerm caching (1 hour) to balance freshness with performance.
+    /// Returns a list of recent reports with `html_content` for description extraction.
+    /// Uses `MediumTerm` caching (1 hour) to balance freshness with performance.
     ///
     /// # Arguments
     /// * `state` - Application state with database and cache
     /// * `limit` - Maximum number of reports to fetch (default 20)
     ///
     /// # Returns
-    /// Vec<ReportRssData> with id, html_content, and created_at for RSS feed
+    /// Vec<ReportRssData> with id, `html_content`, and `created_at` for RSS feed
     pub async fn fetch_rss_reports(
         &self,
         state: &Arc<AppState>,
@@ -259,7 +260,7 @@ impl CryptoDataService {
             let db = state.db.clone();
 
             match cache_system.cache_manager.get_or_compute_typed(
-                &format!("rss_reports_{}", limit),
+                &format!("rss_reports_{limit}"),
                 crate::service_islands::layer1_infrastructure::cache_system_island::CacheStrategy::MediumTerm, // 1 hour
                 || async move {
                     info!("🗄️ CryptoDataService: Fetching {} reports for RSS feed from database", limit);
@@ -278,7 +279,7 @@ impl CryptoDataService {
                 Ok(reports) => Ok(reports),
                 Err(e) => {
                     warn!("⚠️ CryptoDataService: Cache/DB error for RSS reports: {}", e);
-                    Err(sqlx::Error::Protocol(format!("Cache or database error: {}", e)))
+                    Err(sqlx::Error::Protocol(format!("Cache or database error: {e}")))
                 }
             }
         } else {
@@ -298,7 +299,7 @@ impl CryptoDataService {
 
     /// Fetch crypto report by ID from database with intelligent caching (L1+L2)
     ///
-    /// ✨ NEW: Uses type-safe automatic caching with get_or_compute_typed()
+    /// ✨ NEW: Uses type-safe automatic caching with `get_or_compute_typed()`
     /// Pure data layer operation with dual cache integration - retrieves specific report by ID
     pub async fn fetch_report_by_id(
         &self,
@@ -310,7 +311,7 @@ impl CryptoDataService {
             let db = state.db.clone();
 
             match cache_system.cache_manager.get_or_compute_typed(
-                &format!("crypto_report_data_{}", report_id),
+                &format!("crypto_report_data_{report_id}"),
                 crate::service_islands::layer1_infrastructure::cache_system_island::CacheStrategy::ShortTerm, // 5 minutes
                 || async move {
                     info!("🗄️ CryptoDataService: Fetching crypto report {} from database", report_id);
@@ -334,7 +335,7 @@ impl CryptoDataService {
                 Err(e) => {
                     // Convert anyhow::Error to sqlx::Error
                     warn!("⚠️ CryptoDataService: Cache/DB error for report {}: {}", report_id, e);
-                    Err(sqlx::Error::Protocol(format!("Cache or database error: {}", e)))
+                    Err(sqlx::Error::Protocol(format!("Cache or database error: {e}")))
                 }
             }
         } else {
@@ -359,13 +360,13 @@ impl CryptoDataService {
         report_id: i32,
     ) -> Result<Option<Vec<u8>>, anyhow::Error> {
         if let Some(ref cache_system) = state.cache_system {
-            let cache_key = format!("compressed_report_{}", report_id);
+            let cache_key = format!("compressed_report_{report_id}");
             if let Ok(Some(cached_value)) = cache_system.cache_manager.get(&cache_key).await {
                 if let Ok(compressed_bytes) = serde_json::from_value::<Vec<u8>>(cached_value) {
                     let report_type = if report_id == -1 {
                         "latest report"
                     } else {
-                        &format!("report #{}", report_id)
+                        &format!("report #{report_id}")
                     };
                     let size_kb = compressed_bytes.len() / 1024;
                     info!(
@@ -399,7 +400,7 @@ impl CryptoDataService {
         let report_type = if report_id == -1 {
             "latest report"
         } else {
-            &format!("report #{}", report_id)
+            &format!("report #{report_id}")
         };
 
         // 🛡️ GUARD: Warn if individual entry size is very large (soft limit for logging)
@@ -418,7 +419,7 @@ impl CryptoDataService {
 
         // ✅ Cache the data - library handles memory management automatically
         if let Some(ref cache_system) = state.cache_system {
-            let cache_key = format!("compressed_report_{}", report_id);
+            let cache_key = format!("compressed_report_{report_id}");
             let strategy = crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm;
             // Serialize the slice - this creates a temporary Vec internally, but that's required for JSON serialization
             let compressed_json = serde_json::to_value(compressed_data).unwrap_or_default();
@@ -439,7 +440,7 @@ impl CryptoDataService {
     /// Get cached DSD rendered report
     ///
     /// Retrieves compressed HTML for Declarative Shadow DOM routes.
-    /// Cache key format: compressed_report_dsd_{report_id}_{language}
+    /// Cache key format: `compressed_report_dsd`_{`report_id`}_{language}
     /// ✅ PRODUCTION-SAFE: No size limits on read - only on write
     pub async fn get_rendered_report_dsd_compressed(
         &self,
@@ -448,13 +449,13 @@ impl CryptoDataService {
         language: &str,
     ) -> Result<Option<Vec<u8>>, anyhow::Error> {
         if let Some(ref cache_system) = state.cache_system {
-            let cache_key = format!("compressed_report_dsd_{}_{}", report_id, language);
+            let cache_key = format!("compressed_report_dsd_{report_id}_{language}");
             if let Ok(Some(cached_value)) = cache_system.cache_manager.get(&cache_key).await {
                 if let Ok(compressed_bytes) = serde_json::from_value::<Vec<u8>>(cached_value) {
                     let report_type = if report_id == -1 {
                         "latest DSD report"
                     } else {
-                        &format!("DSD report #{}", report_id)
+                        &format!("DSD report #{report_id}")
                     };
                     let size_kb = compressed_bytes.len() / 1024;
                     info!("🔥 Layer 3: Cache HIT for {} (lang: {}) ({}KB)", report_type, language, size_kb);
@@ -486,7 +487,7 @@ impl CryptoDataService {
         let report_type = if report_id == -1 {
             "latest DSD report"
         } else {
-            &format!("DSD report #{}", report_id)
+            &format!("DSD report #{report_id}")
         };
 
         // 🛡️ GUARD: Warn if individual entry size is very large (soft limit for logging)
@@ -507,7 +508,7 @@ impl CryptoDataService {
 
         // ✅ Cache the data - library handles memory management automatically
         if let Some(ref cache_system) = state.cache_system {
-            let cache_key = format!("compressed_report_dsd_{}_{}", report_id, language);
+            let cache_key = format!("compressed_report_dsd_{report_id}_{language}");
             let strategy = crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm;
             // Serialize the slice - this creates a temporary Vec internally, but that's required for JSON serialization
             let compressed_json = serde_json::to_value(compressed_data).unwrap_or_default();
@@ -662,7 +663,7 @@ impl CryptoDataService {
                 push(&mut page_numbers, pages, &mut added);
 
                 let mut nums: Vec<i64> = page_numbers.iter().filter_map(|o| *o).collect();
-                nums.sort();
+                nums.sort_unstable();
                 page_numbers.clear();
                 let mut last: Option<i64> = None;
                 for n in nums {
@@ -790,7 +791,7 @@ impl CryptoDataService {
 
     /// Fetch reports list with intelligent caching (L1+L2)
     ///
-    /// ✨ NEW: Uses type-safe automatic caching with get_or_compute_typed()
+    /// ✨ NEW: Uses type-safe automatic caching with `get_or_compute_typed()`
     /// Caches compressed HTML (Vec<u8>) for fast pagination responses
     pub async fn fetch_reports_list_with_cache(
         &self,
@@ -804,7 +805,7 @@ impl CryptoDataService {
             let tera = Arc::new(state.tera.clone());
 
             match cache_system.cache_manager.get_or_compute_typed(
-                &format!("crypto_reports_list_page_{}_compressed", page),
+                &format!("crypto_reports_list_page_{page}_compressed"),
                 crate::service_islands::layer1_infrastructure::cache_system_island::CacheStrategy::ShortTerm, // 5 minutes
                 || async move {
                     info!("🗄️ CryptoDataService: Generating reports list page {} from database", page);
@@ -836,7 +837,7 @@ impl CryptoDataService {
                 Ok(result) => Ok(result),
                 Err(e) => {
                     warn!("⚠️ CryptoDataService: Cache/DB error for reports list page {}: {}", page, e);
-                    Err(format!("Cache or database error: {}", e).into())
+                    Err(format!("Cache or database error: {e}").into())
                 }
             }
         } else {
@@ -859,8 +860,8 @@ impl CryptoDataService {
 
             let (total_res, rows_res) = tokio::join!(total_fut, rows_fut);
 
-            let _total = total_res.map_err(|e| format!("Database error: {}", e))?;
-            let _list = rows_res.map_err(|e| format!("Database error: {}", e))?;
+            let _total = total_res.map_err(|e| format!("Database error: {e}"))?;
+            let _list = rows_res.map_err(|e| format!("Database error: {e}"))?;
 
             // ... (rest of fallback logic - simplified for brevity, just render without cache)
             Err("Cache system not available".into())

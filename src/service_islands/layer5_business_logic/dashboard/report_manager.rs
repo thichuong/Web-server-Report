@@ -17,7 +17,8 @@ impl Default for ReportManager {
 }
 
 impl ReportManager {
-    /// Create a new ReportManager
+    /// Create a new `ReportManager`
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             // Initialize component

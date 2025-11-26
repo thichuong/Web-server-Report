@@ -37,7 +37,7 @@ pub fn configure_api_routes() -> Router<Arc<ServiceIslands>> {
 }
 
 /// Dashboard data API endpoint - Enhanced with Redis Streams
-/// Same functionality as api_dashboard_summary but with cleaner path
+/// Same functionality as `api_dashboard_summary` but with cleaner path
 async fn api_dashboard_data(
     State(service_islands): State<Arc<ServiceIslands>>,
 ) -> Json<DashboardDataResponse> {
@@ -55,9 +55,8 @@ async fn api_dashboard_data(
             // Deserialize the Value into our typed response
             if let Ok(typed_data) = serde_json::from_value::<DashboardDataResponse>(data) {
                 return Json(typed_data);
-            } else {
-                warn!("⚠️ [API] Failed to deserialize Redis Stream data, using fallback");
             }
+            warn!("⚠️ [API] Failed to deserialize Redis Stream data, using fallback");
         }
         Ok(None) => {
             warn!("⚠️ [API] No data in Redis Stream yet, websocket service will populate it soon");
@@ -122,7 +121,7 @@ async fn api_dashboard_data(
     Json(fallback_response)
 }
 
-/// Dashboard summary API endpoint - Reads from Redis Stream via RedisStreamReader
+/// Dashboard summary API endpoint - Reads from Redis Stream via `RedisStreamReader`
 async fn api_dashboard_summary(
     State(service_islands): State<Arc<ServiceIslands>>,
 ) -> Json<DashboardDataResponse> {
@@ -140,9 +139,8 @@ async fn api_dashboard_summary(
             // Deserialize the Value into our typed response
             if let Ok(typed_data) = serde_json::from_value::<DashboardDataResponse>(data) {
                 return Json(typed_data);
-            } else {
-                warn!("⚠️ [API] Failed to deserialize Redis Stream data, using fallback");
             }
+            warn!("⚠️ [API] Failed to deserialize Redis Stream data, using fallback");
         }
         Ok(None) => {
             warn!("⚠️ [API] No data in Redis Stream yet, websocket service will populate it soon");
@@ -240,44 +238,35 @@ async fn api_sandboxed_report(
     let report_id: i32 = if id == "latest" {
         -1
     } else {
-        match id.parse() {
-            Ok(id) => id,
-            Err(_) => {
-                error!("❌ [API] Invalid report ID format for sandboxing: {}", id);
-                return "Invalid report ID format".into_response();
-            }
+        if let Ok(id) = id.parse() { id } else {
+            error!("❌ [API] Invalid report ID format for sandboxing: {}", id);
+            return "Invalid report ID format".into_response();
         }
     };
 
     // Get sandbox token from query parameters
-    let sandbox_token = match params.get("token") {
-        Some(token) => token,
-        None => {
-            warn!("❌ [API] Missing sandbox token for report {}", report_id);
-            return "Missing sandbox token".into_response();
-        }
+    let sandbox_token = if let Some(token) = params.get("token") { token } else {
+        warn!("❌ [API] Missing sandbox token for report {}", report_id);
+        return "Missing sandbox token".into_response();
     };
 
     // Get language parameter (optional, defaults to Vietnamese)
     // Note: Language switching is now handled dynamically inside iframe
-    let initial_language = params.get("lang").map(|s| s.as_str());
+    let initial_language = params.get("lang").map(std::string::String::as_str);
 
     // Get chart modules content for iframe inclusion
-    let chart_modules = match params.get("chart_modules") {
-        Some(_) => {
-            // If chart_modules parameter is present, load actual chart modules
-            debug!("📊 [API] Loading chart modules for iframe");
-            Some(
-                service_islands
-                    .shared_components
-                    .chart_modules_content
-                    .as_str(),
-            )
-        }
-        None => {
-            warn!("⚠️ [API] No chart_modules parameter - iframe will have empty charts");
-            None
-        }
+    let chart_modules = if let Some(_) = params.get("chart_modules") {
+        // If chart_modules parameter is present, load actual chart modules
+        debug!("📊 [API] Loading chart modules for iframe");
+        Some(
+            service_islands
+                .shared_components
+                .chart_modules_content
+                .as_str(),
+        )
+    } else {
+        warn!("⚠️ [API] No chart_modules parameter - iframe will have empty charts");
+        None
     };
 
     // Use Service Islands to serve sandboxed content
@@ -313,7 +302,7 @@ async fn api_sandboxed_report(
 /// Shadow DOM content endpoint for Declarative Shadow DOM architecture
 ///
 /// Returns HTML fragment for embedding within <template shadowrootmode="open">
-/// This is the modern replacement for api_sandboxed_report
+/// This is the modern replacement for `api_sandboxed_report`
 async fn api_shadow_dom_content(
     Path(id): Path<String>,
     Query(params): Query<HashMap<String, String>>,
@@ -325,48 +314,39 @@ async fn api_shadow_dom_content(
     let report_id: i32 = if id == "latest" {
         -1
     } else {
-        match id.parse() {
-            Ok(id) => id,
-            Err(_) => {
-                error!("❌ [API] Invalid report ID format for Shadow DOM: {}", id);
-                return "Invalid report ID format".into_response();
-            }
+        if let Ok(id) = id.parse() { id } else {
+            error!("❌ [API] Invalid report ID format for Shadow DOM: {}", id);
+            return "Invalid report ID format".into_response();
         }
     };
 
     // Get shadow DOM token from query parameters
-    let shadow_dom_token = match params.get("token") {
-        Some(token) => token,
-        None => {
-            warn!("❌ [API] Missing shadow DOM token for report {}", report_id);
-            return "Missing shadow DOM token".into_response();
-        }
+    let shadow_dom_token = if let Some(token) = params.get("token") { token } else {
+        warn!("❌ [API] Missing shadow DOM token for report {}", report_id);
+        return "Missing shadow DOM token".into_response();
     };
 
     // Get language parameter (optional, defaults to Vietnamese)
-    let initial_language = params.get("lang").map(|s| s.as_str());
+    let initial_language = params.get("lang").map(std::string::String::as_str);
 
     // Get chart modules content for Shadow DOM inclusion
-    let chart_modules = match params.get("chart_modules") {
-        Some(_) => {
-            // If chart_modules parameter is present, load actual chart modules
-            debug!("📊 [API] Loading chart modules for Shadow DOM");
-            Some(
-                service_islands
-                    .shared_components
-                    .chart_modules_content
-                    .as_str(),
-            )
-        }
-        None => {
-            debug!("💡 [API] No chart_modules parameter - using default behavior");
-            Some(
-                service_islands
-                    .shared_components
-                    .chart_modules_content
-                    .as_str(),
-            )
-        }
+    let chart_modules = if let Some(_) = params.get("chart_modules") {
+        // If chart_modules parameter is present, load actual chart modules
+        debug!("📊 [API] Loading chart modules for Shadow DOM");
+        Some(
+            service_islands
+                .shared_components
+                .chart_modules_content
+                .as_str(),
+        )
+    } else {
+        debug!("💡 [API] No chart_modules parameter - using default behavior");
+        Some(
+            service_islands
+                .shared_components
+                .chart_modules_content
+                .as_str(),
+        )
     };
 
     // Use Service Islands to serve Shadow DOM content

@@ -37,6 +37,7 @@ pub struct BreadcrumbItem {
 ///
 /// Creates a hierarchical breadcrumb trail:
 /// Home > Crypto Reports > Report #ID
+#[must_use] 
 pub fn generate_breadcrumb_items(report_id: i32) -> Vec<BreadcrumbItem> {
     vec![
         BreadcrumbItem {
@@ -54,21 +55,22 @@ pub fn generate_breadcrumb_items(report_id: i32) -> Vec<BreadcrumbItem> {
             is_current: false,
         },
         BreadcrumbItem {
-            name: format!("Report #{}", report_id),
-            name_vi: format!("Bao cao #{}", report_id),
-            name_en: format!("Report #{}", report_id),
-            url: format!("/crypto_report/{}", report_id),
+            name: format!("Report #{report_id}"),
+            name_vi: format!("Bao cao #{report_id}"),
+            name_en: format!("Report #{report_id}"),
+            url: format!("/crypto_report/{report_id}"),
             is_current: true,
         },
     ]
 }
 
-/// Generate JSON-LD BreadcrumbList schema for SEO
+/// Generate JSON-LD `BreadcrumbList` schema for SEO
 ///
-/// Creates Schema.org BreadcrumbList structured data that helps:
+/// Creates Schema.org `BreadcrumbList` structured data that helps:
 /// - Search engines understand page hierarchy
 /// - AI bots navigate site structure
 /// - Rich snippets in search results
+#[must_use] 
 pub fn generate_breadcrumbs_schema(report_id: i32) -> String {
     let items = generate_breadcrumb_items(report_id);
 
@@ -99,9 +101,10 @@ pub fn generate_breadcrumbs_schema(report_id: i32) -> String {
     )
 }
 
-/// Convert ReportSummaryData to RelatedReportItem for template
+/// Convert `ReportSummaryData` to `RelatedReportItem` for template
 ///
 /// Formats dates to Vietnam timezone (UTC+7) for display
+#[must_use] 
 pub fn format_related_report(report: &ReportSummaryData) -> RelatedReportItem {
     let dt = report.created_at + chrono::Duration::hours(7);
 
@@ -122,9 +125,10 @@ pub fn format_related_reports(reports: &[ReportSummaryData]) -> Vec<RelatedRepor
 /// Generate complete breadcrumbs and related reports data for template
 ///
 /// Returns a tuple containing:
-/// - breadcrumb_items: Vec for navigation rendering
-/// - breadcrumbs_schema: JSON-LD string for SEO
-/// - related_reports: Vec for related content section
+/// - `breadcrumb_items`: Vec for navigation rendering
+/// - `breadcrumbs_schema`: JSON-LD string for SEO
+/// - `related_reports`: Vec for related content section
+#[must_use] 
 pub fn generate_breadcrumbs_and_related(
     report_id: i32,
     related_reports_data: &[ReportSummaryData],

@@ -1,9 +1,9 @@
 //! Rendering Module
 //!
 //! This module contains rendering strategies for crypto reports:
-//! - shadow_dom_renderer: Modern Declarative Shadow DOM rendering
+//! - `shadow_dom_renderer`: Modern Declarative Shadow DOM rendering
 //! - shared: Common utilities and models used by rendering strategies
-//! - geo_metadata: GEO (Generative Engine Optimization) metadata for AI bots
+//! - `geo_metadata`: GEO (Generative Engine Optimization) metadata for AI bots
 //! - breadcrumbs: Breadcrumb navigation and related reports for GEO optimization
 
 pub mod breadcrumbs;

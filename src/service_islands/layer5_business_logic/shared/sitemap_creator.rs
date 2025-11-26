@@ -2,10 +2,10 @@
 //!
 //! Generates dynamic sitemap.xml following the sitemap protocol 0.9 specification.
 //! This module creates XML content for SEO purposes, including:
-//! - Static pages (homepage, crypto_report index, reports list)
+//! - Static pages (homepage, `crypto_report` index, reports list)
 //! - Dynamic pages (individual crypto reports from database)
 //!
-//! Reference: https://www.sitemaps.org/protocol.html
+//! Reference: <https://www.sitemaps.org/protocol.html>
 
 use chrono::{DateTime, Utc};
 use std::fmt::Write;
@@ -63,7 +63,7 @@ impl SitemapCreator {
     /// Generate complete sitemap XML from static and dynamic entries
     ///
     /// # Arguments
-    /// * `report_data` - Vector of tuples (report_id, created_at) from database
+    /// * `report_data` - Vector of tuples (`report_id`, `created_at`) from database
     ///
     /// # Returns
     /// Complete sitemap XML string
@@ -77,12 +77,12 @@ impl SitemapCreator {
 
         // XML declaration and urlset opening tag
         writeln!(xml, r#"<?xml version="1.0" encoding="UTF-8"?>"#)
-            .map_err(|e| Layer5Error::Internal(format!("Failed to write XML header: {}", e)))?;
+            .map_err(|e| Layer5Error::Internal(format!("Failed to write XML header: {e}")))?;
         writeln!(
             xml,
             r#"<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">"#
         )
-        .map_err(|e| Layer5Error::Internal(format!("Failed to write urlset: {}", e)))?;
+        .map_err(|e| Layer5Error::Internal(format!("Failed to write urlset: {e}")))?;
 
         // Static entries
         let static_entries = Self::get_static_entries(&today);
@@ -98,7 +98,7 @@ impl SitemapCreator {
 
         // Close urlset
         writeln!(xml, "</urlset>")
-            .map_err(|e| Layer5Error::Internal(format!("Failed to close urlset: {}", e)))?;
+            .map_err(|e| Layer5Error::Internal(format!("Failed to close urlset: {e}")))?;
 
         let total_urls = static_entries.len() + dynamic_entries.len();
         info!(
@@ -123,14 +123,14 @@ impl SitemapCreator {
             },
             // Latest crypto report index
             SitemapEntry {
-                loc: format!("{}/crypto_report", BASE_URL),
+                loc: format!("{BASE_URL}/crypto_report"),
                 lastmod: Some(today.to_string()),
                 changefreq: ChangeFrequency::Daily,
                 priority: 0.9,
             },
             // Reports list page
             SitemapEntry {
-                loc: format!("{}/crypto_reports_list", BASE_URL),
+                loc: format!("{BASE_URL}/crypto_reports_list"),
                 lastmod: Some(today.to_string()),
                 changefreq: ChangeFrequency::Daily,
                 priority: 0.8,
@@ -145,7 +145,7 @@ impl SitemapCreator {
             .map(|(id, created_at)| {
                 let lastmod = created_at.format("%Y-%m-%d").to_string();
                 SitemapEntry {
-                    loc: format!("{}/crypto_report/{}", BASE_URL, id),
+                    loc: format!("{BASE_URL}/crypto_report/{id}"),
                     lastmod: Some(lastmod),
                     changefreq: ChangeFrequency::Monthly,
                     priority: 0.7,
@@ -157,16 +157,16 @@ impl SitemapCreator {
     /// Write a single URL entry to the XML string
     fn write_url_entry(xml: &mut String, entry: &SitemapEntry) -> Layer5Result<()> {
         writeln!(xml, "  <url>")
-            .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+            .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
 
         // Location (required)
         writeln!(xml, "    <loc>{}</loc>", Self::escape_xml(&entry.loc))
-            .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+            .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
 
         // Last modification (optional)
         if let Some(ref lastmod) = entry.lastmod {
-            writeln!(xml, "    <lastmod>{}</lastmod>", lastmod)
-                .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+            writeln!(xml, "    <lastmod>{lastmod}</lastmod>")
+                .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
         }
 
         // Change frequency (optional)
@@ -175,14 +175,14 @@ impl SitemapCreator {
             "    <changefreq>{}</changefreq>",
             entry.changefreq.as_str()
         )
-        .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+        .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
 
         // Priority (optional)
         writeln!(xml, "    <priority>{:.1}</priority>", entry.priority)
-            .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+            .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
 
         writeln!(xml, "  </url>")
-            .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+            .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
 
         Ok(())
     }

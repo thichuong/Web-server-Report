@@ -18,7 +18,8 @@ impl Default for TemplateRenderer {
 }
 
 impl TemplateRenderer {
-    /// Create a new TemplateRenderer
+    /// Create a new `TemplateRenderer`
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             // Initialize component

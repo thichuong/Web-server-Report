@@ -20,7 +20,8 @@ impl Default for ConnectivityTester {
 }
 
 impl ConnectivityTester {
-    /// Create a new ConnectivityTester
+    /// Create a new `ConnectivityTester`
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             // Initialize component

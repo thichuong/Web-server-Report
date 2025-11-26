@@ -172,14 +172,14 @@ impl ServiceIslands {
     }
 
     /// Get pre-loaded chart modules content for optimal performance
-    /// Direct access to Layer 1 SharedComponentsIsland
+    /// Direct access to Layer 1 `SharedComponentsIsland`
     pub fn get_chart_modules_content(&self) -> Arc<String> {
         Arc::clone(&self.shared_components.chart_modules_content)
     }
 
-    /// Get legacy AppState for backward compatibility
+    /// Get legacy `AppState` for backward compatibility
     ///
-    /// This method creates a legacy AppState instance with cache system integration
+    /// This method creates a legacy `AppState` instance with cache system integration
     /// for components that haven't been fully migrated to Service Islands.
     pub fn get_legacy_app_state(&self) -> Arc<layer1_infrastructure::AppState> {
         Arc::clone(self.legacy_app_state.get_or_init(|| {

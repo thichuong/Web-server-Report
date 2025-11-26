@@ -4,7 +4,7 @@
 //! including report data fetching, processing, and chart modules management.
 //!
 //! Rendering is handled by the `rendering` module:
-//! - ShadowDomRenderer: Modern Declarative Shadow DOM rendering
+//! - `ShadowDomRenderer`: Modern Declarative Shadow DOM rendering
 
 use axum::http::StatusCode;
 use axum::response::Response;
@@ -31,7 +31,7 @@ pub use super::rendering::{Report, SandboxedReport};
 ///
 /// Manages report creation business logic with market analysis capabilities.
 /// Uses Layer 3 data services and Layer 1 infrastructure services for proper architectural separation.
-/// Delegates rendering to ShadowDomRenderer for modern Declarative Shadow DOM rendering.
+/// Delegates rendering to `ShadowDomRenderer` for modern Declarative Shadow DOM rendering.
 #[derive(Clone)]
 pub struct ReportCreator {
     pub data_service: CryptoDataService,
@@ -40,7 +40,8 @@ pub struct ReportCreator {
 }
 
 impl ReportCreator {
-    /// Create a new ReportCreator
+    /// Create a new `ReportCreator`
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             data_service: CryptoDataService::new(),
@@ -58,7 +59,7 @@ impl ReportCreator {
     /// Fetch and cache latest report from database
     ///
     /// Retrieves the most recent crypto report with full content using Layer 3 data service.
-    /// Uses From trait for automatic conversion from ReportData to Report.
+    /// Uses From trait for automatic conversion from `ReportData` to Report.
     pub async fn fetch_and_cache_latest_report(
         &self,
         state: &Arc<AppState>,
@@ -91,7 +92,7 @@ impl ReportCreator {
     /// Fetch and cache specific report by ID
     ///
     /// Retrieves a crypto report by its ID with full content using Layer 3 data service.
-    /// Uses From trait for automatic conversion from ReportData to Report.
+    /// Uses From trait for automatic conversion from `ReportData` to Report.
     pub async fn fetch_and_cache_report_by_id(
         &self,
         state: &Arc<AppState>,
@@ -129,7 +130,7 @@ impl ReportCreator {
 
     /// Get chart modules content
     ///
-    /// Delegates to Layer 1 ChartModulesIsland for proper architectural separation.
+    /// Delegates to Layer 1 `ChartModulesIsland` for proper architectural separation.
     /// This method provides a business logic wrapper around the infrastructure service.
     pub async fn get_chart_modules_content(&self) -> String {
         debug!("ReportCreator: Requesting chart modules from Layer 1 Infrastructure");
@@ -155,6 +156,7 @@ impl ReportCreator {
     /// Create sandboxed report (delegates to shadow DOM renderer)
     ///
     /// Creates a secure sandboxed version of the report for Shadow DOM delivery.
+    #[must_use] 
     pub fn create_sandboxed_report(
         &self,
         report: &Report,
@@ -165,6 +167,7 @@ impl ReportCreator {
     }
 
     /// Generate Shadow DOM content (delegates to shadow DOM renderer)
+    #[must_use] 
     pub fn generate_shadow_dom_content(
         &self,
         sandboxed_report: &SandboxedReport,
@@ -194,7 +197,7 @@ impl ReportCreator {
 
     /// Serve sandboxed report content (delegates to shadow DOM renderer)
     ///
-    /// Uses Layer5Result for proper error handling without Box<dyn Error>.
+    /// Uses `Layer5Result` for proper error handling without Box<dyn Error>.
     /// This method provides backward compatibility for the API endpoint.
     pub async fn serve_sandboxed_report(
         &self,
@@ -229,7 +232,7 @@ impl ReportCreator {
 
     /// Serve Shadow DOM content (delegates to shadow DOM renderer)
     ///
-    /// Uses Layer5Result for proper error handling without Box<dyn Error>.
+    /// Uses `Layer5Result` for proper error handling without Box<dyn Error>.
     pub async fn serve_shadow_dom_content(
         &self,
         state: &Arc<AppState>,

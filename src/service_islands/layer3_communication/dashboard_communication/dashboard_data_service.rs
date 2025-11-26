@@ -26,7 +26,8 @@ impl Default for DashboardDataService {
 }
 
 impl DashboardDataService {
-    /// Create a new DashboardDataService
+    /// Create a new `DashboardDataService`
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             // Initialize service
@@ -87,7 +88,7 @@ impl DashboardDataService {
                     compressed_json,
                     crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm // 5 minutes
                 ).await {
-                    Ok(_) => {
+                    Ok(()) => {
                         let size_kb = compressed_data.len() / 1024;
                         info!("💾 DashboardDataService: Cached compressed homepage ({}KB) for 5 minutes", size_kb);
                     }

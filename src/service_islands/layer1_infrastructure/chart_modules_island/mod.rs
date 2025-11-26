@@ -2,7 +2,7 @@
 //!
 //! This island provides chart modules loading and management functionality.
 //! It handles the reading, concatenation, and serving of JavaScript chart modules
-//! from the shared_assets directory.
+//! from the `shared_assets` directory.
 
 use std::env;
 use std::path::Path;
@@ -23,7 +23,8 @@ pub struct ChartModulesIsland {
 }
 
 impl ChartModulesIsland {
-    /// Create a new ChartModulesIsland
+    /// Create a new `ChartModulesIsland`
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             base_dir: "shared_assets/js/chart_modules".to_string(),
@@ -36,8 +37,9 @@ impl ChartModulesIsland {
         }
     }
 
-    /// Create a new ChartModulesIsland with custom configuration
+    /// Create a new `ChartModulesIsland` with custom configuration
     #[allow(dead_code)]
+    #[must_use] 
     pub fn with_config(base_dir: String, priority_order: Vec<String>) -> Self {
         Self {
             base_dir,
@@ -150,7 +152,7 @@ impl ChartModulesIsland {
                         }
                         Err(e) => {
                             error!("❌ ChartModulesIsland: Error loading {}: {}", filename, e);
-                            format!("// Warning: {name} not found - {error}", name = filename, error = e)
+                            format!("// Warning: {filename} not found - {e}")
                         }
                     }
                 }
@@ -222,6 +224,7 @@ impl ChartModulesIsland {
 
     /// Get current priority order
     #[allow(dead_code)]
+    #[must_use] 
     pub fn get_priority_order(&self) -> &Vec<String> {
         &self.priority_order
     }
@@ -234,6 +237,7 @@ impl ChartModulesIsland {
 
     /// Get current base directory
     #[allow(dead_code)]
+    #[must_use] 
     pub fn get_base_dir(&self) -> &String {
         &self.base_dir
     }

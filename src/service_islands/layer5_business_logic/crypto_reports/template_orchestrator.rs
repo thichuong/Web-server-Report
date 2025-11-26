@@ -34,12 +34,13 @@ pub struct TemplateContext {
 /// Manages all template rendering operations for crypto reports.
 /// Separates template logic from HTTP handlers following Layer 5 architecture.
 pub struct TemplateOrchestrator {
-    /// Reference to ReportCreator for data operations
+    /// Reference to `ReportCreator` for data operations
     pub report_creator: ReportCreator,
 }
 
 impl TemplateOrchestrator {
-    /// Create a new TemplateOrchestrator
+    /// Create a new `TemplateOrchestrator`
+    #[must_use] 
     pub fn new(report_creator: ReportCreator) -> Self {
         Self { report_creator }
     }
@@ -66,7 +67,7 @@ impl TemplateOrchestrator {
     /// Prepare template context for crypto reports
     ///
     /// Builds complete template context with all necessary data for rendering.
-    /// Enhanced to accept pre-loaded chart_modules_content for optimal performance.
+    /// Enhanced to accept pre-loaded `chart_modules_content` for optimal performance.
     /// Now includes sandbox token generation for iframe security.
     ///
     /// # Memory Optimization
@@ -84,15 +85,12 @@ impl TemplateOrchestrator {
         );
 
         // Use provided chart_modules_content or fetch from ReportCreator
-        let chart_modules_content = match chart_modules_content {
-            Some(content) => {
-                debug!("TemplateOrchestrator: Using pre-loaded chart modules (Arc - zero clone)");
-                content
-            }
-            None => {
-                info!("TemplateOrchestrator: Fallback - reading chart modules from file");
-                Arc::new(self.report_creator.get_chart_modules_content().await)
-            }
+        let chart_modules_content = if let Some(content) = chart_modules_content {
+            debug!("TemplateOrchestrator: Using pre-loaded chart modules (Arc - zero clone)");
+            content
+        } else {
+            info!("TemplateOrchestrator: Fallback - reading chart modules from file");
+            Arc::new(self.report_creator.get_chart_modules_content().await)
         };
 
         // Generate sandbox token for iframe security
@@ -136,10 +134,10 @@ impl TemplateOrchestrator {
     /// Render crypto template with prepared context
     ///
     /// Core template rendering method using Tera engine with proper error handling.
-    /// Uses spawn_blocking with timeout to prevent hanging on CPU-intensive renders.
+    /// Uses `spawn_blocking` with timeout to prevent hanging on CPU-intensive renders.
     ///
     /// # Performance
-    /// TemplateContext uses Arc internally, so clone is lightweight (only pointers cloned).
+    /// `TemplateContext` uses Arc internally, so clone is lightweight (only pointers cloned).
     pub async fn render_template(
         &self,
         tera: &tera::Tera,
@@ -194,7 +192,7 @@ impl TemplateOrchestrator {
         self.await_render_task(render_task).await
     }
 
-    /// Helper to flatten nested Result from spawn_blocking + timeout
+    /// Helper to flatten nested Result from `spawn_blocking` + timeout
     ///
     /// Converts `Result<Result<Result<T, E1>, E2>, E3>` into `Layer5Result<T>`
     #[inline]
@@ -319,11 +317,10 @@ impl TemplateOrchestrator {
             id: report_id,
             html_content: format!(
                 "<div class='text-center py-16'>\
-                <h2 class='text-2xl font-bold text-red-600'>Report #{} not found</h2>\
+                <h2 class='text-2xl font-bold text-red-600'>Report #{report_id} not found</h2>\
                 <p class='text-gray-500 mt-4'>This report may have been deleted or you don't have access.</p>\
                 <a href='/crypto_reports_list' class='mt-6 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700'>Back to reports list</a>\
-                </div>",
-                report_id
+                </div>"
             ),
             css_content: None,
             js_content: None,

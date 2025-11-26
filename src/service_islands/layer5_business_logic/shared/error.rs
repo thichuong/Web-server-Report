@@ -30,7 +30,7 @@ pub enum Layer5Error {
     NotFound(String),
     /// Authentication/authorization failed
     Forbidden(String),
-    /// Task join error (from spawn_blocking)
+    /// Task join error (from `spawn_blocking`)
     TaskJoin(String),
     /// Generic internal error
     Internal(String),
@@ -39,16 +39,16 @@ pub enum Layer5Error {
 impl fmt::Display for Layer5Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Database(msg) => write!(f, "Database error: {}", msg),
-            Self::TemplateRender(msg) => write!(f, "Template render error: {}", msg),
-            Self::Compression(msg) => write!(f, "Compression error: {}", msg),
-            Self::Cache(msg) => write!(f, "Cache error: {}", msg),
-            Self::Timeout(msg) => write!(f, "Timeout: {}", msg),
-            Self::InvalidInput(msg) => write!(f, "Invalid input: {}", msg),
-            Self::NotFound(msg) => write!(f, "Not found: {}", msg),
-            Self::Forbidden(msg) => write!(f, "Forbidden: {}", msg),
-            Self::TaskJoin(msg) => write!(f, "Task join error: {}", msg),
-            Self::Internal(msg) => write!(f, "Internal error: {}", msg),
+            Self::Database(msg) => write!(f, "Database error: {msg}"),
+            Self::TemplateRender(msg) => write!(f, "Template render error: {msg}"),
+            Self::Compression(msg) => write!(f, "Compression error: {msg}"),
+            Self::Cache(msg) => write!(f, "Cache error: {msg}"),
+            Self::Timeout(msg) => write!(f, "Timeout: {msg}"),
+            Self::InvalidInput(msg) => write!(f, "Invalid input: {msg}"),
+            Self::NotFound(msg) => write!(f, "Not found: {msg}"),
+            Self::Forbidden(msg) => write!(f, "Forbidden: {msg}"),
+            Self::TaskJoin(msg) => write!(f, "Task join error: {msg}"),
+            Self::Internal(msg) => write!(f, "Internal error: {msg}"),
         }
     }
 }
@@ -95,24 +95,28 @@ impl From<tokio::time::error::Elapsed> for Layer5Error {
 impl Layer5Error {
     /// Convert to boxed error for backward compatibility with legacy APIs
     #[inline]
+    #[must_use] 
     pub fn into_boxed(self) -> Box<dyn std::error::Error + Send + Sync> {
         Box::new(self)
     }
 
     /// Check if error is a not found error
     #[inline]
+    #[must_use] 
     pub fn is_not_found(&self) -> bool {
         matches!(self, Self::NotFound(_))
     }
 
     /// Check if error is a timeout
     #[inline]
+    #[must_use] 
     pub fn is_timeout(&self) -> bool {
         matches!(self, Self::Timeout(_))
     }
 
     /// Convert to HTTP status code
     #[inline]
+    #[must_use] 
     pub fn status_code(&self) -> axum::http::StatusCode {
         use axum::http::StatusCode;
         match self {

@@ -8,25 +8,26 @@ use std::fmt::Write;
 /// Generate a cryptographically secure sandbox token
 ///
 /// Uses HMAC-like construction with blake3 for fast, secure token generation.
-/// The token is derived from report_id and created_at timestamp.
+/// The token is derived from `report_id` and `created_at` timestamp.
 ///
 /// # Security
 /// - Uses blake3 which is cryptographically secure
 /// - Tokens are unpredictable and cannot be forged
-/// - Different from DefaultHasher which is NOT cryptographically secure
+/// - Different from `DefaultHasher` which is NOT cryptographically secure
 ///
 /// # Performance
 /// - blake3 is optimized for speed (SIMD, parallel)
 /// - ~1GB/s on modern CPUs
-/// - Minimal overhead compared to DefaultHasher
+/// - Minimal overhead compared to `DefaultHasher`
 #[inline]
+#[must_use] 
 pub fn generate_sandbox_token(
     report_id: i32,
     created_at: &chrono::DateTime<chrono::Utc>,
 ) -> String {
     // Create input data by combining report_id and timestamp
     let timestamp_nanos = created_at.timestamp_nanos_opt().unwrap_or(0);
-    let input = format!("{}:{}", report_id, timestamp_nanos);
+    let input = format!("{report_id}:{timestamp_nanos}");
 
     // Use blake3 for cryptographically secure hashing
     let hash = blake3::hash(input.as_bytes());
@@ -37,7 +38,7 @@ pub fn generate_sandbox_token(
     token.push_str("sb_");
 
     for byte in &hash_bytes[..8] {
-        write!(token, "{:02x}", byte).expect("writing to String never fails");
+        write!(token, "{byte:02x}").expect("writing to String never fails");
     }
 
     token
@@ -47,6 +48,7 @@ pub fn generate_sandbox_token(
 ///
 /// Constant-time comparison to prevent timing attacks.
 #[inline]
+#[must_use] 
 pub fn verify_sandbox_token(
     token: &str,
     report_id: i32,

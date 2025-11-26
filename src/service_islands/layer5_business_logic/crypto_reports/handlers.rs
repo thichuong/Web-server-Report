@@ -1,7 +1,7 @@
 //! Crypto Reports HTTP Request Handlers
 //!
 //! This module contains all HTTP request handlers related to crypto reports functionality.
-//! Based on archive_old_code/handlers/crypto.rs
+//! Based on `archive_old_code/handlers/crypto.rs`
 //! ONLY uses Template Engine - NO manual HTML creation
 
 use std::collections::HashMap;
@@ -33,7 +33,7 @@ use super::template_orchestrator::TemplateOrchestrator;
 ///
 /// Contains all HTTP request handlers for crypto reports-related operations.
 /// These handlers manage crypto report generation and API interactions.
-/// ONLY uses Template Engine like archive_old_code/handlers/crypto.rs
+/// ONLY uses Template Engine like `archive_old_code/handlers/crypto.rs`
 pub struct CryptoHandlers {
     pub report_creator: ReportCreator,
     pub template_orchestrator: TemplateOrchestrator,
@@ -46,7 +46,8 @@ impl Default for CryptoHandlers {
 }
 
 impl CryptoHandlers {
-    /// Create a new CryptoHandlers instance
+    /// Create a new `CryptoHandlers` instance
+    #[must_use] 
     pub fn new() -> Self {
         let report_creator = ReportCreator::new();
         let template_orchestrator = TemplateOrchestrator::new(report_creator.clone());
@@ -68,8 +69,9 @@ impl CryptoHandlers {
 
     /// Create cached response with proper headers
     ///
-    /// From archive_old_code/handlers/crypto.rs::create_cached_response
+    /// From `archive_old_code/handlers/crypto.rs::create_cached_response`
     #[allow(dead_code)]
+    #[must_use] 
     pub fn create_cached_response(&self, html: String, cache_status: &str) -> Response {
         Response::builder()
             .status(StatusCode::OK)
@@ -90,6 +92,7 @@ impl CryptoHandlers {
     /// Create compressed HTTP response with proper headers
     ///
     /// Helper function to create HTTP response with gzip compression headers
+    #[must_use] 
     pub fn create_compressed_response(compressed_data: Vec<u8>) -> Response {
         Response::builder()
             .status(StatusCode::OK)
@@ -133,7 +136,7 @@ impl CryptoHandlers {
 
     /// Crypto Index with Tera template engine - FULL IMPLEMENTATION
     ///
-    /// Exactly like archive_old_code/handlers/crypto.rs::crypto_index - Complete L1/L2 caching
+    /// Exactly like `archive_old_code/handlers/crypto.rs::crypto_index` - Complete L1/L2 caching
     /// Enhanced with pre-loaded chart modules and HTML caching for optimal performance
     /// Now returns compressed data for optimal transfer speed
     /// ✅ OPTIMIZED: Uses Arc<String> to avoid cloning chart modules content
@@ -227,27 +230,27 @@ impl CryptoHandlers {
                             Ok(compressed_data) => Ok(compressed_data),
                             Err(e) => {
                                 error!("❌ Failed to compress empty template: {}", e);
-                                Err(format!("Empty template compression error: {}", e).into())
+                                Err(format!("Empty template compression error: {e}").into())
                             }
                         }
                     }
                     Err(e) => {
                         error!("❌ TemplateOrchestrator empty template render error: {}", e);
-                        Err(format!("Empty template render error: {}", e).into())
+                        Err(format!("Empty template render error: {e}").into())
                     }
                 }
             }
             Err(e) => {
                 error!("❌ Database error in crypto_index: {}", e);
-                Err(format!("Database error: {}", e).into())
+                Err(format!("Database error: {e}").into())
             }
         }
     }
 
     /// Crypto Report by ID handler - Specific crypto report view
     ///
-    /// Similar to crypto_index_with_tera but for specific report ID
-    /// Exactly like archive_old_code/handlers/crypto.rs pattern - Complete L1/L2 caching
+    /// Similar to `crypto_index_with_tera` but for specific report ID
+    /// Exactly like `archive_old_code/handlers/crypto.rs` pattern - Complete L1/L2 caching
     /// Enhanced with rendered HTML caching for optimal performance
     /// Now returns compressed data for optimal transfer speed
     /// ✅ OPTIMIZED: Uses Arc<String> to avoid cloning chart modules content
@@ -347,26 +350,26 @@ impl CryptoHandlers {
                             Ok(compressed_data) => Ok(compressed_data),
                             Err(e) => {
                                 error!("❌ Failed to compress empty template: {}", e);
-                                Err(format!("Empty template compression error: {}", e).into())
+                                Err(format!("Empty template compression error: {e}").into())
                             }
                         }
                     }
                     Err(e) => {
                         error!("❌ TemplateOrchestrator empty template render error: {}", e);
-                        Err(format!("Empty template render error: {}", e).into())
+                        Err(format!("Empty template render error: {e}").into())
                     }
                 }
             }
             Err(e) => {
                 error!("❌ Database error in crypto_report_by_id: {}", e);
-                Err(format!("Database error: {}", e).into())
+                Err(format!("Database error: {e}").into())
             }
         }
     }
 
     /// Crypto Reports List handler - Paginated list of all reports
     ///
-    /// Delegated to Layer 3 with cache integration - similar to crypto_index_with_tera pattern
+    /// Delegated to Layer 3 with cache integration - similar to `crypto_index_with_tera` pattern
     /// Returns compressed data (Vec<u8>) for optimal transfer speed
     pub async fn crypto_reports_list_with_tera(
         &self,
@@ -424,8 +427,8 @@ impl CryptoHandlers {
 
     /// Serve sandboxed report content for iframe
     ///
-    /// Delegates to ReportCreator for actual sandboxed content generation.
-    /// Returns Layer5Result for proper error handling.
+    /// Delegates to `ReportCreator` for actual sandboxed content generation.
+    /// Returns `Layer5Result` for proper error handling.
     pub async fn serve_sandboxed_report(
         &self,
         state: &Arc<AppState>,
@@ -446,13 +449,13 @@ impl CryptoHandlers {
                 chart_modules_content,
             )
             .await
-            .map_err(|e| e.into_boxed())
+            .map_err(super::super::shared::error::Layer5Error::into_boxed)
     }
 
     /// Serve Shadow DOM content for Declarative Shadow DOM architecture
     ///
-    /// Delegates to ReportCreator for actual Shadow DOM content generation.
-    /// This is the modern replacement for serve_sandboxed_report.
+    /// Delegates to `ReportCreator` for actual Shadow DOM content generation.
+    /// This is the modern replacement for `serve_sandboxed_report`.
     pub async fn serve_shadow_dom_content(
         &self,
         state: &Arc<AppState>,
@@ -473,7 +476,7 @@ impl CryptoHandlers {
                 chart_modules_content,
             )
             .await
-            .map_err(|e| e.into_boxed())
+            .map_err(super::super::shared::error::Layer5Error::into_boxed)
     }
 
     /// Detect preferred language from request
@@ -534,7 +537,7 @@ impl CryptoHandlers {
     }
 
     /// Render Crypto Index DSD (Latest Report)
-    /// Encapsulates all logic for the crypto_index route
+    /// Encapsulates all logic for the `crypto_index` route
     pub async fn render_crypto_index_dsd(
         &self,
         state: &Arc<AppState>,
@@ -557,7 +560,7 @@ impl CryptoHandlers {
             if report_id_value == -1 {
                 "latest report".to_string()
             } else {
-                format!("report ID: {}", report_id_value)
+                format!("report ID: {report_id_value}")
             },
             preferred_language
         );
@@ -577,7 +580,7 @@ impl CryptoHandlers {
                 if report_id_value == -1 {
                     "latest".to_string()
                 } else {
-                    format!("#{}", report_id_value)
+                    format!("#{report_id_value}")
                 },
                 preferred_language
             );
@@ -757,7 +760,7 @@ impl CryptoHandlers {
     }
 
     /// Render Crypto Report by ID DSD
-    /// Encapsulates all logic for the crypto_view_report route
+    /// Encapsulates all logic for the `crypto_view_report` route
     pub async fn render_crypto_report_dsd(
         &self,
         state: &Arc<AppState>,

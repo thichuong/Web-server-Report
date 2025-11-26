@@ -20,7 +20,8 @@ impl Default for HealthChecker {
 }
 
 impl HealthChecker {
-    /// Create a new HealthChecker
+    /// Create a new `HealthChecker`
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             // Initialize component

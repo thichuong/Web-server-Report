@@ -61,6 +61,7 @@ impl GeoMetadata {
     ///
     /// # Returns
     /// A `GeoMetadata` struct with all fields populated
+    #[must_use] 
     pub fn from_report(report: &Report) -> Self {
         let report_id = report.id;
         let created_at = report.created_at;
@@ -88,19 +89,17 @@ impl GeoMetadata {
 
         // Generate descriptions
         let description_vi = format!(
-            "Báo cáo phân tích thị trường tiền mã hóa #{} với dữ liệu Bitcoin, Ethereum, \
-            chỉ số kỹ thuật RSI/MACD và chỉ số Fear & Greed. Cập nhật {}.",
-            report_id, date_display_vi
+            "Báo cáo phân tích thị trường tiền mã hóa #{report_id} với dữ liệu Bitcoin, Ethereum, \
+            chỉ số kỹ thuật RSI/MACD và chỉ số Fear & Greed. Cập nhật {date_display_vi}."
         );
         let description_en = format!(
-            "Crypto market analysis report #{} featuring Bitcoin, Ethereum data, \
-            RSI/MACD technical indicators, and Fear & Greed Index. Updated {}.",
-            report_id, date_display_en
+            "Crypto market analysis report #{report_id} featuring Bitcoin, Ethereum data, \
+            RSI/MACD technical indicators, and Fear & Greed Index. Updated {date_display_en}."
         );
         let description = description_vi.clone();
 
         // Generate canonical URL
-        let canonical_url = format!("{}/crypto_report/{}", SITE_BASE_URL, report_id);
+        let canonical_url = format!("{SITE_BASE_URL}/crypto_report/{report_id}");
 
         Self {
             report_id,
@@ -124,7 +123,7 @@ impl GeoMetadata {
 /// Creates dynamic meta tags optimized for social sharing and AI bots.
 ///
 /// # Arguments
-/// * `metadata` - The GeoMetadata to render
+/// * `metadata` - The `GeoMetadata` to render
 /// * `language` - Optional language code ("vi" or "en"), defaults to "vi"
 ///
 /// # Returns
@@ -132,6 +131,7 @@ impl GeoMetadata {
 ///
 /// # Performance
 /// Uses `format!` macro with pre-calculated capacity for efficient string building
+#[must_use] 
 pub fn generate_meta_tags(metadata: &GeoMetadata, language: Option<&str>) -> String {
     let lang = language.unwrap_or("vi");
 
@@ -196,7 +196,7 @@ pub fn generate_meta_tags(metadata: &GeoMetadata, language: Option<&str>) -> Str
 /// understand the content semantically.
 ///
 /// # Arguments
-/// * `metadata` - The GeoMetadata to render
+/// * `metadata` - The `GeoMetadata` to render
 /// * `language` - Optional language code ("vi" or "en"), defaults to "vi"
 ///
 /// # Returns
@@ -204,6 +204,7 @@ pub fn generate_meta_tags(metadata: &GeoMetadata, language: Option<&str>) -> Str
 ///
 /// # Schema Type
 /// Uses `Article` with `FinancialAnalysis` as additional type for maximum compatibility
+#[must_use] 
 pub fn generate_json_ld(metadata: &GeoMetadata, language: Option<&str>) -> String {
     let lang = language.unwrap_or("vi");
 
@@ -270,9 +271,8 @@ pub fn generate_json_ld(metadata: &GeoMetadata, language: Option<&str>) -> Strin
     match serde_json::to_string_pretty(&json_ld) {
         Ok(json_str) => format!(
             r#"<script type="application/ld+json">
-{}
-    </script>"#,
-            json_str
+{json_str}
+    </script>"#
         ),
         Err(_) => String::new(), // Fallback: no JSON-LD if serialization fails
     }
@@ -288,7 +288,8 @@ pub fn generate_json_ld(metadata: &GeoMetadata, language: Option<&str>) -> Strin
 /// * `language` - Optional language code ("vi" or "en")
 ///
 /// # Returns
-/// Tuple of (meta_tags_html, json_ld_html, dynamic_title)
+/// Tuple of (`meta_tags_html`, `json_ld_html`, `dynamic_title`)
+#[must_use] 
 pub fn generate_complete_geo_metadata(
     report: &Report,
     language: Option<&str>,

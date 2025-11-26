@@ -3,7 +3,7 @@
 //! Generates dynamic RSS 2.0 feed following the RSS 2.0 specification.
 //! This module creates XML content for search engines and AI bots to discover new reports.
 //!
-//! Reference: https://www.rssboard.org/rss-specification
+//! Reference: <https://www.rssboard.org/rss-specification>
 //!
 //! Features:
 //! - RFC 822 date formatting for pubDate
@@ -50,7 +50,7 @@ impl RssCreator {
     /// Generate complete RSS 2.0 XML feed from report data
     ///
     /// # Arguments
-    /// * `reports` - Vector of ReportRssData from database
+    /// * `reports` - Vector of `ReportRssData` from database
     ///
     /// # Returns
     /// Complete RSS 2.0 XML string
@@ -65,18 +65,18 @@ impl RssCreator {
 
         // XML declaration
         writeln!(xml, r#"<?xml version="1.0" encoding="UTF-8"?>"#)
-            .map_err(|e| Layer5Error::Internal(format!("Failed to write XML header: {}", e)))?;
+            .map_err(|e| Layer5Error::Internal(format!("Failed to write XML header: {e}")))?;
 
         // RSS 2.0 opening tag with Atom namespace for self-referencing link
         writeln!(
             xml,
             r#"<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">"#
         )
-        .map_err(|e| Layer5Error::Internal(format!("Failed to write rss tag: {}", e)))?;
+        .map_err(|e| Layer5Error::Internal(format!("Failed to write rss tag: {e}")))?;
 
         // Channel opening
         writeln!(xml, "  <channel>")
-            .map_err(|e| Layer5Error::Internal(format!("Failed to write channel: {}", e)))?;
+            .map_err(|e| Layer5Error::Internal(format!("Failed to write channel: {e}")))?;
 
         // Channel metadata
         Self::write_channel_metadata(&mut xml, &metadata, &now)?;
@@ -88,9 +88,9 @@ impl RssCreator {
 
         // Close channel and rss
         writeln!(xml, "  </channel>")
-            .map_err(|e| Layer5Error::Internal(format!("Failed to close channel: {}", e)))?;
+            .map_err(|e| Layer5Error::Internal(format!("Failed to close channel: {e}")))?;
         writeln!(xml, "</rss>")
-            .map_err(|e| Layer5Error::Internal(format!("Failed to close rss: {}", e)))?;
+            .map_err(|e| Layer5Error::Internal(format!("Failed to close rss: {e}")))?;
 
         info!(
             "📡 RSS feed generated successfully: {} items, {} bytes",
@@ -113,47 +113,46 @@ impl RssCreator {
             "    <title>{}</title>",
             Self::escape_xml(metadata.title)
         )
-        .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+        .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
 
         writeln!(xml, "    <link>{}</link>", metadata.link)
-            .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+            .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
 
         writeln!(
             xml,
             "    <description>{}</description>",
             Self::escape_xml(metadata.description)
         )
-        .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+        .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
 
         // Optional but recommended elements
         writeln!(xml, "    <language>{}</language>", metadata.language)
-            .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+            .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
 
         writeln!(
             xml,
             "    <lastBuildDate>{}</lastBuildDate>",
             Self::format_rfc822_date(now)
         )
-        .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+        .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
 
         // Atom self-referencing link (recommended for feed readers)
         writeln!(
             xml,
-            r#"    <atom:link href="{}/rss.xml" rel="self" type="application/rss+xml"/>"#,
-            BASE_URL
+            r#"    <atom:link href="{BASE_URL}/rss.xml" rel="self" type="application/rss+xml"/>"#
         )
-        .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+        .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
 
         // Generator
         writeln!(
             xml,
             "    <generator>CryptoDashboard Rust Web Server</generator>"
         )
-        .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+        .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
 
         // TTL (time to live in minutes) - 60 minutes
         writeln!(xml, "    <ttl>60</ttl>")
-            .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+            .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
 
         Ok(())
     }
@@ -161,7 +160,7 @@ impl RssCreator {
     /// Write a single item entry
     fn write_item(xml: &mut String, report: &ReportRssData) -> Layer5Result<()> {
         writeln!(xml, "    <item>")
-            .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+            .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
 
         // Title with date in Vietnamese timezone (UTC+7)
         let vn_offset = FixedOffset::east_opt(7 * 3600).unwrap();
@@ -170,16 +169,16 @@ impl RssCreator {
         let title = format!("Báo cáo Thị trường Crypto #{} - {}", report.id, date_str);
 
         writeln!(xml, "      <title>{}</title>", Self::escape_xml(&title))
-            .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+            .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
 
         // Link
         let link = format!("{}/crypto_report/{}", BASE_URL, report.id);
-        writeln!(xml, "      <link>{}</link>", link)
-            .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+        writeln!(xml, "      <link>{link}</link>")
+            .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
 
         // GUID (globally unique identifier) - same as link, marked as permalink
-        writeln!(xml, r#"      <guid isPermaLink="true">{}</guid>"#, link)
-            .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+        writeln!(xml, r#"      <guid isPermaLink="true">{link}</guid>"#)
+            .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
 
         // Publication date in RFC 822 format
         writeln!(
@@ -187,7 +186,7 @@ impl RssCreator {
             "      <pubDate>{}</pubDate>",
             Self::format_rfc822_date(&report.created_at)
         )
-        .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+        .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
 
         // Description - extract from HTML content
         let description = Self::extract_description(&report.html_content, MAX_DESCRIPTION_LENGTH);
@@ -196,15 +195,15 @@ impl RssCreator {
             "      <description>{}</description>",
             Self::escape_xml(&description)
         )
-        .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+        .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
 
         writeln!(xml, "    </item>")
-            .map_err(|e| Layer5Error::Internal(format!("XML write error: {}", e)))?;
+            .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
 
         Ok(())
     }
 
-    /// Format DateTime to RFC 822 standard for RSS pubDate
+    /// Format `DateTime` to RFC 822 standard for RSS pubDate
     ///
     /// Format: "Sun, 23 Nov 2025 14:00:00 +0700"
     /// RSS 2.0 requires dates in RFC 822 format
@@ -254,7 +253,7 @@ impl RssCreator {
         // Trim and add ellipsis if truncated
         let trimmed = result.trim().to_string();
         if html.len() > max_len && !trimmed.is_empty() {
-            format!("{}...", trimmed)
+            format!("{trimmed}...")
         } else {
             trimmed
         }

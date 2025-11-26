@@ -2,11 +2,11 @@
 //!
 //! This module contains common utilities used across Layer 5 components:
 //! - compression: Gzip compression for HTTP responses
-//! - response_builder: Safe HTTP response construction
+//! - `response_builder`: Safe HTTP response construction
 //! - error: Custom error types for Layer 5 operations
 //! - websocket: WebSocket URL resolution utilities
 //! - security: Cryptographically secure token generation
-//! - sitemap_creator: Dynamic sitemap.xml generation
+//! - `sitemap_creator`: Dynamic sitemap.xml generation
 
 pub mod compression;
 pub mod error;

@@ -1,7 +1,7 @@
 //! Shared Rendering Utilities
 //!
 //! This module contains common code used by both iframe and Shadow DOM renderers:
-//! - Data models (Report, SandboxedReport)
+//! - Data models (Report, `SandboxedReport`)
 //! - Pre-compiled regex patterns for sanitization
 //! - Sanitization functions for HTML, CSS, and JavaScript
 //! - From trait implementations for type conversions
@@ -54,7 +54,7 @@ pub static JS_SANITIZE_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| vec![
     Regex::new(r"top\.").unwrap(),                      // Remove top access
 ]);
 
-/// Report model - exactly from archive_old_code/models.rs with iframe sandboxing support
+/// Report model - exactly from `archive_old_code/models.rs` with iframe sandboxing support
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Report {
     pub id: i32,
@@ -66,8 +66,8 @@ pub struct Report {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
-/// Implement From trait for automatic conversion from Layer 3 ReportData
-/// This eliminates manual field-by-field copying in report_creator.rs
+/// Implement From trait for automatic conversion from Layer 3 `ReportData`
+/// This eliminates manual field-by-field copying in `report_creator.rs`
 impl From<ReportData> for Report {
     #[inline]
     fn from(data: ReportData) -> Self {
@@ -143,7 +143,7 @@ const CSS_WRAPPER_SUFFIX: &str = "\n}";
 /// Enhanced to prevent CSS from affecting parent page.
 ///
 /// # Performance Optimizations
-/// - Uses pre-compiled regex patterns from LazyLock
+/// - Uses pre-compiled regex patterns from `LazyLock`
 /// - Single-pass with Cow to minimize allocations
 /// - Wrapping done only once at the end
 #[inline]
@@ -182,7 +182,7 @@ pub fn sanitize_css_content(css: &str) -> String {
 /// Applies basic JavaScript sanitization for sandbox environment.
 ///
 /// # Performance Optimizations
-/// - Uses pre-compiled regex patterns from LazyLock
+/// - Uses pre-compiled regex patterns from `LazyLock`
 /// - Single-pass with Cow to minimize allocations
 #[inline]
 pub fn sanitize_js_content(js: &str) -> Cow<'_, str> {

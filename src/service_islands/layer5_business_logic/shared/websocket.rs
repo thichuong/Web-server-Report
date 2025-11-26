@@ -14,14 +14,15 @@ const DEVELOPMENT_WS_URL: &str = "ws://localhost:8081";
 /// Get WebSocket service URL from environment or use appropriate default
 ///
 /// Returns the URL based on:
-/// 1. WEBSOCKET_SERVICE_URL environment variable (if set)
-/// 2. Development default (ws://localhost:8081) in debug builds
+/// 1. `WEBSOCKET_SERVICE_URL` environment variable (if set)
+/// 2. Development default (<ws://localhost:8081>) in debug builds
 /// 3. Production default with warning in release builds
 ///
 /// # Performance
 /// This function is designed to be called infrequently (once per request at most).
 /// Consider caching the result if called in a hot path.
 #[inline]
+#[must_use] 
 pub fn get_websocket_url() -> String {
     std::env::var("WEBSOCKET_SERVICE_URL").unwrap_or_else(|_| {
         if cfg!(debug_assertions) {

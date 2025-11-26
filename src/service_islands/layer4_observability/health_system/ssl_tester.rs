@@ -19,7 +19,8 @@ impl Default for SslTester {
 }
 
 impl SslTester {
-    /// Create a new SslTester
+    /// Create a new `SslTester`
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             // Initialize component

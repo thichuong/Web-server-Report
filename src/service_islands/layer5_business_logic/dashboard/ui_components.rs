@@ -16,7 +16,8 @@ impl Default for UIComponents {
 }
 
 impl UIComponents {
-    /// Create a new UIComponents instance
+    /// Create a new `UIComponents` instance
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             // Initialize component

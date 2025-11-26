@@ -21,7 +21,8 @@ impl Default for PerformanceMonitor {
 }
 
 impl PerformanceMonitor {
-    /// Create a new PerformanceMonitor
+    /// Create a new `PerformanceMonitor`
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             // Initialize component

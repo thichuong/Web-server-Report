@@ -15,7 +15,7 @@ use tracing::{debug, info, warn};
 /// App State Island - Centralized Application State
 ///
 /// This island manages core application state including:
-/// - Database connection pool (PostgreSQL)
+/// - Database connection pool (`PostgreSQL`)
 /// - Template engine (Tera) for rendering HTML templates
 /// - Request counters and application metrics
 /// - Integration points for Cache System Island
@@ -30,14 +30,14 @@ pub struct AppStateIsland {
     pub cached_latest_id: AtomicI32,
 }
 
-/// Legacy AppState struct for backward compatibility
+/// Legacy `AppState` struct for backward compatibility
 ///
 /// This struct maintains compatibility with existing code while
 /// providing integration with Service Islands Architecture.
 pub struct AppState {
     /// Database connection pool (backup storage)  
     pub db: PgPool,
-    /// Cache System Island reference (injected during ServiceIslands initialization)
+    /// Cache System Island reference (injected during `ServiceIslands` initialization)
     pub cache_system: Option<Arc<crate::service_islands::layer1_infrastructure::CacheSystemIsland>>,
     /// Request counter for application metrics
     pub request_counter: AtomicU64,
@@ -168,10 +168,10 @@ impl AppStateIsland {
         }
     }
 
-    /// Create legacy AppState for backward compatibility
+    /// Create legacy `AppState` for backward compatibility
     ///
-    /// This method creates an AppState instance that can be injected with
-    /// a CacheSystemIsland reference during ServiceIslands initialization.
+    /// This method creates an `AppState` instance that can be injected with
+    /// a `CacheSystemIsland` reference during `ServiceIslands` initialization.
     pub fn create_legacy_app_state(
         &self,
         cache_system: Option<Arc<crate::service_islands::layer1_infrastructure::CacheSystemIsland>>,
@@ -193,7 +193,7 @@ impl AppStateIsland {
 }
 
 impl AppState {
-    /// Create a new AppState instance with Service Islands Integration
+    /// Create a new `AppState` instance with Service Islands Integration
     ///
     /// **DEPRECATED**: Use `AppStateIsland::new()` and `ServiceIslands::initialize()` instead.
     /// This method is kept for backward compatibility only.

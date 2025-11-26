@@ -32,7 +32,8 @@ impl Default for DashboardHandlers {
 }
 
 impl DashboardHandlers {
-    /// Create a new DashboardHandlers instance
+    /// Create a new `DashboardHandlers` instance
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             data_service: DashboardDataService::new(),
@@ -48,6 +49,7 @@ impl DashboardHandlers {
     /// Create compressed HTTP response with proper headers
     ///
     /// Helper function to create HTTP response with gzip compression headers
+    #[must_use] 
     pub fn create_compressed_response(compressed_data: Vec<u8>) -> Response {
         Response::builder()
             .status(StatusCode::OK)
@@ -100,7 +102,7 @@ impl DashboardHandlers {
     ///
     /// Renders homepage using Tera template engine with proper context and intelligent caching.
     /// This includes the market indicators component and any dynamic data.
-    /// Returns compressed HTML for optimal performance, similar to crypto_index_with_tera.
+    /// Returns compressed HTML for optimal performance, similar to `crypto_index_with_tera`.
     pub async fn homepage_with_tera(
         &self,
         state: &Arc<AppState>,
@@ -183,7 +185,7 @@ impl DashboardHandlers {
                     }
                     Err(e) => {
                         error!("❌ Failed to compress homepage HTML: {}", e);
-                        Err(format!("Homepage compression error: {}", e).into())
+                        Err(format!("Homepage compression error: {e}").into())
                     }
                 }
             }

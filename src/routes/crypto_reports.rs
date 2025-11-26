@@ -93,12 +93,9 @@ async fn crypto_index(
     // Check if specific report ID is requested via query param
     let report_id = params.get("id");
     let report_id_value = if let Some(id_str) = report_id {
-        match id_str.parse::<i32>() {
-            Ok(id) => Some(id),
-            Err(_) => {
-                error!("❌ [Route] Invalid report ID format: {}", id_str);
-                return (StatusCode::BAD_REQUEST, "Invalid report ID format").into_response();
-            }
+        if let Ok(id) = id_str.parse::<i32>() { Some(id) } else {
+            error!("❌ [Route] Invalid report ID format: {}", id_str);
+            return (StatusCode::BAD_REQUEST, "Invalid report ID format").into_response();
         }
     } else {
         None // Latest report
@@ -133,12 +130,9 @@ async fn crypto_view_report(
     debug!("🌓 [Route] crypto_view_report called for ID: {}", id);
 
     // Parse report ID
-    let report_id: i32 = match id.parse() {
-        Ok(id) => id,
-        Err(_) => {
-            error!("❌ [Route] Invalid report ID format: {}", id);
-            return (StatusCode::BAD_REQUEST, "Invalid report ID format").into_response();
-        }
+    let report_id: i32 = if let Ok(id) = id.parse() { id } else {
+        error!("❌ [Route] Invalid report ID format: {}", id);
+        return (StatusCode::BAD_REQUEST, "Invalid report ID format").into_response();
     };
 
     // Get chart modules content

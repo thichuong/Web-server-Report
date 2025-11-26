@@ -20,6 +20,7 @@ pub struct CompressionStats {
 impl CompressionStats {
     /// Calculate compression statistics
     #[inline]
+    #[must_use] 
     pub fn new(original_size: usize, compressed_size: usize) -> Self {
         let ratio_percent = if original_size > 0 {
             (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0
@@ -35,18 +36,21 @@ impl CompressionStats {
 
     /// Get original size in KB
     #[inline]
+    #[must_use] 
     pub fn original_kb(&self) -> usize {
         self.original_size / 1024
     }
 
     /// Get compressed size in KB
     #[inline]
+    #[must_use] 
     pub fn compressed_kb(&self) -> usize {
         self.compressed_size / 1024
     }
 
     /// Get bytes saved
     #[inline]
+    #[must_use] 
     pub fn bytes_saved(&self) -> usize {
         self.original_size.saturating_sub(self.compressed_size)
     }
@@ -76,11 +80,11 @@ pub fn compress_html_to_gzip(html: &str) -> Layer5Result<(Vec<u8>, CompressionSt
 
     encoder
         .write_all(html.as_bytes())
-        .map_err(|e| Layer5Error::Compression(format!("Failed to write to encoder: {}", e)))?;
+        .map_err(|e| Layer5Error::Compression(format!("Failed to write to encoder: {e}")))?;
 
     let compressed_data = encoder
         .finish()
-        .map_err(|e| Layer5Error::Compression(format!("Failed to finish compression: {}", e)))?;
+        .map_err(|e| Layer5Error::Compression(format!("Failed to finish compression: {e}")))?;
 
     let stats = CompressionStats::new(original_size, compressed_data.len());
 

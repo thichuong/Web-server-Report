@@ -33,7 +33,7 @@ pub fn configure_rss_routes() -> Router<Arc<ServiceIslands>> {
 
 /// Generate and serve RSS 2.0 feed
 ///
-/// Flow: Route Handler -> Layer 5 (RssCreator) -> Layer 3 (CryptoDataService)
+/// Flow: Route Handler -> Layer 5 (`RssCreator`) -> Layer 3 (`CryptoDataService`)
 ///
 /// Response:
 /// - Content-Type: application/rss+xml; charset=utf-8

@@ -19,6 +19,7 @@ pub struct RedisStreamReader {
 
 impl RedisStreamReader {
     /// Create a new Redis Stream Reader
+    #[must_use] 
     pub fn new(cache_system: Arc<CacheSystemIsland>) -> Self {
         Self {
             cache_system,
@@ -69,7 +70,7 @@ impl RedisStreamReader {
 
     /// Read from Redis Stream
     ///
-    /// Reads the latest entry from the market_data_stream.
+    /// Reads the latest entry from the `market_data_stream`.
     async fn read_from_stream(&self) -> Result<Option<Value>> {
         // Use cache_manager's stream reading functionality
         let entries = self
@@ -152,8 +153,8 @@ impl RedisStreamReader {
     /// Cleanup resources on shutdown
     ///
     /// ✅ PRODUCTION-READY: Graceful cleanup for Redis Stream Reader
-    /// Note: Redis connections are managed by the cache_system library and will
-    /// be automatically cleaned up when cache_system is dropped.
+    /// Note: Redis connections are managed by the `cache_system` library and will
+    /// be automatically cleaned up when `cache_system` is dropped.
     pub async fn cleanup(&self) -> Result<()> {
         info!("🧹 RedisStreamReader: Starting cleanup...");
 
