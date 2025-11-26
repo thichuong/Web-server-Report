@@ -220,8 +220,8 @@ impl RssCreator {
         // Convert to Vietnam timezone (UTC+7) for display
         let vn_offset = FixedOffset::east_opt(7 * 3600).unwrap_or_else(|| {
             // Fallback to UTC if VN offset fails (should not happen with constant)
-            #[allow(clippy::expect_used)]
-            FixedOffset::east_opt(0).expect("UTC offset 0 should always be valid")
+            // Fallback to UTC if VN offset fails (should not happen with constant)
+            FixedOffset::east_opt(0).unwrap_or(Utc.fix())
         });
         let vn_time = dt.with_timezone(&vn_offset);
 
@@ -297,13 +297,13 @@ impl RssCreator {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
+#[cfg(test)]
 mod tests {
     use super::*;
     use chrono::TimeZone;
 
     #[test]
-    fn test_generate_rss_with_reports() {
+    fn test_generate_rss_with_reports() -> Layer5Result<()> {
         let reports = vec![
             ReportRssData {
                 id: 1,
@@ -317,7 +317,7 @@ mod tests {
             },
         ];
 
-        let xml = RssCreator::generate_rss_xml(&reports).unwrap();
+        let xml = RssCreator::generate_rss_xml(&reports)?;
 
         // Verify XML structure
         assert!(xml.starts_with(r#"<?xml version="1.0" encoding="UTF-8"?>"#));
@@ -337,16 +337,20 @@ mod tests {
         assert!(xml.contains("Báo cáo Thị trường Crypto #2"));
         assert!(xml.contains("<link>https://cryptodashboard.me/crypto_report/1</link>"));
         assert!(xml.contains("<guid isPermaLink=\"true\">"));
+
+        Ok(())
     }
 
     #[test]
-    fn test_generate_rss_empty_reports() {
-        let xml = RssCreator::generate_rss_xml(&[]).unwrap();
+    fn test_generate_rss_empty_reports() -> Layer5Result<()> {
+        let xml = RssCreator::generate_rss_xml(&[])?;
 
         // Should still have valid channel
         assert!(xml.contains("<channel>"));
         assert!(xml.contains("<title>CryptoDashboard"));
         assert!(!xml.contains("<item>"));
+
+        Ok(())
     }
 
     #[test]
