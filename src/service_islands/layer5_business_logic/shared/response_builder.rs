@@ -134,7 +134,11 @@ fn fallback_error_response() -> Response<Body> {
     Response::builder()
         .status(StatusCode::INTERNAL_SERVER_ERROR)
         .body(Body::from("Internal Server Error"))
-        .expect("fallback response construction should never fail")
+        .unwrap_or_else(|_| {
+            let mut res = Response::new(Body::from("Internal Server Error"));
+            *res.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+            res
+        })
 }
 
 #[cfg(test)]

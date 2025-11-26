@@ -127,7 +127,7 @@ mod tests {
     }
 
     #[test]
-    fn test_compress_html() {
+    fn test_compress_html() -> Result<(), Box<dyn std::error::Error>> {
         // Use a larger, more realistic HTML that compresses well
         let html = r#"<!DOCTYPE html>
 <html lang="en">
@@ -144,13 +144,13 @@ mod tests {
     </div>
 </body>
 </html>"#;
-        let result = compress_html_to_gzip(html);
-        assert!(result.is_ok());
-        let (data, stats) = result.unwrap();
-        assert!(!data.is_empty());
+        let (data, stats) = compress_html_to_gzip(html)?;
+        
         // For realistic HTML, compression should provide benefit
         // Note: very small inputs may not compress well due to gzip overhead
-        assert!(data.len() > 0);
-        assert!(stats.original_size == html.len());
+        assert!(!data.is_empty());
+        assert_eq!(stats.original_size, html.len());
+        
+        Ok(())
     }
 }

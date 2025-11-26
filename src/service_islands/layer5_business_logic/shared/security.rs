@@ -38,7 +38,9 @@ pub fn generate_sandbox_token(
     token.push_str("sb_");
 
     for byte in &hash_bytes[..8] {
-        write!(token, "{byte:02x}").expect("writing to String never fails");
+        const HEX: &[u8] = b"0123456789abcdef";
+        token.push(HEX[(byte >> 4) as usize] as char);
+        token.push(HEX[(byte & 0xf) as usize] as char);
     }
 
     token

@@ -214,7 +214,11 @@ impl RssCreator {
     /// RSS 2.0 requires dates in RFC 822 format
     fn format_rfc822_date(dt: &DateTime<Utc>) -> String {
         // Convert to Vietnam timezone (UTC+7) for display
-        let vn_offset = FixedOffset::east_opt(7 * 3600).expect("FixedOffset::east_opt(7 * 3600) should always be valid");
+        let vn_offset = FixedOffset::east_opt(7 * 3600).unwrap_or_else(|| {
+            // Fallback to UTC if VN offset fails (should not happen with constant)
+            #[allow(clippy::expect_used)]
+            FixedOffset::east_opt(0).expect("UTC offset 0 should always be valid")
+        });
         let vn_time = dt.with_timezone(&vn_offset);
 
         // RFC 822 format: "Sun, 23 Nov 2025 14:00:00 +0700"
@@ -289,6 +293,7 @@ impl RssCreator {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use chrono::TimeZone;
