@@ -95,28 +95,28 @@ impl From<tokio::time::error::Elapsed> for Layer5Error {
 impl Layer5Error {
     /// Convert to boxed error for backward compatibility with legacy APIs
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn into_boxed(self) -> Box<dyn std::error::Error + Send + Sync> {
         Box::new(self)
     }
 
     /// Check if error is a not found error
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn is_not_found(&self) -> bool {
         matches!(self, Self::NotFound(_))
     }
 
     /// Check if error is a timeout
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn is_timeout(&self) -> bool {
         matches!(self, Self::Timeout(_))
     }
 
     /// Convert to HTTP status code
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn status_code(&self) -> axum::http::StatusCode {
         use axum::http::StatusCode;
         match self {

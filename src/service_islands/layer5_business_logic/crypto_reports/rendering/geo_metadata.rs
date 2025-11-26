@@ -61,7 +61,7 @@ impl GeoMetadata {
     ///
     /// # Returns
     /// A `GeoMetadata` struct with all fields populated
-    #[must_use] 
+    #[must_use]
     pub fn from_report(report: &Report) -> Self {
         let report_id = report.id;
         let created_at = report.created_at;
@@ -131,7 +131,7 @@ impl GeoMetadata {
 ///
 /// # Performance
 /// Uses `format!` macro with pre-calculated capacity for efficient string building
-#[must_use] 
+#[must_use]
 pub fn generate_meta_tags(metadata: &GeoMetadata, language: Option<&str>) -> String {
     let lang = language.unwrap_or("vi");
 
@@ -148,8 +148,10 @@ pub fn generate_meta_tags(metadata: &GeoMetadata, language: Option<&str>) -> Str
     // Essential meta tags
     // Essential meta tags
     // Use write! to avoid intermediate string allocation
-    let _ = std::fmt::Write::write_fmt(&mut html, format_args!(
-        r#"<meta name="description" content="{description}" />
+    let _ = std::fmt::Write::write_fmt(
+        &mut html,
+        format_args!(
+            r#"<meta name="description" content="{description}" />
     <link rel="canonical" href="{canonical}" />
 
     <!-- Open Graph Meta Tags (Facebook, LinkedIn, Discord) -->
@@ -181,13 +183,14 @@ pub fn generate_meta_tags(metadata: &GeoMetadata, language: Option<&str>) -> Str
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <meta name="author" content="CryptoDashboard" />
     <meta name="keywords" content="crypto, bitcoin, ethereum, market analysis, BTC, ETH, cryptocurrency, trading" />"#,
-        description = escape_html_attr(description),
-        title = escape_html_attr(title),
-        canonical = &metadata.canonical_url,
-        og_image = &metadata.og_image,
-        locale = if lang == "en" { "en_US" } else { "vi_VN" },
-        published = &metadata.date_published,
-    ));
+            description = escape_html_attr(description),
+            title = escape_html_attr(title),
+            canonical = &metadata.canonical_url,
+            og_image = &metadata.og_image,
+            locale = if lang == "en" { "en_US" } else { "vi_VN" },
+            published = &metadata.date_published,
+        ),
+    );
 
     html
 }
@@ -206,7 +209,7 @@ pub fn generate_meta_tags(metadata: &GeoMetadata, language: Option<&str>) -> Str
 ///
 /// # Schema Type
 /// Uses `Article` with `FinancialAnalysis` as additional type for maximum compatibility
-#[must_use] 
+#[must_use]
 pub fn generate_json_ld(metadata: &GeoMetadata, language: Option<&str>) -> String {
     let lang = language.unwrap_or("vi");
 
@@ -291,7 +294,7 @@ pub fn generate_json_ld(metadata: &GeoMetadata, language: Option<&str>) -> Strin
 ///
 /// # Returns
 /// Tuple of (`meta_tags_html`, `json_ld_html`, `dynamic_title`)
-#[must_use] 
+#[must_use]
 pub fn generate_complete_geo_metadata(
     report: &Report,
     language: Option<&str>,

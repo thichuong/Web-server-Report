@@ -19,7 +19,7 @@ impl Default for TemplateRenderer {
 
 impl TemplateRenderer {
     /// Create a new `TemplateRenderer`
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             // Initialize component
@@ -27,7 +27,7 @@ impl TemplateRenderer {
     }
 
     /// Health check for template renderer
-    #[must_use] 
+    #[must_use]
     pub fn health_check(&self) -> bool {
         // Verify template rendering is working
         true // Will implement actual health check

@@ -17,7 +17,7 @@ impl Default for UIComponents {
 
 impl UIComponents {
     /// Create a new `UIComponents` instance
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             // Initialize component
@@ -25,7 +25,7 @@ impl UIComponents {
     }
 
     /// Health check for UI components
-    #[must_use] 
+    #[must_use]
     pub fn health_check(&self) -> bool {
         // Verify UI components are working
         true // Will implement actual health check

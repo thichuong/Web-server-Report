@@ -87,7 +87,7 @@ impl CacheSystemIsland {
     ///
     /// Returns a reference to the Arc<CacheManager> for efficient access.
     /// Use `Arc::clone()` if you need to clone the Arc.
-    #[must_use] 
+    #[must_use]
     pub fn cache_manager(&self) -> &Arc<CacheManager> {
         &self.cache_manager
     }

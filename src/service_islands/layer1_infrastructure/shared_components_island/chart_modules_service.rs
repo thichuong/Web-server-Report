@@ -119,13 +119,13 @@ impl ChartModulesService {
     }
 
     /// Get the pre-loaded chart modules content
-    #[must_use] 
+    #[must_use]
     pub fn get_content(&self) -> Arc<String> {
         self.chart_modules_content.clone()
     }
 
     /// Health check
-    #[must_use] 
+    #[must_use]
     pub fn health_check(&self) -> bool {
         !self.chart_modules_content.is_empty()
     }

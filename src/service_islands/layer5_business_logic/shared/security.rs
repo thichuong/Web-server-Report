@@ -18,7 +18,7 @@
 /// - ~1GB/s on modern CPUs
 /// - Minimal overhead compared to `DefaultHasher`
 #[inline]
-#[must_use] 
+#[must_use]
 pub fn generate_sandbox_token(
     report_id: i32,
     created_at: &chrono::DateTime<chrono::Utc>,
@@ -50,7 +50,7 @@ pub fn generate_sandbox_token(
 ///
 /// Constant-time comparison to prevent timing attacks.
 #[inline]
-#[must_use] 
+#[must_use]
 pub fn verify_sandbox_token(
     token: &str,
     report_id: i32,

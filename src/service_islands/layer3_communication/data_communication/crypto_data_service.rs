@@ -78,7 +78,7 @@ impl Default for CryptoDataService {
 
 impl CryptoDataService {
     /// Create a new `CryptoDataService`
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             // Initialize service
@@ -392,7 +392,10 @@ impl CryptoDataService {
                     } else {
                         &format!("report #{report_id}")
                     };
-                    info!("🔥 Layer 3: Cache HIT cho compressed data của {}", report_type);
+                    info!(
+                        "🔥 Layer 3: Cache HIT cho compressed data của {}",
+                        report_type
+                    );
                     return Ok(Some(compressed_bytes));
                 }
             }
@@ -486,7 +489,10 @@ impl CryptoDataService {
                     } else {
                         &format!("DSD report #{report_id}")
                     };
-                    info!("🔥 Layer 3: Cache HIT for {} (lang: {})", report_type, language);
+                    info!(
+                        "🔥 Layer 3: Cache HIT for {} (lang: {})",
+                        report_type, language
+                    );
                     return Ok(Some(compressed_bytes));
                 }
             }

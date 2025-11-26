@@ -22,7 +22,7 @@ const DEVELOPMENT_WS_URL: &str = "ws://localhost:8081";
 /// This function is designed to be called infrequently (once per request at most).
 /// Consider caching the result if called in a hot path.
 #[inline]
-#[must_use] 
+#[must_use]
 pub fn get_websocket_url() -> String {
     std::env::var("WEBSOCKET_SERVICE_URL").unwrap_or_else(|_| {
         if cfg!(debug_assertions) {

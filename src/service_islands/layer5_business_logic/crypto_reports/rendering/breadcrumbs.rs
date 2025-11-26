@@ -37,7 +37,7 @@ pub struct BreadcrumbItem {
 ///
 /// Creates a hierarchical breadcrumb trail:
 /// Home > Crypto Reports > Report #ID
-#[must_use] 
+#[must_use]
 pub fn generate_breadcrumb_items(report_id: i32) -> Vec<BreadcrumbItem> {
     vec![
         BreadcrumbItem {
@@ -70,7 +70,7 @@ pub fn generate_breadcrumb_items(report_id: i32) -> Vec<BreadcrumbItem> {
 /// - Search engines understand page hierarchy
 /// - AI bots navigate site structure
 /// - Rich snippets in search results
-#[must_use] 
+#[must_use]
 pub fn generate_breadcrumbs_schema(report_id: i32) -> String {
     let items = generate_breadcrumb_items(report_id);
 
@@ -104,7 +104,7 @@ pub fn generate_breadcrumbs_schema(report_id: i32) -> String {
 /// Convert `ReportSummaryData` to `RelatedReportItem` for template
 ///
 /// Formats dates to Vietnam timezone (UTC+7) for display
-#[must_use] 
+#[must_use]
 pub fn format_related_report(report: &ReportSummaryData) -> RelatedReportItem {
     let dt = report.created_at + chrono::Duration::hours(7);
 
@@ -128,7 +128,7 @@ pub fn format_related_reports(reports: &[ReportSummaryData]) -> Vec<RelatedRepor
 /// - `breadcrumb_items`: Vec for navigation rendering
 /// - `breadcrumbs_schema`: JSON-LD string for SEO
 /// - `related_reports`: Vec for related content section
-#[must_use] 
+#[must_use]
 pub fn generate_breadcrumbs_and_related(
     report_id: i32,
     related_reports_data: &[ReportSummaryData],

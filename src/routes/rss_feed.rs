@@ -80,7 +80,9 @@ async fn rss_feed(State(service_islands): State<Arc<ServiceIslands>>) -> impl In
                             Response::builder()
                                 .status(StatusCode::INTERNAL_SERVER_ERROR)
                                 .body(Body::from("Failed to generate RSS feed"))
-                                .unwrap_or_else(|_| Response::new(Body::from("Failed to generate RSS feed")))
+                                .unwrap_or_else(|_| {
+                                    Response::new(Body::from("Failed to generate RSS feed"))
+                                })
                         })
                         .into_response()
                 }

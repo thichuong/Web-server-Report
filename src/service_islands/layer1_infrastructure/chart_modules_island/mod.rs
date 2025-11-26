@@ -24,7 +24,7 @@ pub struct ChartModulesIsland {
 
 impl ChartModulesIsland {
     /// Create a new `ChartModulesIsland`
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             base_dir: "shared_assets/js/chart_modules".to_string(),
@@ -39,7 +39,7 @@ impl ChartModulesIsland {
 
     /// Create a new `ChartModulesIsland` with custom configuration
     #[allow(dead_code)]
-    #[must_use] 
+    #[must_use]
     pub fn with_config(base_dir: String, priority_order: Vec<String>) -> Self {
         Self {
             base_dir,
@@ -48,7 +48,7 @@ impl ChartModulesIsland {
     }
 
     /// Health check for chart modules island
-    #[must_use] 
+    #[must_use]
     pub fn health_check(&self) -> bool {
         // Check if the base directory exists and is accessible
         let source_dir = Path::new(&self.base_dir);
@@ -232,7 +232,7 @@ impl ChartModulesIsland {
 
     /// Get current priority order
     #[allow(dead_code)]
-    #[must_use] 
+    #[must_use]
     pub fn get_priority_order(&self) -> &Vec<String> {
         &self.priority_order
     }
@@ -245,7 +245,7 @@ impl ChartModulesIsland {
 
     /// Get current base directory
     #[allow(dead_code)]
-    #[must_use] 
+    #[must_use]
     pub fn get_base_dir(&self) -> &String {
         &self.base_dir
     }

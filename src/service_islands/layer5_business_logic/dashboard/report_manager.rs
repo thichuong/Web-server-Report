@@ -18,7 +18,7 @@ impl Default for ReportManager {
 
 impl ReportManager {
     /// Create a new `ReportManager`
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             // Initialize component
@@ -26,7 +26,7 @@ impl ReportManager {
     }
 
     /// Health check for report manager
-    #[must_use] 
+    #[must_use]
     pub fn health_check(&self) -> bool {
         // Verify report management is working
         true // Will implement actual health check

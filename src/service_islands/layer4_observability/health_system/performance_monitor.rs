@@ -22,7 +22,7 @@ impl Default for PerformanceMonitor {
 
 impl PerformanceMonitor {
     /// Create a new `PerformanceMonitor`
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             // Initialize component
@@ -30,7 +30,7 @@ impl PerformanceMonitor {
     }
 
     /// Health check for performance monitor
-    #[must_use] 
+    #[must_use]
     pub fn health_check(&self) -> bool {
         // Verify performance monitoring is working
         true // Will implement actual health check

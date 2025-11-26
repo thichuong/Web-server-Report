@@ -41,7 +41,7 @@ pub struct ReportCreator {
 
 impl ReportCreator {
     /// Create a new `ReportCreator`
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             data_service: CryptoDataService::new(),
@@ -165,7 +165,7 @@ impl ReportCreator {
     /// Create sandboxed report (delegates to shadow DOM renderer)
     ///
     /// Creates a secure sandboxed version of the report for Shadow DOM delivery.
-    #[must_use] 
+    #[must_use]
     pub fn create_sandboxed_report(
         &self,
         report: &Report,
@@ -176,7 +176,7 @@ impl ReportCreator {
     }
 
     /// Generate Shadow DOM content (delegates to shadow DOM renderer)
-    #[must_use] 
+    #[must_use]
     pub fn generate_shadow_dom_content(
         &self,
         sandboxed_report: &SandboxedReport,
@@ -221,16 +221,13 @@ impl ReportCreator {
         chart_modules_content: Option<&str>,
     ) -> Layer5Result<Response> {
         match self.fetch_report(state, report_id).await {
-            Ok(Some(report)) => {
-                self.shadow_dom_renderer
-                    .serve_shadow_dom_content(
-                        state,
-                        &report,
-                        sandbox_token,
-                        language,
-                        chart_modules_content,
-                    )
-            }
+            Ok(Some(report)) => self.shadow_dom_renderer.serve_shadow_dom_content(
+                state,
+                &report,
+                sandbox_token,
+                language,
+                chart_modules_content,
+            ),
             Ok(None) => Ok(build_not_found_response("Report not found")),
             Err(e) => {
                 error!("ReportCreator: Database error: {}", e);
@@ -258,16 +255,13 @@ impl ReportCreator {
         chart_modules_content: Option<&str>,
     ) -> Layer5Result<Response> {
         match self.fetch_report(state, report_id).await {
-            Ok(Some(report)) => {
-                self.shadow_dom_renderer
-                    .serve_shadow_dom_content(
-                        state,
-                        &report,
-                        shadow_dom_token,
-                        language,
-                        chart_modules_content,
-                    )
-            }
+            Ok(Some(report)) => self.shadow_dom_renderer.serve_shadow_dom_content(
+                state,
+                &report,
+                shadow_dom_token,
+                language,
+                chart_modules_content,
+            ),
             Ok(None) => Ok(build_not_found_response("Report not found")),
             Err(e) => {
                 error!("ReportCreator: Database error: {}", e);

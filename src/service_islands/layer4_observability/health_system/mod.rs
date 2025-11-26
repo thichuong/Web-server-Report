@@ -55,7 +55,7 @@ impl HealthSystemIsland {
     /// Health check for Health System Island
     ///
     /// Verifies that all components of the Health System Island are functioning properly.
-    #[must_use] 
+    #[must_use]
     pub fn health_check(&self) -> bool {
         // Check all components
         let checker_ok = self.health_checker.health_check();

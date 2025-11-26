@@ -27,7 +27,7 @@ impl Default for DashboardDataService {
 
 impl DashboardDataService {
     /// Create a new `DashboardDataService`
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             // Initialize service
@@ -109,7 +109,7 @@ impl DashboardDataService {
     }
 
     /// Health check for dashboard data service
-    #[must_use] 
+    #[must_use]
     pub fn health_check(&self) -> bool {
         // Verify service is functioning properly
         true // Will implement actual health checks

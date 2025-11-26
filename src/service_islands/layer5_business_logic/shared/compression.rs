@@ -37,21 +37,21 @@ impl CompressionStats {
 
     /// Get original size in KB
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn original_kb(&self) -> usize {
         self.original_size / 1024
     }
 
     /// Get compressed size in KB
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn compressed_kb(&self) -> usize {
         self.compressed_size / 1024
     }
 
     /// Get bytes saved
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn bytes_saved(&self) -> usize {
         self.original_size.saturating_sub(self.compressed_size)
     }
@@ -145,12 +145,12 @@ mod tests {
 </body>
 </html>"#;
         let (data, stats) = compress_html_to_gzip(html)?;
-        
+
         // For realistic HTML, compression should provide benefit
         // Note: very small inputs may not compress well due to gzip overhead
         assert!(!data.is_empty());
         assert_eq!(stats.original_size, html.len());
-        
+
         Ok(())
     }
 }

@@ -4,18 +4,18 @@
 //! Based on `archive_old_code/handlers/crypto.rs`
 //! ONLY uses Template Engine - NO manual HTML creation
 
-use std::collections::HashMap;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
-use std::sync::{atomic::Ordering, Arc};
-use std::io::Write;
-use std::error::Error as StdError;
 use axum::{
     body::Body,
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
 use flate2::{write::GzEncoder, Compression};
+use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
+use std::error::Error as StdError;
+use std::hash::{Hash, Hasher};
+use std::io::Write;
+use std::sync::{atomic::Ordering, Arc};
 use tracing::{debug, error, info, warn};
 
 use crate::service_islands::layer5_business_logic::crypto_reports::rendering::{
@@ -47,7 +47,7 @@ impl Default for CryptoHandlers {
 
 impl CryptoHandlers {
     /// Create a new `CryptoHandlers` instance
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         let report_creator = ReportCreator::new();
         let template_orchestrator = TemplateOrchestrator::new(report_creator.clone());
@@ -72,7 +72,7 @@ impl CryptoHandlers {
     ///
     /// From `archive_old_code/handlers/crypto.rs::create_cached_response`
     #[allow(dead_code)]
-    #[must_use] 
+    #[must_use]
     pub fn create_cached_response(&self, html: String, cache_status: &str) -> Response {
         Response::builder()
             .status(StatusCode::OK)
@@ -93,7 +93,7 @@ impl CryptoHandlers {
     /// Create compressed HTTP response with proper headers
     ///
     /// Helper function to create HTTP response with gzip compression headers
-    #[must_use] 
+    #[must_use]
     pub fn create_compressed_response(compressed_data: Vec<u8>) -> Response {
         Response::builder()
             .status(StatusCode::OK)
@@ -593,11 +593,7 @@ impl CryptoHandlers {
         let default_language = "vi";
 
         if let Ok(Some(cached_compressed)) = data_service
-            .get_rendered_report_dsd_compressed(
-                state,
-                report_id_value,
-                default_language,
-            )
+            .get_rendered_report_dsd_compressed(state, report_id_value, default_language)
             .await
         {
             info!(
@@ -639,11 +635,7 @@ impl CryptoHandlers {
         // STEP 1.2: If preferred language differs from default, try cache with preferred language
         if preferred_language != default_language {
             if let Ok(Some(cached_compressed)) = data_service
-                .get_rendered_report_dsd_compressed(
-                    state,
-                    report_id_value,
-                    &preferred_language,
-                )
+                .get_rendered_report_dsd_compressed(state, report_id_value, &preferred_language)
                 .await
             {
                 info!(
@@ -707,14 +699,14 @@ impl CryptoHandlers {
         let shadow_dom_token = format!("sb_{:x}", hasher.finish());
 
         // STEP 4: Get chart modules content and generate shadow DOM content
-        let sandboxed_report = self.report_creator
+        let sandboxed_report = self
+            .report_creator
             .create_sandboxed_report(&report, Some(chart_modules_content.as_str()));
-        let shadow_dom_content = self.report_creator
-            .generate_shadow_dom_content(
-                &sandboxed_report,
-                Some(&preferred_language),
-                Some(chart_modules_content.as_str()),
-            );
+        let shadow_dom_content = self.report_creator.generate_shadow_dom_content(
+            &sandboxed_report,
+            Some(&preferred_language),
+            Some(chart_modules_content.as_str()),
+        );
 
         info!(
             "🌐 [Handler] render_crypto_index_dsd rendering with language: {}",
@@ -732,9 +724,7 @@ impl CryptoHandlers {
         // STEP 5.1: Fetch related reports for internal linking (GEO optimization)
         let related_reports_data = match data_service
             .fetch_related_reports(
-                state,
-                report.id,
-                3, // Limit to 3 related reports
+                state, report.id, 3, // Limit to 3 related reports
             )
             .await
         {
@@ -781,7 +771,8 @@ impl CryptoHandlers {
             Ok(html) => html,
             Err(e) => {
                 error!("❌ [Handler] Failed to render DSD template: {}", e);
-                return (StatusCode::INTERNAL_SERVER_ERROR, "Template render error").into_response();
+                return (StatusCode::INTERNAL_SERVER_ERROR, "Template render error")
+                    .into_response();
             }
         };
 
@@ -842,6 +833,13 @@ impl CryptoHandlers {
         chart_modules_content: Arc<String>,
     ) -> Response {
         // Reuse the logic from render_crypto_index_dsd but with specific ID
-        self.render_crypto_index_dsd(state, params, headers, chart_modules_content, Some(report_id)).await
+        self.render_crypto_index_dsd(
+            state,
+            params,
+            headers,
+            chart_modules_content,
+            Some(report_id),
+        )
+        .await
     }
 }

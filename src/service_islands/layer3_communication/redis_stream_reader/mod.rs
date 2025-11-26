@@ -19,7 +19,7 @@ pub struct RedisStreamReader {
 
 impl RedisStreamReader {
     /// Create a new Redis Stream Reader
-    #[must_use] 
+    #[must_use]
     pub fn new(cache_system: Arc<CacheSystemIsland>) -> Self {
         Self {
             cache_system,
@@ -88,7 +88,9 @@ impl RedisStreamReader {
         }
 
         // Get the first (and only) entry
-        let (entry_id, fields) = entries.first().ok_or_else(|| anyhow::anyhow!("Stream entry missing"))?;
+        let (entry_id, fields) = entries
+            .first()
+            .ok_or_else(|| anyhow::anyhow!("Stream entry missing"))?;
         info!("📨 Stream entry ID: {}", entry_id);
 
         // Convert stream fields back to JSON

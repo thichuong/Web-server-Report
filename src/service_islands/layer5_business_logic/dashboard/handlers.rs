@@ -33,7 +33,7 @@ impl Default for DashboardHandlers {
 
 impl DashboardHandlers {
     /// Create a new `DashboardHandlers` instance
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             data_service: DashboardDataService::new(),
@@ -50,7 +50,7 @@ impl DashboardHandlers {
     /// Create compressed HTTP response with proper headers
     ///
     /// Helper function to create HTTP response with gzip compression headers
-    #[must_use] 
+    #[must_use]
     pub fn create_compressed_response(compressed_data: Vec<u8>) -> Response {
         Response::builder()
             .status(StatusCode::OK)

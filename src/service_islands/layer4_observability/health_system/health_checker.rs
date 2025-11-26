@@ -21,7 +21,7 @@ impl Default for HealthChecker {
 
 impl HealthChecker {
     /// Create a new `HealthChecker`
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             // Initialize component
@@ -29,7 +29,7 @@ impl HealthChecker {
     }
 
     /// Health check for health checker
-    #[must_use] 
+    #[must_use]
     pub fn health_check(&self) -> bool {
         // Verify health checker is working
         true // Will implement actual health check

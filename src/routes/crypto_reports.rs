@@ -25,8 +25,6 @@ pub fn configure_crypto_reports_routes() -> Router<Arc<ServiceIslands>> {
         .route("/crypto_reports_list", get(crypto_reports_list))
 }
 
-
-
 /// List all crypto reports with pagination
 async fn crypto_reports_list(
     Query(params): Query<HashMap<String, String>>,
@@ -93,7 +91,9 @@ async fn crypto_index(
     // Check if specific report ID is requested via query param
     let report_id = params.get("id");
     let report_id_value = if let Some(id_str) = report_id {
-        if let Ok(id) = id_str.parse::<i32>() { Some(id) } else {
+        if let Ok(id) = id_str.parse::<i32>() {
+            Some(id)
+        } else {
             error!("❌ [Route] Invalid report ID format: {}", id_str);
             return (StatusCode::BAD_REQUEST, "Invalid report ID format").into_response();
         }
@@ -130,7 +130,9 @@ async fn crypto_view_report(
     debug!("🌓 [Route] crypto_view_report called for ID: {}", id);
 
     // Parse report ID
-    let report_id: i32 = if let Ok(id) = id.parse() { id } else {
+    let report_id: i32 = if let Ok(id) = id.parse() {
+        id
+    } else {
         error!("❌ [Route] Invalid report ID format: {}", id);
         return (StatusCode::BAD_REQUEST, "Invalid report ID format").into_response();
     };

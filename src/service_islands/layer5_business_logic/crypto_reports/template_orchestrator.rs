@@ -40,7 +40,7 @@ pub struct TemplateOrchestrator {
 
 impl TemplateOrchestrator {
     /// Create a new `TemplateOrchestrator`
-    #[must_use] 
+    #[must_use]
     pub fn new(report_creator: ReportCreator) -> Self {
         Self { report_creator }
     }

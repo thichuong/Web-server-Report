@@ -6,11 +6,11 @@
 //! - Sanitization functions for HTML, CSS, and JavaScript
 //! - From trait implementations for type conversions
 
-use std::sync::LazyLock;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use std::borrow::Cow;
+use std::sync::LazyLock;
 
 // Import Layer 3 data model for From trait
 use crate::service_islands::layer3_communication::data_communication::ReportData;
@@ -21,41 +21,47 @@ use crate::service_islands::layer3_communication::data_communication::ReportData
 
 /// Pre-compiled HTML sanitization patterns
 #[allow(clippy::expect_used)] // Safe: Regex patterns are hardcoded and verified
-pub static HTML_SANITIZE_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| vec![
-    Regex::new(r"<script[^>]*>.*?</script>").expect("Invalid regex"),  // Remove inline scripts
-    Regex::new(r"<iframe[^>]*>.*?</iframe>").expect("Invalid regex"),  // Remove nested iframes
-    Regex::new(r"<object[^>]*>.*?</object>").expect("Invalid regex"),  // Remove objects
-    Regex::new(r"<embed[^>]*>.*?</embed>").expect("Invalid regex"),    // Remove embeds
-    Regex::new(r"<applet[^>]*>.*?</applet>").expect("Invalid regex"),  // Remove applets
-    Regex::new(r"javascript:").expect("Invalid regex"),                 // Remove javascript: URLs
-    Regex::new(r"on\w+\s*=").expect("Invalid regex"),                   // Remove event handlers
-]);
+pub static HTML_SANITIZE_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
+    vec![
+        Regex::new(r"<script[^>]*>.*?</script>").expect("Invalid regex"), // Remove inline scripts
+        Regex::new(r"<iframe[^>]*>.*?</iframe>").expect("Invalid regex"), // Remove nested iframes
+        Regex::new(r"<object[^>]*>.*?</object>").expect("Invalid regex"), // Remove objects
+        Regex::new(r"<embed[^>]*>.*?</embed>").expect("Invalid regex"),   // Remove embeds
+        Regex::new(r"<applet[^>]*>.*?</applet>").expect("Invalid regex"), // Remove applets
+        Regex::new(r"javascript:").expect("Invalid regex"),               // Remove javascript: URLs
+        Regex::new(r"on\w+\s*=").expect("Invalid regex"),                 // Remove event handlers
+    ]
+});
 
 /// Pre-compiled CSS sanitization patterns
 #[allow(clippy::expect_used)] // Safe: Regex patterns are hardcoded and verified
-pub static CSS_SANITIZE_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| vec![
-    Regex::new(r"expression\s*\(").expect("Invalid regex"),            // Remove CSS expressions
-    Regex::new(r"javascript\s*:").expect("Invalid regex"),             // Remove javascript URLs in CSS
-    Regex::new(r"@import").expect("Invalid regex"),                    // Remove imports
-    Regex::new(r"behavior\s*:").expect("Invalid regex"),               // Remove IE behaviors
-    Regex::new(r"position\s*:\s*fixed").expect("Invalid regex"),       // Prevent fixed positioning
-    Regex::new(r"position\s*:\s*absolute").expect("Invalid regex"),    // Be careful with absolute
-    Regex::new(r"z-index\s*:\s*[0-9]{4,}").expect("Invalid regex"),    // Prevent high z-index
-    Regex::new(r"!important\s*;").expect("Invalid regex"),             // Remove !important
-]);
+pub static CSS_SANITIZE_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
+    vec![
+        Regex::new(r"expression\s*\(").expect("Invalid regex"), // Remove CSS expressions
+        Regex::new(r"javascript\s*:").expect("Invalid regex"),  // Remove javascript URLs in CSS
+        Regex::new(r"@import").expect("Invalid regex"),         // Remove imports
+        Regex::new(r"behavior\s*:").expect("Invalid regex"),    // Remove IE behaviors
+        Regex::new(r"position\s*:\s*fixed").expect("Invalid regex"), // Prevent fixed positioning
+        Regex::new(r"position\s*:\s*absolute").expect("Invalid regex"), // Be careful with absolute
+        Regex::new(r"z-index\s*:\s*[0-9]{4,}").expect("Invalid regex"), // Prevent high z-index
+        Regex::new(r"!important\s*;").expect("Invalid regex"),  // Remove !important
+    ]
+});
 
 /// Pre-compiled JavaScript sanitization patterns
 #[allow(clippy::expect_used)] // Safe: Regex patterns are hardcoded and verified
-pub static JS_SANITIZE_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| vec![
-    Regex::new(r"eval\s*\(").expect("Invalid regex"),                  // Remove eval calls
-    Regex::new(r"Function\s*\(").expect("Invalid regex"),              // Remove Function constructor
-    Regex::new(r"setTimeout\s*\(").expect("Invalid regex"),            // Remove setTimeout
-    Regex::new(r"setInterval\s*\(").expect("Invalid regex"),           // Remove setInterval
-    Regex::new(r"document\.write").expect("Invalid regex"),            // Remove document.write
-    Regex::new(r"window\.location").expect("Invalid regex"),           // Remove location changes
-    Regex::new(r"parent\.").expect("Invalid regex"),                   // Remove parent access
-    Regex::new(r"top\.").expect("Invalid regex"),                      // Remove top access
-]);
+pub static JS_SANITIZE_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
+    vec![
+        Regex::new(r"eval\s*\(").expect("Invalid regex"), // Remove eval calls
+        Regex::new(r"Function\s*\(").expect("Invalid regex"), // Remove Function constructor
+        Regex::new(r"setTimeout\s*\(").expect("Invalid regex"), // Remove setTimeout
+        Regex::new(r"setInterval\s*\(").expect("Invalid regex"), // Remove setInterval
+        Regex::new(r"document\.write").expect("Invalid regex"), // Remove document.write
+        Regex::new(r"window\.location").expect("Invalid regex"), // Remove location changes
+        Regex::new(r"parent\.").expect("Invalid regex"),  // Remove parent access
+        Regex::new(r"top\.").expect("Invalid regex"),     // Remove top access
+    ]
+});
 
 /// Report model - exactly from `archive_old_code/models.rs` with iframe sandboxing support
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]

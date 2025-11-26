@@ -18,7 +18,7 @@ impl Default for DataManager {
 
 impl DataManager {
     /// Create a new `DataManager`
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             // Initialize component
@@ -26,7 +26,7 @@ impl DataManager {
     }
 
     /// Health check for data manager
-    #[must_use] 
+    #[must_use]
     pub fn health_check(&self) -> bool {
         // Verify data management is working
         true // Will implement actual health check

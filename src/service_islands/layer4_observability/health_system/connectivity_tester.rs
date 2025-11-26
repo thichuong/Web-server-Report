@@ -21,7 +21,7 @@ impl Default for ConnectivityTester {
 
 impl ConnectivityTester {
     /// Create a new `ConnectivityTester`
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             // Initialize component
@@ -29,7 +29,7 @@ impl ConnectivityTester {
     }
 
     /// Health check for connectivity tester
-    #[must_use] 
+    #[must_use]
     pub fn health_check(&self) -> bool {
         // Verify connectivity testing is working
         true // Will implement actual health check

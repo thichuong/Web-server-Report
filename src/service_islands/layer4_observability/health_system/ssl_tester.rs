@@ -20,7 +20,7 @@ impl Default for SslTester {
 
 impl SslTester {
     /// Create a new `SslTester`
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             // Initialize component
@@ -28,7 +28,7 @@ impl SslTester {
     }
 
     /// Health check for SSL tester
-    #[must_use] 
+    #[must_use]
     pub fn health_check(&self) -> bool {
         // Verify SSL testing is working
         true // Will implement actual health check
