@@ -1,6 +1,6 @@
 # Stage 1: Builder
 # Sử dụng bookworm cho builder để khớp với runtime (Debian 12)
-FROM rust:1.91-slim-bookworm as builder
+FROM rust:slim-bookworm as builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
