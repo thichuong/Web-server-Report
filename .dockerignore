@@ -1,5 +1,6 @@
 # Build artifacts
 target/
+dist/
 
 # IDE files
 .vscode/
@@ -21,8 +22,12 @@ Thumbs.db
 logs/
 
 # Environment files (security)
+.env
 .env.local
 .env.production
+
+# Dependencies
+node_modules/
 
 # Development scripts (not needed in production) 
 scripts/
