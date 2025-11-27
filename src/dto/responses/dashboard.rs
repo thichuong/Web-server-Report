@@ -63,7 +63,7 @@ pub struct DashboardDataResponse {
 }
 
 /// US Stock Index data structure
-/// Symbol is the HashMap key in DashboardDataResponse.us_stock_indices
+/// Symbol is the `HashMap` key in `DashboardDataResponse.us_stock_indices`
 /// Display name mapping should be handled by the frontend
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StockIndexData {
