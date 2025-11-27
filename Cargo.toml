@@ -58,7 +58,7 @@ rayon = "1.8"          # Data parallelism cho CPU-intensive tasks
 dashmap = "5.5"        # Thread-safe HashMap
 num_cpus = "1.16"      # Detect số cores CPU
 # Cache dependencies - Multi-tier cache system
-multi-tier-cache = "0.5.4"  # Unified cache library with type-safe database caching
+multi-tier-cache = "0.5.5"  # Unified cache library with type-safe database caching
 moka = { version = "0.12", features = ["future"] }  # L1 In-memory cache (for backward compatibility)
 bb8-redis = "0.15"     # Redis connection pool for L2 cache (legacy)
 
