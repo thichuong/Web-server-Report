@@ -98,43 +98,22 @@ impl CryptoDataService {
         &self,
         state: &Arc<AppState>,
     ) -> Result<Option<ReportData>, sqlx::Error> {
-        // Use type-safe caching if cache system is available
-        if let Some(ref cache_system) = state.cache_system {
-            let db = state.db.clone();
+        info!("🗄️ CryptoDataService: Fetching latest crypto report from database");
 
-            match cache_system.cache_manager.get_or_compute_typed(
-                "crypto_latest_report_data",
-                crate::service_islands::layer1_infrastructure::cache_system_island::CacheStrategy::ShortTerm, // 5 minutes
-                || async move {
-                    info!("🗄️ CryptoDataService: Fetching latest crypto report from database");
+        let report = sqlx::query_as::<_, ReportData>(
+            "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report ORDER BY created_at DESC LIMIT 1",
+        ).fetch_optional(&state.db).await?;
 
-                    let report = sqlx::query_as::<_, ReportData>(
-                        "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report ORDER BY created_at DESC LIMIT 1",
-                    ).fetch_optional(&db).await?;
-
-                    if let Some(ref report) = report {
-                        debug!("📊 CryptoDataService: Retrieved latest crypto report {} from database", report.id);
-                    } else {
-                        info!("📭 CryptoDataService: No crypto reports found in database");
-                    }
-
-                    Ok(report)
-                }
-            ).await {
-                Ok(report) => Ok(report),
-                Err(e) => {
-                    // Convert anyhow::Error to sqlx::Error
-                    warn!("⚠️ CryptoDataService: Cache/DB error: {}", e);
-                    Err(sqlx::Error::Protocol(format!("Cache or database error: {e}")))
-                }
-            }
+        if let Some(ref report) = report {
+            debug!(
+                "📊 CryptoDataService: Retrieved latest crypto report {} from database",
+                report.id
+            );
         } else {
-            // Fallback: Direct database query if no cache
-            info!("🗄️ CryptoDataService: Fetching latest crypto report from database (no cache)");
-            sqlx::query_as::<_, ReportData>(
-                "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report ORDER BY created_at DESC LIMIT 1",
-            ).fetch_optional(&state.db).await
+            info!("📭 CryptoDataService: No crypto reports found in database");
         }
+
+        Ok(report)
     }
 
     /// Fetch all report IDs and creation dates for sitemap generation
@@ -149,41 +128,19 @@ impl CryptoDataService {
         &self,
         state: &Arc<AppState>,
     ) -> Result<Vec<ReportSitemapData>, sqlx::Error> {
-        // Use type-safe caching if cache system is available
-        if let Some(ref cache_system) = state.cache_system {
-            let db = state.db.clone();
+        info!("🗄️ CryptoDataService: Fetching all report IDs for sitemap from database");
 
-            match cache_system.cache_manager.get_or_compute_typed(
-                "sitemap_report_ids",
-                crate::service_islands::layer1_infrastructure::cache_system_island::CacheStrategy::MediumTerm, // 1 hour
-                || async move {
-                    info!("🗄️ CryptoDataService: Fetching all report IDs for sitemap from database");
+        let reports = sqlx::query_as::<_, ReportSitemapData>(
+            "SELECT id, created_at FROM crypto_report ORDER BY created_at DESC",
+        )
+        .fetch_all(&state.db)
+        .await?;
 
-                    let reports = sqlx::query_as::<_, ReportSitemapData>(
-                        "SELECT id, created_at FROM crypto_report ORDER BY created_at DESC",
-                    )
-                    .fetch_all(&db)
-                    .await?;
-
-                    debug!("📊 CryptoDataService: Retrieved {} report IDs for sitemap", reports.len());
-                    Ok(reports)
-                }
-            ).await {
-                Ok(reports) => Ok(reports),
-                Err(e) => {
-                    warn!("⚠️ CryptoDataService: Cache/DB error for sitemap data: {}", e);
-                    Err(sqlx::Error::Protocol(format!("Cache or database error: {e}")))
-                }
-            }
-        } else {
-            // Fallback: Direct database query if no cache
-            info!("🗄️ CryptoDataService: Fetching all report IDs for sitemap (no cache)");
-            sqlx::query_as::<_, ReportSitemapData>(
-                "SELECT id, created_at FROM crypto_report ORDER BY created_at DESC",
-            )
-            .fetch_all(&state.db)
-            .await
-        }
+        debug!(
+            "📊 CryptoDataService: Retrieved {} report IDs for sitemap",
+            reports.len()
+        );
+        Ok(reports)
     }
 
     /// Fetch related reports (older reports) for GEO optimization
@@ -208,48 +165,25 @@ impl CryptoDataService {
         current_id: i32,
         limit: i64,
     ) -> Result<Vec<ReportSummaryData>, sqlx::Error> {
-        // Use type-safe caching if cache system is available
-        if let Some(ref cache_system) = state.cache_system {
-            let db = state.db.clone();
+        debug!(
+            "🗄️ CryptoDataService: Fetching related reports for report {} from database",
+            current_id
+        );
 
-            match cache_system.cache_manager.get_or_compute_typed(
-                &format!("related_reports_{current_id}_{limit}"),
-                crate::service_islands::layer1_infrastructure::cache_system_island::CacheStrategy::ShortTerm, // 5 minutes
-                || async move {
-                    debug!("🗄️ CryptoDataService: Fetching related reports for report {} from database", current_id);
+        let reports = sqlx::query_as::<_, ReportSummaryData>(
+            "SELECT id, created_at FROM crypto_report WHERE id < $1 ORDER BY id DESC LIMIT $2",
+        )
+        .bind(current_id)
+        .bind(limit)
+        .fetch_all(&state.db)
+        .await?;
 
-                    let reports = sqlx::query_as::<_, ReportSummaryData>(
-                        "SELECT id, created_at FROM crypto_report WHERE id < $1 ORDER BY id DESC LIMIT $2",
-                    )
-                    .bind(current_id)
-                    .bind(limit)
-                    .fetch_all(&db)
-                    .await?;
-
-                    debug!("📊 CryptoDataService: Retrieved {} related reports for report {}", reports.len(), current_id);
-                    Ok(reports)
-                }
-            ).await {
-                Ok(reports) => Ok(reports),
-                Err(e) => {
-                    warn!("⚠️ CryptoDataService: Cache/DB error for related reports: {}", e);
-                    Err(sqlx::Error::Protocol(format!("Cache or database error: {e}")))
-                }
-            }
-        } else {
-            // Fallback: Direct database query if no cache
-            debug!(
-                "🗄️ CryptoDataService: Fetching related reports for report {} (no cache)",
-                current_id
-            );
-            sqlx::query_as::<_, ReportSummaryData>(
-                "SELECT id, created_at FROM crypto_report WHERE id < $1 ORDER BY id DESC LIMIT $2",
-            )
-            .bind(current_id)
-            .bind(limit)
-            .fetch_all(&state.db)
-            .await
-        }
+        debug!(
+            "📊 CryptoDataService: Retrieved {} related reports for report {}",
+            reports.len(),
+            current_id
+        );
+        Ok(reports)
     }
 
     /// Fetch reports for RSS feed generation
@@ -272,46 +206,23 @@ impl CryptoDataService {
         state: &Arc<AppState>,
         limit: i64,
     ) -> Result<Vec<ReportRssData>, sqlx::Error> {
-        // Use type-safe caching if cache system is available
-        if let Some(ref cache_system) = state.cache_system {
-            let db = state.db.clone();
+        info!(
+            "🗄️ CryptoDataService: Fetching {} reports for RSS feed from database",
+            limit
+        );
 
-            match cache_system.cache_manager.get_or_compute_typed(
-                &format!("rss_reports_{limit}"),
-                crate::service_islands::layer1_infrastructure::cache_system_island::CacheStrategy::MediumTerm, // 1 hour
-                || async move {
-                    info!("🗄️ CryptoDataService: Fetching {} reports for RSS feed from database", limit);
+        let reports = sqlx::query_as::<_, ReportRssData>(
+            "SELECT id, html_content, created_at FROM crypto_report ORDER BY created_at DESC LIMIT $1",
+        )
+        .bind(limit)
+        .fetch_all(&state.db)
+        .await?;
 
-                    let reports = sqlx::query_as::<_, ReportRssData>(
-                        "SELECT id, html_content, created_at FROM crypto_report ORDER BY created_at DESC LIMIT $1",
-                    )
-                    .bind(limit)
-                    .fetch_all(&db)
-                    .await?;
-
-                    debug!("📊 CryptoDataService: Retrieved {} reports for RSS feed", reports.len());
-                    Ok(reports)
-                }
-            ).await {
-                Ok(reports) => Ok(reports),
-                Err(e) => {
-                    warn!("⚠️ CryptoDataService: Cache/DB error for RSS reports: {}", e);
-                    Err(sqlx::Error::Protocol(format!("Cache or database error: {e}")))
-                }
-            }
-        } else {
-            // Fallback: Direct database query if no cache
-            info!(
-                "🗄️ CryptoDataService: Fetching {} reports for RSS feed (no cache)",
-                limit
-            );
-            sqlx::query_as::<_, ReportRssData>(
-                "SELECT id, html_content, created_at FROM crypto_report ORDER BY created_at DESC LIMIT $1",
-            )
-            .bind(limit)
-            .fetch_all(&state.db)
-            .await
-        }
+        debug!(
+            "📊 CryptoDataService: Retrieved {} reports for RSS feed",
+            reports.len()
+        );
+        Ok(reports)
     }
 
     /// Fetch crypto report by ID from database with intelligent caching (L1+L2)
@@ -327,50 +238,30 @@ impl CryptoDataService {
         state: &Arc<AppState>,
         report_id: i32,
     ) -> Result<Option<ReportData>, sqlx::Error> {
-        // Use type-safe caching if cache system is available
-        if let Some(ref cache_system) = state.cache_system {
-            let db = state.db.clone();
+        info!(
+            "🗄️ CryptoDataService: Fetching crypto report {} from database",
+            report_id
+        );
 
-            match cache_system.cache_manager.get_or_compute_typed(
-                &format!("crypto_report_data_{report_id}"),
-                crate::service_islands::layer1_infrastructure::cache_system_island::CacheStrategy::ShortTerm, // 5 minutes
-                || async move {
-                    info!("🗄️ CryptoDataService: Fetching crypto report {} from database", report_id);
+        let report = sqlx::query_as::<_, ReportData>(
+            "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report WHERE id = $1",
+        )
+        .bind(report_id)
+        .fetch_optional(&state.db).await?;
 
-                    let report = sqlx::query_as::<_, ReportData>(
-                        "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report WHERE id = $1",
-                    )
-                    .bind(report_id)
-                    .fetch_optional(&db).await?;
-
-                    if let Some(ref report) = report {
-                        debug!("📊 CryptoDataService: Retrieved crypto report {} from database", report.id);
-                    } else {
-                        info!("📭 CryptoDataService: Crypto report {} not found in database", report_id);
-                    }
-
-                    Ok(report)
-                }
-            ).await {
-                Ok(report) => Ok(report),
-                Err(e) => {
-                    // Convert anyhow::Error to sqlx::Error
-                    warn!("⚠️ CryptoDataService: Cache/DB error for report {}: {}", report_id, e);
-                    Err(sqlx::Error::Protocol(format!("Cache or database error: {e}")))
-                }
-            }
+        if let Some(ref report) = report {
+            debug!(
+                "📊 CryptoDataService: Retrieved crypto report {} from database",
+                report.id
+            );
         } else {
-            // Fallback: Direct database query if no cache
             info!(
-                "🗄️ CryptoDataService: Fetching crypto report {} from database (no cache)",
+                "📭 CryptoDataService: Crypto report {} not found in database",
                 report_id
             );
-            sqlx::query_as::<_, ReportData>(
-                "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report WHERE id = $1",
-            )
-            .bind(report_id)
-            .fetch_optional(&state.db).await
         }
+
+        Ok(report)
     }
 
     /// Lấy nội dung compressed data của một report từ cache.
