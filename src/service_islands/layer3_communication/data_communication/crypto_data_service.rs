@@ -779,38 +779,22 @@ impl CryptoDataService {
     }
 
     /// Step 5: Render template
-    /// ✅ PRODUCTION-READY: Added 15s timeout to prevent hanging tasks
+    /// ✅ MEMORY FIX: Synchronous rendering to avoid cloning Tera
     ///
     /// # Errors
     ///
-    /// Returns error if template rendering fails, task panics, or timeout (15s) is exceeded
-    async fn render_reports_template(
-        tera: Arc<tera::Tera>,
-        reports: serde_json::Value,
+    /// Returns error if template rendering fails
+    fn render_reports_template_sync(
+        tera: &tera::Tera,
+        reports: &serde_json::Value,
     ) -> anyhow::Result<String> {
-        let task = tokio::task::spawn_blocking(move || {
-            let mut context = tera::Context::new();
-            context.insert("reports", &reports);
-            tera.render("crypto/routes/reports/list.html", &context)
-        });
-
-        match tokio::time::timeout(std::time::Duration::from_secs(15), task).await {
-            Ok(Ok(Ok(html))) => Ok(html),
-            Ok(Ok(Err(e))) => {
+        let mut context = tera::Context::new();
+        context.insert("reports", reports);
+        tera.render("crypto/routes/reports/list.html", &context)
+            .map_err(|e| {
                 error!("❌ Layer 3: Reports list template render error: {:#?}", e);
-                Err(anyhow::anyhow!("Template render error: {}", e))
-            }
-            Ok(Err(e)) => {
-                error!("❌ Layer 3: Reports list task join error: {:#?}", e);
-                Err(anyhow::anyhow!("Task join error: {}", e))
-            }
-            Err(_) => {
-                error!("❌ Layer 3: Reports list template rendering timeout after 15s");
-                Err(anyhow::anyhow!(
-                    "Template rendering timeout - operation took longer than 15 seconds"
-                ))
-            }
-        }
+                anyhow::anyhow!("Template render error: {}", e)
+            })
     }
 
     /// Step 6: Compress HTML
@@ -856,7 +840,7 @@ impl CryptoDataService {
 
     /// Fetch reports list with intelligent caching (L1+L2)
     ///
-    /// ✨ NEW: Uses type-safe automatic caching with `get_or_compute_typed()`
+    /// ✅ MEMORY FIX: Uses manual cache get/set to avoid cloning Tera into async closure
     /// Caches compressed HTML (Vec<u8>) for fast pagination responses
     ///
     /// # Errors
@@ -868,71 +852,69 @@ impl CryptoDataService {
         page: i64,
         per_page: i64,
     ) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
-        // Use type-safe caching if cache system is available
+        let cache_key = format!("crypto_reports_list_page_{page}_compressed");
+
+        // Step 1: Try to get from cache first
         if let Some(ref cache_system) = state.cache_system {
-            let db = state.db.clone();
-            let tera = Arc::new(state.tera.clone());
-
-            match cache_system.cache_manager.get_or_compute_typed(
-                &format!("crypto_reports_list_page_{page}_compressed"),
-                crate::service_islands::layer1_infrastructure::cache_system_island::CacheStrategy::ShortTerm, // 5 minutes
-                || async move {
-                    info!("🗄️ CryptoDataService: Generating reports list page {} from database", page);
-
-                    // Step 1: Fetch from database
-                    let (total, list) = Self::fetch_reports_from_db(&db, page, per_page).await?;
-
-                    // Step 2: Format report items
-                    let items = Self::format_report_items(list);
-
-                    // Step 3: Calculate pagination
-                    let (pages, page_numbers) = Self::calculate_pagination(total, page, per_page);
-
-                    // Step 4: Build reports context
-                    let items_count = items.len();
-                    let reports = Self::build_reports_context(&items, total, page, per_page, pages, &page_numbers);
-
-                    // Step 5: Render template
-                    let html = Self::render_reports_template(tera, reports).await?;
-                    info!("✅ Layer 3: Reports list template rendered successfully - {} items, page {} of {}", items_count, page, pages);
-
-                    // Step 6: Compress HTML
-                    let compressed_data = Self::compress_html(&html, page)?;
-
-                    Ok(Some(compressed_data))
-                }
-            ).await {
-                Ok(result) => Ok(result),
-                Err(e) => {
-                    warn!("⚠️ CryptoDataService: Cache/DB error for reports list page {}: {}", page, e);
-                    Err(format!("Cache or database error: {e}").into())
+            if let Ok(Some(cached_value)) = cache_system.cache_manager.get(&cache_key).await {
+                // Try to parse as Vec<u8>
+                if let Ok(compressed_bytes) = serde_json::from_value::<Vec<u8>>(cached_value) {
+                    info!("🔥 Layer 3: Cache HIT for reports list page {}", page);
+                    return Ok(Some(compressed_bytes));
                 }
             }
-        } else {
-            // Fallback: Direct database query + render if no cache
-            info!(
-                "🗄️ CryptoDataService: Generating reports list page {} (no cache)",
-                page
-            );
-
-            let offset = (page - 1) * per_page;
-
-            let total_fut = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM crypto_report")
-                .fetch_one(&state.db);
-            let rows_fut = sqlx::query_as::<_, ReportSummaryData>(
-                "SELECT id, created_at FROM crypto_report ORDER BY created_at DESC LIMIT $1 OFFSET $2",
-            )
-            .bind(per_page)
-            .bind(offset)
-            .fetch_all(&state.db);
-
-            let (total_res, rows_res) = tokio::join!(total_fut, rows_fut);
-
-            let _total = total_res.map_err(|e| format!("Database error: {e}"))?;
-            let _list = rows_res.map_err(|e| format!("Database error: {e}"))?;
-
-            // ... (rest of fallback logic - simplified for brevity, just render without cache)
-            Err("Cache system not available".into())
         }
+
+        // Step 2: Cache MISS - Generate fresh content
+        info!(
+            "🗄️ CryptoDataService: Generating reports list page {} from database",
+            page
+        );
+
+        // Fetch from database
+        let (total, list) = Self::fetch_reports_from_db(&state.db, page, per_page).await?;
+
+        // Format report items
+        let items = Self::format_report_items(list);
+
+        // Calculate pagination
+        let (pages, page_numbers) = Self::calculate_pagination(total, page, per_page);
+
+        // Build reports context
+        let items_count = items.len();
+        let reports =
+            Self::build_reports_context(&items, total, page, per_page, pages, &page_numbers);
+
+        // ✅ MEMORY FIX: Render template synchronously without cloning Tera
+        let html = Self::render_reports_template_sync(&state.tera, &reports)?;
+        info!(
+            "✅ Layer 3: Reports list template rendered successfully - {} items, page {} of {}",
+            items_count, page, pages
+        );
+
+        // Compress HTML
+        let compressed_data = Self::compress_html(&html, page)?;
+
+        // Step 3: Cache the result
+        if let Some(ref cache_system) = state.cache_system {
+            let compressed_json =
+                serde_json::to_value(&compressed_data).unwrap_or(serde_json::Value::Null);
+            let strategy = crate::service_islands::layer1_infrastructure::cache_system_island::CacheStrategy::ShortTerm;
+
+            if let Err(e) = cache_system
+                .cache_manager
+                .set_with_strategy(&cache_key, compressed_json, strategy)
+                .await
+            {
+                warn!(
+                    "⚠️ Layer 3: Failed to cache reports list page {}: {}",
+                    page, e
+                );
+            } else {
+                debug!("💾 Layer 3: Cached reports list page {}", page);
+            }
+        }
+
+        Ok(Some(compressed_data))
     }
 }

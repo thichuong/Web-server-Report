@@ -150,8 +150,8 @@ impl TemplateOrchestrator {
     ///
     /// # Errors
     ///
-    /// Returns error if template rendering fails, task join fails, or operation times out
-    pub async fn render_template(
+    /// Returns error if template rendering fails
+    pub fn render_template(
         &self,
         tera: &tera::Tera,
         template_path: &str,
@@ -162,65 +162,43 @@ impl TemplateOrchestrator {
             template_path
         );
 
-        // Clone for spawn_blocking - lightweight due to Arc usage
-        let tera_clone = tera.clone();
-        let template_str = template_path.to_string();
-        let context_clone = context.clone();
+        // ✅ MEMORY FIX: Render synchronously to avoid cloning Tera
+        // Tera render is typically <10ms, so blocking is acceptable
+        let mut tera_context = Context::new();
 
-        // Run CPU-intensive template rendering in blocking thread with timeout
-        let render_task = tokio::task::spawn_blocking(move || {
-            let mut tera_context = Context::new();
+        // Insert core template data (dereference Arc)
+        tera_context.insert("report", context.report.as_ref());
+        tera_context.insert(
+            "chart_modules_content",
+            context.chart_modules_content.as_ref(),
+        );
+        tera_context.insert("current_route", &context.current_route);
+        tera_context.insert("current_lang", &context.current_lang);
+        tera_context.insert("current_time", &context.current_time);
+        tera_context.insert("pdf_url", &context.pdf_url);
 
-            // Insert core template data (dereference Arc)
-            tera_context.insert("report", context_clone.report.as_ref());
-            tera_context.insert(
-                "chart_modules_content",
-                context_clone.chart_modules_content.as_ref(),
-            );
-            tera_context.insert("current_route", &context_clone.current_route);
-            tera_context.insert("current_lang", &context_clone.current_lang);
-            tera_context.insert("current_time", &context_clone.current_time);
-            tera_context.insert("pdf_url", &context_clone.pdf_url);
-
-            // Add additional context if provided
-            if let Some(extra) = context_clone.additional_context {
-                for (key, value) in extra {
-                    tera_context.insert(&key, &value);
-                }
+        // Add additional context if provided
+        if let Some(extra) = context.additional_context {
+            for (key, value) in extra {
+                tera_context.insert(&key, &value);
             }
+        }
 
-            // Template-specific context adjustments
-            if template_str.contains("pdf.html") {
-                let created_display = (context_clone.report.created_at
-                    + chrono::Duration::hours(7))
+        // Template-specific context adjustments
+        if template_path.contains("pdf.html") {
+            let created_display = (context.report.created_at + chrono::Duration::hours(7))
                 .format("%d-%m-%Y %H:%M")
                 .to_string();
-                tera_context.insert("created_at_display", &created_display);
-            }
+            tera_context.insert("created_at_display", &created_display);
+        }
 
-            tera_clone.render(&template_str, &tera_context)
-        });
-
-        // Flatten the nested Result with helper function
-        self.await_render_task(render_task).await
-    }
-
-    /// Helper to flatten nested Result from `spawn_blocking` + timeout
-    ///
-    /// Converts `Result<Result<Result<T, E1>, E2>, E3>` into `Layer5Result<T>`
-    #[inline]
-    async fn await_render_task(
-        &self,
-        task: tokio::task::JoinHandle<Result<String, tera::Error>>,
-    ) -> Layer5Result<String> {
-        const RENDER_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
-
-        match tokio::time::timeout(RENDER_TIMEOUT, task).await {
-            Ok(Ok(Ok(html))) => {
+        // Render template synchronously
+        match tera.render(template_path, &tera_context) {
+            Ok(html) => {
                 info!("TemplateOrchestrator: Template rendered successfully");
                 Ok(html)
             }
-            Ok(Ok(Err(e))) => {
+            Err(e) => {
                 error!("TemplateOrchestrator: Template render error: {:#?}", e);
                 // Log error chain
                 let mut src = std::error::Error::source(&e);
@@ -229,16 +207,6 @@ impl TemplateOrchestrator {
                     src = std::error::Error::source(s);
                 }
                 Err(Layer5Error::TemplateRender(e.to_string()))
-            }
-            Ok(Err(e)) => {
-                error!("TemplateOrchestrator: Task join error: {:#?}", e);
-                Err(Layer5Error::TaskJoin(e.to_string()))
-            }
-            Err(_) => {
-                error!("TemplateOrchestrator: Template rendering timeout after 30s");
-                Err(Layer5Error::Timeout(
-                    "Template rendering took longer than 30 seconds".to_string(),
-                ))
             }
         }
     }
@@ -274,9 +242,7 @@ impl TemplateOrchestrator {
             .await?;
 
         // Step 2: Render template
-        let html = self
-            .render_template(tera, "crypto/routes/reports/view.html", context)
-            .await?;
+        let html = self.render_template(tera, "crypto/routes/reports/view.html", context)?;
 
         // Step 3: Compress HTML
         let compressed_data = Self::compress_html(&html)?;
@@ -316,7 +282,6 @@ impl TemplateOrchestrator {
 
         // Render template
         self.render_template(tera, "crypto/routes/reports/view.html", context)
-            .await
     }
 
     /// Render 404 not found template
@@ -364,7 +329,6 @@ impl TemplateOrchestrator {
 
         // Render template
         self.render_template(tera, "crypto/routes/reports/view.html", context)
-            .await
     }
 }
 
