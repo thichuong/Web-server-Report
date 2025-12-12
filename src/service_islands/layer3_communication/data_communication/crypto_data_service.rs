@@ -677,116 +677,75 @@ impl CryptoDataService {
         Ok((total, list))
     }
 
-    /// Step 2: Format report items with rayon
-    /// ✅ PRODUCTION-READY: Added 10s timeout to prevent hanging tasks
-    async fn format_report_items(
-        list: Vec<ReportSummaryData>,
-    ) -> anyhow::Result<Vec<serde_json::Value>> {
-        let task = tokio::task::spawn_blocking(move || {
-            use rayon::prelude::*;
-
-            list.par_iter()
-                .map(|r| {
-                    let dt = r.created_at + chrono::Duration::hours(7);
-                    let created_date = dt.format("%d/%m/%Y").to_string();
-                    let created_time = format!("{} UTC+7", dt.format("%H:%M:%S"));
-                    serde_json::json!({
-                        "id": r.id,
-                        "created_date": created_date,
-                        "created_time": created_time
-                    })
+    /// Step 2: Format report items
+    /// ✅ PRODUCTION-READY: Synchronous execution - no overhead for small lists
+    fn format_report_items(list: Vec<ReportSummaryData>) -> Vec<serde_json::Value> {
+        list.into_iter()
+            .map(|r| {
+                let dt = r.created_at + chrono::Duration::hours(7);
+                let created_date = dt.format("%d/%m/%Y").to_string();
+                let created_time = format!("{} UTC+7", dt.format("%H:%M:%S"));
+                serde_json::json!({
+                    "id": r.id,
+                    "created_date": created_date,
+                    "created_time": created_time
                 })
-                .collect()
-        });
-
-        match tokio::time::timeout(std::time::Duration::from_secs(10), task).await {
-            Ok(Ok(result)) => Ok(result),
-            Ok(Err(e)) => {
-                error!("❌ Layer 3: Date formatting task join error: {:#?}", e);
-                Err(anyhow::anyhow!("Task join error: {}", e))
-            }
-            Err(_) => {
-                error!("❌ Layer 3: Date formatting timeout after 10s");
-                Err(anyhow::anyhow!(
-                    "Date formatting timeout - operation took longer than 10 seconds"
-                ))
-            }
-        }
+            })
+            .collect()
     }
 
     /// Step 3: Calculate pagination
-    /// ✅ PRODUCTION-READY: Added 5s timeout to prevent hanging tasks
-    async fn calculate_pagination(
-        total: i64,
-        page: i64,
-        per_page: i64,
-    ) -> anyhow::Result<(i64, Vec<Option<i64>>)> {
-        let task = tokio::task::spawn_blocking(move || {
-            // Safe integer division with ceiling - avoids float precision loss
-            let pages = if total == 0 {
-                1
-            } else {
-                // Integer ceiling division: (a + b - 1) / b
-                (total + per_page - 1) / per_page
-            };
+    /// ✅ PRODUCTION-READY: Synchronous execution - pure math calculation
+    fn calculate_pagination(total: i64, page: i64, per_page: i64) -> (i64, Vec<Option<i64>>) {
+        // Safe integer division with ceiling - avoids float precision loss
+        let pages = if total == 0 {
+            1
+        } else {
+            // Integer ceiling division: (a + b - 1) / b
+            (total + per_page - 1) / per_page
+        };
 
-            let mut page_numbers: Vec<Option<i64>> = Vec::new();
-            if pages <= 10 {
-                for p in 1..=pages {
-                    page_numbers.push(Some(p));
-                }
-            } else {
-                let mut added = std::collections::HashSet::new();
-                let push = |vec: &mut Vec<Option<i64>>,
-                            v: i64,
-                            added: &mut std::collections::HashSet<i64>| {
+        let mut page_numbers: Vec<Option<i64>> = Vec::new();
+        if pages <= 10 {
+            for p in 1..=pages {
+                page_numbers.push(Some(p));
+            }
+        } else {
+            let mut added = std::collections::HashSet::new();
+            let push =
+                |vec: &mut Vec<Option<i64>>, v: i64, added: &mut std::collections::HashSet<i64>| {
                     if !added.contains(&v) && v > 0 && v <= pages {
                         vec.push(Some(v));
                         added.insert(v);
                     }
                 };
 
-                push(&mut page_numbers, 1, &mut added);
-                push(&mut page_numbers, 2, &mut added);
-                for v in (page - 2)..=(page + 2) {
-                    if v > 2 && v < pages - 1 {
-                        push(&mut page_numbers, v, &mut added);
-                    }
-                }
-                push(&mut page_numbers, pages - 1, &mut added);
-                push(&mut page_numbers, pages, &mut added);
-
-                let mut nums: Vec<i64> = page_numbers.iter().filter_map(|o| *o).collect();
-                nums.sort_unstable();
-                page_numbers.clear();
-                let mut last: Option<i64> = None;
-                for n in nums {
-                    if let Some(l) = last {
-                        if n - l > 1 {
-                            page_numbers.push(None);
-                        }
-                    }
-                    page_numbers.push(Some(n));
-                    last = Some(n);
+            push(&mut page_numbers, 1, &mut added);
+            push(&mut page_numbers, 2, &mut added);
+            for v in (page - 2)..=(page + 2) {
+                if v > 2 && v < pages - 1 {
+                    push(&mut page_numbers, v, &mut added);
                 }
             }
+            push(&mut page_numbers, pages - 1, &mut added);
+            push(&mut page_numbers, pages, &mut added);
 
-            (pages, page_numbers)
-        });
-
-        match tokio::time::timeout(std::time::Duration::from_secs(5), task).await {
-            Ok(Ok(result)) => Ok(result),
-            Ok(Err(e)) => {
-                error!("❌ Layer 3: Pagination task join error: {:#?}", e);
-                Err(anyhow::anyhow!("Task join error: {}", e))
-            }
-            Err(_) => {
-                error!("❌ Layer 3: Pagination timeout after 5s");
-                Err(anyhow::anyhow!(
-                    "Pagination timeout - operation took longer than 5 seconds"
-                ))
+            let mut nums: Vec<i64> = page_numbers.iter().filter_map(|o| *o).collect();
+            nums.sort_unstable();
+            page_numbers.clear();
+            let mut last: Option<i64> = None;
+            for n in nums {
+                if let Some(l) = last {
+                    if n - l > 1 {
+                        page_numbers.push(None);
+                    }
+                }
+                page_numbers.push(Some(n));
+                last = Some(n);
             }
         }
+
+        (pages, page_numbers)
     }
 
     /// Step 4: Build reports context
@@ -924,10 +883,10 @@ impl CryptoDataService {
                     let (total, list) = Self::fetch_reports_from_db(&db, page, per_page).await?;
 
                     // Step 2: Format report items
-                    let items = Self::format_report_items(list).await?;
+                    let items = Self::format_report_items(list);
 
                     // Step 3: Calculate pagination
-                    let (pages, page_numbers) = Self::calculate_pagination(total, page, per_page).await?;
+                    let (pages, page_numbers) = Self::calculate_pagination(total, page, per_page);
 
                     // Step 4: Build reports context
                     let items_count = items.len();
