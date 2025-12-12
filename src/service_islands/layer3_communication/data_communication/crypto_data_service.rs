@@ -568,30 +568,40 @@ impl CryptoDataService {
     // ========================================
 
     /// Step 1: Fetch reports from database
-    async fn fetch_reports_from_db(
+    /// Step 1: Fetch reports from database
+    fn fetch_reports_from_db(
         db: &sqlx::PgPool,
         page: i64,
         per_page: i64,
     ) -> anyhow::Result<(i64, Vec<ReportSummaryData>)> {
         let offset = (page - 1) * per_page;
 
-        let total_fut =
-            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM crypto_report").fetch_one(db);
-        let rows_fut = sqlx::query_as::<_, ReportSummaryData>(
-            "SELECT id, created_at FROM crypto_report ORDER BY created_at DESC LIMIT $1 OFFSET $2",
-        )
-        .bind(per_page)
-        .bind(offset)
-        .fetch_all(db);
+        let (total, list) = Self::block_on(async {
+            let total_fut =
+                sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM crypto_report").fetch_one(db);
+            let rows_fut = sqlx::query_as::<_, ReportSummaryData>(
+                "SELECT id, created_at FROM crypto_report ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+            )
+            .bind(per_page)
+            .bind(offset)
+            .fetch_all(db);
 
-        let (total_res, rows_res) = tokio::join!(total_fut, rows_fut);
+            let (total_res, rows_res) = tokio::join!(total_fut, rows_fut);
+            Ok::<
+                (
+                    Result<i64, sqlx::Error>,
+                    Result<Vec<ReportSummaryData>, sqlx::Error>,
+                ),
+                sqlx::Error,
+            >((total_res, rows_res))
+        })?;
 
-        let total = total_res.map_err(|e| {
+        let total = total.map_err(|e| {
             error!("❌ Layer 3: Database error getting total count: {}", e);
             anyhow::anyhow!("Database error: {}", e)
         })?;
 
-        let list = rows_res.map_err(|e| {
+        let list = list.map_err(|e| {
             error!("❌ Layer 3: Database error getting report list: {}", e);
             anyhow::anyhow!("Database error: {}", e)
         })?;
@@ -803,7 +813,7 @@ impl CryptoDataService {
         );
 
         // Fetch from database
-        let (total, list) = Self::block_on(Self::fetch_reports_from_db(&state.db, page, per_page))?;
+        let (total, list) = Self::fetch_reports_from_db(&state.db, page, per_page)?;
 
         // Format report items
         let items = Self::format_report_items(list);
