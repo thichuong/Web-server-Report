@@ -12,6 +12,11 @@ pub type Layer5Result<T> = Result<T, Layer5Error>;
 ///
 /// Uses an enum instead of Box<dyn Error> to avoid heap allocation
 /// and fat pointer overhead on every error path.
+use axum::{
+    http::StatusCode,
+    response::{IntoResponse, Response},
+};
+
 #[derive(Debug)]
 pub enum Layer5Error {
     /// Database operation failed
@@ -117,8 +122,7 @@ impl Layer5Error {
     /// Convert to HTTP status code
     #[inline]
     #[must_use]
-    pub fn status_code(&self) -> axum::http::StatusCode {
-        use axum::http::StatusCode;
+    pub fn status_code(&self) -> StatusCode {
         match self {
             Self::NotFound(_) => StatusCode::NOT_FOUND,
             Self::Forbidden(_) => StatusCode::FORBIDDEN,
@@ -126,5 +130,14 @@ impl Layer5Error {
             Self::Timeout(_) => StatusCode::GATEWAY_TIMEOUT,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
+    }
+}
+
+impl IntoResponse for Layer5Error {
+    fn into_response(self) -> Response {
+        let status = self.status_code();
+        let body = self.to_string();
+
+        (status, body).into_response()
     }
 }

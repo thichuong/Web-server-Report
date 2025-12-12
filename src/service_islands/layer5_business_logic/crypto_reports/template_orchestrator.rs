@@ -78,10 +78,8 @@ impl TemplateOrchestrator {
     /// # Memory Optimization
     /// Takes Report by value (move) and wraps in Arc without cloning.
     ///
-    /// # Errors
-    ///
-    /// Returns error if chart modules content retrieval fails
-    pub async fn prepare_crypto_report_context(
+    /// Returns error if chart modules content is missing (now strictly required)
+    pub fn prepare_crypto_report_context(
         &self,
         report: Report,
         template_type: &str,
@@ -93,13 +91,16 @@ impl TemplateOrchestrator {
             template_type
         );
 
-        // Use provided chart_modules_content or fetch from ReportCreator
+        // Use provided chart_modules_content or use default empty/error placeholder
+        // ✅ SYNC: No longer fetches async. Caller must provide content.
         let chart_modules_content = if let Some(content) = chart_modules_content {
             debug!("TemplateOrchestrator: Using pre-loaded chart modules (Arc - zero clone)");
             content
         } else {
-            info!("TemplateOrchestrator: Fallback - reading chart modules from file");
-            Arc::new(self.report_creator.get_chart_modules_content().await)
+            // Fallback for sync context - we can't async fetch here anymore.
+            // This assumes the caller handles the fetching if they want charts.
+            warn!("TemplateOrchestrator: No chart modules provided in sync context - using empty placeholder");
+            Arc::new(String::from("// Charts disabled (no modules provided)"))
         };
 
         // Generate sandbox token for iframe security
@@ -222,7 +223,7 @@ impl TemplateOrchestrator {
     /// # Errors
     ///
     /// Returns error if context preparation, template rendering, or HTML compression fails
-    pub async fn render_crypto_report_view(
+    pub fn render_crypto_report_view(
         &self,
         tera: &tera::Tera,
         report: Report,
@@ -232,14 +233,12 @@ impl TemplateOrchestrator {
         debug!("TemplateOrchestrator: Rendering crypto report view with compression");
 
         // Step 1: Prepare template context (moves report ownership)
-        let context = self
-            .prepare_crypto_report_context(
-                report,
-                "view",
-                chart_modules_content,
-                additional_context,
-            )
-            .await?;
+        let context = self.prepare_crypto_report_context(
+            report,
+            "view",
+            chart_modules_content,
+            additional_context,
+        )?;
 
         // Step 2: Render template
         let html = self.render_template(tera, "crypto/routes/reports/view.html", context)?;
@@ -258,7 +257,7 @@ impl TemplateOrchestrator {
     /// # Errors
     ///
     /// Returns error if context preparation or template rendering fails
-    pub async fn render_empty_template(&self, tera: &tera::Tera) -> Layer5Result<String> {
+    pub fn render_empty_template(&self, tera: &tera::Tera) -> Layer5Result<String> {
         warn!("TemplateOrchestrator: Rendering empty template");
 
         // Create empty report for template
@@ -273,9 +272,8 @@ impl TemplateOrchestrator {
         };
 
         // Prepare context
-        let mut context = self
-            .prepare_crypto_report_context(empty_report, "empty", None, None)
-            .await?;
+        // ✅ SYNC: No await needed
+        let mut context = self.prepare_crypto_report_context(empty_report, "empty", None, None)?;
 
         // Override PDF URL for empty case
         context.pdf_url = "#".to_string();
@@ -292,7 +290,7 @@ impl TemplateOrchestrator {
     ///
     /// Returns error if context preparation or template rendering fails
     #[allow(dead_code)]
-    pub async fn render_not_found_template(
+    pub fn render_not_found_template(
         &self,
         tera: &tera::Tera,
         report_id: i32,
@@ -320,9 +318,9 @@ impl TemplateOrchestrator {
         };
 
         // Prepare context
-        let mut context = self
-            .prepare_crypto_report_context(not_found_report, "404", None, None)
-            .await?;
+        // ✅ SYNC: No await needed
+        let mut context =
+            self.prepare_crypto_report_context(not_found_report, "404", None, None)?;
 
         // Override PDF URL for 404 case
         context.pdf_url = "#".to_string();

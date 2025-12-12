@@ -279,9 +279,7 @@ async fn api_sandboxed_report(
             sandbox_token,
             initial_language,
             chart_modules,
-        )
-        .await
-    {
+        ) {
         Ok(response) => {
             info!(
                 "✅ [API] Sandboxed report {} served successfully",
@@ -359,9 +357,7 @@ async fn api_shadow_dom_content(
             shadow_dom_token,
             initial_language,
             chart_modules,
-        )
-        .await
-    {
+        ) {
         Ok(response) => {
             info!(
                 "✅ [API] Shadow DOM content for report {} served successfully",

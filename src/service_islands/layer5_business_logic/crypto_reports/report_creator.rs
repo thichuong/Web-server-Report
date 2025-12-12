@@ -57,6 +57,17 @@ impl ReportCreator {
         self.chart_modules_island.health_check()
     }
 
+    /// Helper to run async code synchronously
+    fn block_on<F: std::future::Future>(future: F) -> F::Output {
+        // Try to obtain a handle to the current runtime
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            tokio::task::block_in_place(move || handle.block_on(future))
+        } else {
+            // Fallback for non-tokio contexts
+            futures::executor::block_on(future)
+        }
+    }
+
     /// Fetch and cache latest report from database
     ///
     /// Retrieves the most recent crypto report with full content using Layer 3 data service.
@@ -65,14 +76,23 @@ impl ReportCreator {
     /// # Errors
     ///
     /// Returns error if database query fails or connection is lost
-    pub async fn fetch_and_cache_latest_report(
+    /// Fetch and cache latest report from database
+    ///
+    /// Retrieves the most recent crypto report with full content using Layer 3 data service.
+    /// Uses From trait for automatic conversion from `ReportData` to Report.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if database query fails or connection is lost
+    pub fn fetch_and_cache_latest_report(
         &self,
         state: &Arc<AppState>,
     ) -> Result<Option<Report>, sqlx::Error> {
         debug!("ReportCreator: Fetching latest crypto report from database via data service");
 
         // Use Layer 3 data service instead of direct database access
-        let report_data = self.data_service.fetch_latest_report(state).await?;
+        // ✅ SYNC: data_service is now synchronous
+        let report_data = self.data_service.fetch_latest_report(state)?;
 
         if let Some(data) = report_data {
             // Use From trait for automatic conversion - zero boilerplate!
@@ -102,7 +122,15 @@ impl ReportCreator {
     /// # Errors
     ///
     /// Returns error if database query fails or connection is lost
-    pub async fn fetch_and_cache_report_by_id(
+    /// Fetch and cache specific report by ID
+    ///
+    /// Retrieves a crypto report by its ID with full content using Layer 3 data service.
+    /// Uses From trait for automatic conversion from `ReportData` to Report.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if database query fails or connection is lost
+    pub fn fetch_and_cache_report_by_id(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
@@ -113,10 +141,8 @@ impl ReportCreator {
         );
 
         // Use Layer 3 data service instead of direct database access
-        let report_data = self
-            .data_service
-            .fetch_report_by_id(state, report_id)
-            .await?;
+        // ✅ SYNC: data_service is now synchronous
+        let report_data = self.data_service.fetch_report_by_id(state, report_id)?;
 
         if let Some(data) = report_data {
             // Use From trait for automatic conversion - zero boilerplate!
@@ -141,21 +167,24 @@ impl ReportCreator {
     ///
     /// Delegates to Layer 1 `ChartModulesIsland` for proper architectural separation.
     /// This method provides a business logic wrapper around the infrastructure service.
-    pub async fn get_chart_modules_content(&self) -> String {
+    /// Get chart modules content
+    ///
+    /// Delegates to Layer 1 `ChartModulesIsland` for proper architectural separation.
+    /// This method provides a business logic wrapper around the infrastructure service.
+    pub fn get_chart_modules_content(&self) -> String {
         debug!("ReportCreator: Requesting chart modules from Layer 1 Infrastructure");
 
         // Delegate to Layer 1 infrastructure service
-        self.chart_modules_island
-            .get_cached_chart_modules_content()
-            .await
+        // ✅ SYNC-WRAPPER: Layer 1 is async, so we wrap it
+        Self::block_on(self.chart_modules_island.get_cached_chart_modules_content())
     }
 
     /// Get available chart modules
     ///
     /// Returns a list of available chart module names via Layer 1 infrastructure.
     #[allow(dead_code)]
-    pub async fn get_available_chart_modules(&self) -> Vec<String> {
-        self.chart_modules_island.get_available_modules().await
+    pub fn get_available_chart_modules(&self) -> Vec<String> {
+        Self::block_on(self.chart_modules_island.get_available_modules())
     }
 
     // ========================================
@@ -192,15 +221,17 @@ impl ReportCreator {
 
     /// Helper to fetch report by ID (handles -1 for latest)
     #[inline]
-    async fn fetch_report(
+    /// Helper to fetch report by ID (handles -1 for latest)
+    #[inline]
+    fn fetch_report(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
     ) -> Result<Option<Report>, sqlx::Error> {
         if report_id == -1 {
-            self.fetch_and_cache_latest_report(state).await
+            self.fetch_and_cache_latest_report(state)
         } else {
-            self.fetch_and_cache_report_by_id(state, report_id).await
+            self.fetch_and_cache_report_by_id(state, report_id)
         }
     }
 
@@ -212,7 +243,15 @@ impl ReportCreator {
     /// # Errors
     ///
     /// Returns error if database query fails, report not found, or rendering fails
-    pub async fn serve_sandboxed_report(
+    /// Serve sandboxed report content (delegates to shadow DOM renderer)
+    ///
+    /// Uses `Layer5Result` for proper error handling without Box<dyn Error>.
+    /// This method provides backward compatibility for the API endpoint.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if database query fails, report not found, or rendering fails
+    pub fn serve_sandboxed_report(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
@@ -220,7 +259,7 @@ impl ReportCreator {
         language: Option<&str>,
         chart_modules_content: Option<&str>,
     ) -> Layer5Result<Response> {
-        match self.fetch_report(state, report_id).await {
+        match self.fetch_report(state, report_id) {
             Ok(Some(report)) => self.shadow_dom_renderer.serve_shadow_dom_content(
                 state,
                 &report,
@@ -246,7 +285,14 @@ impl ReportCreator {
     /// # Errors
     ///
     /// Returns error if database query fails, report not found, or rendering fails
-    pub async fn serve_shadow_dom_content(
+    /// Serve Shadow DOM content (delegates to shadow DOM renderer)
+    ///
+    /// Uses `Layer5Result` for proper error handling without Box<dyn Error>.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if database query fails, report not found, or rendering fails
+    pub fn serve_shadow_dom_content(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
@@ -254,7 +300,7 @@ impl ReportCreator {
         language: Option<&str>,
         chart_modules_content: Option<&str>,
     ) -> Layer5Result<Response> {
-        match self.fetch_report(state, report_id).await {
+        match self.fetch_report(state, report_id) {
             Ok(Some(report)) => self.shadow_dom_renderer.serve_shadow_dom_content(
                 state,
                 &report,

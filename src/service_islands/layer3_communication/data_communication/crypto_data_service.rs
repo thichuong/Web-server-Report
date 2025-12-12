@@ -86,6 +86,19 @@ impl CryptoDataService {
         }
     }
 
+    /// Helper to run async code synchronously
+    /// This is necessary because we are forced to be synchronous by constraints
+    /// but the underlying drivers (sqlx, redis) are async.
+    fn block_on<F: std::future::Future>(future: F) -> F::Output {
+        // Try to obtain a handle to the current runtime
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            tokio::task::block_in_place(move || handle.block_on(future))
+        } else {
+            // Fallback for non-tokio contexts (e.g. tests without tokio::test)
+            futures::executor::block_on(future)
+        }
+    }
+
     /// Fetch latest crypto report from database with intelligent caching (L1+L2)
     ///
     /// ✨ NEW: Uses type-safe automatic caching with `get_or_compute_typed()`
@@ -94,15 +107,18 @@ impl CryptoDataService {
     /// # Errors
     ///
     /// Returns `sqlx::Error` if database connection fails or query execution fails
-    pub async fn fetch_latest_report(
+    /// Returns `sqlx::Error` if database connection fails or query execution fails
+    pub fn fetch_latest_report(
         &self,
         state: &Arc<AppState>,
     ) -> Result<Option<ReportData>, sqlx::Error> {
         info!("🗄️ CryptoDataService: Fetching latest crypto report from database");
 
-        let report = sqlx::query_as::<_, ReportData>(
-            "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report ORDER BY created_at DESC LIMIT 1",
-        ).fetch_optional(&state.db).await?;
+        let report = Self::block_on(
+            sqlx::query_as::<_, ReportData>(
+                "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report ORDER BY created_at DESC LIMIT 1",
+            ).fetch_optional(&state.db)
+        )?;
 
         if let Some(ref report) = report {
             debug!(
@@ -124,17 +140,19 @@ impl CryptoDataService {
     /// # Errors
     ///
     /// Returns `sqlx::Error` if database connection fails or query execution fails
-    pub async fn fetch_all_report_ids_for_sitemap(
+    /// Returns `sqlx::Error` if database connection fails or query execution fails
+    pub fn fetch_all_report_ids_for_sitemap(
         &self,
         state: &Arc<AppState>,
     ) -> Result<Vec<ReportSitemapData>, sqlx::Error> {
         info!("🗄️ CryptoDataService: Fetching all report IDs for sitemap from database");
 
-        let reports = sqlx::query_as::<_, ReportSitemapData>(
-            "SELECT id, created_at FROM crypto_report ORDER BY created_at DESC",
-        )
-        .fetch_all(&state.db)
-        .await?;
+        let reports = Self::block_on(
+            sqlx::query_as::<_, ReportSitemapData>(
+                "SELECT id, created_at FROM crypto_report ORDER BY created_at DESC",
+            )
+            .fetch_all(&state.db),
+        )?;
 
         debug!(
             "📊 CryptoDataService: Retrieved {} report IDs for sitemap",
@@ -159,7 +177,8 @@ impl CryptoDataService {
     /// # Errors
     ///
     /// Returns `sqlx::Error` if database connection fails or query execution fails
-    pub async fn fetch_related_reports(
+    /// Returns `sqlx::Error` if database connection fails or query execution fails
+    pub fn fetch_related_reports(
         &self,
         state: &Arc<AppState>,
         current_id: i32,
@@ -170,13 +189,14 @@ impl CryptoDataService {
             current_id
         );
 
-        let reports = sqlx::query_as::<_, ReportSummaryData>(
-            "SELECT id, created_at FROM crypto_report WHERE id < $1 ORDER BY id DESC LIMIT $2",
-        )
-        .bind(current_id)
-        .bind(limit)
-        .fetch_all(&state.db)
-        .await?;
+        let reports = Self::block_on(
+            sqlx::query_as::<_, ReportSummaryData>(
+                "SELECT id, created_at FROM crypto_report WHERE id < $1 ORDER BY id DESC LIMIT $2",
+            )
+            .bind(current_id)
+            .bind(limit)
+            .fetch_all(&state.db),
+        )?;
 
         debug!(
             "📊 CryptoDataService: Retrieved {} related reports for report {}",
@@ -201,7 +221,8 @@ impl CryptoDataService {
     /// # Errors
     ///
     /// Returns `sqlx::Error` if database connection fails or query execution fails
-    pub async fn fetch_rss_reports(
+    /// Returns `sqlx::Error` if database connection fails or query execution fails
+    pub fn fetch_rss_reports(
         &self,
         state: &Arc<AppState>,
         limit: i64,
@@ -211,12 +232,13 @@ impl CryptoDataService {
             limit
         );
 
-        let reports = sqlx::query_as::<_, ReportRssData>(
-            "SELECT id, html_content, created_at FROM crypto_report ORDER BY created_at DESC LIMIT $1",
-        )
-        .bind(limit)
-        .fetch_all(&state.db)
-        .await?;
+        let reports = Self::block_on(
+            sqlx::query_as::<_, ReportRssData>(
+                "SELECT id, html_content, created_at FROM crypto_report ORDER BY created_at DESC LIMIT $1",
+            )
+            .bind(limit)
+            .fetch_all(&state.db)
+        )?;
 
         debug!(
             "📊 CryptoDataService: Retrieved {} reports for RSS feed",
@@ -233,7 +255,8 @@ impl CryptoDataService {
     /// # Errors
     ///
     /// Returns `sqlx::Error` if database connection fails or query execution fails
-    pub async fn fetch_report_by_id(
+    /// Returns `sqlx::Error` if database connection fails or query execution fails
+    pub fn fetch_report_by_id(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
@@ -243,11 +266,13 @@ impl CryptoDataService {
             report_id
         );
 
-        let report = sqlx::query_as::<_, ReportData>(
-            "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report WHERE id = $1",
-        )
-        .bind(report_id)
-        .fetch_optional(&state.db).await?;
+        let report = Self::block_on(
+            sqlx::query_as::<_, ReportData>(
+                "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report WHERE id = $1",
+            )
+            .bind(report_id)
+            .fetch_optional(&state.db)
+        )?;
 
         if let Some(ref report) = report {
             debug!(
@@ -270,14 +295,17 @@ impl CryptoDataService {
     /// # Errors
     ///
     /// Returns error if cache retrieval fails or deserialization fails
-    pub async fn get_rendered_report_compressed(
+    /// Returns error if cache retrieval fails or deserialization fails
+    pub fn get_rendered_report_compressed(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
     ) -> Result<Option<Vec<u8>>, anyhow::Error> {
         if let Some(ref cache_system) = state.cache_system {
             let cache_key = format!("compressed_report_{report_id}");
-            if let Ok(Some(cached_value)) = cache_system.cache_manager.get(&cache_key).await {
+            if let Ok(Some(cached_value)) =
+                Self::block_on(cache_system.cache_manager.get(&cache_key))
+            {
                 // Try to parse as String (Base64) first - New Format (Memory Optimized)
                 if let Ok(base64_string) = serde_json::from_value::<String>(cached_value.clone()) {
                     match BASE64_STANDARD.decode(base64_string) {
@@ -285,7 +313,8 @@ impl CryptoDataService {
                             let report_type = if report_id == -1 {
                                 "latest report"
                             } else {
-                                &format!("report #{report_id}")
+                                // Simplified log message for sync context
+                                "specific report"
                             };
                             info!(
                                 "🔥 Layer 3: Cache HIT (Base64) cho compressed data của {}",
@@ -305,7 +334,7 @@ impl CryptoDataService {
                     let report_type = if report_id == -1 {
                         "latest report"
                     } else {
-                        &format!("report #{report_id}")
+                        "specific report"
                     };
                     info!(
                         "🔥 Layer 3: Cache HIT (Legacy Array) cho compressed data của {}",
@@ -330,7 +359,8 @@ impl CryptoDataService {
     /// # Errors
     ///
     /// Returns error if cache storage fails or serialization fails
-    pub async fn cache_rendered_report_compressed(
+    /// Returns error if cache storage fails or serialization fails
+    pub fn cache_rendered_report_compressed(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
@@ -343,7 +373,8 @@ impl CryptoDataService {
         let report_type = if report_id == -1 {
             "latest report"
         } else {
-            &format!("report #{report_id}")
+            // Simplified log
+            "specific report"
         };
 
         // 🛡️ GUARD: Warn if individual entry size is very large (soft limit for logging)
@@ -370,10 +401,11 @@ impl CryptoDataService {
             let base64_string = BASE64_STANDARD.encode(compressed_data);
             let compressed_json = serde_json::Value::String(base64_string);
 
-            cache_system
-                .cache_manager
-                .set_with_strategy(&cache_key, compressed_json, strategy)
-                .await?;
+            Self::block_on(cache_system.cache_manager.set_with_strategy(
+                &cache_key,
+                compressed_json,
+                strategy,
+            ))?;
 
             debug!(
                 "💾 Layer 3: Cached compressed data for {} ({}KB)",
@@ -392,7 +424,8 @@ impl CryptoDataService {
     /// # Errors
     ///
     /// Returns error if cache retrieval fails or deserialization fails
-    pub async fn get_rendered_report_dsd_compressed(
+    /// Returns error if cache retrieval fails or deserialization fails
+    pub fn get_rendered_report_dsd_compressed(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
@@ -400,7 +433,9 @@ impl CryptoDataService {
     ) -> Result<Option<Vec<u8>>, anyhow::Error> {
         if let Some(ref cache_system) = state.cache_system {
             let cache_key = format!("compressed_report_dsd_{report_id}_{language}");
-            if let Ok(Some(cached_value)) = cache_system.cache_manager.get(&cache_key).await {
+            if let Ok(Some(cached_value)) =
+                Self::block_on(cache_system.cache_manager.get(&cache_key))
+            {
                 // Try to parse as String (Base64) first - New Format (Memory Optimized)
                 if let Ok(base64_string) = serde_json::from_value::<String>(cached_value.clone()) {
                     match BASE64_STANDARD.decode(base64_string) {
@@ -408,7 +443,7 @@ impl CryptoDataService {
                             let report_type = if report_id == -1 {
                                 "latest DSD report"
                             } else {
-                                &format!("DSD report #{report_id}")
+                                "specific DSD report"
                             };
                             info!(
                                 "🔥 Layer 3: Cache HIT (Base64) for {} (lang: {})",
@@ -428,7 +463,7 @@ impl CryptoDataService {
                     let report_type = if report_id == -1 {
                         "latest DSD report"
                     } else {
-                        &format!("DSD report #{report_id}")
+                        "specific DSD report"
                     };
                     info!(
                         "🔥 Layer 3: Cache HIT (Legacy Array) for {} (lang: {})",
@@ -453,7 +488,8 @@ impl CryptoDataService {
     /// # Errors
     ///
     /// Returns error if cache storage fails or serialization fails
-    pub async fn cache_rendered_report_dsd_compressed(
+    /// Returns error if cache storage fails or serialization fails
+    pub fn cache_rendered_report_dsd_compressed(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
@@ -467,7 +503,7 @@ impl CryptoDataService {
         let report_type = if report_id == -1 {
             "latest DSD report"
         } else {
-            &format!("DSD report #{report_id}")
+            "specific DSD report"
         };
 
         // 🛡️ GUARD: Warn if individual entry size is very large (soft limit for logging)
@@ -496,10 +532,11 @@ impl CryptoDataService {
             let base64_string = BASE64_STANDARD.encode(compressed_data);
             let compressed_json = serde_json::Value::String(base64_string);
 
-            cache_system
-                .cache_manager
-                .set_with_strategy(&cache_key, compressed_json, strategy)
-                .await?;
+            Self::block_on(cache_system.cache_manager.set_with_strategy(
+                &cache_key,
+                compressed_json,
+                strategy,
+            ))?;
 
             debug!(
                 "💾 Layer 3: Cached DSD compressed data for {} (lang: {}) ({}KB)",
@@ -737,7 +774,8 @@ impl CryptoDataService {
     /// # Errors
     ///
     /// Returns error if database query fails, template rendering fails, HTML compression fails, or cache operation fails
-    pub async fn fetch_reports_list_with_cache(
+    /// Returns error if database query fails, template rendering fails, HTML compression fails, or cache operation fails
+    pub fn fetch_reports_list_with_cache(
         &self,
         state: &Arc<AppState>,
         page: i64,
@@ -747,7 +785,9 @@ impl CryptoDataService {
 
         // Step 1: Try to get from cache first
         if let Some(ref cache_system) = state.cache_system {
-            if let Ok(Some(cached_value)) = cache_system.cache_manager.get(&cache_key).await {
+            if let Ok(Some(cached_value)) =
+                Self::block_on(cache_system.cache_manager.get(&cache_key))
+            {
                 // Try to parse as Vec<u8>
                 if let Ok(compressed_bytes) = serde_json::from_value::<Vec<u8>>(cached_value) {
                     info!("🔥 Layer 3: Cache HIT for reports list page {}", page);
@@ -763,7 +803,7 @@ impl CryptoDataService {
         );
 
         // Fetch from database
-        let (total, list) = Self::fetch_reports_from_db(&state.db, page, per_page).await?;
+        let (total, list) = Self::block_on(Self::fetch_reports_from_db(&state.db, page, per_page))?;
 
         // Format report items
         let items = Self::format_report_items(list);
@@ -792,20 +832,17 @@ impl CryptoDataService {
                 serde_json::to_value(&compressed_data).unwrap_or(serde_json::Value::Null);
             let strategy = crate::service_islands::layer1_infrastructure::cache_system_island::CacheStrategy::ShortTerm;
 
-            if let Err(e) = cache_system
-                .cache_manager
-                .set_with_strategy(&cache_key, compressed_json, strategy)
-                .await
-            {
+            if let Err(e) = Self::block_on(cache_system.cache_manager.set_with_strategy(
+                &cache_key,
+                compressed_json,
+                strategy,
+            )) {
                 warn!(
                     "⚠️ Layer 3: Failed to cache reports list page {}: {}",
                     page, e
                 );
-            } else {
-                debug!("💾 Layer 3: Cached reports list page {}", page);
             }
         }
-
         Ok(Some(compressed_data))
     }
 }

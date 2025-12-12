@@ -28,6 +28,30 @@ use crate::service_islands::layer1_infrastructure::AppState;
 // Import from our specialized components
 use super::report_creator::ReportCreator;
 use super::template_orchestrator::TemplateOrchestrator;
+use crate::service_islands::layer5_business_logic::shared::error::Layer5Result;
+
+/// Rendered content ready for HTTP response
+/// Decouples business logic from HTTP transport
+pub struct RenderedContent {
+    pub data: Vec<u8>,
+    pub cache_control: &'static str,
+    pub cache_status: &'static str,
+}
+
+impl IntoResponse for RenderedContent {
+    fn into_response(self) -> Response {
+        Response::builder()
+            .status(StatusCode::OK)
+            .header("cache-control", self.cache_control)
+            .header("content-type", "text/html; charset=utf-8")
+            .header("content-encoding", "gzip")
+            .header("x-render-mode", "declarative-shadow-dom")
+            .header("x-cache", self.cache_status)
+            .body(Body::from(self.data))
+            .unwrap_or_else(|_| Response::new(Body::from("Response build error")))
+            .into_response()
+    }
+}
 
 /// Crypto Handlers
 ///
@@ -150,7 +174,17 @@ impl CryptoHandlers {
     /// # Errors
     ///
     /// Returns error if database fetch or template rendering fails
-    pub async fn crypto_index_with_tera(
+    /// Crypto Index with Tera template engine - FULL IMPLEMENTATION
+    ///
+    /// Exactly like `archive_old_code/handlers/crypto.rs::crypto_index` - Complete L1/L2 caching
+    /// Enhanced with pre-loaded chart modules and HTML caching for optimal performance
+    /// Now returns compressed data for optimal transfer speed
+    /// ✅ OPTIMIZED: Uses Arc<String> to avoid cloning chart modules content
+    ///
+    /// # Errors
+    ///
+    /// Returns error if database fetch or template rendering fails
+    pub fn crypto_index_with_tera(
         &self,
         state: &Arc<AppState>,
         chart_modules_content: Option<Arc<String>>, // ✅ Already Arc, no clone needed
@@ -170,8 +204,8 @@ impl CryptoHandlers {
         let data_service = &self.report_creator.data_service; // Truy cập data_service
 
         // Check cache for compressed data first (preferred)
-        if let Ok(Some(cached_compressed)) =
-            data_service.get_rendered_report_compressed(state, -1).await
+        // Check cache for compressed data first (preferred)
+        if let Ok(Some(cached_compressed)) = data_service.get_rendered_report_compressed(state, -1)
         {
             info!(
                 "✅ Layer 5: Nhận compressed data từ cache cho latest report. Trả về ngay lập tức."
@@ -183,33 +217,37 @@ impl CryptoHandlers {
 
         // BƯỚC 2: NẾU CACHE MISS, TIẾP TỤC LOGIC HIỆN TẠI
         // Fetch from DB (không cần chart modules vì đã có pre-loaded)
-        let db_res = self
-            .report_creator
-            .fetch_and_cache_latest_report(state)
-            .await;
+        let db_res = self.report_creator.fetch_and_cache_latest_report(state);
 
         match db_res {
             Ok(Some(report)) => {
                 // ✅ MEMORY OPTIMIZED: Move report ownership to avoid cloning in template_orchestrator
-                // Template rendering with TemplateOrchestrator
-                match self
-                    .template_orchestrator
-                    .render_crypto_report_view(
-                        &state.tera,
-                        report,                // ✅ Move ownership - no clone needed!
-                        chart_modules_content, // ✅ Arc<String> passed directly, zero clone
-                        None,
-                    )
-                    .await
-                {
+
+                // Ensure chart modules are available (fetch async if needed)
+                // This keeps the rendering logic purely synchronous
+                let modules_content = if let Some(content) = chart_modules_content {
+                    Some(content)
+                } else {
+                    Some(Arc::new(self.report_creator.get_chart_modules_content()))
+                };
+
+                // Template rendering with TemplateOrchestrator (Synchronous)
+                // Template rendering with TemplateOrchestrator (Synchronous)
+                match self.template_orchestrator.render_crypto_report_view(
+                    &state.tera,
+                    report,          // ✅ Move ownership - no clone needed!
+                    modules_content, // ✅ Arc<String> passed directly, zero clone
+                    None,
+                ) {
                     Ok(compressed_data) => {
                         info!("✅ Layer 5: Render thành công cho latest report. Yêu cầu Layer 3 cache lại compressed data.");
                         // BƯỚC 3: SAU KHI RENDER THÀNH CÔNG, YÊU CẦU LAYER 3 LƯU LẠI COMPRESSED DATA
                         // ✅ MEMORY OPTIMIZED: Pass reference instead of cloning entire Vec<u8>
-                        if let Err(e) = data_service
-                            .cache_rendered_report_compressed(state, -1, &compressed_data)
-                            .await
-                        {
+                        if let Err(e) = data_service.cache_rendered_report_compressed(
+                            state,
+                            -1,
+                            &compressed_data,
+                        ) {
                             warn!(
                                 "⚠️ Layer 5: Không thể cache compressed data cho latest report: {}",
                                 e
@@ -227,11 +265,10 @@ impl CryptoHandlers {
             Ok(None) => {
                 warn!("⚠️ No reports found in database - rendering empty template via TemplateOrchestrator");
 
-                // Use TemplateOrchestrator for empty template
+                // Use TemplateOrchestrator for empty template (Synchronous)
                 match self
                     .template_orchestrator
                     .render_empty_template(&state.tera)
-                    .await
                 {
                     Ok(html) => {
                         info!("✅ Empty template rendered successfully via TemplateOrchestrator");
@@ -268,7 +305,8 @@ impl CryptoHandlers {
     /// # Errors
     ///
     /// Returns error if database fetch or template rendering fails
-    pub async fn crypto_report_by_id_with_tera(
+    /// Returns error if database fetch or template rendering fails
+    pub fn crypto_report_by_id_with_tera(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
@@ -292,9 +330,8 @@ impl CryptoHandlers {
         let data_service = &self.report_creator.data_service; // Truy cập data_service
 
         // Check cache for compressed data first (preferred)
-        if let Ok(Some(cached_compressed)) = data_service
-            .get_rendered_report_compressed(state, report_id)
-            .await
+        if let Ok(Some(cached_compressed)) =
+            data_service.get_rendered_report_compressed(state, report_id)
         {
             info!("✅ Layer 5: Nhận compressed data từ cache. Trả về ngay lập tức.");
             return Ok(cached_compressed);
@@ -309,31 +346,35 @@ impl CryptoHandlers {
         // Fetch from DB (không cần chart modules vì đã có pre-loaded)
         let db_res = self
             .report_creator
-            .fetch_and_cache_report_by_id(state, report_id)
-            .await;
+            .fetch_and_cache_report_by_id(state, report_id);
 
         match db_res {
             Ok(Some(report)) => {
                 // ✅ MEMORY OPTIMIZED: Move report ownership to avoid cloning in template_orchestrator
-                // Template rendering with TemplateOrchestrator
-                match self
-                    .template_orchestrator
-                    .render_crypto_report_view(
-                        &state.tera,
-                        report,                // ✅ Move ownership - no clone needed!
-                        chart_modules_content, // ✅ Arc<String> passed directly, zero clone
-                        None,
-                    )
-                    .await
-                {
+
+                // Ensure chart modules are available (fetch async if needed)
+                let modules_content = if let Some(content) = chart_modules_content {
+                    Some(content)
+                } else {
+                    Some(Arc::new(self.report_creator.get_chart_modules_content()))
+                };
+
+                // Template rendering with TemplateOrchestrator (Synchronous)
+                match self.template_orchestrator.render_crypto_report_view(
+                    &state.tera,
+                    report,          // ✅ Move ownership - no clone needed!
+                    modules_content, // ✅ Arc<String> passed directly, zero clone
+                    None,
+                ) {
                     Ok(compressed_data) => {
                         info!("✅ Layer 5: Render thành công cho report #{}. Yêu cầu Layer 3 cache lại compressed data.", report_id);
                         // BƯỚC 3: SAU KHI RENDER THÀNH CÔNG, YÊU CẦU LAYER 3 LƯU LẠI COMPRESSED DATA
                         // ✅ MEMORY OPTIMIZED: Pass reference instead of cloning entire Vec<u8>
-                        if let Err(e) = data_service
-                            .cache_rendered_report_compressed(state, report_id, &compressed_data)
-                            .await
-                        {
+                        if let Err(e) = data_service.cache_rendered_report_compressed(
+                            state,
+                            report_id,
+                            &compressed_data,
+                        ) {
                             warn!(
                                 "⚠️ Layer 5: Không thể cache compressed data cho report #{}: {}",
                                 report_id, e
@@ -351,11 +392,10 @@ impl CryptoHandlers {
             Ok(None) => {
                 warn!("⚠️ No reports found in database - rendering empty template via TemplateOrchestrator");
 
-                // Use TemplateOrchestrator for empty template
+                // Use TemplateOrchestrator for empty template (Synchronous)
                 match self
                     .template_orchestrator
                     .render_empty_template(&state.tera)
-                    .await
                 {
                     Ok(html) => {
                         info!("✅ Empty template rendered successfully via TemplateOrchestrator");
@@ -389,7 +429,8 @@ impl CryptoHandlers {
     /// # Errors
     ///
     /// Returns error if database fetch fails
-    pub async fn crypto_reports_list_with_tera(
+    /// Returns error if database fetch fails
+    pub fn crypto_reports_list_with_tera(
         &self,
         state: &Arc<AppState>,
         page: i64,
@@ -414,10 +455,7 @@ impl CryptoHandlers {
         let data_service = &self.report_creator.data_service; // Truy cập data_service
         let per_page: i64 = 10;
 
-        match data_service
-            .fetch_reports_list_with_cache(state, page, per_page)
-            .await
-        {
+        match data_service.fetch_reports_list_with_cache(state, page, per_page) {
             Ok(Some(compressed_data)) => {
                 let size_kb = compressed_data.len() / 1024;
                 info!(
@@ -451,7 +489,8 @@ impl CryptoHandlers {
     /// # Errors
     ///
     /// Returns error if report generation fails
-    pub async fn serve_sandboxed_report(
+    /// Returns error if report generation fails
+    pub fn serve_sandboxed_report(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
@@ -470,7 +509,6 @@ impl CryptoHandlers {
                 language,
                 chart_modules_content,
             )
-            .await
             .map_err(super::super::shared::error::Layer5Error::into_boxed)
     }
 
@@ -482,7 +520,8 @@ impl CryptoHandlers {
     /// # Errors
     ///
     /// Returns error if report generation fails
-    pub async fn serve_shadow_dom_content(
+    /// Returns error if report generation fails
+    pub fn serve_shadow_dom_content(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
@@ -501,7 +540,6 @@ impl CryptoHandlers {
                 language,
                 chart_modules_content,
             )
-            .await
             .map_err(super::super::shared::error::Layer5Error::into_boxed)
     }
 
@@ -565,14 +603,17 @@ impl CryptoHandlers {
     /// Render Crypto Index DSD (Latest Report)
     /// Encapsulates all logic for the `crypto_index` route
     #[allow(clippy::too_many_lines)] // Orchestration function requiring multiple steps (cache, DB, DSD, metadata, rendering)
-    pub async fn render_crypto_index_dsd(
+    /// Render Crypto Index DSD (Latest Report)
+    /// Encapsulates all logic for the `crypto_index` route
+    #[allow(clippy::too_many_lines)] // Orchestration function requiring multiple steps (cache, DB, DSD, metadata, rendering)
+    pub fn render_crypto_index_dsd(
         &self,
         state: &Arc<AppState>,
         params: &HashMap<String, String>,
         headers: &HeaderMap,
         chart_modules_content: Arc<String>,
         report_id_opt: Option<i32>, // Optional specific ID, defaults to latest if None
-    ) -> Response {
+    ) -> Layer5Result<RenderedContent> {
         debug!("🌓 [Handler] render_crypto_index_dsd called - using Declarative Shadow DOM architecture");
 
         // Determine report ID value (use provided or -1 for latest)
@@ -592,10 +633,11 @@ impl CryptoHandlers {
         let data_service = &self.report_creator.data_service;
         let default_language = "vi";
 
-        if let Ok(Some(cached_compressed)) = data_service
-            .get_rendered_report_dsd_compressed(state, report_id_value, default_language)
-            .await
-        {
+        if let Ok(Some(cached_compressed)) = data_service.get_rendered_report_dsd_compressed(
+            state,
+            report_id_value,
+            default_language,
+        ) {
             info!(
                 "✅ [Handler] DSD cache HIT (default language) - returning compressed HTML for {}",
                 if report_id_value == -1 {
@@ -605,22 +647,11 @@ impl CryptoHandlers {
                 }
             );
 
-            return Response::builder()
-                .status(StatusCode::OK)
-                .header("cache-control", "public, max-age=300")
-                .header("content-type", "text/html; charset=utf-8")
-                .header("content-encoding", "gzip")
-                .header("x-render-mode", "declarative-shadow-dom")
-                .header("x-cache", "HIT")
-                .body(Body::from(cached_compressed))
-                .unwrap_or_else(|e| {
-                    warn!("⚠️ Failed to build cached DSD response: {}", e);
-                    Response::builder()
-                        .status(StatusCode::INTERNAL_SERVER_ERROR)
-                        .body(Body::from("Response build error"))
-                        .unwrap_or_else(|_| Response::new(Body::from("Response build error")))
-                })
-                .into_response();
+            return Ok(RenderedContent {
+                data: cached_compressed,
+                cache_control: "public, max-age=300",
+                cache_status: "HIT",
+            });
         }
 
         // STEP 1.1: Cache miss with default language - now detect preferred language for rendering
@@ -634,10 +665,11 @@ impl CryptoHandlers {
 
         // STEP 1.2: If preferred language differs from default, try cache with preferred language
         if preferred_language != default_language {
-            if let Ok(Some(cached_compressed)) = data_service
-                .get_rendered_report_dsd_compressed(state, report_id_value, &preferred_language)
-                .await
-            {
+            if let Ok(Some(cached_compressed)) = data_service.get_rendered_report_dsd_compressed(
+                state,
+                report_id_value,
+                &preferred_language,
+            ) {
                 info!(
                     "✅ [Handler] DSD cache HIT (preferred language: {}) - returning compressed HTML for {}",
                     preferred_language,
@@ -648,22 +680,11 @@ impl CryptoHandlers {
                     }
                 );
 
-                return Response::builder()
-                    .status(StatusCode::OK)
-                    .header("cache-control", "public, max-age=300")
-                    .header("content-type", "text/html; charset=utf-8")
-                    .header("content-encoding", "gzip")
-                    .header("x-render-mode", "declarative-shadow-dom")
-                    .header("x-cache", "HIT")
-                    .body(Body::from(cached_compressed))
-                    .unwrap_or_else(|e| {
-                        warn!("⚠️ Failed to build cached DSD response: {}", e);
-                        Response::builder()
-                            .status(StatusCode::INTERNAL_SERVER_ERROR)
-                            .body(Body::from("Response build error"))
-                            .unwrap_or_else(|_| Response::new(Body::from("Response build error")))
-                    })
-                    .into_response();
+                return Ok(RenderedContent {
+                    data: cached_compressed,
+                    cache_control: "public, max-age=300",
+                    cache_status: "HIT",
+                });
             }
         }
 
@@ -671,24 +692,21 @@ impl CryptoHandlers {
 
         // STEP 2: Fetch report from database (uses existing data cache)
         let report_result = if report_id_value == -1 {
-            self.report_creator
-                .fetch_and_cache_latest_report(state)
-                .await
+            self.report_creator.fetch_and_cache_latest_report(state)
         } else {
             self.report_creator
                 .fetch_and_cache_report_by_id(state, report_id_value)
-                .await
         };
 
         let report = match report_result {
             Ok(Some(report)) => report,
             Ok(None) => {
                 warn!("⚠️ [Handler] No report found for DSD view");
-                return (StatusCode::NOT_FOUND, "Report not found").into_response();
+                return Err(crate::service_islands::layer5_business_logic::shared::error::Layer5Error::NotFound("Report not found".to_string()));
             }
             Err(e) => {
                 error!("❌ [Handler] Database error fetching report for DSD: {}", e);
-                return (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
+                return Err(e.into());
             }
         };
 
@@ -722,12 +740,9 @@ impl CryptoHandlers {
         );
 
         // STEP 5.1: Fetch related reports for internal linking (GEO optimization)
-        let related_reports_data = match data_service
-            .fetch_related_reports(
-                state, report.id, 3, // Limit to 3 related reports
-            )
-            .await
-        {
+        let related_reports_data = match data_service.fetch_related_reports(
+            state, report.id, 3, // Limit to 3 related reports
+        ) {
             Ok(reports) => reports,
             Err(e) => {
                 warn!("⚠️ [Handler] Failed to fetch related reports: {}", e);
@@ -771,8 +786,7 @@ impl CryptoHandlers {
             Ok(html) => html,
             Err(e) => {
                 error!("❌ [Handler] Failed to render DSD template: {}", e);
-                return (StatusCode::INTERNAL_SERVER_ERROR, "Template render error")
-                    .into_response();
+                return Err(crate::service_islands::layer5_business_logic::shared::error::Layer5Error::TemplateRender(e.to_string()));
             }
         };
 
@@ -781,20 +795,18 @@ impl CryptoHandlers {
             Ok(data) => data,
             Err(e) => {
                 error!("❌ [Handler] Failed to compress DSD HTML: {}", e);
-                return (StatusCode::INTERNAL_SERVER_ERROR, "Compression error").into_response();
+                return Err(crate::service_islands::layer5_business_logic::shared::error::Layer5Error::Compression(e.to_string()));
             }
         };
 
         // STEP 8: Cache the compressed HTML
-        if let Err(e) = data_service
-            .cache_rendered_report_dsd_compressed(
-                state,
-                report_id_value,
-                &compressed_data,
-                &preferred_language,
-            )
-            .await
-        {
+        // STEP 8: Cache the compressed HTML
+        if let Err(e) = data_service.cache_rendered_report_dsd_compressed(
+            state,
+            report_id_value,
+            &compressed_data,
+            &preferred_language,
+        ) {
             warn!("⚠️ [Handler] Failed to cache DSD compressed HTML: {}", e);
         }
 
@@ -804,34 +816,26 @@ impl CryptoHandlers {
         );
 
         // STEP 9: Return compressed response
-        Response::builder()
-            .status(StatusCode::OK)
-            .header("cache-control", "public, max-age=300")
-            .header("content-type", "text/html; charset=utf-8")
-            .header("content-encoding", "gzip")
-            .header("x-render-mode", "declarative-shadow-dom")
-            .header("x-cache", "MISS")
-            .body(Body::from(compressed_data))
-            .unwrap_or_else(|e| {
-                warn!("⚠️ Failed to build DSD response: {}", e);
-                Response::builder()
-                    .status(StatusCode::INTERNAL_SERVER_ERROR)
-                    .body(Body::from("Response build error"))
-                    .unwrap_or_else(|_| Response::new(Body::from("Response build error")))
-            })
-            .into_response()
+        // STEP 9: Return compressed response
+        Ok(RenderedContent {
+            data: compressed_data,
+            cache_control: "public, max-age=300",
+            cache_status: "MISS",
+        })
     }
 
     /// Render Crypto Report by ID DSD
     /// Encapsulates all logic for the `crypto_view_report` route
-    pub async fn render_crypto_report_dsd(
+    /// Render Crypto Report by ID DSD
+    /// Encapsulates all logic for the `crypto_view_report` route
+    pub fn render_crypto_report_dsd(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
         params: &HashMap<String, String>,
         headers: &HeaderMap,
         chart_modules_content: Arc<String>,
-    ) -> Response {
+    ) -> Layer5Result<RenderedContent> {
         // Reuse the logic from render_crypto_index_dsd but with specific ID
         self.render_crypto_index_dsd(
             state,
@@ -840,6 +844,5 @@ impl CryptoHandlers {
             chart_modules_content,
             Some(report_id),
         )
-        .await
     }
 }

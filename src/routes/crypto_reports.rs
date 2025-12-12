@@ -15,6 +15,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{debug, error, info, warn};
 
+use crate::service_islands::layer5_business_logic::{
+    crypto_reports::handlers::RenderedContent, shared::error::Layer5Result,
+};
 use crate::service_islands::ServiceIslands;
 
 /// Configure crypto reports routes
@@ -41,7 +44,6 @@ async fn crypto_reports_list(
         .crypto_reports
         .handlers
         .crypto_reports_list_with_tera(&service_islands.get_legacy_app_state(), page)
-        .await
     {
         Ok(compressed_data) => {
             let size_kb = compressed_data.len() / 1024;
@@ -85,7 +87,7 @@ async fn crypto_index(
     State(service_islands): State<Arc<ServiceIslands>>,
     Query(params): Query<HashMap<String, String>>,
     headers: HeaderMap,
-) -> Response {
+) -> Layer5Result<RenderedContent> {
     debug!("🌓 [Route] crypto_index called - delegating to Service Islands Layer 5");
 
     // Check if specific report ID is requested via query param
@@ -94,8 +96,7 @@ async fn crypto_index(
         if let Ok(id) = id_str.parse::<i32>() {
             Some(id)
         } else {
-            error!("❌ [Route] Invalid report ID format: {}", id_str);
-            return (StatusCode::BAD_REQUEST, "Invalid report ID format").into_response();
+            return Err(crate::service_islands::layer5_business_logic::shared::error::Layer5Error::InvalidInput(format!("Invalid report ID format: {}", id_str)));
         }
     } else {
         None // Latest report
@@ -105,6 +106,7 @@ async fn crypto_index(
     let chart_modules_content = service_islands.get_chart_modules_content();
 
     // Delegate to handlers
+
     service_islands
         .crypto_reports
         .handlers
@@ -115,7 +117,6 @@ async fn crypto_index(
             chart_modules_content,
             report_id_value,
         )
-        .await
 }
 
 /// View specific crypto report by ID using Declarative Shadow DOM
@@ -126,16 +127,15 @@ async fn crypto_view_report(
     State(service_islands): State<Arc<ServiceIslands>>,
     Query(params): Query<HashMap<String, String>>,
     headers: HeaderMap,
-) -> Response {
+) -> Layer5Result<RenderedContent> {
     debug!("🌓 [Route] crypto_view_report called for ID: {}", id);
 
     // Parse report ID
-    let report_id: i32 = if let Ok(id) = id.parse() {
-        id
-    } else {
-        error!("❌ [Route] Invalid report ID format: {}", id);
-        return (StatusCode::BAD_REQUEST, "Invalid report ID format").into_response();
-    };
+    let report_id: i32 = id.parse().map_err(|_| {
+        crate::service_islands::layer5_business_logic::shared::error::Layer5Error::InvalidInput(
+            format!("Invalid report ID format: {}", id),
+        )
+    })?;
 
     // Get chart modules content
     let chart_modules_content = service_islands.get_chart_modules_content();
@@ -151,5 +151,4 @@ async fn crypto_view_report(
             &headers,
             chart_modules_content,
         )
-        .await
 }
