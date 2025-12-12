@@ -66,6 +66,7 @@ bb8-redis = "0.15"     # Redis connection pool for L2 cache (legacy)
 base64ct = "=1.6.0"    # Pin to avoid edition2024 requirement
 backon = "=1.5.0"      # Pin to 1.5.0 to avoid edition2024 requirement
 futures = "0.3"        # Async utilities cho concurrent operations
+base64 = "0.22"        # Base64 encoding for cache optimization
 # Performance optimization dependencies
 
 threadpool = "1.8"     # Dedicated thread pool cho CPU tasks

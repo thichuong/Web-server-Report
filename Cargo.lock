@@ -3249,6 +3249,7 @@ dependencies = [
  "anyhow",
  "axum",
  "backon",
+ "base64 0.22.1",
  "base64ct",
  "bb8-redis",
  "blake3",

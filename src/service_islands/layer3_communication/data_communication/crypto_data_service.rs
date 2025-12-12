@@ -13,6 +13,7 @@ use tracing::{debug, error, info, warn};
 
 // Import from current state - will be refactored when lower layers are implemented
 use crate::service_islands::layer1_infrastructure::AppState;
+use base64::{prelude::BASE64_STANDARD, Engine};
 
 /// Memory limits for cache entries - Production safety guards
 ///
@@ -386,6 +387,29 @@ impl CryptoDataService {
         if let Some(ref cache_system) = state.cache_system {
             let cache_key = format!("compressed_report_{report_id}");
             if let Ok(Some(cached_value)) = cache_system.cache_manager.get(&cache_key).await {
+                // Try to parse as String (Base64) first - New Format (Memory Optimized)
+                if let Ok(base64_string) = serde_json::from_value::<String>(cached_value.clone()) {
+                    match BASE64_STANDARD.decode(base64_string) {
+                        Ok(compressed_bytes) => {
+                            let report_type = if report_id == -1 {
+                                "latest report"
+                            } else {
+                                &format!("report #{report_id}")
+                            };
+                            info!(
+                                "🔥 Layer 3: Cache HIT (Base64) cho compressed data của {}",
+                                report_type
+                            );
+                            return Ok(Some(compressed_bytes));
+                        }
+                        Err(e) => {
+                            warn!("⚠️ Layer 3: Failed to decode Base64 cache entry: {}", e);
+                            // Fallthrough to try legacy format
+                        }
+                    }
+                }
+
+                // Fallback: Try to parse as Vec<u8> - Old Format (Legacy)
                 if let Ok(compressed_bytes) = serde_json::from_value::<Vec<u8>>(cached_value) {
                     let report_type = if report_id == -1 {
                         "latest report"
@@ -393,7 +417,7 @@ impl CryptoDataService {
                         &format!("report #{report_id}")
                     };
                     info!(
-                        "🔥 Layer 3: Cache HIT cho compressed data của {}",
+                        "🔥 Layer 3: Cache HIT (Legacy Array) cho compressed data của {}",
                         report_type
                     );
                     return Ok(Some(compressed_bytes));
@@ -449,8 +473,11 @@ impl CryptoDataService {
         if let Some(ref cache_system) = state.cache_system {
             let cache_key = format!("compressed_report_{report_id}");
             let strategy = crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm;
-            // Serialize the slice - this creates a temporary Vec internally, but that's required for JSON serialization
-            let compressed_json = serde_json::to_value(compressed_data).unwrap_or_default();
+
+            // ✅ OPTIMIZATION: Encode as Base64 string instead of JSON Array of Numbers
+            // This reduces memory usage by ~95% compared to [12, 255, ...] format
+            let base64_string = BASE64_STANDARD.encode(compressed_data);
+            let compressed_json = serde_json::Value::String(base64_string);
 
             cache_system
                 .cache_manager
@@ -483,6 +510,29 @@ impl CryptoDataService {
         if let Some(ref cache_system) = state.cache_system {
             let cache_key = format!("compressed_report_dsd_{report_id}_{language}");
             if let Ok(Some(cached_value)) = cache_system.cache_manager.get(&cache_key).await {
+                // Try to parse as String (Base64) first - New Format (Memory Optimized)
+                if let Ok(base64_string) = serde_json::from_value::<String>(cached_value.clone()) {
+                    match BASE64_STANDARD.decode(base64_string) {
+                        Ok(compressed_bytes) => {
+                            let report_type = if report_id == -1 {
+                                "latest DSD report"
+                            } else {
+                                &format!("DSD report #{report_id}")
+                            };
+                            info!(
+                                "🔥 Layer 3: Cache HIT (Base64) for {} (lang: {})",
+                                report_type, language
+                            );
+                            return Ok(Some(compressed_bytes));
+                        }
+                        Err(e) => {
+                            warn!("⚠️ Layer 3: Failed to decode Base64 DSD cache entry: {}", e);
+                            // Fallthrough to try legacy format
+                        }
+                    }
+                }
+
+                // Fallback: Try to parse as Vec<u8> - Old Format (Legacy)
                 if let Ok(compressed_bytes) = serde_json::from_value::<Vec<u8>>(cached_value) {
                     let report_type = if report_id == -1 {
                         "latest DSD report"
@@ -490,7 +540,7 @@ impl CryptoDataService {
                         &format!("DSD report #{report_id}")
                     };
                     info!(
-                        "🔥 Layer 3: Cache HIT for {} (lang: {})",
+                        "🔥 Layer 3: Cache HIT (Legacy Array) for {} (lang: {})",
                         report_type, language
                     );
                     return Ok(Some(compressed_bytes));
@@ -549,8 +599,11 @@ impl CryptoDataService {
         if let Some(ref cache_system) = state.cache_system {
             let cache_key = format!("compressed_report_dsd_{report_id}_{language}");
             let strategy = crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm;
-            // Serialize the slice - this creates a temporary Vec internally, but that's required for JSON serialization
-            let compressed_json = serde_json::to_value(compressed_data).unwrap_or_default();
+
+            // ✅ OPTIMIZATION: Encode as Base64 string instead of JSON Array of Numbers
+            // This reduces memory usage by ~95% compared to [12, 255, ...] format
+            let base64_string = BASE64_STANDARD.encode(compressed_data);
+            let compressed_json = serde_json::Value::String(base64_string);
 
             cache_system
                 .cache_manager
