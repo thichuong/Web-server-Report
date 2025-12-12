@@ -96,7 +96,7 @@ async fn crypto_index(
         if let Ok(id) = id_str.parse::<i32>() {
             Some(id)
         } else {
-            return Err(crate::service_islands::layer5_business_logic::shared::error::Layer5Error::InvalidInput(format!("Invalid report ID format: {}", id_str)));
+            return Err(crate::service_islands::layer5_business_logic::shared::error::Layer5Error::InvalidInput(format!("Invalid report ID format: {id_str}")));
         }
     } else {
         None // Latest report
@@ -133,7 +133,7 @@ async fn crypto_view_report(
     // Parse report ID
     let report_id: i32 = id.parse().map_err(|_| {
         crate::service_islands::layer5_business_logic::shared::error::Layer5Error::InvalidInput(
-            format!("Invalid report ID format: {}", id),
+            format!("Invalid report ID format: {id}"),
         )
     })?;
 

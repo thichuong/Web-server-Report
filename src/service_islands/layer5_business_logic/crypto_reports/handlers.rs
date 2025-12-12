@@ -602,10 +602,12 @@ impl CryptoHandlers {
 
     /// Render Crypto Index DSD (Latest Report)
     /// Encapsulates all logic for the `crypto_index` route
+    ///
+    /// # Errors
+    ///
+    /// Returns error if database fetch or template rendering fails
     #[allow(clippy::too_many_lines)] // Orchestration function requiring multiple steps (cache, DB, DSD, metadata, rendering)
-    /// Render Crypto Index DSD (Latest Report)
-    /// Encapsulates all logic for the `crypto_index` route
-    #[allow(clippy::too_many_lines)] // Orchestration function requiring multiple steps (cache, DB, DSD, metadata, rendering)
+    #[allow(clippy::needless_pass_by_value)] // Arc is passed by value to maintain API compatibility
     pub fn render_crypto_index_dsd(
         &self,
         state: &Arc<AppState>,
@@ -828,6 +830,10 @@ impl CryptoHandlers {
     /// Encapsulates all logic for the `crypto_view_report` route
     /// Render Crypto Report by ID DSD
     /// Encapsulates all logic for the `crypto_view_report` route
+    ///
+    /// # Errors
+    ///
+    /// Returns error if database fetch or template rendering fails
     pub fn render_crypto_report_dsd(
         &self,
         state: &Arc<AppState>,

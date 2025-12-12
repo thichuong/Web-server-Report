@@ -182,7 +182,7 @@ impl ReportCreator {
     /// Get available chart modules
     ///
     /// Returns a list of available chart module names via Layer 1 infrastructure.
-    #[allow(dead_code)]
+    #[must_use]
     pub fn get_available_chart_modules(&self) -> Vec<String> {
         Self::block_on(self.chart_modules_island.get_available_modules())
     }
@@ -219,8 +219,6 @@ impl ReportCreator {
         )
     }
 
-    /// Helper to fetch report by ID (handles -1 for latest)
-    #[inline]
     /// Helper to fetch report by ID (handles -1 for latest)
     #[inline]
     fn fetch_report(

@@ -79,6 +79,9 @@ impl TemplateOrchestrator {
     /// Takes Report by value (move) and wraps in Arc without cloning.
     ///
     /// Returns error if chart modules content is missing (now strictly required)
+    /// # Errors
+    ///
+    /// Returns error if context preparation fails
     pub fn prepare_crypto_report_context(
         &self,
         report: Report,
