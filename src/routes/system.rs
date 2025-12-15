@@ -113,8 +113,8 @@ async fn cache_stats(
                 in_flight_requests: stats.in_flight_requests,
             },
             configuration: CacheConfiguration {
-                l1_max_capacity: 2000,
-                l1_ttl: "5 minutes (ShortTerm)".to_string(),
+                l1_max_capacity: 20,
+                l1_ttl: "30 minutes TTL, 5 minutes TTI".to_string(),
                 l2_ttl: "1 hour (default)".to_string(),
                 eviction: "automatic (size + TTL based)".to_string(),
                 stampede_protection: "enabled (DashMap coalescing)".to_string(),

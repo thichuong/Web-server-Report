@@ -7,9 +7,11 @@
 
 use anyhow::Result;
 use std::sync::Arc;
+use std::time::Duration;
 use tracing::info;
 
 // Import and re-export from multi-tier-cache library
+use multi_tier_cache::{backends::moka_cache::MokaCacheConfig, CacheSystemBuilder};
 pub use multi_tier_cache::{
     CacheManager, CacheStrategy, CacheSystem as LibraryCacheSystem, L1Cache, L2Cache,
 };
@@ -50,8 +52,18 @@ impl CacheSystemIsland {
     pub async fn new() -> Result<Self> {
         info!("🏗️ Initializing Cache System Island (using multi-tier-cache library)...");
 
-        // Initialize from library
-        let inner = LibraryCacheSystem::new().await?;
+        // Configure Moka L1 cache
+        let moka_config = MokaCacheConfig {
+            max_capacity: 20,
+            time_to_live: Duration::from_secs(30 * 60), // 30 mins
+            time_to_idle: Duration::from_secs(2 * 60),  // 2 mins
+        };
+
+        // Initialize from library with custom Moka configuration
+        let inner = CacheSystemBuilder::new()
+            .with_moka_config(moka_config)
+            .build()
+            .await?;
 
         // Extract Arc references for backward compatibility
         let cache_manager = Arc::clone(&inner.cache_manager);
