@@ -205,7 +205,7 @@ async fn api_dashboard_summary(
 
 /// API health check endpoint
 async fn api_health(State(service_islands): State<Arc<ServiceIslands>>) -> Json<ApiHealthResponse> {
-    let is_healthy = service_islands.health_check().await;
+    let is_healthy = service_islands.health_check();
 
     let response = ApiHealthResponse {
         api: ApiHealthInfo {

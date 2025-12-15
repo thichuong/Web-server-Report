@@ -29,7 +29,7 @@ pub fn configure_system_routes() -> Router<Arc<ServiceIslands>> {
 async fn health_check(
     State(service_islands): State<Arc<ServiceIslands>>,
 ) -> Result<Json<HealthCheckResponse>, StatusCode> {
-    let health_status = service_islands.health_check().await;
+    let health_status = service_islands.health_check();
 
     let response = HealthCheckResponse {
         status: if health_status {

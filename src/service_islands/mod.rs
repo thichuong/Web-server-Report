@@ -108,7 +108,7 @@ impl ServiceIslands {
     /// Perform health check on all Service Islands
     ///
     /// Returns true if all islands are healthy, false otherwise.
-    pub async fn health_check(&self) -> bool {
+    pub fn health_check(&self) -> bool {
         debug!("🔍 Performing Service Islands health check (Main Service)...");
 
         let shared_components_healthy = self.shared_components.health_check();
