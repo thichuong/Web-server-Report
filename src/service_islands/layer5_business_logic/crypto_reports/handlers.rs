@@ -92,6 +92,17 @@ impl CryptoHandlers {
         report_creator_ok && template_orchestrator_ok
     }
 
+    /// Initialize the handlers cache
+    ///
+    /// Pre-renders report frame.
+    /// Should be called during application startup.
+    pub fn init_cache(&self, state: &Arc<AppState>) {
+        // Init template orchestrator cache
+        self.template_orchestrator
+            .init_report_frame_cache(&state.tera);
+        info!("✅ CryptoHandlers business logic cache initialized");
+    }
+
     /// Create cached response with proper headers
     ///
     /// From `archive_old_code/handlers/crypto.rs::create_cached_response`

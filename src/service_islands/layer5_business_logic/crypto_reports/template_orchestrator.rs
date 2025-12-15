@@ -13,6 +13,10 @@ use super::report_creator::{Report, ReportCreator};
 
 // Import shared utilities
 use super::super::shared::{compress_html_to_gzip, get_websocket_url, Layer5Error, Layer5Result};
+use tokio::sync::OnceCell;
+
+// Placeholders for pre-rendering
+const PLACEHOLDER_SANDBOX_TOKEN: &str = "__PRE_RENDER_SANDBOX_TOKEN__";
 
 /// Template Context Data
 ///
@@ -36,13 +40,18 @@ pub struct TemplateContext {
 pub struct TemplateOrchestrator {
     /// Reference to `ReportCreator` for data operations
     pub report_creator: ReportCreator,
+    /// Cached report frame (pre-rendered at startup)
+    pub cached_report_frame: OnceCell<String>,
 }
 
 impl TemplateOrchestrator {
     /// Create a new `TemplateOrchestrator`
     #[must_use]
     pub fn new(report_creator: ReportCreator) -> Self {
-        Self { report_creator }
+        Self {
+            report_creator,
+            cached_report_frame: OnceCell::new(),
+        }
     }
 
     /// Health check for template orchestrator
@@ -67,6 +76,69 @@ impl TemplateOrchestrator {
             stats.ratio_percent
         );
         Ok(data)
+    }
+
+    /// Initialize report frame cache
+    ///
+    /// Pre-renders the report frame with placeholders and stores it in the cache.
+    /// Should be called during application startup.
+    pub fn init_report_frame_cache(&self, tera: &tera::Tera) {
+        info!("🏗️ Pre-rendering report frame to cache...");
+
+        // Create a dummy report with placeholders
+        let dummy_report = Report {
+            id: 0,                       // Will not be used in display due to string replacement
+            html_content: String::new(), // Content loaded via iframe
+            css_content: None,
+            js_content: None,
+            html_content_en: None,
+            js_content_en: None,
+            created_at: chrono::Utc::now(),
+        };
+
+        // Prepare context with placeholders
+        let mut context = TemplateContext {
+            report: Arc::new(dummy_report),
+            // Use empty chart modules content for frame - it will be injected or loaded separately
+            chart_modules_content: Arc::new(String::from(
+                "/* Pre-rendered chart modules placeholder */",
+            )),
+            current_route: "dashboard".to_string(),
+            current_lang: "vi".to_string(),
+            current_time: String::new(), // Dynamic, handled by client or during replacement if needed
+            pdf_url: "#".to_string(),
+            additional_context: None,
+        };
+
+        // Add specific placeholders for replacement
+        let mut extra_context = HashMap::new();
+        extra_context.insert(
+            "sandbox_token".to_string(),
+            serde_json::Value::String(PLACEHOLDER_SANDBOX_TOKEN.to_string()),
+        );
+
+        // Let's use a distinct ID for the dummy report to avoid replacing legitimate 0s if they existed
+        let placeholder_id = -999999;
+        let dummy_report_safe = Report {
+            id: placeholder_id,
+            ..context.report.as_ref().clone()
+        };
+        context.report = Arc::new(dummy_report_safe);
+
+        context.additional_context = Some(extra_context);
+
+        // Render the template
+        match self.render_template(tera, "crypto/routes/reports/view.html", context) {
+            Ok(html) => {
+                // Store the frame
+                if let Err(_) = self.cached_report_frame.set(html) {
+                    warn!("⚠️ Report frame cache already initialized");
+                } else {
+                    info!("✅ Report frame pre-rendered and cached in RAM");
+                }
+            }
+            Err(e) => error!("❌ Failed to pre-render report frame: {}", e),
+        }
     }
 
     /// Prepare template context for crypto reports
@@ -233,7 +305,47 @@ impl TemplateOrchestrator {
         chart_modules_content: Option<Arc<String>>,
         additional_context: Option<HashMap<String, serde_json::Value>>,
     ) -> Layer5Result<Vec<u8>> {
-        debug!("TemplateOrchestrator: Rendering crypto report view with compression");
+        debug!("TemplateOrchestrator: Rendering crypto report view (Optimized)");
+
+        // Check if we have a cached frame
+        if let Some(frame) = self.cached_report_frame.get() {
+            debug!("⚡ Using cached report frame - performing string replacement");
+
+            // Prepare data for replacement
+            let report_id_str = report.id.to_string();
+
+            // Calculate sandbox token
+            let chart_content_ref = chart_modules_content.as_ref().map(|s| s.as_str());
+            let sandboxed_report = self
+                .report_creator
+                .create_sandboxed_report(&report, chart_content_ref);
+            let sandbox_token_str = sandboxed_report.sandbox_token;
+
+            // Perform replacements
+            let placeholder_id = "-999999";
+
+            let html = frame
+                .replace(placeholder_id, &report_id_str)
+                .replace(PLACEHOLDER_SANDBOX_TOKEN, &sandbox_token_str);
+
+            // Replace chart modules placeholder
+            let chart_content = chart_modules_content
+                .as_ref()
+                .map(|s| s.as_str())
+                .unwrap_or("");
+            let html = html.replace(
+                "/* Pre-rendered chart modules placeholder */",
+                chart_content,
+            );
+
+            // Compress
+            let compressed_data = Self::compress_html(&html)?;
+            info!("✅ Optimized render complete (RAM Cache + String Replacment)");
+            return Ok(compressed_data);
+        }
+
+        // Fallback to original logic if cache not ready
+        debug!("⚠️ Report frame cache miss - performing full render");
 
         // Step 1: Prepare template context (moves report ownership)
         let context = self.prepare_crypto_report_context(

@@ -17,12 +17,16 @@ use tera::Context;
 
 use tracing::{debug, error, info, warn};
 
+use tokio::sync::OnceCell;
+
 /// Dashboard Handlers
 ///
 /// Contains all HTTP request handlers for dashboard-related operations.
 /// These handlers manage dashboard data, summaries, and API interactions.
 pub struct DashboardHandlers {
     pub data_service: DashboardDataService,
+    /// Cached homepage content (pre-rendered at startup)
+    pub cached_homepage: OnceCell<Vec<u8>>,
 }
 
 impl Default for DashboardHandlers {
@@ -37,6 +41,7 @@ impl DashboardHandlers {
     pub fn new() -> Self {
         Self {
             data_service: DashboardDataService::new(),
+            cached_homepage: OnceCell::new(),
         }
     }
 
@@ -101,14 +106,6 @@ impl DashboardHandlers {
     /// # Errors
     ///
     /// Returns error if file reading fails or template parsing fails
-    /// Homepage handler - renders homepage template using Tera
-    ///
-    /// Uses Tera template engine to render home.html with market indicators component included.
-    /// This replaces the simple file reading with proper template rendering.
-    ///
-    /// # Errors
-    ///
-    /// Returns error if file reading fails or template parsing fails
     pub fn homepage(&self) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         match std::fs::read_to_string("dashboards/home.html") {
             Ok(content) => Ok(content),
@@ -116,50 +113,36 @@ impl DashboardHandlers {
         }
     }
 
-    /// Homepage handler with Tera rendering - ENHANCED VERSION WITH CACHING
+    /// Initialize homepage cache
     ///
-    /// Renders homepage using Tera template engine with proper context and intelligent caching.
-    /// This includes the market indicators component and any dynamic data.
-    /// Returns compressed HTML for optimal performance, similar to `crypto_index_with_tera`.
-    ///
-    /// # Errors
-    ///
-    /// Returns error if cache retrieval fails, template rendering fails, HTML compression fails, or fallback file reading fails
-    /// Homepage handler with Tera rendering - ENHANCED VERSION WITH CACHING
-    ///
-    /// Renders homepage using Tera template engine with proper context and intelligent caching.
-    /// This includes the market indicators component and any dynamic data.
-    /// Returns compressed HTML for optimal performance, similar to `crypto_index_with_tera`.
-    ///
-    /// # Errors
-    ///
-    /// Returns error if cache retrieval fails, template rendering fails, HTML compression fails, or fallback file reading fails
-    pub async fn homepage_with_tera(
+    /// Pre-renders the homepage and stores it in the cache.
+    /// Should be called during application startup.
+    pub async fn init_homepage_cache(&self, state: &Arc<AppState>) {
+        info!("🏗️ Pre-rendering homepage to cache...");
+        match self.render_homepage_internal(state).await {
+            Ok(data) => {
+                if let Err(_) = self.cached_homepage.set(data) {
+                    warn!("⚠️ Homepage cache already initialized");
+                } else {
+                    info!("✅ Homepage pre-rendered and cached in RAM");
+                }
+            }
+            Err(e) => error!("❌ Failed to pre-render homepage: {}", e),
+        }
+    }
+
+    /// Internal function to render homepage
+    async fn render_homepage_internal(
         &self,
         state: &Arc<AppState>,
     ) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
-        debug!("🚀 Layer 5: Nhận yêu cầu cho homepage");
-
-        // BƯỚC 1: HỎI LAYER 3 ĐỂ LẤY COMPRESSED DATA TỪ CACHE CHO HOMEPAGE
-        // Check cache for compressed data first (preferred)
-        if let Ok(Some(cached_compressed)) = self
-            .data_service
-            .get_rendered_homepage_compressed(state)
-            .await
-        {
-            info!("✅ Layer 5: Nhận compressed homepage từ cache. Trả về ngay lập tức.");
-            return Ok(cached_compressed);
-        }
-
-        debug!("🔍 Layer 5: Cache miss cho homepage. Bắt đầu quy trình render.");
-
-        // BƯỚC 2: NẾU CACHE MISS, RENDER TEMPLATE VỚI CONTEXT ĐƠN GIẢN
+        // Render template with context
         let mut context = Context::new();
 
         // Add basic context for homepage
         context.insert("current_route", "homepage");
         context.insert("current_lang", "vi");
-        // Tối ưu: format() đã trả về String, không cần to_string()
+        // Fixed time for pre-rendered page - client side JS handles updates if needed
         let current_time = chrono::Utc::now()
             .format("%Y-%m-%d %H:%M:%S UTC")
             .to_string();
@@ -174,70 +157,56 @@ impl DashboardHandlers {
         );
 
         // Inject WebSocket service URL from environment variable
-        let ws_url = std::env::var("WEBSOCKET_SERVICE_URL")
-            .unwrap_or_else(|_| {
-                // Default to localhost for development
-                if cfg!(debug_assertions) {
-                    "ws://localhost:8081".to_string()
-                } else {
-                    // In production, warn if not explicitly configured
-                    warn!("⚠️ WEBSOCKET_SERVICE_URL not set in production!");
-                    error!("   Using fallback: wss://web-server-report-websocket-production.up.railway.app");
-                    error!("   Set WEBSOCKET_SERVICE_URL environment variable to avoid this warning.");
-                    "wss://web-server-report-websocket-production.up.railway.app".to_string()
-                }
-            });
+        let ws_url = std::env::var("WEBSOCKET_SERVICE_URL").unwrap_or_else(|_| {
+            if cfg!(debug_assertions) {
+                "ws://localhost:8081".to_string()
+            } else {
+                warn!("⚠️ WEBSOCKET_SERVICE_URL not set in production!");
+                "wss://web-server-report-websocket-production.up.railway.app".to_string()
+            }
+        });
         context.insert("websocket_url", &ws_url);
 
         // Render the template using the registered components
+        // Use synchronous render as it's fast enough
         match state.tera.render("home.html", &context) {
             Ok(html) => {
-                info!("✅ Layer 5: Render homepage thành công với Tera components");
-                info!("   - Theme toggle component included");
-                info!("   - Language toggle component included");
-                info!("   - Market indicators component included");
-
-                // BƯỚC 3: COMPRESS HTML VÀ CACHE RESULT
-                match Self::compress_html(&html) {
-                    Ok(compressed_data) => {
-                        // ✅ IDIOMATIC: Pass reference instead of cloning entire Vec<u8>
-                        // At 16,829 RPS, this saves 840MB-3.3GB/sec of allocations
-                        if let Err(e) = self
-                            .data_service
-                            .cache_rendered_homepage_compressed(state, &compressed_data)
-                            .await
-                        {
-                            warn!("⚠️ Layer 5: Không thể cache compressed homepage: {}", e);
-                            // Vẫn trả về data ngay cả khi cache fail
-                        } else {
-                            info!("✅ Homepage rendered and cached successfully");
-                        }
-                        Ok(compressed_data) // Move ownership, zero clone
-                    }
-                    Err(e) => {
-                        error!("❌ Failed to compress homepage HTML: {}", e);
-                        Err(format!("Homepage compression error: {e}").into())
-                    }
-                }
+                info!("✅ Layer 5: Render homepage internal successful");
+                Self::compress_html(&html)
             }
             Err(e) => {
-                error!("❌ Failed to render homepage template with Tera: {}", e);
-                info!("   Error details: {:?}", e);
-                // Fallback to simple file reading and compression
-                match std::fs::read_to_string("dashboards/home.html") {
-                    Ok(html_content) => {
-                        info!("   Using fallback file reading (components won't work)");
-                        match Self::compress_html(&html_content) {
-                            Ok(compressed_data) => Ok(compressed_data),
-                            Err(compress_err) => {
-                                error!("❌ Failed to compress fallback HTML: {}", compress_err);
-                                Err(compress_err)
-                            }
-                        }
-                    }
-                    Err(fallback_e) => Err(Box::new(fallback_e)),
-                }
+                error!("❌ Failed to render homepage template: {}", e);
+                // Fallback to simple file reading
+                let html_content = std::fs::read_to_string("dashboards/home.html")?;
+                Self::compress_html(&html_content)
             }
         }
+    }
+
+    /// Homepage handler with Tera rendering - OPTIMIZED RAM CACHING
+    ///
+    /// Returns the pre-rendered homepage from RAM.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if cache retrieval fails or rendering fails
+    pub async fn homepage_with_tera(
+        &self,
+        state: &Arc<AppState>,
+    ) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
+        // Optimized: Return cached content from RAM
+        if let Some(cached) = self.cached_homepage.get() {
+            debug!("⚡ Serving homepage from RAM cache");
+            return Ok(cached.clone());
+        }
+
+        // Fallback: If not initialized, render and return (lazy init)
+        debug!("⚠️ Homepage cache miss (lazy init)");
+        let data = self.render_homepage_internal(state).await?;
+
+        // Try to set cache for next time
+        let _ = self.cached_homepage.set(data.clone());
+
+        Ok(data)
     }
 }

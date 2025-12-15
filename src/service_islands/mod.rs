@@ -70,11 +70,26 @@ impl ServiceIslands {
         info!("🔍 Initializing Layer 4: Observability Islands...");
         let health_system = Arc::new(HealthSystemIsland::new()?);
 
-        // Initialize Layer 5: Business Logic
+        // Initialize Layer 5: Business Logic Islands
         // Note: Layer 5 now reads from cache/streams instead of calling external APIs directly
         info!("📊 Initializing Layer 5: Business Logic Islands...");
         let dashboard = Arc::new(DashboardIsland::new()?);
         let crypto_reports = Arc::new(CryptoReportsIsland::new()?);
+
+        // 🚀 PRE-RENDERING CACHE INITIALIZATION
+        info!("🚀 Pre-rendering Layer 5 caches for optimal performance...");
+
+        // Create temporary legacy state for initialization (needed by handlers)
+        let legacy_state =
+            Arc::new(app_state.create_legacy_app_state(Some(Arc::clone(&cache_system))));
+
+        // 1. Pre-render Homepage (Async -> Block)
+        futures::executor::block_on(async {
+            dashboard.handlers.init_homepage_cache(&legacy_state).await;
+        });
+
+        // 2. Pre-render Report Frame (Sync)
+        crypto_reports.handlers.init_cache(&legacy_state);
 
         info!("✅ Layer 1 Infrastructure Islands initialized!");
         info!("✅ Layer 3 Communication Islands initialized!");
