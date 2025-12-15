@@ -114,11 +114,7 @@ impl ServiceIslands {
         let shared_components_healthy = self.shared_components.health_check();
         let app_state_healthy = self.app_state.health_check();
         let cache_system_healthy = self.cache_system.health_check();
-        let redis_stream_reader_healthy = self
-            .redis_stream_reader
-            .health_check()
-            .await
-            .unwrap_or(false);
+        let redis_stream_reader_healthy = self.redis_stream_reader.health_check().unwrap_or(false);
         let health_system_healthy = self.health_system.health_check();
         let dashboard_healthy = self.dashboard.health_check();
         let crypto_reports_healthy = self.crypto_reports.health_check();

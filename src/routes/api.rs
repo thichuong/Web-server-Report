@@ -48,7 +48,6 @@ async fn api_dashboard_data(
     match service_islands
         .redis_stream_reader
         .read_latest_market_data()
-        .await
     {
         Ok(Some(data)) => {
             debug!("✅ [API] Dashboard data served from Redis Stream (<1ms)");
@@ -132,7 +131,6 @@ async fn api_dashboard_summary(
     match service_islands
         .redis_stream_reader
         .read_latest_market_data()
-        .await
     {
         Ok(Some(data)) => {
             debug!("✅ [API] Dashboard summary served from Redis Stream (<1ms)");
