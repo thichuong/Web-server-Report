@@ -6,7 +6,7 @@
 use axum::{
     extract::State,
     http::StatusCode,
-    response::{Html, IntoResponse, Response},
+    response::{IntoResponse, Response},
     routing::get,
     Router,
 };
@@ -24,27 +24,31 @@ pub fn configure_homepage_route() -> Router<Arc<ServiceIslands>> {
 /// Homepage handler - delegates to Dashboard Island
 async fn homepage(State(service_islands): State<Arc<ServiceIslands>>) -> Response {
     // Use the dashboard island's homepage handler with Tera rendering
-    match service_islands
-        .dashboard
-        .handlers
-        .homepage_with_tera(&service_islands.get_legacy_app_state())
-        .await
-    {
-        Ok(compressed_data) => {
-            info!("✅ [Route] Compressed homepage rendered successfully from Layer 5");
-            // Use create_compressed_response for compressed data with proper headers
-            DashboardHandlers::create_compressed_response(compressed_data)
-        }
-        Err(e) => {
-            error!(
-                "❌ Homepage rendering failed, falling back to simple handler: {}",
-                e
-            );
-            // Fallback to simple homepage method
-            match service_islands.dashboard.handlers.homepage().await {
-                Ok(html) => Html(html).into_response(),
-                Err(_) => (StatusCode::NOT_FOUND, "Home page not found").into_response(),
+    let service_islands_clone = service_islands.clone();
+
+    // Offload the synchronous work to a blocking thread
+    let result = tokio::task::spawn_blocking(move || {
+        service_islands_clone
+            .dashboard
+            .handlers
+            .homepage_with_tera(&service_islands_clone.get_legacy_app_state())
+    })
+    .await; // Await the JoinHandle
+
+    match result {
+        Ok(render_result) => match render_result {
+            Ok(compressed_data) => {
+                info!("✅ [Route] Compressed homepage rendered successfully from Layer 5");
+                DashboardHandlers::create_compressed_response(compressed_data)
             }
+            Err(e) => {
+                error!("❌ Homepage rendering failed: {}", e);
+                (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response()
+            }
+        },
+        Err(e) => {
+            error!("❌ Blocking task join error: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response()
         }
     }
 }

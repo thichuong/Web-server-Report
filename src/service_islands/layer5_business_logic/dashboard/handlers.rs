@@ -14,7 +14,7 @@ use axum::{
 use flate2::{write::GzEncoder, Compression};
 use std::{error::Error as StdError, io::Write, sync::Arc};
 use tera::Context;
-use tokio::fs;
+
 use tracing::{debug, error, info, warn};
 
 /// Dashboard Handlers
@@ -101,8 +101,16 @@ impl DashboardHandlers {
     /// # Errors
     ///
     /// Returns error if file reading fails or template parsing fails
-    pub async fn homepage(&self) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-        match fs::read_to_string("dashboards/home.html").await {
+    /// Homepage handler - renders homepage template using Tera
+    ///
+    /// Uses Tera template engine to render home.html with market indicators component included.
+    /// This replaces the simple file reading with proper template rendering.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if file reading fails or template parsing fails
+    pub fn homepage(&self) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        match std::fs::read_to_string("dashboards/home.html") {
             Ok(content) => Ok(content),
             Err(e) => Err(Box::new(e)),
         }
@@ -117,7 +125,7 @@ impl DashboardHandlers {
     /// # Errors
     ///
     /// Returns error if cache retrieval fails, template rendering fails, HTML compression fails, or fallback file reading fails
-    pub async fn homepage_with_tera(
+    pub fn homepage_with_tera(
         &self,
         state: &Arc<AppState>,
     ) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
@@ -125,10 +133,8 @@ impl DashboardHandlers {
 
         // BƯỚC 1: HỎI LAYER 3 ĐỂ LẤY COMPRESSED DATA TỪ CACHE CHO HOMEPAGE
         // Check cache for compressed data first (preferred)
-        if let Ok(Some(cached_compressed)) = self
-            .data_service
-            .get_rendered_homepage_compressed(state)
-            .await
+        if let Ok(Some(cached_compressed)) =
+            self.data_service.get_rendered_homepage_compressed(state)
         {
             info!("✅ Layer 5: Nhận compressed homepage từ cache. Trả về ngay lập tức.");
             return Ok(cached_compressed);
@@ -188,7 +194,6 @@ impl DashboardHandlers {
                         if let Err(e) = self
                             .data_service
                             .cache_rendered_homepage_compressed(state, &compressed_data)
-                            .await
                         {
                             warn!("⚠️ Layer 5: Không thể cache compressed homepage: {}", e);
                             // Vẫn trả về data ngay cả khi cache fail
@@ -207,7 +212,7 @@ impl DashboardHandlers {
                 error!("❌ Failed to render homepage template with Tera: {}", e);
                 info!("   Error details: {:?}", e);
                 // Fallback to simple file reading and compression
-                match fs::read_to_string("dashboards/home.html").await {
+                match std::fs::read_to_string("dashboards/home.html") {
                     Ok(html_content) => {
                         info!("   Using fallback file reading (components won't work)");
                         match Self::compress_html(&html_content) {
