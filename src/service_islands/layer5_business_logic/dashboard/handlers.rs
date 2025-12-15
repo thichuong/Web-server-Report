@@ -117,11 +117,15 @@ impl DashboardHandlers {
     ///
     /// Pre-renders the homepage and stores it in the cache.
     /// Should be called during application startup.
-    pub async fn init_homepage_cache(&self, state: &Arc<AppState>) {
+    /// Initialize homepage cache
+    ///
+    /// Pre-renders the homepage and stores it in the cache.
+    /// Should be called during application startup.
+    pub fn init_homepage_cache(&self, state: &Arc<AppState>) {
         info!("🏗️ Pre-rendering homepage to cache...");
-        match self.render_homepage_internal(state).await {
+        match Self::render_homepage_internal(state) {
             Ok(data) => {
-                if let Err(_) = self.cached_homepage.set(data) {
+                if self.cached_homepage.set(data).is_err() {
                     warn!("⚠️ Homepage cache already initialized");
                 } else {
                     info!("✅ Homepage pre-rendered and cached in RAM");
@@ -132,8 +136,7 @@ impl DashboardHandlers {
     }
 
     /// Internal function to render homepage
-    async fn render_homepage_internal(
-        &self,
+    fn render_homepage_internal(
         state: &Arc<AppState>,
     ) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
         // Render template with context
@@ -190,7 +193,7 @@ impl DashboardHandlers {
     /// # Errors
     ///
     /// Returns error if cache retrieval fails or rendering fails
-    pub async fn homepage_with_tera(
+    pub fn homepage_with_tera(
         &self,
         state: &Arc<AppState>,
     ) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
@@ -202,7 +205,7 @@ impl DashboardHandlers {
 
         // Fallback: If not initialized, render and return (lazy init)
         debug!("⚠️ Homepage cache miss (lazy init)");
-        let data = self.render_homepage_internal(state).await?;
+        let data = Self::render_homepage_internal(state)?;
 
         // Try to set cache for next time
         let _ = self.cached_homepage.set(data.clone());

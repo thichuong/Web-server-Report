@@ -83,10 +83,8 @@ impl ServiceIslands {
         let legacy_state =
             Arc::new(app_state.create_legacy_app_state(Some(Arc::clone(&cache_system))));
 
-        // 1. Pre-render Homepage (Async -> Block)
-        futures::executor::block_on(async {
-            dashboard.handlers.init_homepage_cache(&legacy_state).await;
-        });
+        // 1. Pre-render Homepage (Sync)
+        dashboard.handlers.init_homepage_cache(&legacy_state);
 
         // 2. Pre-render Report Frame (Sync)
         crypto_reports.handlers.init_cache(&legacy_state);

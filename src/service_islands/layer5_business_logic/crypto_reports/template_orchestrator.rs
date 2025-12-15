@@ -118,7 +118,7 @@ impl TemplateOrchestrator {
         );
 
         // Let's use a distinct ID for the dummy report to avoid replacing legitimate 0s if they existed
-        let placeholder_id = -999999;
+        let placeholder_id = -999_999;
         let dummy_report_safe = Report {
             id: placeholder_id,
             ..context.report.as_ref().clone()
@@ -131,7 +131,7 @@ impl TemplateOrchestrator {
         match self.render_template(tera, "crypto/routes/reports/view.html", context) {
             Ok(html) => {
                 // Store the frame
-                if let Err(_) = self.cached_report_frame.set(html) {
+                if self.cached_report_frame.set(html).is_err() {
                     warn!("⚠️ Report frame cache already initialized");
                 } else {
                     info!("✅ Report frame pre-rendered and cached in RAM");
@@ -329,10 +329,7 @@ impl TemplateOrchestrator {
                 .replace(PLACEHOLDER_SANDBOX_TOKEN, &sandbox_token_str);
 
             // Replace chart modules placeholder
-            let chart_content = chart_modules_content
-                .as_ref()
-                .map(|s| s.as_str())
-                .unwrap_or("");
+            let chart_content = chart_modules_content.as_ref().map_or("", |s| s.as_str());
             let html = html.replace(
                 "/* Pre-rendered chart modules placeholder */",
                 chart_content,
