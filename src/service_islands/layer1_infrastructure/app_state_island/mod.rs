@@ -53,13 +53,15 @@ impl AppStateIsland {
     /// # Errors
     ///
     /// Returns error if database connection fails or template engine initialization fails
-    pub async fn new() -> Result<Self> {
+    pub fn new() -> Result<Self> {
         info!("🏗️ Initializing App State Island...");
 
         // Initialize database connection
         let database_url = std::env::var("DATABASE_URL")
             .unwrap_or_else(|_| "postgresql://localhost/crypto_reports".to_string());
-        let db = PgPool::connect(&database_url).await?;
+
+        // Use block_on for async database connection
+        let db = futures::executor::block_on(PgPool::connect(&database_url))?;
 
         // Initialize Tera template engine
         let tera = Self::initialize_template_engine();
@@ -145,15 +147,16 @@ impl AppStateIsland {
     }
 
     /// Health check for the App State Island
-    pub async fn health_check(&self) -> bool {
+    pub fn health_check(&self) -> bool {
         // Check database connection
-        let db_healthy = match sqlx::query("SELECT 1").fetch_one(&self.db).await {
-            Ok(_) => true,
-            Err(e) => {
-                warn!("  ⚠️ Database health check failed: {}", e);
-                false
-            }
-        };
+        let db_healthy =
+            match futures::executor::block_on(sqlx::query("SELECT 1").fetch_one(&self.db)) {
+                Ok(_) => true,
+                Err(e) => {
+                    warn!("  ⚠️ Database health check failed: {}", e);
+                    false
+                }
+            };
 
         // Check template engine
         let tera_healthy = !self
@@ -208,17 +211,19 @@ impl AppState {
     ///
     /// Returns error if database connection fails, cache system initialization fails, or template engine initialization fails
     #[allow(dead_code)]
-    pub async fn new() -> Result<Self, anyhow::Error> {
+    pub fn new() -> Result<Self, anyhow::Error> {
         warn!("⚠️ Using deprecated AppState::new() - consider migrating to ServiceIslands architecture");
 
         // Initialize database connection
         let database_url = std::env::var("DATABASE_URL")
             .unwrap_or_else(|_| "postgresql://localhost/crypto_reports".to_string());
-        let db = PgPool::connect(&database_url).await?;
+
+        let db = futures::executor::block_on(PgPool::connect(&database_url))?;
 
         // Initialize Cache System Island with Redis Streams
+        // Note: CacheSystemIsland::new() is now synchronous
         let cache_system =
-            match crate::service_islands::layer1_infrastructure::CacheSystemIsland::new().await {
+            match crate::service_islands::layer1_infrastructure::CacheSystemIsland::new() {
                 Ok(cache) => {
                     info!("✅ Cache System Island with Redis Streams initialized successfully");
                     Some(Arc::new(cache))

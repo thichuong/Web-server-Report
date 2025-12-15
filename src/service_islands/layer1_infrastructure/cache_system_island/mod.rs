@@ -49,7 +49,14 @@ impl CacheSystemIsland {
     /// # Errors
     ///
     /// Returns error if Redis connection fails or cache initialization fails
-    pub async fn new() -> Result<Self> {
+    /// Initialize the Cache System Island
+    ///
+    /// Now uses the multi-tier-cache library internally.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if Redis connection fails or cache initialization fails
+    pub fn new() -> Result<Self> {
         info!("🏗️ Initializing Cache System Island (using multi-tier-cache library)...");
 
         // Configure Moka L1 cache
@@ -60,10 +67,12 @@ impl CacheSystemIsland {
         };
 
         // Initialize from library with custom Moka configuration
-        let inner = CacheSystemBuilder::new()
-            .with_moka_config(moka_config)
-            .build()
-            .await?;
+        let inner = futures::executor::block_on(async {
+            CacheSystemBuilder::new()
+                .with_moka_config(moka_config)
+                .build()
+                .await
+        })?;
 
         // Extract Arc references for backward compatibility
         let cache_manager = Arc::clone(&inner.cache_manager);
@@ -91,8 +100,8 @@ impl CacheSystemIsland {
     }
 
     /// Health check for cache system
-    pub async fn health_check(&self) -> bool {
-        self.inner.health_check().await
+    pub fn health_check(&self) -> bool {
+        futures::executor::block_on(self.inner.health_check())
     }
 
     /// Direct access to cache manager

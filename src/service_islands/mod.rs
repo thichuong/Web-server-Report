@@ -56,9 +56,10 @@ impl ServiceIslands {
 
         // Initialize Layer 1: Infrastructure (foundation layer)
         info!("🏗️ Initializing Layer 1: Infrastructure Islands...");
-        let app_state = Arc::new(AppStateIsland::new().await?);
-        let shared_components = Arc::new(SharedComponentsIsland::new().await?);
-        let cache_system = Arc::new(CacheSystemIsland::new().await?);
+        // Layer 1 is now synchronous
+        let app_state = Arc::new(AppStateIsland::new()?);
+        let shared_components = Arc::new(SharedComponentsIsland::new()?);
+        let cache_system = Arc::new(CacheSystemIsland::new()?);
 
         // Initialize Layer 3: Communication (Redis Stream Reader for data from websocket service)
         info!("📡 Initializing Layer 3: Communication Islands (Redis Stream Reader)...");
@@ -111,8 +112,8 @@ impl ServiceIslands {
         debug!("🔍 Performing Service Islands health check (Main Service)...");
 
         let shared_components_healthy = self.shared_components.health_check();
-        let app_state_healthy = self.app_state.health_check().await;
-        let cache_system_healthy = self.cache_system.health_check().await;
+        let app_state_healthy = self.app_state.health_check();
+        let cache_system_healthy = self.cache_system.health_check();
         let redis_stream_reader_healthy = self
             .redis_stream_reader
             .health_check()

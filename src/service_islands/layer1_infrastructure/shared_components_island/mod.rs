@@ -50,7 +50,7 @@ impl SharedComponentsIsland {
     /// # Errors
     ///
     /// Returns error if any component initialization fails (templates, models, utilities, or chart modules)
-    pub async fn new() -> Result<Self> {
+    pub fn new() -> Result<Self> {
         info!("🧩 Initializing Shared Components Island...");
 
         // Initialize template registry
@@ -67,7 +67,7 @@ impl SharedComponentsIsland {
 
         // Initialize chart modules service with pre-loading
         info!("📦 Layer 1: Đang chuẩn bị và cache lại chart_modules.js...");
-        let chart_modules_service = Arc::new(ChartModulesService::new().await?);
+        let chart_modules_service = Arc::new(ChartModulesService::new()?);
         let chart_modules_content = chart_modules_service.get_content();
         info!("  ✅ Chart Modules Service initialized");
 

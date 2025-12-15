@@ -6,7 +6,6 @@
 
 use std::env;
 use std::path::Path;
-use tokio::fs::read_dir;
 use tracing::{debug, error, info, warn};
 
 /// Chart Modules Island
@@ -62,10 +61,9 @@ impl ChartModulesIsland {
     ///
     /// Features:
     /// - Priority-based loading order
-    /// - Concurrent file reading for performance
     /// - Error handling for individual modules
     /// - Debug mode support via environment variable
-    pub async fn get_chart_modules_content(&self) -> String {
+    pub fn get_chart_modules_content(&self) -> String {
         debug!(
             "📊 ChartModulesIsland: Loading chart modules from {}",
             self.base_dir
@@ -77,7 +75,7 @@ impl ChartModulesIsland {
         let source_dir = Path::new(&self.base_dir);
 
         // Read directory entries
-        let mut entries = match read_dir(&source_dir).await {
+        let entries = match std::fs::read_dir(source_dir) {
             Ok(rd) => rd,
             Err(e) => {
                 error!(
@@ -90,16 +88,18 @@ impl ChartModulesIsland {
 
         // Collect all JavaScript files (case-insensitive check)
         let mut all_files = Vec::new();
-        while let Ok(Some(entry)) = entries.next_entry().await {
-            if let Ok(ft) = entry.file_type().await {
-                if ft.is_file() {
-                    if let Some(name) = entry.file_name().to_str() {
-                        // Use Path::extension() for proper case-insensitive extension checking
-                        if std::path::Path::new(name)
-                            .extension()
-                            .is_some_and(|ext| ext.eq_ignore_ascii_case("js"))
-                        {
-                            all_files.push(name.to_string());
+        for entry_result in entries {
+            if let Ok(entry) = entry_result {
+                if let Ok(ft) = entry.file_type() {
+                    if ft.is_file() {
+                        if let Some(name) = entry.file_name().to_str() {
+                            // Use Path::extension() for proper case-insensitive extension checking
+                            if std::path::Path::new(name)
+                                .extension()
+                                .is_some_and(|ext| ext.eq_ignore_ascii_case("js"))
+                            {
+                                all_files.push(name.to_string());
+                            }
                         }
                     }
                 }
@@ -130,53 +130,41 @@ impl ChartModulesIsland {
             ordered
         );
 
-        // Parallel file reading with concurrent futures
+        // Synchronous file reading
         // Use into_iter to take ownership and avoid clones
-        let file_futures: Vec<_> = ordered
+        let content_parts: Vec<String> = ordered
             .into_iter()
             .map(|filename| {
                 let path = source_dir.join(&filename);
-                async move {
-                    match tokio::fs::read_to_string(&path).await {
-                        Ok(content) => {
-                            // Pre-allocate string capacity to avoid reallocations
-                            let capacity = 100 + filename.len() * 3 + content.len();
-                            let mut wrapped = String::with_capacity(capacity);
-                            wrapped.push_str("// ==================== ");
-                            wrapped.push_str(&filename);
-                            wrapped.push_str(" ====================\ntry {\n");
-                            wrapped.push_str(&content);
-                            wrapped.push_str("\n} catch (error) {\n    console.error('Error loading chart module ");
-                            wrapped.push_str(&filename);
-                            wrapped.push_str(":', error);\n}\n// ==================== End ");
-                            wrapped.push_str(&filename);
-                            wrapped.push_str(" ====================");
+                match std::fs::read_to_string(&path) {
+                    Ok(content) => {
+                        // Pre-allocate string capacity to avoid reallocations
+                        let capacity = 100 + filename.len() * 3 + content.len();
+                        let mut wrapped = String::with_capacity(capacity);
+                        wrapped.push_str("// ==================== ");
+                        wrapped.push_str(&filename);
+                        wrapped.push_str(" ====================\ntry {\n");
+                        wrapped.push_str(&content);
+                        wrapped.push_str(
+                            "\n} catch (error) {\n    console.error('Error loading chart module ",
+                        );
+                        wrapped.push_str(&filename);
+                        wrapped.push_str(":', error);\n}\n// ==================== End ");
+                        wrapped.push_str(&filename);
+                        wrapped.push_str(" ====================");
 
-                            debug!("✅ ChartModulesIsland: Loaded chart module {}", filename);
-                            wrapped
-                        }
-                        Err(e) => {
-                            error!("❌ ChartModulesIsland: Error loading {}: {}", filename, e);
-                            format!("// Warning: {filename} not found - {e}")
-                        }
+                        debug!("✅ ChartModulesIsland: Loaded chart module {}", filename);
+                        wrapped
+                    }
+                    Err(e) => {
+                        error!("❌ ChartModulesIsland: Error loading {}: {}", filename, e);
+                        format!("// Warning: {filename} not found - {e}")
                     }
                 }
             })
             .collect();
 
-        // Await all file reads concurrently
-        let parts = futures::future::join_all(file_futures).await;
-
-        // Final concatenation in CPU thread pool to avoid blocking async runtime
-        let final_content = tokio::task::spawn_blocking(move || parts.join("\n\n"))
-            .await
-            .unwrap_or_else(|e| {
-                error!(
-                    "❌ ChartModulesIsland: Chart modules concatenation error: {:#?}",
-                    e
-                );
-                "// Error loading chart modules".to_string()
-            });
+        let final_content = content_parts.join("\n\n");
 
         info!("✅ ChartModulesIsland: Successfully loaded and concatenated all chart modules");
         final_content
@@ -186,34 +174,36 @@ impl ChartModulesIsland {
     ///
     /// This method will integrate with the caching system when implemented.
     /// For now, it delegates to the main loading method.
-    pub async fn get_cached_chart_modules_content(&self) -> String {
+    pub fn get_cached_chart_modules_content(&self) -> String {
         // TODO: Implement caching integration with Layer 1 Cache System Island
         // For now, always load from files
-        self.get_chart_modules_content().await
+        self.get_chart_modules_content()
     }
 
     /// Get available chart module names
     ///
     /// Returns a list of available chart module file names without loading content.
     #[allow(dead_code)]
-    pub async fn get_available_modules(&self) -> Vec<String> {
+    pub fn get_available_modules(&self) -> Vec<String> {
         let source_dir = Path::new(&self.base_dir);
 
-        let Ok(mut entries) = read_dir(&source_dir).await else {
+        let Ok(entries) = std::fs::read_dir(source_dir) else {
             return Vec::new();
         };
 
         let mut modules = Vec::new();
-        while let Ok(Some(entry)) = entries.next_entry().await {
-            if let Ok(ft) = entry.file_type().await {
-                if ft.is_file() {
-                    if let Some(name) = entry.file_name().to_str() {
-                        // Use Path::extension() for proper case-insensitive extension checking
-                        if std::path::Path::new(name)
-                            .extension()
-                            .is_some_and(|ext| ext.eq_ignore_ascii_case("js"))
-                        {
-                            modules.push(name.to_string());
+        for entry_result in entries {
+            if let Ok(entry) = entry_result {
+                if let Ok(ft) = entry.file_type() {
+                    if ft.is_file() {
+                        if let Some(name) = entry.file_name().to_str() {
+                            // Use Path::extension() for proper case-insensitive extension checking
+                            if std::path::Path::new(name)
+                                .extension()
+                                .is_some_and(|ext| ext.eq_ignore_ascii_case("js"))
+                            {
+                                modules.push(name.to_string());
+                            }
                         }
                     }
                 }

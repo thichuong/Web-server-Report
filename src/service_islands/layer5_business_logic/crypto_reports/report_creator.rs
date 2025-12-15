@@ -57,17 +57,6 @@ impl ReportCreator {
         self.chart_modules_island.health_check()
     }
 
-    /// Helper to run async code synchronously
-    fn block_on<F: std::future::Future>(future: F) -> F::Output {
-        // Try to obtain a handle to the current runtime
-        if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            tokio::task::block_in_place(move || handle.block_on(future))
-        } else {
-            // Fallback for non-tokio contexts
-            futures::executor::block_on(future)
-        }
-    }
-
     /// Fetch and cache latest report from database
     ///
     /// Retrieves the most recent crypto report with full content using Layer 3 data service.
@@ -175,8 +164,8 @@ impl ReportCreator {
         debug!("ReportCreator: Requesting chart modules from Layer 1 Infrastructure");
 
         // Delegate to Layer 1 infrastructure service
-        // ✅ SYNC-WRAPPER: Layer 1 is async, so we wrap it
-        Self::block_on(self.chart_modules_island.get_cached_chart_modules_content())
+        // ✅ SYNC: Layer 1 is now synchronous
+        self.chart_modules_island.get_cached_chart_modules_content()
     }
 
     /// Get available chart modules
@@ -184,7 +173,7 @@ impl ReportCreator {
     /// Returns a list of available chart module names via Layer 1 infrastructure.
     #[must_use]
     pub fn get_available_chart_modules(&self) -> Vec<String> {
-        Self::block_on(self.chart_modules_island.get_available_modules())
+        self.chart_modules_island.get_available_modules()
     }
 
     // ========================================
