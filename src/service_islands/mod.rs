@@ -105,25 +105,39 @@ impl ServiceIslands {
     // Note: initialize_unified_streaming and initialize_stream_integration methods
     // have been removed as WebSocket functionality is now in a separate service
 
-    /// Perform health check on all Service Islands
+    /// Health check for all service islands
     ///
-    /// Returns true if all islands are healthy, false otherwise.
-    pub fn health_check(&self) -> bool {
+    /// Aggregates health status from all layers
+    /// ✅ Now checks Redis connection via Layer 3
+    pub async fn health_check(&self) -> bool {
         debug!("🔍 Performing Service Islands health check (Main Service)...");
 
-        let shared_components_healthy = self.shared_components.health_check();
+        // Check Layer 1 infrastructure (Synchronous)
         let app_state_healthy = self.app_state.health_check();
+        let shared_components_healthy = self.shared_components.health_check();
         let cache_system_healthy = self.cache_system.health_check();
-        let redis_stream_reader_healthy = self.redis_stream_reader.health_check().unwrap_or(false);
+
+        // Check Layer 4 observability (Synchronous)
         let health_system_healthy = self.health_system.health_check();
+
+        // Check Layer 3 communication (Asynchronous)
+        let redis_stream_reader_healthy = match self.redis_stream_reader.health_check().await {
+            Ok(status) => status,
+            Err(e) => {
+                warn!("⚠️ Redis Stream Reader health check failed: {}", e);
+                false
+            }
+        };
+
+        // Check Layer 5 business logic (Synchronous)
         let dashboard_healthy = self.dashboard.health_check();
         let crypto_reports_healthy = self.crypto_reports.health_check();
 
-        let all_healthy = shared_components_healthy
-            && app_state_healthy
+        let all_healthy = app_state_healthy
+            && shared_components_healthy
             && cache_system_healthy
-            && redis_stream_reader_healthy
             && health_system_healthy
+            && redis_stream_reader_healthy
             && dashboard_healthy
             && crypto_reports_healthy;
 

@@ -48,6 +48,7 @@ async fn api_dashboard_data(
     match service_islands
         .redis_stream_reader
         .read_latest_market_data()
+        .await
     {
         Ok(Some(data)) => {
             debug!("✅ [API] Dashboard data served from Redis Stream (<1ms)");
@@ -131,6 +132,7 @@ async fn api_dashboard_summary(
     match service_islands
         .redis_stream_reader
         .read_latest_market_data()
+        .await
     {
         Ok(Some(data)) => {
             debug!("✅ [API] Dashboard summary served from Redis Stream (<1ms)");
@@ -205,7 +207,7 @@ async fn api_dashboard_summary(
 
 /// API health check endpoint
 async fn api_health(State(service_islands): State<Arc<ServiceIslands>>) -> Json<ApiHealthResponse> {
-    let is_healthy = service_islands.health_check();
+    let is_healthy = service_islands.health_check().await;
 
     let response = ApiHealthResponse {
         api: ApiHealthInfo {
@@ -277,7 +279,9 @@ async fn api_sandboxed_report(
             sandbox_token,
             initial_language,
             chart_modules,
-        ) {
+        )
+        .await
+    {
         Ok(response) => {
             info!(
                 "✅ [API] Sandboxed report {} served successfully",
@@ -355,7 +359,9 @@ async fn api_shadow_dom_content(
             shadow_dom_token,
             initial_language,
             chart_modules,
-        ) {
+        )
+        .await
+    {
         Ok(response) => {
             info!(
                 "✅ [API] Shadow DOM content for report {} served successfully",

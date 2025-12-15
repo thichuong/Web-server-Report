@@ -44,6 +44,7 @@ async fn crypto_reports_list(
         .crypto_reports
         .handlers
         .crypto_reports_list_with_tera(&service_islands.get_legacy_app_state(), page)
+        .await
     {
         Ok(compressed_data) => {
             let size_kb = compressed_data.len() / 1024;
@@ -117,6 +118,7 @@ async fn crypto_index(
             chart_modules_content,
             report_id_value,
         )
+        .await
 }
 
 /// View specific crypto report by ID using Declarative Shadow DOM
@@ -151,4 +153,5 @@ async fn crypto_view_report(
             &headers,
             chart_modules_content,
         )
+        .await
 }

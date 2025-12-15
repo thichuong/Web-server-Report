@@ -41,7 +41,9 @@ async fn sitemap_xml(State(service_islands): State<Arc<ServiceIslands>>) -> impl
 
     // Layer 3: Fetch report data from database
     let data_service = CryptoDataService::new();
-    let reports_result = data_service.fetch_all_report_ids_for_sitemap(&app_state);
+    let reports_result = data_service
+        .fetch_all_report_ids_for_sitemap(&app_state)
+        .await;
 
     match reports_result {
         Ok(reports) => {

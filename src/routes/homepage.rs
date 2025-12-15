@@ -24,30 +24,19 @@ pub fn configure_homepage_route() -> Router<Arc<ServiceIslands>> {
 /// Homepage handler - delegates to Dashboard Island
 async fn homepage(State(service_islands): State<Arc<ServiceIslands>>) -> Response {
     // Use the dashboard island's homepage handler with Tera rendering
-    let service_islands_clone = service_islands.clone();
-
-    // Offload the synchronous work to a blocking thread
-    let result = tokio::task::spawn_blocking(move || {
-        service_islands_clone
-            .dashboard
-            .handlers
-            .homepage_with_tera(&service_islands_clone.get_legacy_app_state())
-    })
-    .await; // Await the JoinHandle
-
-    match result {
-        Ok(render_result) => match render_result {
-            Ok(compressed_data) => {
-                info!("✅ [Route] Compressed homepage rendered successfully from Layer 5");
-                DashboardHandlers::create_compressed_response(compressed_data)
-            }
-            Err(e) => {
-                error!("❌ Homepage rendering failed: {}", e);
-                (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response()
-            }
-        },
+    // Directly await the async method from Layer 5
+    match service_islands
+        .dashboard
+        .handlers
+        .homepage_with_tera(&service_islands.get_legacy_app_state())
+        .await
+    {
+        Ok(compressed_data) => {
+            info!("✅ [Route] Compressed homepage rendered successfully from Layer 5");
+            DashboardHandlers::create_compressed_response(compressed_data)
+        }
         Err(e) => {
-            error!("❌ Blocking task join error: {}", e);
+            error!("❌ Homepage rendering failed: {}", e);
             (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response()
         }
     }

@@ -48,7 +48,14 @@ impl DashboardDataService {
     /// # Errors
     ///
     /// Returns error if cache retrieval fails or deserialization fails
-    pub fn get_rendered_homepage_compressed(
+    /// Get cached rendered homepage HTML with compression
+    ///
+    /// Checks cache for pre-rendered and compressed homepage HTML
+    ///
+    /// # Errors
+    ///
+    /// Returns error if cache retrieval fails or deserialization fails
+    pub async fn get_rendered_homepage_compressed(
         &self,
         state: &Arc<AppState>,
     ) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
@@ -56,9 +63,7 @@ impl DashboardDataService {
 
         // Try cache first if available (L1 then L2 fallback with promotion) - OPTIMIZED
         if let Some(ref cache_system) = state.cache_system {
-            let result = futures::executor::block_on(async {
-                cache_system.cache_manager.get(cache_key).await
-            });
+            let result = cache_system.cache_manager.get(cache_key).await;
 
             match result {
                 Ok(Some(cached_data)) => match serde_json::from_value::<Vec<u8>>(cached_data) {
@@ -92,7 +97,7 @@ impl DashboardDataService {
     /// # Errors
     ///
     /// Returns error if cache storage fails or serialization fails
-    pub fn cache_rendered_homepage_compressed(
+    pub async fn cache_rendered_homepage_compressed(
         &self,
         state: &Arc<AppState>,
         compressed_data: &[u8],
@@ -102,13 +107,11 @@ impl DashboardDataService {
         // Cache the compressed data for 5 minutes in both L1 and L2
         if let Some(ref cache_system) = state.cache_system {
             if let Ok(compressed_json) = serde_json::to_value(compressed_data) {
-                let result = futures::executor::block_on(async {
-                    cache_system.cache_manager.set_with_strategy(
+                let result = cache_system.cache_manager.set_with_strategy(
                         cache_key,
                         compressed_json,
                         crate::service_islands::layer1_infrastructure::cache_system_island::cache_manager::CacheStrategy::ShortTerm // 5 minutes
-                    ).await
-                });
+                    ).await;
 
                 match result {
                     Ok(()) => {

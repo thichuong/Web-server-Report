@@ -125,7 +125,16 @@ impl DashboardHandlers {
     /// # Errors
     ///
     /// Returns error if cache retrieval fails, template rendering fails, HTML compression fails, or fallback file reading fails
-    pub fn homepage_with_tera(
+    /// Homepage handler with Tera rendering - ENHANCED VERSION WITH CACHING
+    ///
+    /// Renders homepage using Tera template engine with proper context and intelligent caching.
+    /// This includes the market indicators component and any dynamic data.
+    /// Returns compressed HTML for optimal performance, similar to `crypto_index_with_tera`.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if cache retrieval fails, template rendering fails, HTML compression fails, or fallback file reading fails
+    pub async fn homepage_with_tera(
         &self,
         state: &Arc<AppState>,
     ) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
@@ -133,8 +142,10 @@ impl DashboardHandlers {
 
         // BƯỚC 1: HỎI LAYER 3 ĐỂ LẤY COMPRESSED DATA TỪ CACHE CHO HOMEPAGE
         // Check cache for compressed data first (preferred)
-        if let Ok(Some(cached_compressed)) =
-            self.data_service.get_rendered_homepage_compressed(state)
+        if let Ok(Some(cached_compressed)) = self
+            .data_service
+            .get_rendered_homepage_compressed(state)
+            .await
         {
             info!("✅ Layer 5: Nhận compressed homepage từ cache. Trả về ngay lập tức.");
             return Ok(cached_compressed);
@@ -194,6 +205,7 @@ impl DashboardHandlers {
                         if let Err(e) = self
                             .data_service
                             .cache_rendered_homepage_compressed(state, &compressed_data)
+                            .await
                         {
                             warn!("⚠️ Layer 5: Không thể cache compressed homepage: {}", e);
                             // Vẫn trả về data ngay cả khi cache fail

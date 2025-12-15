@@ -86,19 +86,6 @@ impl CryptoDataService {
         }
     }
 
-    /// Helper to run async code synchronously
-    /// This is necessary because we are forced to be synchronous by constraints
-    /// but the underlying drivers (sqlx, redis) are async.
-    fn block_on<F: std::future::Future>(future: F) -> F::Output {
-        // Try to obtain a handle to the current runtime
-        if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            tokio::task::block_in_place(move || handle.block_on(future))
-        } else {
-            // Fallback for non-tokio contexts (e.g. tests without tokio::test)
-            futures::executor::block_on(future)
-        }
-    }
-
     /// Fetch latest crypto report from database with intelligent caching (L1+L2)
     ///
     /// ✨ NEW: Uses type-safe automatic caching with `get_or_compute_typed()`
@@ -108,17 +95,15 @@ impl CryptoDataService {
     ///
     /// Returns `sqlx::Error` if database connection fails or query execution fails
     /// Returns `sqlx::Error` if database connection fails or query execution fails
-    pub fn fetch_latest_report(
+    pub async fn fetch_latest_report(
         &self,
         state: &Arc<AppState>,
     ) -> Result<Option<ReportData>, sqlx::Error> {
         info!("🗄️ CryptoDataService: Fetching latest crypto report from database");
 
-        let report = Self::block_on(
-            sqlx::query_as::<_, ReportData>(
+        let report = sqlx::query_as::<_, ReportData>(
                 "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report ORDER BY created_at DESC LIMIT 1",
-            ).fetch_optional(&state.db)
-        )?;
+            ).fetch_optional(&state.db).await?;
 
         if let Some(ref report) = report {
             debug!(
@@ -141,18 +126,17 @@ impl CryptoDataService {
     ///
     /// Returns `sqlx::Error` if database connection fails or query execution fails
     /// Returns `sqlx::Error` if database connection fails or query execution fails
-    pub fn fetch_all_report_ids_for_sitemap(
+    pub async fn fetch_all_report_ids_for_sitemap(
         &self,
         state: &Arc<AppState>,
     ) -> Result<Vec<ReportSitemapData>, sqlx::Error> {
         info!("🗄️ CryptoDataService: Fetching all report IDs for sitemap from database");
 
-        let reports = Self::block_on(
-            sqlx::query_as::<_, ReportSitemapData>(
-                "SELECT id, created_at FROM crypto_report ORDER BY created_at DESC",
-            )
-            .fetch_all(&state.db),
-        )?;
+        let reports = sqlx::query_as::<_, ReportSitemapData>(
+            "SELECT id, created_at FROM crypto_report ORDER BY created_at DESC",
+        )
+        .fetch_all(&state.db)
+        .await?;
 
         debug!(
             "📊 CryptoDataService: Retrieved {} report IDs for sitemap",
@@ -178,7 +162,7 @@ impl CryptoDataService {
     ///
     /// Returns `sqlx::Error` if database connection fails or query execution fails
     /// Returns `sqlx::Error` if database connection fails or query execution fails
-    pub fn fetch_related_reports(
+    pub async fn fetch_related_reports(
         &self,
         state: &Arc<AppState>,
         current_id: i32,
@@ -189,14 +173,13 @@ impl CryptoDataService {
             current_id
         );
 
-        let reports = Self::block_on(
-            sqlx::query_as::<_, ReportSummaryData>(
-                "SELECT id, created_at FROM crypto_report WHERE id < $1 ORDER BY id DESC LIMIT $2",
-            )
-            .bind(current_id)
-            .bind(limit)
-            .fetch_all(&state.db),
-        )?;
+        let reports = sqlx::query_as::<_, ReportSummaryData>(
+            "SELECT id, created_at FROM crypto_report WHERE id < $1 ORDER BY id DESC LIMIT $2",
+        )
+        .bind(current_id)
+        .bind(limit)
+        .fetch_all(&state.db)
+        .await?;
 
         debug!(
             "📊 CryptoDataService: Retrieved {} related reports for report {}",
@@ -222,7 +205,7 @@ impl CryptoDataService {
     ///
     /// Returns `sqlx::Error` if database connection fails or query execution fails
     /// Returns `sqlx::Error` if database connection fails or query execution fails
-    pub fn fetch_rss_reports(
+    pub async fn fetch_rss_reports(
         &self,
         state: &Arc<AppState>,
         limit: i64,
@@ -232,13 +215,12 @@ impl CryptoDataService {
             limit
         );
 
-        let reports = Self::block_on(
-            sqlx::query_as::<_, ReportRssData>(
+        let reports = sqlx::query_as::<_, ReportRssData>(
                 "SELECT id, html_content, created_at FROM crypto_report ORDER BY created_at DESC LIMIT $1",
             )
             .bind(limit)
             .fetch_all(&state.db)
-        )?;
+            .await?;
 
         debug!(
             "📊 CryptoDataService: Retrieved {} reports for RSS feed",
@@ -256,7 +238,7 @@ impl CryptoDataService {
     ///
     /// Returns `sqlx::Error` if database connection fails or query execution fails
     /// Returns `sqlx::Error` if database connection fails or query execution fails
-    pub fn fetch_report_by_id(
+    pub async fn fetch_report_by_id(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
@@ -266,13 +248,12 @@ impl CryptoDataService {
             report_id
         );
 
-        let report = Self::block_on(
-            sqlx::query_as::<_, ReportData>(
+        let report = sqlx::query_as::<_, ReportData>(
                 "SELECT id, html_content, css_content, js_content, html_content_en, js_content_en, created_at FROM crypto_report WHERE id = $1",
             )
             .bind(report_id)
             .fetch_optional(&state.db)
-        )?;
+            .await?;
 
         if let Some(ref report) = report {
             debug!(
@@ -296,16 +277,15 @@ impl CryptoDataService {
     ///
     /// Returns error if cache retrieval fails or deserialization fails
     /// Returns error if cache retrieval fails or deserialization fails
-    pub fn get_rendered_report_compressed(
+    pub async fn get_rendered_report_compressed(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
     ) -> Result<Option<Vec<u8>>, anyhow::Error> {
         if let Some(ref cache_system) = state.cache_system {
             let cache_key = format!("compressed_report_{report_id}");
-            if let Ok(Some(cached_value)) =
-                Self::block_on(cache_system.cache_manager.get(&cache_key))
-            {
+            // .await directly instead of block_on
+            if let Ok(Some(cached_value)) = cache_system.cache_manager.get(&cache_key).await {
                 // Try to parse as String (Base64) first - New Format (Memory Optimized)
                 if let Ok(base64_string) = serde_json::from_value::<String>(cached_value.clone()) {
                     match BASE64_STANDARD.decode(base64_string) {
@@ -360,7 +340,7 @@ impl CryptoDataService {
     ///
     /// Returns error if cache storage fails or serialization fails
     /// Returns error if cache storage fails or serialization fails
-    pub fn cache_rendered_report_compressed(
+    pub async fn cache_rendered_report_compressed(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
@@ -401,11 +381,10 @@ impl CryptoDataService {
             let base64_string = BASE64_STANDARD.encode(compressed_data);
             let compressed_json = serde_json::Value::String(base64_string);
 
-            Self::block_on(cache_system.cache_manager.set_with_strategy(
-                &cache_key,
-                compressed_json,
-                strategy,
-            ))?;
+            cache_system
+                .cache_manager
+                .set_with_strategy(&cache_key, compressed_json, strategy)
+                .await?;
 
             debug!(
                 "💾 Layer 3: Cached compressed data for {} ({}KB)",
@@ -425,7 +404,7 @@ impl CryptoDataService {
     ///
     /// Returns error if cache retrieval fails or deserialization fails
     /// Returns error if cache retrieval fails or deserialization fails
-    pub fn get_rendered_report_dsd_compressed(
+    pub async fn get_rendered_report_dsd_compressed(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
@@ -433,9 +412,7 @@ impl CryptoDataService {
     ) -> Result<Option<Vec<u8>>, anyhow::Error> {
         if let Some(ref cache_system) = state.cache_system {
             let cache_key = format!("compressed_report_dsd_{report_id}_{language}");
-            if let Ok(Some(cached_value)) =
-                Self::block_on(cache_system.cache_manager.get(&cache_key))
-            {
+            if let Ok(Some(cached_value)) = cache_system.cache_manager.get(&cache_key).await {
                 // Try to parse as String (Base64) first - New Format (Memory Optimized)
                 if let Ok(base64_string) = serde_json::from_value::<String>(cached_value.clone()) {
                     match BASE64_STANDARD.decode(base64_string) {
@@ -489,7 +466,7 @@ impl CryptoDataService {
     ///
     /// Returns error if cache storage fails or serialization fails
     /// Returns error if cache storage fails or serialization fails
-    pub fn cache_rendered_report_dsd_compressed(
+    pub async fn cache_rendered_report_dsd_compressed(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
@@ -532,11 +509,10 @@ impl CryptoDataService {
             let base64_string = BASE64_STANDARD.encode(compressed_data);
             let compressed_json = serde_json::Value::String(base64_string);
 
-            Self::block_on(cache_system.cache_manager.set_with_strategy(
-                &cache_key,
-                compressed_json,
-                strategy,
-            ))?;
+            cache_system
+                .cache_manager
+                .set_with_strategy(&cache_key, compressed_json, strategy)
+                .await?;
 
             debug!(
                 "💾 Layer 3: Cached DSD compressed data for {} (lang: {}) ({}KB)",
@@ -569,39 +545,30 @@ impl CryptoDataService {
 
     /// Step 1: Fetch reports from database
     /// Step 1: Fetch reports from database
-    fn fetch_reports_from_db(
+    async fn fetch_reports_from_db(
         db: &sqlx::PgPool,
         page: i64,
         per_page: i64,
     ) -> anyhow::Result<(i64, Vec<ReportSummaryData>)> {
         let offset = (page - 1) * per_page;
 
-        let (total, list) = Self::block_on(async {
-            let total_fut =
-                sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM crypto_report").fetch_one(db);
-            let rows_fut = sqlx::query_as::<_, ReportSummaryData>(
-                "SELECT id, created_at FROM crypto_report ORDER BY created_at DESC LIMIT $1 OFFSET $2",
-            )
-            .bind(per_page)
-            .bind(offset)
-            .fetch_all(db);
+        let total_fut =
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM crypto_report").fetch_one(db);
+        let rows_fut = sqlx::query_as::<_, ReportSummaryData>(
+            "SELECT id, created_at FROM crypto_report ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+        )
+        .bind(per_page)
+        .bind(offset)
+        .fetch_all(db);
 
-            let (total_res, rows_res) = tokio::join!(total_fut, rows_fut);
-            Ok::<
-                (
-                    Result<i64, sqlx::Error>,
-                    Result<Vec<ReportSummaryData>, sqlx::Error>,
-                ),
-                sqlx::Error,
-            >((total_res, rows_res))
-        })?;
+        let (total_res, rows_res) = tokio::join!(total_fut, rows_fut);
 
-        let total = total.map_err(|e| {
+        let total = total_res.map_err(|e| {
             error!("❌ Layer 3: Database error getting total count: {}", e);
             anyhow::anyhow!("Database error: {}", e)
         })?;
 
-        let list = list.map_err(|e| {
+        let list = rows_res.map_err(|e| {
             error!("❌ Layer 3: Database error getting report list: {}", e);
             anyhow::anyhow!("Database error: {}", e)
         })?;
@@ -785,7 +752,7 @@ impl CryptoDataService {
     ///
     /// Returns error if database query fails, template rendering fails, HTML compression fails, or cache operation fails
     /// Returns error if database query fails, template rendering fails, HTML compression fails, or cache operation fails
-    pub fn fetch_reports_list_with_cache(
+    pub async fn fetch_reports_list_with_cache(
         &self,
         state: &Arc<AppState>,
         page: i64,
@@ -795,9 +762,7 @@ impl CryptoDataService {
 
         // Step 1: Try to get from cache first
         if let Some(ref cache_system) = state.cache_system {
-            if let Ok(Some(cached_value)) =
-                Self::block_on(cache_system.cache_manager.get(&cache_key))
-            {
+            if let Ok(Some(cached_value)) = cache_system.cache_manager.get(&cache_key).await {
                 // Try to parse as Vec<u8>
                 if let Ok(compressed_bytes) = serde_json::from_value::<Vec<u8>>(cached_value) {
                     info!("🔥 Layer 3: Cache HIT for reports list page {}", page);
@@ -813,7 +778,7 @@ impl CryptoDataService {
         );
 
         // Fetch from database
-        let (total, list) = Self::fetch_reports_from_db(&state.db, page, per_page)?;
+        let (total, list) = Self::fetch_reports_from_db(&state.db, page, per_page).await?;
 
         // Format report items
         let items = Self::format_report_items(list);
@@ -842,11 +807,11 @@ impl CryptoDataService {
                 serde_json::to_value(&compressed_data).unwrap_or(serde_json::Value::Null);
             let strategy = crate::service_islands::layer1_infrastructure::cache_system_island::CacheStrategy::ShortTerm;
 
-            if let Err(e) = Self::block_on(cache_system.cache_manager.set_with_strategy(
-                &cache_key,
-                compressed_json,
-                strategy,
-            )) {
+            if let Err(e) = cache_system
+                .cache_manager
+                .set_with_strategy(&cache_key, compressed_json, strategy)
+                .await
+            {
                 warn!(
                     "⚠️ Layer 3: Failed to cache reports list page {}: {}",
                     page, e

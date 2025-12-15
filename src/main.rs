@@ -28,7 +28,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     // Perform initial health check
     info!("🔍 Performing initial health check...");
-    if service_islands.health_check() {
+    if service_islands.health_check().await {
         info!("✅ Service Islands Architecture is healthy!");
     } else {
         warn!("⚠️ Some Service Islands may have issues - continuing with startup...");

@@ -73,15 +73,15 @@ impl ReportCreator {
     /// # Errors
     ///
     /// Returns error if database query fails or connection is lost
-    pub fn fetch_and_cache_latest_report(
+    pub async fn fetch_and_cache_latest_report(
         &self,
         state: &Arc<AppState>,
     ) -> Result<Option<Report>, sqlx::Error> {
         debug!("ReportCreator: Fetching latest crypto report from database via data service");
 
         // Use Layer 3 data service instead of direct database access
-        // ✅ SYNC: data_service is now synchronous
-        let report_data = self.data_service.fetch_latest_report(state)?;
+        // ✅ ASYNC: data_service is now async
+        let report_data = self.data_service.fetch_latest_report(state).await?;
 
         if let Some(data) = report_data {
             // Use From trait for automatic conversion - zero boilerplate!
@@ -119,7 +119,7 @@ impl ReportCreator {
     /// # Errors
     ///
     /// Returns error if database query fails or connection is lost
-    pub fn fetch_and_cache_report_by_id(
+    pub async fn fetch_and_cache_report_by_id(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
@@ -130,8 +130,11 @@ impl ReportCreator {
         );
 
         // Use Layer 3 data service instead of direct database access
-        // ✅ SYNC: data_service is now synchronous
-        let report_data = self.data_service.fetch_report_by_id(state, report_id)?;
+        // ✅ ASYNC: data_service is now async
+        let report_data = self
+            .data_service
+            .fetch_report_by_id(state, report_id)
+            .await?;
 
         if let Some(data) = report_data {
             // Use From trait for automatic conversion - zero boilerplate!
@@ -210,15 +213,15 @@ impl ReportCreator {
 
     /// Helper to fetch report by ID (handles -1 for latest)
     #[inline]
-    fn fetch_report(
+    async fn fetch_report(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
     ) -> Result<Option<Report>, sqlx::Error> {
         if report_id == -1 {
-            self.fetch_and_cache_latest_report(state)
+            self.fetch_and_cache_latest_report(state).await
         } else {
-            self.fetch_and_cache_report_by_id(state, report_id)
+            self.fetch_and_cache_report_by_id(state, report_id).await
         }
     }
 
@@ -238,7 +241,7 @@ impl ReportCreator {
     /// # Errors
     ///
     /// Returns error if database query fails, report not found, or rendering fails
-    pub fn serve_sandboxed_report(
+    pub async fn serve_sandboxed_report(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
@@ -246,7 +249,7 @@ impl ReportCreator {
         language: Option<&str>,
         chart_modules_content: Option<&str>,
     ) -> Layer5Result<Response> {
-        match self.fetch_report(state, report_id) {
+        match self.fetch_report(state, report_id).await {
             Ok(Some(report)) => self.shadow_dom_renderer.serve_shadow_dom_content(
                 state,
                 &report,
@@ -279,7 +282,7 @@ impl ReportCreator {
     /// # Errors
     ///
     /// Returns error if database query fails, report not found, or rendering fails
-    pub fn serve_shadow_dom_content(
+    pub async fn serve_shadow_dom_content(
         &self,
         state: &Arc<AppState>,
         report_id: i32,
@@ -287,7 +290,7 @@ impl ReportCreator {
         language: Option<&str>,
         chart_modules_content: Option<&str>,
     ) -> Layer5Result<Response> {
-        match self.fetch_report(state, report_id) {
+        match self.fetch_report(state, report_id).await {
             Ok(Some(report)) => self.shadow_dom_renderer.serve_shadow_dom_content(
                 state,
                 &report,

@@ -37,44 +37,37 @@ impl RedisStreamReader {
     /// # Errors
     ///
     /// Returns error if Redis Stream read fails or cache operation fails
-    pub fn read_latest_market_data(&self) -> Result<Option<Value>> {
+    pub async fn read_latest_market_data(&self) -> Result<Option<Value>> {
         use crate::service_islands::layer1_infrastructure::cache_system_island::CacheStrategy;
 
         info!("📖 Reading latest market data (cache-first with auto-fallback)...");
 
-        // ✅ IDIOMATIC: Use block_in_place to bridge Sync -> Async within Tokio runtime
-        // This prevents hanging by allowing the runtime to park this thread and run the future
-        // on a blocking thread, while correctly driving the Tokio IO resources.
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                self.cache_system
-                    .cache_manager()
-                    .get_or_compute_typed(
-                        "latest_market_data",
-                        CacheStrategy::RealTime, // 5 minutes TTL
-                        || async {
-                            // Compute function: only called on cache miss
-                            info!("💾 Cache miss - reading from Redis Stream...");
+        self.cache_system
+            .cache_manager()
+            .get_or_compute_typed(
+                "latest_market_data",
+                CacheStrategy::RealTime, // 5 minutes TTL
+                || async {
+                    // Compute function: only called on cache miss
+                    info!("💾 Cache miss - reading from Redis Stream...");
 
-                            match self.read_from_stream().await {
-                                Ok(Some(data)) => {
-                                    info!("✅ Market data read from Redis Stream (will be cached)");
-                                    Ok(Some(data))
-                                }
-                                Ok(None) => {
-                                    info!("⚠️ No data in Redis Stream");
-                                    Ok(None)
-                                }
-                                Err(e) => {
-                                    info!("❌ Failed to read from Redis Stream: {}", e);
-                                    Err(anyhow::anyhow!("Failed to read market data: {}", e))
-                                }
-                            }
-                        },
-                    )
-                    .await
-            })
-        })
+                    match self.read_from_stream().await {
+                        Ok(Some(data)) => {
+                            info!("✅ Market data read from Redis Stream (will be cached)");
+                            Ok(Some(data))
+                        }
+                        Ok(None) => {
+                            info!("⚠️ No data in Redis Stream");
+                            Ok(None)
+                        }
+                        Err(e) => {
+                            info!("❌ Failed to read from Redis Stream: {}", e);
+                            Err(anyhow::anyhow!("Failed to read market data: {}", e))
+                        }
+                    }
+                },
+            )
+            .await
     }
 
     /// Read from Redis Stream
@@ -157,20 +150,15 @@ impl RedisStreamReader {
     /// # Errors
     ///
     /// Returns error if Redis connection fails (though currently it returns Ok(false) on error)
-    pub fn health_check(&self) -> Result<bool> {
+    pub async fn health_check(&self) -> Result<bool> {
         // Try to connect to Redis via cache_system
-        // Using block_in_place to safely block on async IO within Tokio runtime
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                match self.cache_system.cache_manager().get("_health_check").await {
-                    Ok(_) => Ok(true),
-                    Err(e) => {
-                        info!("❌ Redis Stream Reader health check failed: {}", e);
-                        Ok(false)
-                    }
-                }
-            })
-        })
+        match self.cache_system.cache_manager().get("_health_check").await {
+            Ok(_) => Ok(true),
+            Err(e) => {
+                info!("❌ Redis Stream Reader health check failed: {}", e);
+                Ok(false)
+            }
+        }
     }
 
     /// Cleanup resources on shutdown
