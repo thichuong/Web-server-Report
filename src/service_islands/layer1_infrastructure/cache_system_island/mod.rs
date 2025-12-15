@@ -100,6 +100,7 @@ impl CacheSystemIsland {
     }
 
     /// Health check for cache system
+    #[must_use]
     pub fn health_check(&self) -> bool {
         futures::executor::block_on(self.inner.health_check())
     }

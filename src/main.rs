@@ -22,7 +22,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     // Initialize Service Islands Architecture
     info!("🏝️ Initializing Service Islands Architecture...");
-    let service_islands = Arc::new(ServiceIslands::initialize().await?);
+    let service_islands = Arc::new(ServiceIslands::initialize()?);
 
     // Note: WebSocket and streaming functionality is now handled by separate websocket service
 

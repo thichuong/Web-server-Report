@@ -51,7 +51,7 @@ impl ServiceIslands {
     /// # Errors
     ///
     /// Returns error if any island initialization fails (database, cache, templates, etc.)
-    pub async fn initialize() -> Result<Self, anyhow::Error> {
+    pub fn initialize() -> Result<Self, anyhow::Error> {
         info!("🏝️ Initializing Service Islands Architecture...");
 
         // Initialize Layer 1: Infrastructure (foundation layer)

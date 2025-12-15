@@ -88,18 +88,16 @@ impl ChartModulesIsland {
 
         // Collect all JavaScript files (case-insensitive check)
         let mut all_files = Vec::new();
-        for entry_result in entries {
-            if let Ok(entry) = entry_result {
-                if let Ok(ft) = entry.file_type() {
-                    if ft.is_file() {
-                        if let Some(name) = entry.file_name().to_str() {
-                            // Use Path::extension() for proper case-insensitive extension checking
-                            if std::path::Path::new(name)
-                                .extension()
-                                .is_some_and(|ext| ext.eq_ignore_ascii_case("js"))
-                            {
-                                all_files.push(name.to_string());
-                            }
+        for entry in entries.flatten() {
+            if let Ok(ft) = entry.file_type() {
+                if ft.is_file() {
+                    if let Some(name) = entry.file_name().to_str() {
+                        // Use Path::extension() for proper case-insensitive extension checking
+                        if std::path::Path::new(name)
+                            .extension()
+                            .is_some_and(|ext| ext.eq_ignore_ascii_case("js"))
+                        {
+                            all_files.push(name.to_string());
                         }
                     }
                 }
@@ -174,6 +172,7 @@ impl ChartModulesIsland {
     ///
     /// This method will integrate with the caching system when implemented.
     /// For now, it delegates to the main loading method.
+    #[must_use]
     pub fn get_cached_chart_modules_content(&self) -> String {
         // TODO: Implement caching integration with Layer 1 Cache System Island
         // For now, always load from files
@@ -184,6 +183,7 @@ impl ChartModulesIsland {
     ///
     /// Returns a list of available chart module file names without loading content.
     #[allow(dead_code)]
+    #[must_use]
     pub fn get_available_modules(&self) -> Vec<String> {
         let source_dir = Path::new(&self.base_dir);
 
@@ -192,18 +192,16 @@ impl ChartModulesIsland {
         };
 
         let mut modules = Vec::new();
-        for entry_result in entries {
-            if let Ok(entry) = entry_result {
-                if let Ok(ft) = entry.file_type() {
-                    if ft.is_file() {
-                        if let Some(name) = entry.file_name().to_str() {
-                            // Use Path::extension() for proper case-insensitive extension checking
-                            if std::path::Path::new(name)
-                                .extension()
-                                .is_some_and(|ext| ext.eq_ignore_ascii_case("js"))
-                            {
-                                modules.push(name.to_string());
-                            }
+        for entry in entries.flatten() {
+            if let Ok(ft) = entry.file_type() {
+                if ft.is_file() {
+                    if let Some(name) = entry.file_name().to_str() {
+                        // Use Path::extension() for proper case-insensitive extension checking
+                        if std::path::Path::new(name)
+                            .extension()
+                            .is_some_and(|ext| ext.eq_ignore_ascii_case("js"))
+                        {
+                            modules.push(name.to_string());
                         }
                     }
                 }
