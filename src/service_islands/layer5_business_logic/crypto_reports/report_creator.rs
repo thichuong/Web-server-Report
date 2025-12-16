@@ -163,11 +163,12 @@ impl ReportCreator {
     ///
     /// Delegates to Layer 1 `ChartModulesIsland` for proper architectural separation.
     /// This method provides a business logic wrapper around the infrastructure service.
-    pub fn get_chart_modules_content(&self) -> String {
+    /// Returns cached `Arc<String>` - zero allocation on access.
+    pub fn get_chart_modules_content(&self) -> Arc<String> {
         debug!("ReportCreator: Requesting chart modules from Layer 1 Infrastructure");
 
         // Delegate to Layer 1 infrastructure service
-        // ✅ SYNC: Layer 1 is now synchronous
+        // ✅ SYNC: Layer 1 is now synchronous and cached in memory
         self.chart_modules_island.get_cached_chart_modules_content()
     }
 

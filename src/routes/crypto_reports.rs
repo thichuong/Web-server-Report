@@ -4,16 +4,14 @@
 //! report viewing and listing.
 
 use axum::{
-    body::Body,
     extract::{Path, Query, State},
-    http::{HeaderMap, StatusCode},
-    response::{IntoResponse, Response},
+    http::HeaderMap,
     routing::get,
     Router,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
-use tracing::{debug, error, info, warn};
+use tracing::debug;
 
 use crate::service_islands::layer5_business_logic::{
     crypto_reports::handlers::RenderedContent, shared::error::Layer5Result,
@@ -32,7 +30,7 @@ pub fn configure_crypto_reports_routes() -> Router<Arc<ServiceIslands>> {
 async fn crypto_reports_list(
     Query(params): Query<HashMap<String, String>>,
     State(service_islands): State<Arc<ServiceIslands>>,
-) -> impl IntoResponse {
+) -> Layer5Result<RenderedContent> {
     debug!("🚀 [Route] crypto_reports_list called - fetching from Service Islands Layer 5");
 
     // Parse pagination parameter
@@ -40,45 +38,11 @@ async fn crypto_reports_list(
     debug!("📄 [Route] Requesting page: {}", page);
 
     // Use Service Islands architecture to get reports list (compressed)
-    match service_islands
+    service_islands
         .crypto_reports
         .handlers
         .crypto_reports_list_with_tera(&service_islands.get_legacy_app_state(), page)
         .await
-    {
-        Ok(compressed_data) => {
-            let size_kb = compressed_data.len() / 1024;
-            info!("✅ [Route] Reports list template rendered successfully from Layer 5 - compressed ({}KB)", size_kb);
-
-            // Create compressed response with proper headers
-            Response::builder()
-                .status(StatusCode::OK)
-                .header("cache-control", "public, max-age=60")
-                .header("content-type", "text/html; charset=utf-8")
-                .header("content-encoding", "gzip")
-                .header("x-cache", "Layer5-Compressed")
-                .body(Body::from(compressed_data))
-                .unwrap_or_else(|e| {
-                    warn!("⚠️ Failed to build reports list response: {}", e);
-                    Response::builder()
-                        .status(StatusCode::INTERNAL_SERVER_ERROR)
-                        .body(Body::from("Response build error"))
-                        .unwrap_or_else(|_| Response::new(Body::from("Response build error")))
-                })
-                .into_response()
-        }
-        Err(e) => {
-            error!(
-                "❌ [Route] Failed to render reports list template from Layer 5: {}",
-                e
-            );
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to load reports list",
-            )
-                .into_response()
-        }
-    }
 }
 
 /// Crypto reports index page using Declarative Shadow DOM

@@ -253,7 +253,7 @@ impl CryptoHandlers {
                 let modules_content = if let Some(content) = chart_modules_content {
                     Some(content)
                 } else {
-                    Some(Arc::new(self.report_creator.get_chart_modules_content()))
+                    Some(self.report_creator.get_chart_modules_content())
                 };
 
                 // Template rendering with TemplateOrchestrator (Synchronous)
@@ -394,7 +394,7 @@ impl CryptoHandlers {
                 let modules_content = if let Some(content) = chart_modules_content {
                     Some(content)
                 } else {
-                    Some(Arc::new(self.report_creator.get_chart_modules_content()))
+                    Some(self.report_creator.get_chart_modules_content())
                 };
 
                 // Template rendering with TemplateOrchestrator (Synchronous)
@@ -480,7 +480,7 @@ impl CryptoHandlers {
         &self,
         state: &Arc<AppState>,
         page: i64,
-    ) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
+    ) -> Layer5Result<RenderedContent> {
         info!(
             "📋 Layer 5: Nhận yêu cầu cho crypto reports list page {}",
             page
@@ -511,21 +511,30 @@ impl CryptoHandlers {
                     "✅ Layer 5: Nhận compressed data từ Layer 3 cho reports list page {} ({}KB)",
                     page, size_kb
                 );
-                Ok(compressed_data)
+
+                Ok(RenderedContent {
+                    data: compressed_data,
+                    cache_control: "public, max-age=60",
+                    cache_status: "Layer5-Compressed",
+                })
             }
             Ok(None) => {
                 warn!(
                     "⚠️ Layer 5: Layer 3 trả về None cho reports list page {}",
                     page
                 );
-                Err("No reports list data available".into())
+                Err(super::super::shared::error::Layer5Error::TemplateRender(
+                    "No reports list data available".into(),
+                ))
             }
             Err(e) => {
                 error!(
                     "❌ Layer 5: Layer 3 error cho reports list page {}: {}",
                     page, e
                 );
-                Err(e)
+                Err(super::super::shared::error::Layer5Error::Internal(
+                    e.to_string(),
+                ))
             }
         }
     }

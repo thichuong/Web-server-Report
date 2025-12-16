@@ -6,6 +6,7 @@
 
 use std::env;
 use std::path::Path;
+use std::sync::Arc;
 use tracing::{debug, error, info, warn};
 
 /// Chart Modules Island
@@ -19,13 +20,15 @@ pub struct ChartModulesIsland {
     base_dir: String,
     /// Priority order for loading chart modules
     priority_order: Vec<String>,
+    /// Cached content (loaded at startup)
+    cached_content: Arc<String>,
 }
 
 impl ChartModulesIsland {
     /// Create a new `ChartModulesIsland`
     #[must_use]
     pub fn new() -> Self {
-        Self {
+        let mut instance = Self {
             base_dir: "shared_assets/js/chart_modules".to_string(),
             priority_order: vec![
                 "gauge.js".to_string(),
@@ -33,17 +36,35 @@ impl ChartModulesIsland {
                 "line.js".to_string(),
                 "doughnut.js".to_string(),
             ],
-        }
+            cached_content: Arc::new(String::new()), // Temporary placeholder
+        };
+
+        // Load content from disk immediately at startup
+        let content = instance.load_content_from_disk();
+        instance.cached_content = Arc::new(content);
+        info!(
+            "📦 ChartModulesIsland: Cached {}KB of chart modules in RAM",
+            instance.cached_content.len() / 1024
+        );
+
+        instance
     }
 
     /// Create a new `ChartModulesIsland` with custom configuration
     #[allow(dead_code)]
     #[must_use]
     pub fn with_config(base_dir: String, priority_order: Vec<String>) -> Self {
-        Self {
+        let mut instance = Self {
             base_dir,
             priority_order,
-        }
+            cached_content: Arc::new(String::new()),
+        };
+
+        // Load content
+        let content = instance.load_content_from_disk();
+        instance.cached_content = Arc::new(content);
+
+        instance
     }
 
     /// Health check for chart modules island
@@ -56,14 +77,14 @@ impl ChartModulesIsland {
 
     /// Get chart modules content
     ///
-    /// Reads and concatenates all JavaScript chart modules from the configured directory.
-    /// Returns a single string containing all chart modules wrapped in error handling.
-    ///
-    /// Features:
-    /// - Priority-based loading order
-    /// - Error handling for individual modules
-    /// - Debug mode support via environment variable
-    pub fn get_chart_modules_content(&self) -> String {
+    /// Returns cached content from memory (Arc<String>).
+    /// Zero file I/O penalty on access.
+    pub fn get_chart_modules_content(&self) -> Arc<String> {
+        self.cached_content.clone()
+    }
+
+    /// Load content from disk (private helper)
+    fn load_content_from_disk(&self) -> String {
         debug!(
             "📊 ChartModulesIsland: Loading chart modules from {}",
             self.base_dir
@@ -170,13 +191,10 @@ impl ChartModulesIsland {
 
     /// Get chart modules content with caching support
     ///
-    /// This method will integrate with the caching system when implemented.
-    /// For now, it delegates to the main loading method.
+    /// Returns the cached content directly from memory.
     #[must_use]
-    pub fn get_cached_chart_modules_content(&self) -> String {
-        // TODO: Implement caching integration with Layer 1 Cache System Island
-        // For now, always load from files
-        self.get_chart_modules_content()
+    pub fn get_cached_chart_modules_content(&self) -> Arc<String> {
+        self.cached_content.clone()
     }
 
     /// Get available chart module names
