@@ -79,6 +79,7 @@ impl ChartModulesIsland {
     ///
     /// Returns cached content from memory (Arc<String>).
     /// Zero file I/O penalty on access.
+    #[must_use]
     pub fn get_chart_modules_content(&self) -> Arc<String> {
         self.cached_content.clone()
     }
