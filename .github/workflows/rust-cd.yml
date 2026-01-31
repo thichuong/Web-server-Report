@@ -43,8 +43,8 @@ jobs:
         command_timeout: 30m
         script: |
           # Stop running application to release file lock
-          # Use brackets trick to avoid pkill killing itself or the shell script
-          pkill -f "[w]eb-server-report" || true
+          # Use brackets and anchor to avoid self-kill and killing similar substring names
+          pkill -f '[w]eb-server-report(\s|$)' || true
           # Create directory
           mkdir -p ~/Web-server-Report/target/release
 
