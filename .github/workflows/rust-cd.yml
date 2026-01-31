@@ -77,7 +77,7 @@ jobs:
           # Change to project root so .env can be found
           cd ~/Web-server-Report
           # Start new instance in background with nohup to detach from shell
-          nohup ./target/release/web-server-report > app.log 2>&1 &
+          setsid ./target/release/web-server-report > app.log 2>&1 &
           echo "Application started."
           sleep 5
           exit 0
