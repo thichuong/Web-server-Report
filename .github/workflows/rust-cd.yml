@@ -33,51 +33,36 @@ jobs:
     - name: Build Release
       run: cargo build --release --verbose
 
-    - name: Prepare Server
-      uses: appleboy/ssh-action@master
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
       with:
-        host: ${{ secrets.SSH_HOST }}
-        username: ${{ secrets.SSH_USER }}
-        key: ${{ secrets.SSH_KEY }}
-        timeout: 30m
-        command_timeout: 30m
-        script: |
-          # Stop running application to release file lock
-          # Use brackets and anchor to avoid self-kill and killing similar substring names
-          pkill -f '[w]eb-server-report(\s|$)' || true
-          # Create directory
-          mkdir -p ~/Web-server-Report/target/release
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-    - name: Deploy to Google VM
-      uses: appleboy/scp-action@master
-      with:
-        host: ${{ secrets.SSH_HOST }}
-        username: ${{ secrets.SSH_USER }}
-        key: ${{ secrets.SSH_KEY }}
-        source: "target/release/web-server-report"
-        target: "~/Web-server-Report/target/release"
-        strip_components: 2 # Remove target/release/ prefix
-        overwrite: true
-        timeout: 30m
-        debug: true
+    - name: Setup gcloud CLI
+      uses: google-github-actions/setup-gcloud@v2
 
-    - name: Run Application via SSH
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.SSH_HOST }}
-        username: ${{ secrets.SSH_USER }}
-        key: ${{ secrets.SSH_KEY }}
-        timeout: 30m
-        command_timeout: 30m
-        script: |
-          # Ensure permissions
-          chmod +x ~/Web-server-Report/target/release/web-server-report
-          
-          echo "Starting application..."
-          # Change to project root so .env can be found
-          cd ~/Web-server-Report
-          # Start new instance in background with nohup to detach from shell
-          setsid ./target/release/web-server-report > app.log 2>&1 &
-          echo "Application started."
-          sleep 5
-          exit 0
+    - name: Prepare Server via IAP
+      run: |
+        gcloud compute ssh ${{ secrets.SSH_USER }}@${{ secrets.GCP_VM_NAME }} \
+          --project=${{ secrets.GCP_PROJECT }} \
+          --zone=${{ secrets.GCP_ZONE }} \
+          --tunnel-through-iap \
+          --command="pkill -f '[w]eb-server-report(\s|$)' || true; mkdir -p ~/Web-server-Report/target/release"
+
+    - name: Deploy to Google VM via IAP
+      run: |
+        gcloud compute scp target/release/web-server-report \
+          ${{ secrets.SSH_USER }}@${{ secrets.GCP_VM_NAME }}:~/Web-server-Report/target/release/ \
+          --project=${{ secrets.GCP_PROJECT }} \
+          --zone=${{ secrets.GCP_ZONE }} \
+          --tunnel-through-iap
+
+    - name: Run Application via IAP
+      run: |
+        gcloud compute ssh ${{ secrets.SSH_USER }}@${{ secrets.GCP_VM_NAME }} \
+          --project=${{ secrets.GCP_PROJECT }} \
+          --zone=${{ secrets.GCP_ZONE }} \
+          --tunnel-through-iap \
+          --command="chmod +x ~/Web-server-Report/target/release/web-server-report && cd ~/Web-server-Report && setsid ./target/release/web-server-report > app.log 2>&1 &"
+        echo "Application started."
+        sleep 5
