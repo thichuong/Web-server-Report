@@ -47,6 +47,7 @@ jobs:
           --project=${{ secrets.GCP_PROJECT }} \
           --zone=${{ secrets.GCP_ZONE }} \
           --tunnel-through-iap \
+          --strict-host-key-checking=no \
           --command="pkill -f '[w]eb-server-report(\s|$)' || true; mkdir -p ~/Web-server-Report/target/release"
 
     - name: Deploy to Google VM via IAP
@@ -55,7 +56,8 @@ jobs:
           ${{ secrets.SSH_USER }}@${{ secrets.GCP_VM_NAME }}:~/Web-server-Report/target/release/ \
           --project=${{ secrets.GCP_PROJECT }} \
           --zone=${{ secrets.GCP_ZONE }} \
-          --tunnel-through-iap
+          --tunnel-through-iap \
+          --strict-host-key-checking=no
 
     - name: Run Application via IAP
       run: |
@@ -63,6 +65,7 @@ jobs:
           --project=${{ secrets.GCP_PROJECT }} \
           --zone=${{ secrets.GCP_ZONE }} \
           --tunnel-through-iap \
+          --strict-host-key-checking=no \
           --command="chmod +x ~/Web-server-Report/target/release/web-server-report && cd ~/Web-server-Report && setsid ./target/release/web-server-report > app.log 2>&1 &"
         echo "Application started."
         sleep 5
