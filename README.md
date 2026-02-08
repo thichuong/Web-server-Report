@@ -198,6 +198,31 @@ WEBSOCKET_SERVICE_URL=ws://localhost:8081
 
 ---
 
+---
+
+## Testing
+
+Run the test suite to ensure system stability:
+
+### Unit Tests
+Run standard unit tests (DTOs, Handlers, Utilities):
+```bash
+cargo test
+```
+
+### Integration Tests
+Run integration tests (Requires running Database and Redis):
+```bash
+cargo test -- --ignored
+```
+
+### Code Quality
+Run linter and formatter:
+```bash
+cargo check
+cargo clippy
+```
+
 ## Project Structure
 
 ```

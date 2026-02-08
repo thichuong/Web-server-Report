@@ -87,3 +87,7 @@ pedantic = "warn"
 unwrap_used = "warn"
 expect_used = "warn"
 indexing_slicing = "warn"
+
+[dev-dependencies]
+tower = { version = "0.4", features = ["util"] }
+axum-test = "16.4.0" # Optional, but tower oneshot is enough for now

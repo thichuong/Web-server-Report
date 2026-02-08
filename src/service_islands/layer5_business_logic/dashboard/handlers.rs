@@ -213,3 +213,37 @@ impl DashboardHandlers {
         Ok(data)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::StatusCode;
+
+    #[test]
+    fn test_compress_html() {
+        let html = "<html><body><h1>Hello World</h1></body></html>";
+        // Convert to Result to unwrap
+        let compressed = DashboardHandlers::compress_html(html).expect("Compression failed");
+
+        assert!(!compressed.is_empty());
+        // A minimal GZIP header is 10 bytes, plus footer is 8 bytes.
+        assert!(compressed.len() > 18);
+        // Gzip header magic numbers
+        assert_eq!(compressed[0], 0x1f);
+        assert_eq!(compressed[1], 0x8b);
+    }
+
+    #[test]
+    fn test_create_compressed_response() {
+        let data = vec![1, 2, 3, 4];
+        let response = DashboardHandlers::create_compressed_response(data);
+
+        assert_eq!(response.status(), StatusCode::OK);
+        
+        let headers = response.headers();
+        assert_eq!(headers.get("content-encoding").unwrap(), "gzip");
+        assert_eq!(headers.get("content-type").unwrap(), "text/html; charset=utf-8");
+        assert_eq!(headers.get("cache-control").unwrap(), "public, max-age=15");
+        assert_eq!(headers.get("x-cache").unwrap(), "compressed");
+    }
+}
