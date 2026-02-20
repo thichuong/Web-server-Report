@@ -307,12 +307,18 @@ mod tests {
             ReportRssData {
                 id: 1,
                 html_content: "<div>Báo cáo thị trường crypto ngày hôm nay</div>".to_string(),
-                created_at: Utc.with_ymd_and_hms(2025, 11, 23, 7, 0, 0).unwrap(),
+                created_at: Utc
+                    .with_ymd_and_hms(2025, 11, 23, 7, 0, 0)
+                    .single()
+                    .ok_or(Layer5Error::Internal("Invalid date".into()))?,
             },
             ReportRssData {
                 id: 2,
                 html_content: "<p>Bitcoin tăng mạnh</p>".to_string(),
-                created_at: Utc.with_ymd_and_hms(2025, 11, 22, 7, 0, 0).unwrap(),
+                created_at: Utc
+                    .with_ymd_and_hms(2025, 11, 22, 7, 0, 0)
+                    .single()
+                    .ok_or(Layer5Error::Internal("Invalid date".into()))?,
             },
         ];
 
@@ -353,13 +359,17 @@ mod tests {
     }
 
     #[test]
-    fn test_format_rfc822_date() {
-        let dt = Utc.with_ymd_and_hms(2025, 11, 23, 7, 0, 0).unwrap();
+    fn test_format_rfc822_date() -> Result<(), Box<dyn std::error::Error>> {
+        let dt = Utc
+            .with_ymd_and_hms(2025, 11, 23, 7, 0, 0)
+            .single()
+            .ok_or("Invalid date")?;
         let formatted = RssCreator::format_rfc822_date(&dt);
 
         // Should be in format: "Sun, 23 Nov 2025 14:00:00 +0700" (converted to VN timezone)
         assert!(formatted.contains("Nov 2025"));
         assert!(formatted.contains("+0700"));
+        Ok(())
     }
 
     #[test]

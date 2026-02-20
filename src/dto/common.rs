@@ -24,30 +24,32 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_health_status_serialization() {
+    fn test_health_status_serialization() -> Result<(), Box<dyn std::error::Error>> {
         assert_eq!(
-            serde_json::to_string(&HealthStatus::Healthy).unwrap(),
+            serde_json::to_string(&HealthStatus::Healthy)?,
             "\"healthy\""
         );
         assert_eq!(
-            serde_json::to_string(&HealthStatus::Unhealthy).unwrap(),
+            serde_json::to_string(&HealthStatus::Unhealthy)?,
             "\"unhealthy\""
         );
+        Ok(())
     }
 
     #[test]
-    fn test_cache_operation_status_serialization() {
+    fn test_cache_operation_status_serialization() -> Result<(), Box<dyn std::error::Error>> {
         assert_eq!(
-            serde_json::to_string(&CacheOperationStatus::Queued).unwrap(),
+            serde_json::to_string(&CacheOperationStatus::Queued)?,
             "\"queued\""
         );
         assert_eq!(
-            serde_json::to_string(&CacheOperationStatus::Completed).unwrap(),
+            serde_json::to_string(&CacheOperationStatus::Completed)?,
             "\"completed\""
         );
         assert_eq!(
-            serde_json::to_string(&CacheOperationStatus::Failed).unwrap(),
+            serde_json::to_string(&CacheOperationStatus::Failed)?,
             "\"failed\""
         );
+        Ok(())
     }
 }

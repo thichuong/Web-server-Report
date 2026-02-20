@@ -189,7 +189,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_stream_fields_to_json() {
+    fn test_stream_fields_to_json() -> Result<(), Box<dyn std::error::Error>> {
         let fields = vec![
             ("btc_price_usd".to_string(), "45000.5".to_string()),
             ("btc_change_24h".to_string(), "2.5".to_string()),
@@ -199,9 +199,23 @@ mod tests {
 
         let result = RedisStreamReader::stream_fields_to_json(&fields);
 
-        assert_eq!(result["btc_price_usd"], 45000.5);
-        assert_eq!(result["btc_change_24h"], 2.5);
-        assert_eq!(result["fng_value"], 75);
-        assert_eq!(result["partial_failure"], false);
+        assert_eq!(
+            result.get("btc_price_usd").ok_or("missing btc_price_usd")?,
+            45000.5
+        );
+        assert_eq!(
+            result
+                .get("btc_change_24h")
+                .ok_or("missing btc_change_24h")?,
+            2.5
+        );
+        assert_eq!(result.get("fng_value").ok_or("missing fng_value")?, 75);
+        assert_eq!(
+            result
+                .get("partial_failure")
+                .ok_or("missing partial_failure")?,
+            false
+        );
+        Ok(())
     }
 }

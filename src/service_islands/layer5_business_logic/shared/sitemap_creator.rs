@@ -222,13 +222,24 @@ mod tests {
     use chrono::TimeZone;
 
     #[test]
-    fn test_generate_sitemap_with_reports() {
+    fn test_generate_sitemap_with_reports() -> Result<(), Box<dyn std::error::Error>> {
         let reports = vec![
-            (1, Utc.with_ymd_and_hms(2024, 1, 15, 10, 0, 0).unwrap()),
-            (2, Utc.with_ymd_and_hms(2024, 2, 20, 12, 30, 0).unwrap()),
+            (
+                1,
+                Utc.with_ymd_and_hms(2024, 1, 15, 10, 0, 0)
+                    .single()
+                    .ok_or("Invalid time")?,
+            ),
+            (
+                2,
+                Utc.with_ymd_and_hms(2024, 2, 20, 12, 30, 0)
+                    .single()
+                    .ok_or("Invalid time")?,
+            ),
         ];
 
-        let xml = SitemapCreator::generate_sitemap_xml(reports).unwrap();
+        let xml = SitemapCreator::generate_sitemap_xml(reports)
+            .map_err(|e| format!("Failed to generate XML: {e}"))?;
 
         // Verify XML structure
         assert!(xml.starts_with(r#"<?xml version="1.0" encoding="UTF-8"?>"#));
@@ -247,15 +258,18 @@ mod tests {
         // Verify lastmod format
         assert!(xml.contains("<lastmod>2024-01-15</lastmod>"));
         assert!(xml.contains("<lastmod>2024-02-20</lastmod>"));
+        Ok(())
     }
 
     #[test]
-    fn test_generate_sitemap_empty_reports() {
-        let xml = SitemapCreator::generate_sitemap_xml(vec![]).unwrap();
+    fn test_generate_sitemap_empty_reports() -> Result<(), Box<dyn std::error::Error>> {
+        let xml = SitemapCreator::generate_sitemap_xml(vec![])
+            .map_err(|e| format!("Failed to generate XML: {e}"))?;
 
         // Should still have static URLs
         assert!(xml.contains("<loc>https://cryptodashboard.me</loc>"));
         assert!(xml.contains("<priority>1.0</priority>"));
+        Ok(())
     }
 
     #[test]
