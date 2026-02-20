@@ -66,6 +66,6 @@ jobs:
           --zone=${{ secrets.GCP_ZONE }} \
           --tunnel-through-iap \
           --strict-host-key-checking=no \
-          --command="chmod +x ~/Web-server-Report/target/release/web-server-report && cd ~/Web-server-Report && nohup ./target/release/web-server-report > app.log 2>&1 < /dev/null & disown"
+          --command="chmod +x ~/Web-server-Report/target/release/web-server-report && cd ~/Web-server-Report && setsid nohup ./target/release/web-server-report > app.log 2>&1 < /dev/null & exit"
         echo "Application started."
         sleep 5
