@@ -72,6 +72,10 @@ class DashboardWebSocket {
 
             this.socket.onmessage = (event) => {
                 try {
+                    if (typeof event.data === 'string' && event.data.startsWith('Connected')) {
+                        if (WS_DEBUG) console.log('✅ Server connection check:', event.data);
+                        return;
+                    }
                     const message = JSON.parse(event.data);
                     this.handleMessage(message);
                 } catch (error) {

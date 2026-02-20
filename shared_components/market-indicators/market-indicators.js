@@ -224,6 +224,10 @@ class MarketIndicatorsDashboard {
 
             this.websocket.onmessage = (event) => {
                 try {
+                    if (typeof event.data === 'string' && event.data.startsWith('Connected')) {
+                        debugLog('✅ Server connection check:', event.data);
+                        return;
+                    }
                     const message = JSON.parse(event.data);
                     this.handleWebSocketMessage(message);
                 } catch (error) {
