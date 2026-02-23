@@ -49,9 +49,7 @@ async fn rss_feed(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 
     // Layer 3: Fetch report data from database
     let data_service = CryptoDataService::new();
-    let reports_result = data_service
-        .fetch_rss_reports(&state, RSS_FEED_LIMIT)
-        .await;
+    let reports_result = data_service.fetch_rss_reports(&state, RSS_FEED_LIMIT).await;
 
     match reports_result {
         Ok(reports) => {

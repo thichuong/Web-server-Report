@@ -106,16 +106,21 @@ impl DashboardDataService {
         // Cache the compressed data for 5 minutes in both L1 and L2
         let cache_manager = &state.cache_manager;
         if let Ok(compressed_json) = serde_json::to_value(compressed_data) {
-            let result = cache_manager.set_with_strategy(
+            let result = cache_manager
+                .set_with_strategy(
                     cache_key,
                     compressed_json,
-                    multi_tier_cache::CacheStrategy::ShortTerm // 5 minutes
-                ).await;
+                    multi_tier_cache::CacheStrategy::ShortTerm, // 5 minutes
+                )
+                .await;
 
             match result {
                 Ok(()) => {
                     let size_kb = compressed_data.len() / 1024;
-                    info!("💾 DashboardDataService: Cached compressed homepage ({}KB) for 5 minutes", size_kb);
+                    info!(
+                        "💾 DashboardDataService: Cached compressed homepage ({}KB) for 5 minutes",
+                        size_kb
+                    );
                 }
                 Err(e) => info!("⚠️ DashboardDataService: L1 Cache set error: {}", e),
             }

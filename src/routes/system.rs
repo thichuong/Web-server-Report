@@ -9,8 +9,8 @@ use std::sync::Arc;
 use crate::dto::{
     responses::{
         CacheClearResponse, CacheConfiguration, CacheHealth, CacheStatistics, CacheStatsAvailable,
-        CacheStatsResponse, CacheSystemInfo,
-        HealthCheckResponse, PerformanceInfo, PerformanceMetricsResponse, ServicesInfo,
+        CacheStatsResponse, CacheSystemInfo, HealthCheckResponse, PerformanceInfo,
+        PerformanceMetricsResponse, ServicesInfo,
     },
     CacheOperationStatus, HealthStatus,
 };
@@ -72,9 +72,7 @@ async fn performance_metrics(
 }
 
 /// Clear cache endpoint - delegates to Cache System Island
-async fn clear_cache(
-    State(_state): State<Arc<AppState>>,
-) -> Json<CacheClearResponse> {
+async fn clear_cache(State(_state): State<Arc<AppState>>) -> Json<CacheClearResponse> {
     // TODO: Implement cache clearing via Service Islands
     let response = CacheClearResponse {
         message: "Cache clear requested".to_string(),
@@ -86,9 +84,7 @@ async fn clear_cache(
 
 /// Cache statistics endpoint - delegates to Cache System Island
 /// ✅ PRODUCTION-READY: Queries detailed statistics from multi-tier-cache library
-async fn cache_stats(
-    State(state): State<Arc<AppState>>,
-) -> Json<CacheStatsResponse> {
+async fn cache_stats(State(state): State<Arc<AppState>>) -> Json<CacheStatsResponse> {
     // Get actual cache statistics from the multi-tier-cache library
     let stats = state.cache_manager.get_stats();
     let response = CacheStatsResponse::Available(Box::new(CacheStatsAvailable {
@@ -117,8 +113,7 @@ async fn cache_stats(
         },
         health: CacheHealth {
             status: "healthy".to_string(),
-            recommendation: "Cache operating normally with automatic memory management"
-                .to_string(),
+            recommendation: "Cache operating normally with automatic memory management".to_string(),
         },
     }));
 

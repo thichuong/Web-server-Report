@@ -13,9 +13,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::debug;
 
-use crate::services::{
-    crypto_reports::handlers::RenderedContent, shared::error::Layer5Result,
-};
+use crate::services::{crypto_reports::handlers::RenderedContent, shared::error::Layer5Result};
 use crate::state::AppState;
 
 /// Configure crypto reports routes
@@ -60,14 +58,19 @@ async fn crypto_index(
         if let Ok(id) = id_str.parse::<i32>() {
             Some(id)
         } else {
-            return Err(crate::services::shared::error::Layer5Error::InvalidInput(format!("Invalid report ID format: {id_str}")));
+            return Err(crate::services::shared::error::Layer5Error::InvalidInput(
+                format!("Invalid report ID format: {id_str}"),
+            ));
         }
     } else {
         None // Latest report
     };
 
     // Get chart modules content
-    let chart_modules_content = state.crypto_handlers.report_creator.get_chart_modules_content(&state);
+    let chart_modules_content = state
+        .crypto_handlers
+        .report_creator
+        .get_chart_modules_content(&state);
 
     // Delegate to handlers
 
@@ -96,23 +99,20 @@ async fn crypto_view_report(
 
     // Parse report ID
     let report_id: i32 = id.parse().map_err(|_| {
-        crate::services::shared::error::Layer5Error::InvalidInput(
-            format!("Invalid report ID format: {id}"),
-        )
+        crate::services::shared::error::Layer5Error::InvalidInput(format!(
+            "Invalid report ID format: {id}"
+        ))
     })?;
 
     // Get chart modules content
-    let chart_modules_content = state.crypto_handlers.report_creator.get_chart_modules_content(&state);
+    let chart_modules_content = state
+        .crypto_handlers
+        .report_creator
+        .get_chart_modules_content(&state);
 
     // Delegate to handlers
     state
         .crypto_handlers
-        .render_crypto_report_dsd(
-            &state,
-            report_id,
-            &params,
-            &headers,
-            chart_modules_content,
-        )
+        .render_crypto_report_dsd(&state, report_id, &params, &headers, chart_modules_content)
         .await
 }

@@ -4,8 +4,8 @@
 //! Originally located in src/handlers/api.rs, these handlers have been moved to the
 //! Dashboard Island as part of the Service Islands Architecture.
 
-use crate::state::AppState;
 use crate::services::dashboard_data_service::DashboardDataService;
+use crate::state::AppState;
 use axum::{
     body::Body,
     http::StatusCode,

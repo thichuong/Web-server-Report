@@ -155,7 +155,9 @@ mod tests {
         let result = RedisStreamReader::stream_fields_to_json(&fields);
 
         assert_eq!(
-            result.get("btc_price_usd").ok_or_else(|| anyhow::anyhow!("missing btc_price_usd"))?,
+            result
+                .get("btc_price_usd")
+                .ok_or_else(|| anyhow::anyhow!("missing btc_price_usd"))?,
             45000.5
         );
         assert_eq!(
@@ -164,7 +166,12 @@ mod tests {
                 .ok_or_else(|| anyhow::anyhow!("missing btc_change_24h"))?,
             2.5
         );
-        assert_eq!(result.get("fng_value").ok_or_else(|| anyhow::anyhow!("missing fng_value"))?, 75);
+        assert_eq!(
+            result
+                .get("fng_value")
+                .ok_or_else(|| anyhow::anyhow!("missing fng_value"))?,
+            75
+        );
         assert_eq!(
             result
                 .get("partial_failure")

@@ -774,7 +774,9 @@ impl CryptoHandlers {
             Ok(Some(report)) => report,
             Ok(None) => {
                 warn!("⚠️ [Handler] No report found for DSD view");
-                return Err(crate::services::shared::error::Layer5Error::NotFound("Report not found".to_string()));
+                return Err(crate::services::shared::error::Layer5Error::NotFound(
+                    "Report not found".to_string(),
+                ));
             }
             Err(e) => {
                 error!("❌ [Handler] Database error fetching report for DSD: {}", e);
@@ -859,7 +861,9 @@ impl CryptoHandlers {
             Ok(html) => html,
             Err(e) => {
                 error!("❌ [Handler] Failed to render DSD template: {}", e);
-                return Err(crate::services::shared::error::Layer5Error::TemplateRender(e.to_string()));
+                return Err(crate::services::shared::error::Layer5Error::TemplateRender(
+                    e.to_string(),
+                ));
             }
         };
 
@@ -868,7 +872,9 @@ impl CryptoHandlers {
             Ok(data) => data,
             Err(e) => {
                 error!("❌ [Handler] Failed to compress DSD HTML: {}", e);
-                return Err(crate::services::shared::error::Layer5Error::Compression(e.to_string()));
+                return Err(crate::services::shared::error::Layer5Error::Compression(
+                    e.to_string(),
+                ));
             }
         };
 

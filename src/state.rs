@@ -8,15 +8,15 @@ use tera::Tera;
 use tracing::{debug, info, warn};
 
 // Import cache system from library
-use multi_tier_cache::{CacheManager, CacheSystemBuilder, backends::moka_cache::MokaCacheConfig};
+use multi_tier_cache::{backends::moka_cache::MokaCacheConfig, CacheManager, CacheSystemBuilder};
 use std::time::Duration;
 
 use crate::assets::load_chart_modules;
 /// Core Application State
-/// 
+///
 /// Replaces the complex ServiceIslands architecture with a standard Axum state that holds:
 /// - Database pool
-/// - Tera templates 
+/// - Tera templates
 /// - Multi-tier Cache Manager
 /// - Shared static components (Chart modules)
 /// - Application counters
@@ -58,7 +58,7 @@ impl AppState {
             .await?;
         let cache_manager = Arc::clone(&cache_system.cache_manager);
 
-        // 4. Initialize Chart Modules 
+        // 4. Initialize Chart Modules
         let chart_modules_content = Arc::new(load_chart_modules()?);
 
         info!("✅ Application State initialized successfully");
@@ -79,7 +79,10 @@ impl AppState {
     /// Health check
     pub async fn health_check(&self) -> bool {
         // Just return true or add more checks
-        self.redis_stream_reader.health_check().await.unwrap_or(false)
+        self.redis_stream_reader
+            .health_check()
+            .await
+            .unwrap_or(false)
     }
 
     fn initialize_template_engine() -> Tera {
@@ -95,12 +98,30 @@ impl AppState {
 
         // Register templates
         let templates = vec![
-            ("dashboards/crypto_dashboard/routes/reports/view.html", "crypto/routes/reports/view.html"),
-            ("dashboards/crypto_dashboard/routes/reports/view_dsd.html", "crypto/routes/reports/view_dsd.html"),
-            ("dashboards/crypto_dashboard/routes/reports/list.html", "crypto/routes/reports/list.html"),
-            ("shared_components/theme_toggle.html", "crypto/components/theme_toggle.html"),
-            ("shared_components/language_toggle.html", "crypto/components/language_toggle.html"),
-            ("shared_components/market-indicators/market-indicators.html", "shared/components/market-indicators.html"),
+            (
+                "dashboards/crypto_dashboard/routes/reports/view.html",
+                "crypto/routes/reports/view.html",
+            ),
+            (
+                "dashboards/crypto_dashboard/routes/reports/view_dsd.html",
+                "crypto/routes/reports/view_dsd.html",
+            ),
+            (
+                "dashboards/crypto_dashboard/routes/reports/list.html",
+                "crypto/routes/reports/list.html",
+            ),
+            (
+                "shared_components/theme_toggle.html",
+                "crypto/components/theme_toggle.html",
+            ),
+            (
+                "shared_components/language_toggle.html",
+                "crypto/components/language_toggle.html",
+            ),
+            (
+                "shared_components/market-indicators/market-indicators.html",
+                "shared/components/market-indicators.html",
+            ),
             ("dashboards/home.html", "home.html"),
         ];
 

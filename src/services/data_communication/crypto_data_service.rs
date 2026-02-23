@@ -382,7 +382,10 @@ impl CryptoDataService {
             .set_with_strategy(&cache_key, compressed_json, strategy)
             .await?;
 
-        debug!("💾 Layer 3: Cached compressed data for {} ({}KB)", report_type, kilobytes);
+        debug!(
+            "💾 Layer 3: Cached compressed data for {} ({}KB)",
+            report_type, kilobytes
+        );
         Ok(())
     }
 
@@ -492,22 +495,22 @@ impl CryptoDataService {
 
         // ✅ Cache the data - library handles memory management automatically
         let cache_manager = &state.cache_manager;
-            let cache_key = format!("compressed_report_dsd_{report_id}_{language}");
-            let strategy = multi_tier_cache::CacheStrategy::ShortTerm;
+        let cache_key = format!("compressed_report_dsd_{report_id}_{language}");
+        let strategy = multi_tier_cache::CacheStrategy::ShortTerm;
 
-            // ✅ OPTIMIZATION: Encode as Base64 string instead of JSON Array of Numbers
-            // This reduces memory usage by ~95% compared to [12, 255, ...] format
-            let base64_string = BASE64_STANDARD.encode(compressed_data);
-            let compressed_json = serde_json::Value::String(base64_string);
+        // ✅ OPTIMIZATION: Encode as Base64 string instead of JSON Array of Numbers
+        // This reduces memory usage by ~95% compared to [12, 255, ...] format
+        let base64_string = BASE64_STANDARD.encode(compressed_data);
+        let compressed_json = serde_json::Value::String(base64_string);
 
-            cache_manager
-                .set_with_strategy(&cache_key, compressed_json, strategy)
-                .await?;
+        cache_manager
+            .set_with_strategy(&cache_key, compressed_json, strategy)
+            .await?;
 
-            debug!(
-                "💾 Layer 3: Cached DSD compressed data for {} (lang: {}) ({}KB)",
-                report_type, language, kilobytes
-            );
+        debug!(
+            "💾 Layer 3: Cached DSD compressed data for {} (lang: {}) ({}KB)",
+            report_type, language, kilobytes
+        );
         Ok(())
     }
 

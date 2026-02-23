@@ -38,18 +38,12 @@ pub fn configure_api_routes() -> Router<Arc<AppState>> {
 
 /// Dashboard data API endpoint - Enhanced with Redis Streams
 /// Same functionality as `api_dashboard_summary` but with cleaner path
-async fn api_dashboard_data(
-    State(state): State<Arc<AppState>>,
-) -> Json<DashboardDataResponse> {
+async fn api_dashboard_data(State(state): State<Arc<AppState>>) -> Json<DashboardDataResponse> {
     // Phase 3: Primary reads from Redis Streams via RedisStreamReader
     debug!("🚀 [API] Reading dashboard data from Redis Stream...");
 
     // Use RedisStreamReader to fetch latest market data
-    match state
-        .redis_stream_reader
-        .read_latest_market_data()
-        .await
-    {
+    match state.redis_stream_reader.read_latest_market_data().await {
         Ok(Some(data)) => {
             debug!("✅ [API] Dashboard data served from Redis Stream (<1ms)");
             // Deserialize the Value into our typed response
@@ -122,18 +116,12 @@ async fn api_dashboard_data(
 }
 
 /// Dashboard summary API endpoint - Reads from Redis Stream via `RedisStreamReader`
-async fn api_dashboard_summary(
-    State(state): State<Arc<AppState>>,
-) -> Json<DashboardDataResponse> {
+async fn api_dashboard_summary(State(state): State<Arc<AppState>>) -> Json<DashboardDataResponse> {
     // Stream-first strategy: Read from Redis Stream populated by websocket service
     debug!("🚀 [API] Reading dashboard summary from Redis Stream...");
 
     // Use RedisStreamReader to fetch latest market data
-    match state
-        .redis_stream_reader
-        .read_latest_market_data()
-        .await
-    {
+    match state.redis_stream_reader.read_latest_market_data().await {
         Ok(Some(data)) => {
             debug!("✅ [API] Dashboard summary served from Redis Stream (<1ms)");
             // Deserialize the Value into our typed response
@@ -258,11 +246,7 @@ async fn api_sandboxed_report(
     let chart_modules = if params.contains_key("chart_modules") {
         // If chart_modules parameter is present, load actual chart modules
         debug!("📊 [API] Loading chart modules for iframe");
-        Some(
-            state
-                .chart_modules_content
-                .as_str(),
-        )
+        Some(state.chart_modules_content.as_str())
     } else {
         warn!("⚠️ [API] No chart_modules parameter - iframe will have empty charts");
         None
@@ -331,18 +315,10 @@ async fn api_shadow_dom_content(
     let chart_modules = if params.contains_key("chart_modules") {
         // If chart_modules parameter is present, load actual chart modules
         debug!("📊 [API] Loading chart modules for Shadow DOM");
-        Some(
-            state
-                .chart_modules_content
-                .as_str(),
-        )
+        Some(state.chart_modules_content.as_str())
     } else {
         debug!("💡 [API] No chart_modules parameter - using default behavior");
-        Some(
-            state
-                .chart_modules_content
-                .as_str(),
-        )
+        Some(state.chart_modules_content.as_str())
     };
 
     // Use Service Islands to serve Shadow DOM content
@@ -378,9 +354,7 @@ async fn api_shadow_dom_content(
 ///
 /// Note: WebSocket functionality is now in a separate service.
 /// This endpoint returns a redirect message to the websocket service.
-async fn api_websocket_stats(
-    State(_state): State<Arc<AppState>>,
-) -> Json<WebSocketStatsResponse> {
+async fn api_websocket_stats(State(_state): State<Arc<AppState>>) -> Json<WebSocketStatsResponse> {
     let response = WebSocketStatsResponse {
         message: "WebSocket functionality has been moved to a separate service".to_string(),
         websocket_service: "Check Web-server-Report-websocket service for WebSocket stats"

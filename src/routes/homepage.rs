@@ -25,10 +25,7 @@ pub fn configure_homepage_route() -> Router<Arc<AppState>> {
 async fn homepage(State(state): State<Arc<AppState>>) -> Response {
     // Use the dashboard island's homepage handler with Tera rendering
     // Directly await the async method from Layer 5
-    match state
-        .dashboard_handlers
-        .homepage_with_tera(&state)
-    {
+    match state.dashboard_handlers.homepage_with_tera(&state) {
         Ok(compressed_data) => {
             info!("✅ [Route] Compressed homepage rendered successfully from Layer 5");
             DashboardHandlers::create_compressed_response(compressed_data)
