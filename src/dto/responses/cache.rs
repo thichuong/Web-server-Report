@@ -20,7 +20,7 @@ pub struct PerformanceMetricsResponse {
 /// Performance information for metrics
 #[derive(Debug, Serialize)]
 pub struct PerformanceInfo {
-    pub service_islands_active: u8,
+    pub services_active: u8,
     pub uptime: String,
     pub memory_usage: String,
     pub cache_status: String,

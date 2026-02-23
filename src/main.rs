@@ -1,10 +1,10 @@
 #![warn(clippy::pedantic)]
 use dotenvy::dotenv;
 use std::{env, net::SocketAddr, sync::Arc};
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
 
-use web_server_report::{routes::create_service_islands_router, ServiceIslands};
+use web_server_report::{routes::create_router, state::AppState};
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -18,24 +18,16 @@ async fn main() -> Result<(), anyhow::Error> {
         )
         .init();
 
-    info!("🚀 Starting Web Server with Service Islands Architecture...");
+    info!("🚀 Starting Web Server with Refactored Architecture...");
 
-    // Initialize Service Islands Architecture
-    info!("🏝️ Initializing Service Islands Architecture...");
-    let service_islands = Arc::new(ServiceIslands::initialize()?);
+    // Initialize Application State
+    info!("🏗️ Initializing AppState...");
+    let state = Arc::new(AppState::new().await?);
 
     // Note: WebSocket and streaming functionality is now handled by separate websocket service
 
-    // Perform initial health check
-    info!("🔍 Performing initial health check...");
-    if service_islands.health_check().await {
-        info!("✅ Service Islands Architecture is healthy!");
-    } else {
-        warn!("⚠️ Some Service Islands may have issues - continuing with startup...");
-    }
-
-    // Create comprehensive router using Service Islands
-    let app = create_service_islands_router(Arc::clone(&service_islands));
+    // Create comprehensive router using AppState
+    let app = create_router(Arc::clone(&state));
 
     // Start server
     let host = env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
@@ -72,11 +64,7 @@ async fn main() -> Result<(), anyhow::Error> {
         .with_graceful_shutdown(shutdown_signal)
         .await?;
 
-    // Perform graceful shutdown cleanup
-    info!("🧹 Starting graceful shutdown of Service Islands...");
-    if let Err(e) = service_islands.shutdown().await {
-        error!("⚠️  Shutdown error: {}", e);
-    }
+    // Note: Add any app state cleanup here if necessary when gracefully shutting down.
 
     info!("👋 Server shutdown complete - All resources cleaned up");
     Ok(())

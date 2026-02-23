@@ -13,13 +13,13 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::debug;
 
-use crate::service_islands::layer5_business_logic::{
+use crate::services::{
     crypto_reports::handlers::RenderedContent, shared::error::Layer5Result,
 };
-use crate::service_islands::ServiceIslands;
+use crate::state::AppState;
 
 /// Configure crypto reports routes
-pub fn configure_crypto_reports_routes() -> Router<Arc<ServiceIslands>> {
+pub fn configure_crypto_reports_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/crypto_report", get(crypto_index))
         .route("/crypto_report/:id", get(crypto_view_report))
@@ -29,7 +29,7 @@ pub fn configure_crypto_reports_routes() -> Router<Arc<ServiceIslands>> {
 /// List all crypto reports with pagination
 async fn crypto_reports_list(
     Query(params): Query<HashMap<String, String>>,
-    State(service_islands): State<Arc<ServiceIslands>>,
+    State(state): State<Arc<AppState>>,
 ) -> Layer5Result<RenderedContent> {
     debug!("🚀 [Route] crypto_reports_list called - fetching from Service Islands Layer 5");
 
@@ -38,10 +38,9 @@ async fn crypto_reports_list(
     debug!("📄 [Route] Requesting page: {}", page);
 
     // Use Service Islands architecture to get reports list (compressed)
-    service_islands
-        .crypto_reports
-        .handlers
-        .crypto_reports_list_with_tera(&service_islands.get_legacy_app_state(), page)
+    state
+        .crypto_handlers
+        .crypto_reports_list_with_tera(&state, page)
         .await
 }
 
@@ -49,7 +48,7 @@ async fn crypto_reports_list(
 /// Modern primary route for crypto reports
 /// ✅ OPTIMIZED: Full caching support with language-specific cache keys
 async fn crypto_index(
-    State(service_islands): State<Arc<ServiceIslands>>,
+    State(state): State<Arc<AppState>>,
     Query(params): Query<HashMap<String, String>>,
     headers: HeaderMap,
 ) -> Layer5Result<RenderedContent> {
@@ -61,22 +60,21 @@ async fn crypto_index(
         if let Ok(id) = id_str.parse::<i32>() {
             Some(id)
         } else {
-            return Err(crate::service_islands::layer5_business_logic::shared::error::Layer5Error::InvalidInput(format!("Invalid report ID format: {id_str}")));
+            return Err(crate::services::shared::error::Layer5Error::InvalidInput(format!("Invalid report ID format: {id_str}")));
         }
     } else {
         None // Latest report
     };
 
     // Get chart modules content
-    let chart_modules_content = service_islands.get_chart_modules_content();
+    let chart_modules_content = state.crypto_handlers.report_creator.get_chart_modules_content(&state);
 
     // Delegate to handlers
 
-    service_islands
-        .crypto_reports
-        .handlers
+    state
+        .crypto_handlers
         .render_crypto_index_dsd(
-            &service_islands.get_legacy_app_state(),
+            &state,
             &params,
             &headers,
             chart_modules_content,
@@ -90,7 +88,7 @@ async fn crypto_index(
 /// ✅ OPTIMIZED: Full caching support with language-specific cache keys
 async fn crypto_view_report(
     Path(id): Path<String>,
-    State(service_islands): State<Arc<ServiceIslands>>,
+    State(state): State<Arc<AppState>>,
     Query(params): Query<HashMap<String, String>>,
     headers: HeaderMap,
 ) -> Layer5Result<RenderedContent> {
@@ -98,20 +96,19 @@ async fn crypto_view_report(
 
     // Parse report ID
     let report_id: i32 = id.parse().map_err(|_| {
-        crate::service_islands::layer5_business_logic::shared::error::Layer5Error::InvalidInput(
+        crate::services::shared::error::Layer5Error::InvalidInput(
             format!("Invalid report ID format: {id}"),
         )
     })?;
 
     // Get chart modules content
-    let chart_modules_content = service_islands.get_chart_modules_content();
+    let chart_modules_content = state.crypto_handlers.report_creator.get_chart_modules_content(&state);
 
     // Delegate to handlers
-    service_islands
-        .crypto_reports
-        .handlers
+    state
+        .crypto_handlers
         .render_crypto_report_dsd(
-            &service_islands.get_legacy_app_state(),
+            &state,
             report_id,
             &params,
             &headers,

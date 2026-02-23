@@ -39,3 +39,4 @@ node_modules/
 dist/
 build-report.json
 package-lock.json
+target_check/

@@ -7,12 +7,12 @@ use serde::Serialize;
 #[derive(Debug, Serialize)]
 pub struct HealthCheckResponse {
     pub status: HealthStatus,
-    pub service_islands: ServiceIslandsInfo,
+    pub services: ServicesInfo,
 }
 
-/// Service Islands information for health checks
+/// Services information for health checks
 #[derive(Debug, Serialize)]
-pub struct ServiceIslandsInfo {
+pub struct ServicesInfo {
     pub total: u8,
     pub operational: u8,
     pub architecture: String,
@@ -29,6 +29,6 @@ pub struct ApiHealthResponse {
 #[derive(Debug, Serialize)]
 pub struct ApiHealthInfo {
     pub status: HealthStatus,
-    pub service_islands: u8,
+    pub services: u8,
     pub timestamp: String,
 }

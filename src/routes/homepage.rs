@@ -13,22 +13,21 @@ use axum::{
 use std::sync::Arc;
 use tracing::{error, info};
 
-use crate::service_islands::layer5_business_logic::dashboard::handlers::DashboardHandlers;
-use crate::service_islands::ServiceIslands;
+use crate::services::dashboard::DashboardHandlers;
+use crate::state::AppState;
 
 /// Configure homepage route
-pub fn configure_homepage_route() -> Router<Arc<ServiceIslands>> {
+pub fn configure_homepage_route() -> Router<Arc<AppState>> {
     Router::new().route("/", get(homepage))
 }
 
 /// Homepage handler - delegates to Dashboard Island
-async fn homepage(State(service_islands): State<Arc<ServiceIslands>>) -> Response {
+async fn homepage(State(state): State<Arc<AppState>>) -> Response {
     // Use the dashboard island's homepage handler with Tera rendering
     // Directly await the async method from Layer 5
-    match service_islands
-        .dashboard
-        .handlers
-        .homepage_with_tera(&service_islands.get_legacy_app_state())
+    match state
+        .dashboard_handlers
+        .homepage_with_tera(&state)
     {
         Ok(compressed_data) => {
             info!("✅ [Route] Compressed homepage rendered successfully from Layer 5");

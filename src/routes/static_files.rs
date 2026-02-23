@@ -7,7 +7,7 @@ use axum::Router;
 use std::sync::Arc;
 use tower_http::services::{ServeDir, ServeFile};
 
-use crate::service_islands::ServiceIslands;
+use crate::state::AppState;
 
 /// Configure static file serving routes
 ///
@@ -16,7 +16,7 @@ use crate::service_islands::ServiceIslands;
 /// - Stock dashboard assets (minimal)
 /// - Shared components and assets
 /// - Test files
-pub fn configure_static_routes() -> Router<Arc<ServiceIslands>> {
+pub fn configure_static_routes() -> Router<Arc<AppState>> {
     Router::new()
         // SEO files
         .route_service("/robots.txt", ServeFile::new("robots.txt"))

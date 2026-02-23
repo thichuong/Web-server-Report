@@ -17,15 +17,15 @@ use axum::{
 use std::sync::Arc;
 use tracing::{error, info};
 
-use crate::service_islands::layer3_communication::data_communication::crypto_data_service::CryptoDataService;
-use crate::service_islands::layer5_business_logic::shared::RssCreator;
-use crate::service_islands::ServiceIslands;
+use crate::services::data_communication::CryptoDataService;
+use crate::services::shared::RssCreator;
+use crate::state::AppState;
 
 /// Default number of reports to include in RSS feed
 const RSS_FEED_LIMIT: i64 = 20;
 
 /// Configure RSS feed routes
-pub fn configure_rss_routes() -> Router<Arc<ServiceIslands>> {
+pub fn configure_rss_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/rss.xml", get(rss_feed))
         .route("/rss", get(rss_feed)) // Alternative path without .xml extension
@@ -44,16 +44,13 @@ pub fn configure_rss_routes() -> Router<Arc<ServiceIslands>> {
 /// - RFC 822 date formatting for pubDate
 /// - HTML content extraction for descriptions
 /// - Atom namespace for self-referencing link
-async fn rss_feed(State(service_islands): State<Arc<ServiceIslands>>) -> impl IntoResponse {
+async fn rss_feed(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     info!("📡 Generating RSS feed");
-
-    // Get legacy app state for database access
-    let app_state = service_islands.get_legacy_app_state();
 
     // Layer 3: Fetch report data from database
     let data_service = CryptoDataService::new();
     let reports_result = data_service
-        .fetch_rss_reports(&app_state, RSS_FEED_LIMIT)
+        .fetch_rss_reports(&state, RSS_FEED_LIMIT)
         .await;
 
     match reports_result {

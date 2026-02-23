@@ -9,15 +9,15 @@ use std::sync::Arc;
 use crate::dto::{
     responses::{
         CacheClearResponse, CacheConfiguration, CacheHealth, CacheStatistics, CacheStatsAvailable,
-        CacheStatsResponse, CacheStatsUnavailable, CacheStatusOnly, CacheSystemInfo,
-        HealthCheckResponse, PerformanceInfo, PerformanceMetricsResponse, ServiceIslandsInfo,
+        CacheStatsResponse, CacheSystemInfo,
+        HealthCheckResponse, PerformanceInfo, PerformanceMetricsResponse, ServicesInfo,
     },
     CacheOperationStatus, HealthStatus,
 };
-use crate::service_islands::ServiceIslands;
+use crate::state::AppState;
 
 /// Configure health and system monitoring routes
-pub fn configure_system_routes() -> Router<Arc<ServiceIslands>> {
+pub fn configure_system_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/health", get(health_check))
         .route("/metrics", get(performance_metrics))
@@ -27,9 +27,9 @@ pub fn configure_system_routes() -> Router<Arc<ServiceIslands>> {
 
 /// Health check endpoint - delegates to Service Islands
 async fn health_check(
-    State(service_islands): State<Arc<ServiceIslands>>,
+    State(state): State<Arc<AppState>>,
 ) -> Result<Json<HealthCheckResponse>, StatusCode> {
-    let health_status = service_islands.health_check().await;
+    let health_status = state.health_check().await;
 
     let response = HealthCheckResponse {
         status: if health_status {
@@ -37,10 +37,10 @@ async fn health_check(
         } else {
             HealthStatus::Unhealthy
         },
-        service_islands: ServiceIslandsInfo {
-            total: 7,
-            operational: if health_status { 7 } else { 0 },
-            architecture: "Service Islands".to_string(),
+        services: ServicesInfo {
+            total: 5,
+            operational: if health_status { 5 } else { 0 },
+            architecture: "Standard Services".to_string(),
             timestamp: chrono::Utc::now().to_rfc3339(),
         },
     };
@@ -51,17 +51,16 @@ async fn health_check(
 /// Performance metrics endpoint
 /// ✅ PRODUCTION-READY: Queries actual cache statistics from multi-tier-cache library
 async fn performance_metrics(
-    State(service_islands): State<Arc<ServiceIslands>>,
+    State(state): State<Arc<AppState>>,
 ) -> Json<PerformanceMetricsResponse> {
     // Get actual cache statistics from library
-    use crate::service_islands::layer3_communication::data_communication::CryptoDataService;
-    let legacy_state = service_islands.get_legacy_app_state();
-    let cache_info = CryptoDataService::get_cache_stats(&legacy_state)
+    use crate::services::data_communication::CryptoDataService;
+    let cache_info = CryptoDataService::get_cache_stats(&state)
         .unwrap_or_else(|| "Cache statistics unavailable".to_string());
 
     let response = PerformanceMetricsResponse {
         performance: PerformanceInfo {
-            service_islands_active: 7,
+            services_active: 5,
             uptime: "operational".to_string(),
             memory_usage: "optimized".to_string(),
             cache_status: "active".to_string(),
@@ -74,7 +73,7 @@ async fn performance_metrics(
 
 /// Clear cache endpoint - delegates to Cache System Island
 async fn clear_cache(
-    State(_service_islands): State<Arc<ServiceIslands>>,
+    State(_state): State<Arc<AppState>>,
 ) -> Json<CacheClearResponse> {
     // TODO: Implement cache clearing via Service Islands
     let response = CacheClearResponse {
@@ -88,51 +87,40 @@ async fn clear_cache(
 /// Cache statistics endpoint - delegates to Cache System Island
 /// ✅ PRODUCTION-READY: Queries detailed statistics from multi-tier-cache library
 async fn cache_stats(
-    State(service_islands): State<Arc<ServiceIslands>>,
+    State(state): State<Arc<AppState>>,
 ) -> Json<CacheStatsResponse> {
-    let legacy_state = service_islands.get_legacy_app_state();
-
     // Get actual cache statistics from the multi-tier-cache library
-    let response = if let Some(ref cache_system) = legacy_state.cache_system {
-        let stats = cache_system.cache_manager.get_stats();
-        CacheStatsResponse::Available(Box::new(CacheStatsAvailable {
-            cache: CacheSystemInfo {
-                system: "multi-tier-cache library v0.5.2".to_string(),
-                l1_cache: "active (moka)".to_string(),
-                l2_cache: "active (Redis)".to_string(),
-                status: "operational".to_string(),
-            },
-            statistics: CacheStatistics {
-                total_requests: stats.total_requests,
-                l1_hits: stats.l1_hits,
-                l2_hits: stats.l2_hits,
-                total_hits: stats.total_hits,
-                misses: stats.misses,
-                promotions: stats.promotions,
-                hit_rate: format!("{:.1}%", stats.hit_rate),
-                in_flight_requests: stats.in_flight_requests,
-            },
-            configuration: CacheConfiguration {
-                l1_max_capacity: 20,
-                l1_ttl: "30 minutes TTL, 5 minutes TTI".to_string(),
-                l2_ttl: "1 hour (default)".to_string(),
-                eviction: "automatic (size + TTL based)".to_string(),
-                stampede_protection: "enabled (DashMap coalescing)".to_string(),
-            },
-            health: CacheHealth {
-                status: "healthy".to_string(),
-                recommendation: "Cache operating normally with automatic memory management"
-                    .to_string(),
-            },
-        }))
-    } else {
-        CacheStatsResponse::Unavailable(CacheStatsUnavailable {
-            error: "Cache system not available".to_string(),
-            cache: CacheStatusOnly {
-                status: "unavailable".to_string(),
-            },
-        })
-    };
+    let stats = state.cache_manager.get_stats();
+    let response = CacheStatsResponse::Available(Box::new(CacheStatsAvailable {
+        cache: CacheSystemInfo {
+            system: "multi-tier-cache library v0.5.2".to_string(),
+            l1_cache: "active (moka)".to_string(),
+            l2_cache: "active (Redis)".to_string(),
+            status: "operational".to_string(),
+        },
+        statistics: CacheStatistics {
+            total_requests: stats.total_requests,
+            l1_hits: stats.l1_hits,
+            l2_hits: stats.l2_hits,
+            total_hits: stats.total_hits,
+            misses: stats.misses,
+            promotions: stats.promotions,
+            hit_rate: format!("{:.1}%", stats.hit_rate),
+            in_flight_requests: stats.in_flight_requests,
+        },
+        configuration: CacheConfiguration {
+            l1_max_capacity: 20,
+            l1_ttl: "30 minutes TTL, 5 minutes TTI".to_string(),
+            l2_ttl: "1 hour (default)".to_string(),
+            eviction: "automatic (size + TTL based)".to_string(),
+            stampede_protection: "enabled (DashMap coalescing)".to_string(),
+        },
+        health: CacheHealth {
+            status: "healthy".to_string(),
+            recommendation: "Cache operating normally with automatic memory management"
+                .to_string(),
+        },
+    }));
 
     Json(response)
 }

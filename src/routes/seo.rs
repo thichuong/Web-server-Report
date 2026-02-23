@@ -17,12 +17,12 @@ use axum::{
 use std::sync::Arc;
 use tracing::{error, info};
 
-use crate::service_islands::layer3_communication::data_communication::crypto_data_service::CryptoDataService;
-use crate::service_islands::layer5_business_logic::shared::SitemapCreator;
-use crate::service_islands::ServiceIslands;
+use crate::services::data_communication::CryptoDataService;
+use crate::services::shared::SitemapCreator;
+use crate::state::AppState;
 
 /// Configure SEO routes
-pub fn configure_seo_routes() -> Router<Arc<ServiceIslands>> {
+pub fn configure_seo_routes() -> Router<Arc<AppState>> {
     Router::new().route("/sitemap.xml", get(sitemap_xml))
 }
 
@@ -33,16 +33,13 @@ pub fn configure_seo_routes() -> Router<Arc<ServiceIslands>> {
 /// Response:
 /// - Content-Type: application/xml; charset=utf-8
 /// - Cache-Control: public, max-age=3600 (1 hour)
-async fn sitemap_xml(State(service_islands): State<Arc<ServiceIslands>>) -> impl IntoResponse {
+async fn sitemap_xml(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     info!("Generating sitemap.xml");
-
-    // Get legacy app state for database access
-    let app_state = service_islands.get_legacy_app_state();
 
     // Layer 3: Fetch report data from database
     let data_service = CryptoDataService::new();
     let reports_result = data_service
-        .fetch_all_report_ids_for_sitemap(&app_state)
+        .fetch_all_report_ids_for_sitemap(&state)
         .await;
 
     match reports_result {

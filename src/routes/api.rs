@@ -17,10 +17,10 @@ use crate::dto::{
     responses::{ApiHealthInfo, ApiHealthResponse, DashboardDataResponse, WebSocketStatsResponse},
     HealthStatus,
 };
-use crate::service_islands::ServiceIslands;
+use crate::state::AppState;
 
 /// Configure API routes
-pub fn configure_api_routes() -> Router<Arc<ServiceIslands>> {
+pub fn configure_api_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/api/crypto/dashboard-summary", get(api_dashboard_summary))
         .route("/api/dashboard/data", get(api_dashboard_data))
@@ -39,13 +39,13 @@ pub fn configure_api_routes() -> Router<Arc<ServiceIslands>> {
 /// Dashboard data API endpoint - Enhanced with Redis Streams
 /// Same functionality as `api_dashboard_summary` but with cleaner path
 async fn api_dashboard_data(
-    State(service_islands): State<Arc<ServiceIslands>>,
+    State(state): State<Arc<AppState>>,
 ) -> Json<DashboardDataResponse> {
     // Phase 3: Primary reads from Redis Streams via RedisStreamReader
     debug!("🚀 [API] Reading dashboard data from Redis Stream...");
 
     // Use RedisStreamReader to fetch latest market data
-    match service_islands
+    match state
         .redis_stream_reader
         .read_latest_market_data()
         .await
@@ -123,13 +123,13 @@ async fn api_dashboard_data(
 
 /// Dashboard summary API endpoint - Reads from Redis Stream via `RedisStreamReader`
 async fn api_dashboard_summary(
-    State(service_islands): State<Arc<ServiceIslands>>,
+    State(state): State<Arc<AppState>>,
 ) -> Json<DashboardDataResponse> {
     // Stream-first strategy: Read from Redis Stream populated by websocket service
     debug!("🚀 [API] Reading dashboard summary from Redis Stream...");
 
     // Use RedisStreamReader to fetch latest market data
-    match service_islands
+    match state
         .redis_stream_reader
         .read_latest_market_data()
         .await
@@ -206,8 +206,8 @@ async fn api_dashboard_summary(
 }
 
 /// API health check endpoint
-async fn api_health(State(service_islands): State<Arc<ServiceIslands>>) -> Json<ApiHealthResponse> {
-    let is_healthy = service_islands.health_check().await;
+async fn api_health(State(state): State<Arc<AppState>>) -> Json<ApiHealthResponse> {
+    let is_healthy = state.health_check().await;
 
     let response = ApiHealthResponse {
         api: ApiHealthInfo {
@@ -216,7 +216,7 @@ async fn api_health(State(service_islands): State<Arc<ServiceIslands>>) -> Json<
             } else {
                 HealthStatus::Unhealthy
             },
-            service_islands: 7,
+            services: 5,
             timestamp: chrono::Utc::now().to_rfc3339(),
         },
     };
@@ -230,7 +230,7 @@ async fn api_health(State(service_islands): State<Arc<ServiceIslands>>) -> Json<
 async fn api_sandboxed_report(
     Path(id): Path<String>,
     Query(params): Query<HashMap<String, String>>,
-    State(service_islands): State<Arc<ServiceIslands>>,
+    State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
     debug!("🔒 [API] Sandboxed report requested for ID: {}", id);
 
@@ -259,8 +259,7 @@ async fn api_sandboxed_report(
         // If chart_modules parameter is present, load actual chart modules
         debug!("📊 [API] Loading chart modules for iframe");
         Some(
-            service_islands
-                .shared_components
+            state
                 .chart_modules_content
                 .as_str(),
         )
@@ -270,11 +269,10 @@ async fn api_sandboxed_report(
     };
 
     // Use Service Islands to serve sandboxed content
-    match service_islands
-        .crypto_reports
-        .handlers
+    match state
+        .crypto_handlers
         .serve_sandboxed_report(
-            &service_islands.get_legacy_app_state(),
+            &state,
             report_id,
             sandbox_token,
             initial_language,
@@ -306,7 +304,7 @@ async fn api_sandboxed_report(
 async fn api_shadow_dom_content(
     Path(id): Path<String>,
     Query(params): Query<HashMap<String, String>>,
-    State(service_islands): State<Arc<ServiceIslands>>,
+    State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
     debug!("🌓 [API] Shadow DOM content requested for ID: {}", id);
 
@@ -334,27 +332,24 @@ async fn api_shadow_dom_content(
         // If chart_modules parameter is present, load actual chart modules
         debug!("📊 [API] Loading chart modules for Shadow DOM");
         Some(
-            service_islands
-                .shared_components
+            state
                 .chart_modules_content
                 .as_str(),
         )
     } else {
         debug!("💡 [API] No chart_modules parameter - using default behavior");
         Some(
-            service_islands
-                .shared_components
+            state
                 .chart_modules_content
                 .as_str(),
         )
     };
 
     // Use Service Islands to serve Shadow DOM content
-    match service_islands
-        .crypto_reports
-        .handlers
+    match state
+        .crypto_handlers
         .serve_shadow_dom_content(
-            &service_islands.get_legacy_app_state(),
+            &state,
             report_id,
             shadow_dom_token,
             initial_language,
@@ -384,7 +379,7 @@ async fn api_shadow_dom_content(
 /// Note: WebSocket functionality is now in a separate service.
 /// This endpoint returns a redirect message to the websocket service.
 async fn api_websocket_stats(
-    State(_service_islands): State<Arc<ServiceIslands>>,
+    State(_state): State<Arc<AppState>>,
 ) -> Json<WebSocketStatsResponse> {
     let response = WebSocketStatsResponse {
         message: "WebSocket functionality has been moved to a separate service".to_string(),

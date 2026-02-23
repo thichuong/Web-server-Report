@@ -16,10 +16,10 @@ pub mod system;
 use axum::Router;
 use std::sync::Arc;
 
-use crate::service_islands::ServiceIslands;
+use crate::state::AppState;
 
-/// Create the main Service Islands router by combining all route modules
-pub fn create_service_islands_router(service_islands: Arc<ServiceIslands>) -> Router {
+/// Create the main router by combining all route modules
+pub fn create_router(state: Arc<AppState>) -> Router {
     Router::new()
         // Static file serving
         .merge(static_files::configure_static_routes())
@@ -37,5 +37,5 @@ pub fn create_service_islands_router(service_islands: Arc<ServiceIslands>) -> Ro
         .merge(rss_feed::configure_rss_routes())
         // Note: WebSocket endpoint has been moved to Web-server-Report-websocket service
         // Client should connect to separate websocket service (port 8081)
-        .with_state(service_islands)
+        .with_state(state)
 }
