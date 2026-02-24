@@ -141,3 +141,52 @@ impl IntoResponse for Layer5Error {
         (status, body).into_response()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_error_display() {
+        let err = Layer5Error::Database("connection failed".to_string());
+        assert_eq!(format!("{err}"), "Database error: connection failed");
+
+        let err = Layer5Error::NotFound("report 123".to_string());
+        assert_eq!(format!("{err}"), "Not found: report 123");
+    }
+
+    #[test]
+    fn test_error_status_codes() {
+        assert_eq!(
+            Layer5Error::NotFound("any".to_string()).status_code(),
+            StatusCode::NOT_FOUND
+        );
+        assert_eq!(
+            Layer5Error::InvalidInput("any".to_string()).status_code(),
+            StatusCode::BAD_REQUEST
+        );
+        assert_eq!(
+            Layer5Error::Forbidden("any".to_string()).status_code(),
+            StatusCode::FORBIDDEN
+        );
+        assert_eq!(
+            Layer5Error::Timeout("any".to_string()).status_code(),
+            StatusCode::GATEWAY_TIMEOUT
+        );
+        assert_eq!(
+            Layer5Error::Internal("any".to_string()).status_code(),
+            StatusCode::INTERNAL_SERVER_ERROR
+        );
+    }
+
+    #[test]
+    fn test_error_helpers() {
+        let err = Layer5Error::NotFound("any".to_string());
+        assert!(err.is_not_found());
+        assert!(!err.is_timeout());
+
+        let err = Layer5Error::Timeout("any".to_string());
+        assert!(!err.is_not_found());
+        assert!(err.is_timeout());
+    }
+}

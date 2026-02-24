@@ -15,13 +15,13 @@ async fn get_app() -> Option<axum::Router> {
 
 #[tokio::test]
 #[ignore = "requires running database and Redis"]
-async fn test_health_check() {
+async fn test_homepage() {
     let app = get_app().await.expect("Failed to initialize app");
 
     let response = app
         .oneshot(
             Request::builder()
-                .uri("/api/health")
+                .uri("/")
                 .body(Body::empty())
                 .expect("Failed to build request"),
         )
@@ -33,13 +33,13 @@ async fn test_health_check() {
 
 #[tokio::test]
 #[ignore = "requires running database and Redis"]
-async fn test_dashboard_data() {
+async fn test_crypto_index() {
     let app = get_app().await.expect("Failed to initialize app");
 
     let response = app
         .oneshot(
             Request::builder()
-                .uri("/api/dashboard/data")
+                .uri("/crypto_report")
                 .body(Body::empty())
                 .expect("Failed to build request"),
         )
@@ -51,31 +51,13 @@ async fn test_dashboard_data() {
 
 #[tokio::test]
 #[ignore = "requires running database and Redis"]
-async fn test_crypto_dashboard_summary() {
+async fn test_crypto_reports_list() {
     let app = get_app().await.expect("Failed to initialize app");
 
     let response = app
         .oneshot(
             Request::builder()
-                .uri("/api/crypto/dashboard-summary")
-                .body(Body::empty())
-                .expect("Failed to build request"),
-        )
-        .await
-        .expect("Failed to get response");
-
-    assert_eq!(response.status(), StatusCode::OK);
-}
-
-#[tokio::test]
-#[ignore = "requires running database and Redis"]
-async fn test_websocket_stats_redirect() {
-    let app = get_app().await.expect("Failed to initialize app");
-
-    let response = app
-        .oneshot(
-            Request::builder()
-                .uri("/api/websocket/stats")
+                .uri("/crypto_reports_list")
                 .body(Body::empty())
                 .expect("Failed to build request"),
         )
