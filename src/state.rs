@@ -50,7 +50,7 @@ impl AppState {
 
         // 3. Initialize Cache System
         let moka_config = MokaCacheConfig {
-            max_capacity: 20,
+            max_capacity: 100,
             time_to_live: Duration::from_secs(30 * 60), // 30 mins
             time_to_idle: Duration::from_secs(2 * 60),  // 2 mins
         };

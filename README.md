@@ -221,6 +221,23 @@ cargo check
 cargo clippy
 ```
 
+### Benchmarking Performance
+You can test the Requests Per Second (RPS) of the server using the provided script (requires `ab` - Apache Benchmark):
+
+1. **Ensure the server is running**: `cargo run --release`
+2. **Run the benchmark**:
+   ```bash
+   ./test_rps.sh http://localhost:8000/ 500 50000
+   ```
+   ```bash
+   ./test_rps.sh http://127.0.0.1:8000/crypto_report 500 50000
+   ```
+   *Parameters: [URL] [Concurrency] [Total Requests]*
+
+If `ab` is not installed, install it via:
+- **Ubuntu/Debian**: `sudo apt install apache2-utils`
+- **Fedora/CentOS**: `sudo dnf install httpd-tools`
+
 ## Project Structure
 
 ```

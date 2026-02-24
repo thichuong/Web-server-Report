@@ -5,6 +5,7 @@
 
 use axum::{extract::State, http::StatusCode, response::Json, routing::get, Router};
 use std::sync::Arc;
+use tracing::{info, warn};
 
 use crate::dto::{
     responses::{
@@ -71,15 +72,26 @@ async fn performance_metrics(
     Json(response)
 }
 
-/// Clear cache endpoint - delegates to Cache System Island
-async fn clear_cache(State(_state): State<Arc<AppState>>) -> Json<CacheClearResponse> {
-    // TODO: Implement cache clearing via Service Islands
-    let response = CacheClearResponse {
-        message: "Cache clear requested".to_string(),
-        status: CacheOperationStatus::Queued,
-    };
+/// Clear cache endpoint - invalidates all cached entries
+async fn clear_cache(State(state): State<Arc<AppState>>) -> Json<CacheClearResponse> {
+    info!("🗑️ Cache clear requested via admin endpoint");
 
-    Json(response)
+    match state.cache_manager.invalidate_pattern("*").await {
+        Ok(()) => {
+            info!("✅ Cache cleared successfully via invalidate_pattern");
+            Json(CacheClearResponse {
+                message: "Cache cleared successfully".to_string(),
+                status: CacheOperationStatus::Completed,
+            })
+        }
+        Err(e) => {
+            warn!("⚠️ Cache clear failed: {}", e);
+            Json(CacheClearResponse {
+                message: format!("Cache clear failed: {e}"),
+                status: CacheOperationStatus::Failed,
+            })
+        }
+    }
 }
 
 /// Cache statistics endpoint - delegates to Cache System Island
@@ -105,7 +117,7 @@ async fn cache_stats(State(app_state): State<Arc<AppState>>) -> Json<CacheStatsR
             in_flight_requests: stats.in_flight_requests,
         },
         configuration: CacheConfiguration {
-            l1_max_capacity: 20,
+            l1_max_capacity: 100,
             l1_ttl: "30 minutes TTL, 5 minutes TTI".to_string(),
             l2_ttl: "1 hour (default)".to_string(),
             eviction: "automatic (size + TTL based)".to_string(),

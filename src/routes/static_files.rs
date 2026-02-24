@@ -2,10 +2,13 @@
 //!
 //! This module handles all static file serving routes for the Service Islands Architecture.
 //! It serves assets, shared components, and dashboard-specific files.
+//! ✅ OPTIMIZED: Cache-Control headers for browser caching of static assets
 
+use axum::http::{header, HeaderValue};
 use axum::Router;
 use std::sync::Arc;
 use tower_http::services::{ServeDir, ServeFile};
+use tower_http::set_header::SetResponseHeaderLayer;
 
 use crate::state::AppState;
 
@@ -16,6 +19,8 @@ use crate::state::AppState;
 /// - Stock dashboard assets (minimal)
 /// - Shared components and assets
 /// - Test files
+///
+/// ✅ OPTIMIZED: All static files get `Cache-Control: public, max-age=86400` (24 hours)
 pub fn configure_static_routes() -> Router<Arc<AppState>> {
     Router::new()
         // SEO files
@@ -47,4 +52,9 @@ pub fn configure_static_routes() -> Router<Arc<AppState>> {
         .nest_service("/shared_assets", ServeDir::new("shared_assets"))
         // Test file
         .nest_service("/test", ServeDir::new("."))
+        // Add Cache-Control header for all static files (24 hours)
+        .layer(SetResponseHeaderLayer::if_not_present(
+            header::CACHE_CONTROL,
+            HeaderValue::from_static("public, max-age=86400"),
+        ))
 }

@@ -42,7 +42,7 @@ sqlx = { version = "0.8", features = ["runtime-tokio-native-tls", "postgres", "m
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 dotenvy = "0.15"
-tower-http = { version = "0.4", features = ["fs"] }
+tower-http = { version = "0.4", features = ["fs", "set-header"] }
 chrono = { version = "0.4", features = ["serde"] }
 anyhow = "1.0"
 # Logging and tracing dependencies
