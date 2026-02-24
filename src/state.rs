@@ -14,7 +14,7 @@ use std::time::Duration;
 use crate::assets::load_chart_modules;
 /// Core Application State
 ///
-/// Replaces the complex ServiceIslands architecture with a standard Axum state that holds:
+/// Replaces the complex `ServiceIslands` architecture with a standard Axum state that holds:
 /// - Database pool
 /// - Tera templates
 /// - Multi-tier Cache Manager
@@ -34,6 +34,9 @@ pub struct AppState {
 
 impl AppState {
     /// Initialize the application state
+    ///
+    /// # Errors
+    /// Returns an error if database connection or cache system initialization fails.
     pub async fn new() -> Result<Self> {
         info!("🏗️ Initializing Application State...");
 

@@ -84,9 +84,9 @@ async fn clear_cache(State(_state): State<Arc<AppState>>) -> Json<CacheClearResp
 
 /// Cache statistics endpoint - delegates to Cache System Island
 /// ✅ PRODUCTION-READY: Queries detailed statistics from multi-tier-cache library
-async fn cache_stats(State(state): State<Arc<AppState>>) -> Json<CacheStatsResponse> {
+async fn cache_stats(State(app_state): State<Arc<AppState>>) -> Json<CacheStatsResponse> {
     // Get actual cache statistics from the multi-tier-cache library
-    let stats = state.cache_manager.get_stats();
+    let stats = app_state.cache_manager.get_stats();
     let response = CacheStatsResponse::Available(Box::new(CacheStatsAvailable {
         cache: CacheSystemInfo {
             system: "multi-tier-cache library v0.5.2".to_string(),

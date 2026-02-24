@@ -27,6 +27,9 @@ impl RedisStreamReader {
     /// Read the latest market data using cache-first strategy with automatic fallback
     ///
     /// Uses `get_or_compute_typed` for automatic cache management.
+    ///
+    /// # Errors
+    /// Returns an error if the underlying cache or stream interactions fail.
     pub async fn read_latest_market_data(&self) -> Result<Option<Value>> {
         info!("📖 Reading latest market data (cache-first with auto-fallback)...");
 
@@ -127,6 +130,9 @@ impl RedisStreamReader {
     }
 
     /// Health check
+    ///
+    /// # Errors
+    /// Returns an error if the underlying cache check fails with a fatal error.
     pub async fn health_check(&self) -> Result<bool> {
         // Try to connect to Redis
         match self.cache_manager.get("_health_check").await {

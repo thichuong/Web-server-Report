@@ -3,6 +3,9 @@ use std::path::Path;
 use tracing::{debug, info, warn};
 
 /// Pre-load and concatenate all chart modules JavaScript files
+///
+/// # Errors
+/// Returns an error if the directory cannot be read or files cannot be accessed.
 pub fn load_chart_modules() -> Result<String> {
     debug!("📦 Loading chart modules...");
 
