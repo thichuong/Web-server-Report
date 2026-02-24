@@ -628,8 +628,8 @@ impl CryptoHandlers {
         }
 
         // 2. Check Cookie header for preferred_language or language
-        if let Some(cookie_header) = headers.get("cookie") {
-            if let Ok(cookie_str) = cookie_header.to_str() {
+        if let Some(cookie_header) = headers.get("cookie")
+            && let Ok(cookie_str) = cookie_header.to_str() {
                 // Parse cookies manually
                 for cookie in cookie_str.split(';') {
                     let parts: Vec<&str> = cookie.trim().splitn(2, '=').collect();
@@ -645,11 +645,10 @@ impl CryptoHandlers {
                     }
                 }
             }
-        }
 
         // 3. Check Accept-Language header
-        if let Some(accept_lang) = headers.get("accept-language") {
-            if let Ok(lang_str) = accept_lang.to_str() {
+        if let Some(accept_lang) = headers.get("accept-language")
+            && let Ok(lang_str) = accept_lang.to_str() {
                 // Parse Accept-Language: "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7"
                 for lang_tag in lang_str.split(',') {
                     let lang = lang_tag.split(';').next().unwrap_or("").trim();
@@ -662,7 +661,6 @@ impl CryptoHandlers {
                     }
                 }
             }
-        }
 
         // 4. Default to Vietnamese
         debug!("🌐 [Language] Using default: vi");
@@ -734,8 +732,8 @@ impl CryptoHandlers {
         );
 
         // STEP 1.2: If preferred language differs from default, try cache with preferred language
-        if preferred_language != default_language {
-            if let Ok(Some(cached_compressed)) = data_service
+        if preferred_language != default_language
+            && let Ok(Some(cached_compressed)) = data_service
                 .get_rendered_report_dsd_compressed(state, report_id_value, &preferred_language)
                 .await
             {
@@ -755,7 +753,6 @@ impl CryptoHandlers {
                     cache_status: "HIT",
                 });
             }
-        }
 
         debug!("🔍 [Handler] DSD cache MISS - generating fresh HTML");
 

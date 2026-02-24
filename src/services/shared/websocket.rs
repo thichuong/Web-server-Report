@@ -59,16 +59,19 @@ mod tests {
     #[test]
     fn test_get_websocket_url_default() {
         // In test (debug) mode, should return development URL if env not set
-        std::env::remove_var("WEBSOCKET_SERVICE_URL");
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("WEBSOCKET_SERVICE_URL") };
         let url = get_websocket_url();
         assert!(url.starts_with("ws://") || url.starts_with("wss://"));
     }
 
     #[test]
     fn test_get_websocket_url_from_env() {
-        std::env::set_var("WEBSOCKET_SERVICE_URL", "ws://test:1234");
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("WEBSOCKET_SERVICE_URL", "ws://test:1234") };
         let url = get_websocket_url();
         assert_eq!(url, "ws://test:1234");
-        std::env::remove_var("WEBSOCKET_SERVICE_URL");
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("WEBSOCKET_SERVICE_URL") };
     }
 }

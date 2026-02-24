@@ -1,7 +1,7 @@
 [package]
 name = "web-server-report"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 default-run = "web-server-report"
 license = "Apache-2.0"
 authors = ["thichuong"]
@@ -63,7 +63,7 @@ moka = { version = "0.12", features = ["future"] }  # L1 In-memory cache (for ba
 bb8-redis = "0.15"     # Redis connection pool for L2 cache (legacy)
 
 # Constraint problematic dependencies
-base64ct = "=1.6.0"    # Pin to avoid edition2024 requirement
+base64ct = "1.6"       # Unpinned, allows newer 1.x versions
 backon = "1.6.0"      # Updated to 1.6.0 to resolve conflict with redis/multi-tier-cache
 futures = "0.3"        # Async utilities cho concurrent operations
 base64 = "0.22"        # Base64 encoding for cache optimization

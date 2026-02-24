@@ -628,11 +628,10 @@ impl CryptoDataService {
             page_numbers.clear();
             let mut last: Option<i64> = None;
             for n in nums {
-                if let Some(l) = last {
-                    if n - l > 1 {
+                if let Some(l) = last
+                    && n - l > 1 {
                         page_numbers.push(None);
                     }
-                }
                 page_numbers.push(Some(n));
                 last = Some(n);
             }

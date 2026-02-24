@@ -87,16 +87,13 @@ impl RedisStreamReader {
     /// Convert Redis Stream fields to JSON
     fn stream_fields_to_json(fields: &[(String, String)]) -> Value {
         // Special case: If there's only one field named "data" containing JSON string
-        if fields.len() == 1 {
-            if let Some((key, value)) = fields.first() {
-                if key == "data" {
-                    if let Ok(data) = serde_json::from_str::<Value>(value) {
+        if fields.len() == 1
+            && let Some((key, value)) = fields.first()
+                && key == "data"
+                    && let Ok(data) = serde_json::from_str::<Value>(value) {
                         info!("📦 Unwrapped nested 'data' field from Redis Stream");
                         return data;
                     }
-                }
-            }
-        }
 
         // General case: parse each field
         let mut map = serde_json::Map::new();

@@ -59,12 +59,11 @@ async fn try_get_cached_compressed(
     let cached_value = cache_manager.get(cache_key).await.ok()??;
 
     // Try Base64 string format first (new, memory-optimized)
-    if let Ok(base64_string) = serde_json::from_value::<String>(cached_value.clone()) {
-        if let Ok(bytes) = base64::Engine::decode(&base64::prelude::BASE64_STANDARD, base64_string)
+    if let Ok(base64_string) = serde_json::from_value::<String>(cached_value.clone())
+        && let Ok(bytes) = base64::Engine::decode(&base64::prelude::BASE64_STANDARD, base64_string)
         {
             return Some(bytes);
         }
-    }
     // Fallback: try Vec<u8> format (legacy)
     serde_json::from_value::<Vec<u8>>(cached_value).ok()
 }
@@ -92,14 +91,14 @@ async fn cache_compressed_data(
     let base64_string =
         base64::Engine::encode(&base64::prelude::BASE64_STANDARD, compressed_data);
     let json_value = serde_json::Value::String(base64_string);
-    if let Err(e) = cache_manager
+    match cache_manager
         .set_with_strategy(cache_key, json_value, multi_tier_cache::CacheStrategy::MediumTerm)
         .await
-    {
+    { Err(e) => {
         warn!("⚠️ RSS: Failed to cache {label}: {e}");
-    } else {
+    } _ => {
         info!("💾 RSS: {label} cached with MediumTerm strategy (1 hour)");
-    }
+    }}
 }
 
 /// Generate and serve RSS 2.0 feed with L1/L2 cache
