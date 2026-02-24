@@ -29,17 +29,17 @@
 
 ## Key Features
 
-### Service Islands Architecture
+### Core Services Architecture
 
-Five-layer separation of concerns for maintainability and scalability:
+The application is structured into domain-driven services for maintainability and scalability:
 
-| Layer | Name | Responsibility |
+| Module | Name | Responsibility |
 |-------|------|----------------|
-| **Layer 5** | Business Logic | Dashboard processing, Pre-rendering (RAM Cache), Report rendering (DSD) |
-| **Layer 4** | Observability | Health checks, Performance monitoring, SSL validation |
-| **Layer 3** | Communication | Redis Streams consumer, PostgreSQL operations, Data routing |
-| **Layer 2** | External Services | *Moved to [Websocket Service](https://github.com/thichuong/Web-server-Report-websocket)* |
-| **Layer 1** | Infrastructure | Cache system (L1+L2), Template registry, App state |
+| **Services** | Business Logic | Core application features like `dashboard`, `crypto_reports`, and `shared` logic. |
+| **Handlers** | Request Processing | Axum HTTP handlers for processing inbound requests. |
+| **Routes** | Routing & APIs | Registering routes and middleware (e.g., `api_routes.rs`). |
+| **DTOs** | Data Transfer | Type-safe JSON request and response payloads. |
+| **Infrastructure** | Foundational | Real-time streams (`stream.rs`) and shared assets. |
 
 ### Zero-Allocation Pre-rendering
 
@@ -82,8 +82,8 @@ Redis Streams integration for microservices communication:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    Websocket Service (Port 3001)                    │
-│  Layer 2: External APIs -> Redis Streams (market_data_stream)       │
+│                    Websocket Service (Port 3001)                   │
+│  External APIs -> Redis Streams (market_data_stream)               │
 └──────────────────────────────┬──────────────────────────────────────┘
                                │ XREAD
                                ▼
@@ -91,25 +91,22 @@ Redis Streams integration for microservices communication:
 │                    Main Service (Port 8000) - This Repo             │
 │                                                                     │
 │  ┌───────────────────────────────────────────────────────────────┐  │
-│  │  Layer 5: Business Logic & Pre-rendering                      │  │
-│  │  • Homepage RAM Cache (Vec<u8>)                               │  │
-│  │  • Report Frames RAM Cache (String)                           │  │
-│  │  • Dashboard & Crypto Report Handlers                         │  │
+│  │  Services (src/services/)                                     │  │
+│  │  • crypto_reports: Dashboard & Renderings                     │  │
+│  │  • dashboard: Pre-rendering Homepage RAM Cache                │  │
+│  │  • shared: Utilities, compression, seo                        │  │
 │  └───────────────────────────────────────────────────────────────┘  │
-│                              │                                       │
-│                              ▼                                       │
+│                              │                                      │
+│                              ▼                                      │
 │  ┌───────────────────────────────────────────────────────────────┐  │
-│  │  Layer 4: Observability (Health, Monitor)                     │  │
+│  │  Handlers & Routes (src/handlers/, src/routes/)               │  │
+│  │  • Request logic, API routing                                 │  │
 │  └───────────────────────────────────────────────────────────────┘  │
-│                              │                                       │
-│                              ▼                                       │
+│                              │                                      │
+│                              ▼                                      │
 │  ┌───────────────────────────────────────────────────────────────┐  │
-│  │  Layer 3: Communication (Redis Streams, Postgres)             │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-│                              │                                       │
-│                              ▼                                       │
-│  ┌───────────────────────────────────────────────────────────────┐  │
-│  │  Layer 1: Infrastructure (Moka, Redis, Tera, DB Pool)         │  │
+│  │  Infrastructure (src/stream.rs, src/dto/)                     │  │
+│  │  • Data flowing, types, DB Pool, Redis Connections            │  │
 │  └───────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -122,11 +119,12 @@ Client Request
       ▼
 ┌─────────────────┐
 │  Axum Router    │
+│  (src/routes/)  │
 └─────────────────┘
       │
       ▼
 ┌──────────────────────────────────────────────┐
-│  Layer 5: Business Logic                     │
+│  Services Logic (src/services/)              │
 │                                              │
 │  [1] Check Pre-rendered RAM Cache?           │
 │      ├── YES -> SERVE INSTANTLY (0 allocs)   │
@@ -135,7 +133,7 @@ Client Request
                         │
                         ▼ (Dynamic Data Needed)
 ┌─────────────────────────────────────────────────────────┐
-│                    Layer 1: Data Cache                   │
+│                    Data Cache                           │
 │  L1 (Moka) ◄──── Cache Miss ────► L2 (Redis)            │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -229,21 +227,16 @@ cargo clippy
 Web-server-Report/
 ├── src/
 │   ├── main.rs                          # Entry point
-│   ├── routes/                          # Axum routes
-│   └── service_islands/                 # Service Islands Architecture
-│       ├── mod.rs                       # Registry & Initialization
-│       ├── layer1_infrastructure/       # Cache, DB, Tera
-│       ├── layer3_communication/        # Data flow, Redis Streams
-│       ├── layer4_observability/        # Health checks
-│       └── layer5_business_logic/       # Core Logic
-│           ├── dashboard/               # Homepage & Dashboard
-│           │   ├── handlers.rs          # Homepage Pre-rendering
-│           │   └── ...
-│           ├── crypto_reports/          # Report Generation
-│           │   ├── template_orchestrator.rs # Frame Pre-rendering
-│           │   ├── rendering/           # DSD / Iframe renderers
-│           │   └── ...
-│           └── shared/                  # Utilities
+│   ├── routes/                          # Axum routes (e.g. api_routes.rs)
+│   ├── handlers/                        # API request handlers
+│   ├── services/                        # Core Domain Logic
+│   │   ├── crypto_reports/              # Report Generation & Logic
+│   │   │   ├── rendering/               # DSD / HTML renderers
+│   │   │   └── ...
+│   │   ├── dashboard/                   # Homepage & Dashboard features
+│   │   └── shared/                      # Utilities, Compression, SEO
+│   ├── dto/                             # Data Transfer Objects
+│   └── stream.rs                        # Redis Streams connectivity
 ├── dashboards/                          # HTML Templates
 ├── shared_assets/                       # Static Files (CSS/JS)
 ├── docs/                                # Detailed Documentation

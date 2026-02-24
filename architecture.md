@@ -11,27 +11,22 @@ This project is a high-performance web server built with **Rust**, utilizing the
 - **Templating**: Tera
 - **Concurrency**: Rayon (for CPU-intensive task parallelism), Dashmap, Threadpool
 
-## Service Islands Architecture
-The core design pattern is the **Service Islands Architecture**. The application is broken down into initialized "Islands" that process requests and maintain their own states. This ensures clear boundaries and dependency injection logic.
+## Core Services Architecture
+The application is broken down into initialized distinct modules ("services") that process requests and maintain their own states. This ensures clear boundaries and dependency separation.
 
-### Layer 1: Infrastructure Islands
-The foundation of the application handling databases, caching layers, and shared UI components.
-- **AppStateIsland**: Manages database connection pools and core configuration. Includes a legacy state bridge for backward compatibility.
-- **SharedComponentsIsland**: Pre-loads and caches shared UI elements and Tera templates (e.g., chart modules) for optimal initial load time.
-- **CacheSystemIsland**: Provides a unified interface to the multi-tier caching backend.
+### Infrastructure & Communication (`src/stream.rs`, `src/dto/`, `src/routes/`)
+The foundation of the application handling databases, caching layers, shared UI components, and HTTP routing.
+- **State Management**: Manages database connection pools and core configuration (`AppState`).
+- **RedisStreamReader**: Subscribes to Redis streams to receive real-time data from external services (`stream.rs`). Note: WebSocket streaming and connections have been decoupled into a separate dedicated microservice.
 
-### Layer 3: Communication Islands
-Handles inter-service and async communication, particularly for streaming data.
-- **RedisStreamReader**: Subscribes to Redis streams to receive real-time data from external services. Note: WebSocket streaming and connections have been decoupled into a separate dedicated microservice.
+### Request Handling (`src/handlers/`)
+Functions responsible for accepting HTTP requests, validating inputs via DTOs, and calling the appropriate service layer functions.
 
-### Layer 4: Observability Islands
-Monitoring and system health.
-- **HealthSystemIsland**: Aggregates health checks across all Service Islands (database connections, Redis connectivity, internal states) to provide a unified `health_check` endpoint.
-
-### Layer 5: Business Logic Islands
-The actual application features and handlers. These islands read from the cached data rather than directly invoking external APIs.
-- **DashboardIsland**: Manages main dashboard rendering, pre-rendering homepage cache during initialization for maximum performance.
-- **CryptoReportsIsland**: Handles data fetching and templating for cryptocurrency market reports.
+### Core Business Logic (`src/services/`)
+The actual application features and services. These endpoints read from the cached data rather than directly invoking external APIs.
+- **Dashboard Service**: Manages main dashboard rendering, pre-rendering homepage cache during initialization for maximum performance (`src/services/dashboard.rs`).
+- **Crypto Reports Service**: Handles data fetching and templating for cryptocurrency market reports (`src/services/crypto_reports/`).
+- **Shared Utilities**: Cross-domain utilities for SEO, response building, security, and gzip compression (`src/services/shared/`).
 
 ## Key Design Principles
 1. **Idiomatic Rust & Safety**: Strict adherence to Rust 2021 idioms. Usage of `.unwrap()` is explicitly prohibited throughout the codebase; instead, explicit error handling with `Result`, `Option`, and the `?` operator is strictly enforced.
