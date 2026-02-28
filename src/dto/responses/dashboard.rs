@@ -74,6 +74,7 @@ pub struct StockIndexData {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use serde_json::json;
@@ -125,16 +126,14 @@ mod tests {
         let deserialized: DashboardDataResponse =
             serde_json::from_str(&serialized).expect("Failed to deserialize");
 
-        assert_eq!(deserialized.btc_price_usd, 60000.0);
+        assert!((deserialized.btc_price_usd - 60000.0).abs() < f64::EPSILON);
         assert_eq!(deserialized.fng_value, 75);
-        assert_eq!(
-            deserialized
-                .us_stock_indices
-                .get("SPX")
-                .expect("Missing SPX")
-                .price,
-            5000.0
-        );
+        let spx_price = deserialized
+            .us_stock_indices
+            .get("SPX")
+            .expect("Missing SPX")
+            .price;
+        assert!((spx_price - 5000.0).abs() < f64::EPSILON);
         assert!(deserialized.note.is_none());
     }
 
@@ -158,9 +157,9 @@ mod tests {
             "ada_change_24h": -0.5,
             "link_price_usd": 18.0,
             "link_change_24h": 1.2,
-            "market_cap_usd": 2500000000000.0,
+            "market_cap_usd": 2_500_000_000_000.0,
             "market_cap_change_percentage_24h_usd": 1.0,
-            "volume_24h_usd": 1000000000000.0,
+            "volume_24h_usd": 1_000_000_000_000.0,
             "fng_value": 75,
             "us_stock_indices": {},
             "fetch_duration_ms": 150,

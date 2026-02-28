@@ -1,3 +1,5 @@
+#![allow(clippy::expect_used)]
+
 use axum::{
     body::Body,
     http::{Request, StatusCode},
