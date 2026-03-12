@@ -4,7 +4,7 @@
 # Uses Apache Benchmark (ab) to test server performance.
 
 # Configuration
-URL=${1:-"http://localhost:8000/"}
+URL=${1:-"http://localhost:8000/crypto_report"}
 CONCURRENCY=${2:-500}
 NUM_REQUESTS=${3:-50000}
 

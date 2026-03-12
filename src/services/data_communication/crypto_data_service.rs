@@ -284,45 +284,31 @@ impl CryptoDataService {
     ) -> Result<Option<Vec<u8>>, anyhow::Error> {
         let cache_manager = &state.cache_manager;
         let cache_key = format!("compressed_report_{report_id}");
-        // .await directly instead of block_on
+        
         if let Ok(Some(cached_value)) = cache_manager.get(&cache_key).await {
-            // Try to parse as String (Base64) first - New Format (Memory Optimized)
-            if let Ok(base64_string) = serde_json::from_value::<String>(cached_value.clone()) {
-                match BASE64_STANDARD.decode(base64_string) {
-                    Ok(compressed_bytes) => {
-                        let report_type = if report_id == -1 {
-                            "latest report"
-                        } else {
-                            "specific report"
-                        };
-                        info!(
-                            "🔥 Layer 3: Cache HIT (Base64) cho compressed data của {}",
-                            report_type
-                        );
-                        return Ok(Some(compressed_bytes));
-                    }
-                    Err(e) => {
-                        warn!("⚠️ Layer 3: Failed to decode Base64 cache entry: {}", e);
-                    }
+            // In v0.6.1, it's already Bytes.
+            
+            // Try Base64 JSON format (Old Format)
+            if let Ok(base64_string) = serde_json::from_slice::<String>(&cached_value) {
+                if let Ok(compressed_bytes) = BASE64_STANDARD.decode(base64_string) {
+                    info!("🔥 Layer 3: Cache HIT (Base64) for report {}", report_id);
+                    return Ok(Some(compressed_bytes));
                 }
             }
 
-            // Fallback: Try to parse as Vec<u8> - Old Format (Legacy)
-            if let Ok(compressed_bytes) = serde_json::from_value::<Vec<u8>>(cached_value) {
-                let report_type = if report_id == -1 {
-                    "latest report"
-                } else {
-                    "specific report"
-                };
-                info!(
-                    "🔥 Layer 3: Cache HIT (Legacy Array) cho compressed data của {}",
-                    report_type
-                );
+            // Try Legacy Array JSON format
+            if let Ok(compressed_bytes) = serde_json::from_slice::<Vec<u8>>(&cached_value) {
+                info!("🔥 Layer 3: Cache HIT (Legacy Array) for report {}", report_id);
                 return Ok(Some(compressed_bytes));
             }
+
+            // New Format: Raw Bytes
+            info!("🔥 Layer 3: Cache HIT (Raw Bytes) for report {}", report_id);
+            return Ok(Some(cached_value.to_vec()));
         }
         Ok(None)
     }
+
 
     /// Cache rendered report compressed data with memory safety guards
     ///
@@ -368,19 +354,16 @@ impl CryptoDataService {
             );
         }
 
-        // ✅ Cache the data - library handles memory management automatically
+        // ✅ Cache the data - Direct Bytes storage is most efficient
         let cache_manager = &state.cache_manager;
         let cache_key = format!("compressed_report_{report_id}");
         let strategy = multi_tier_cache::CacheStrategy::ShortTerm;
-
-        // ✅ OPTIMIZATION: Encode as Base64 string instead of JSON Array of Numbers
-        // This reduces memory usage by ~95% compared to [12, 255, ...] format
-        let base64_string = BASE64_STANDARD.encode(compressed_data);
-        let compressed_json = serde_json::Value::String(base64_string);
+        let bytes = multi_tier_cache::Bytes::from(compressed_data.to_vec());
 
         cache_manager
-            .set_with_strategy(&cache_key, compressed_json, strategy)
+            .set_with_strategy(&cache_key, bytes, strategy)
             .await?;
+
 
         debug!(
             "💾 Layer 3: Cached compressed data for {} ({}KB)",
@@ -407,45 +390,29 @@ impl CryptoDataService {
     ) -> Result<Option<Vec<u8>>, anyhow::Error> {
         let cache_manager = &state.cache_manager;
         let cache_key = format!("compressed_report_dsd_{report_id}_{language}");
+        
         if let Ok(Some(cached_value)) = cache_manager.get(&cache_key).await {
-            // Try to parse as String (Base64) first - New Format (Memory Optimized)
-            if let Ok(base64_string) = serde_json::from_value::<String>(cached_value.clone()) {
-                match BASE64_STANDARD.decode(base64_string) {
-                    Ok(compressed_bytes) => {
-                        let report_type = if report_id == -1 {
-                            "latest DSD report"
-                        } else {
-                            "specific DSD report"
-                        };
-                        info!(
-                            "🔥 Layer 3: Cache HIT (Base64) for {} (lang: {})",
-                            report_type, language
-                        );
-                        return Ok(Some(compressed_bytes));
-                    }
-                    Err(e) => {
-                        warn!("⚠️ Layer 3: Failed to decode Base64 DSD cache entry: {}", e);
-                        // Fallthrough to try legacy format
-                    }
+            // Try Base64 JSON format (Old Format)
+            if let Ok(base64_string) = serde_json::from_slice::<String>(&cached_value) {
+                if let Ok(compressed_bytes) = BASE64_STANDARD.decode(base64_string) {
+                    info!("🔥 Layer 3: Cache HIT (Base64) for DSD report {}", report_id);
+                    return Ok(Some(compressed_bytes));
                 }
             }
 
-            // Fallback: Try to parse as Vec<u8> - Old Format (Legacy)
-            if let Ok(compressed_bytes) = serde_json::from_value::<Vec<u8>>(cached_value) {
-                let report_type = if report_id == -1 {
-                    "latest DSD report"
-                } else {
-                    "specific DSD report"
-                };
-                info!(
-                    "🔥 Layer 3: Cache HIT (Legacy Array) for {} (lang: {})",
-                    report_type, language
-                );
+            // Try Legacy Array JSON format
+            if let Ok(compressed_bytes) = serde_json::from_slice::<Vec<u8>>(&cached_value) {
+                info!("🔥 Layer 3: Cache HIT (Legacy Array) for DSD report {}", report_id);
                 return Ok(Some(compressed_bytes));
             }
+
+            // New Format: Raw Bytes
+            info!("🔥 Layer 3: Cache HIT (Raw Bytes) for DSD report {}", report_id);
+            return Ok(Some(cached_value.to_vec()));
         }
         Ok(None)
     }
+
 
     /// Cache DSD rendered report (compressed)
     ///
@@ -493,19 +460,16 @@ impl CryptoDataService {
             );
         }
 
-        // ✅ Cache the data - library handles memory management automatically
+        // ✅ Cache the data - Direct Bytes storage is most efficient
         let cache_manager = &state.cache_manager;
         let cache_key = format!("compressed_report_dsd_{report_id}_{language}");
         let strategy = multi_tier_cache::CacheStrategy::ShortTerm;
-
-        // ✅ OPTIMIZATION: Encode as Base64 string instead of JSON Array of Numbers
-        // This reduces memory usage by ~95% compared to [12, 255, ...] format
-        let base64_string = BASE64_STANDARD.encode(compressed_data);
-        let compressed_json = serde_json::Value::String(base64_string);
+        let bytes = multi_tier_cache::Bytes::from(compressed_data.to_vec());
 
         cache_manager
-            .set_with_strategy(&cache_key, compressed_json, strategy)
+            .set_with_strategy(&cache_key, bytes, strategy)
             .await?;
+
 
         debug!(
             "💾 Layer 3: Cached DSD compressed data for {} (lang: {}) ({}KB)",
@@ -750,12 +714,17 @@ impl CryptoDataService {
         // Step 1: Try to get from cache first
         let cache_manager = &state.cache_manager;
         if let Ok(Some(cached_value)) = cache_manager.get(&cache_key).await {
-            // Try to parse as Vec<u8>
-            if let Ok(compressed_bytes) = serde_json::from_value::<Vec<u8>>(cached_value) {
-                info!("🔥 Layer 3: Cache HIT for reports list page {}", page);
+            // Try to parse as Vec<u8> (Legacy JSON)
+            if let Ok(compressed_bytes) = serde_json::from_slice::<Vec<u8>>(&cached_value) {
+                info!("🔥 Layer 3: Cache HIT (Legacy) for reports list page {}", page);
                 return Ok(Some(compressed_bytes));
             }
+            
+            // New way: raw bytes
+            info!("🔥 Layer 3: Cache HIT for reports list page {}", page);
+            return Ok(Some(cached_value.to_vec()));
         }
+
 
         // Step 2: Cache MISS - Generate fresh content
         info!(
@@ -789,14 +758,14 @@ impl CryptoDataService {
 
         // Step 3: Cache the result
         let cache_manager = &state.cache_manager;
-        let compressed_json =
-            serde_json::to_value(&compressed_data).unwrap_or(serde_json::Value::Null);
+        let bytes = multi_tier_cache::Bytes::from(compressed_data.clone());
         let strategy = multi_tier_cache::CacheStrategy::ShortTerm;
 
         if let Err(e) = cache_manager
-            .set_with_strategy(&cache_key, compressed_json, strategy)
+            .set_with_strategy(&cache_key, bytes, strategy)
             .await
         {
+
             warn!(
                 "⚠️ Layer 3: Failed to cache reports list page {}: {}",
                 page, e
