@@ -13,11 +13,11 @@ pub mod shared;
 
 // Re-export commonly used items
 pub use breadcrumbs::{
-    format_related_reports, generate_breadcrumb_items, generate_breadcrumbs_and_related,
-    generate_breadcrumbs_schema, BreadcrumbItem, RelatedReportItem,
+    BreadcrumbItem, RelatedReportItem, format_related_reports, generate_breadcrumb_items,
+    generate_breadcrumbs_and_related, generate_breadcrumbs_schema,
 };
 pub use geo_metadata::{
-    generate_complete_geo_metadata, generate_json_ld, generate_meta_tags, GeoMetadata,
+    GeoMetadata, generate_complete_geo_metadata, generate_json_ld, generate_meta_tags,
 };
 pub use shadow_dom_renderer::ShadowDomRenderer;
 pub use shared::{Report, SandboxedReport};

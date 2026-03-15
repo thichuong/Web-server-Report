@@ -3,7 +3,7 @@
 //! Shared compression logic for HTTP responses across Layer 5 components.
 //! Eliminates duplicate compression code in handlers.
 
-use flate2::{write::GzEncoder, Compression};
+use flate2::{Compression, write::GzEncoder};
 use std::io::Write;
 use tracing::info;
 

@@ -57,10 +57,12 @@ async fn main() -> Result<(), anyhow::Error> {
         info!("\n🛑 Received shutdown signal (Ctrl+C)");
     };
 
-    // Start server with graceful shutdown support
+    // Create TCP listener
+    let listener = tokio::net::TcpListener::bind(&addr).await?;
     info!("✅ Server started - Press Ctrl+C to shutdown gracefully");
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
+
+    // Start server with graceful shutdown support
+    axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal)
         .await?;
 

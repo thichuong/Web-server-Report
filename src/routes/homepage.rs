@@ -4,11 +4,11 @@
 //! The homepage is served through the Dashboard Island.
 
 use axum::{
+    Router,
     extract::State,
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::get,
-    Router,
 };
 use std::sync::Arc;
 use tracing::{error, info};

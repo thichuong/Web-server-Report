@@ -17,7 +17,7 @@ pub mod sitemap_creator;
 pub mod websocket;
 
 // Re-export commonly used items
-pub use compression::{compress_html_to_gzip, CompressionStats};
+pub use compression::{CompressionStats, compress_html_to_gzip};
 pub use error::{Layer5Error, Layer5Result};
 pub use response_builder::{
     build_compressed_response, build_error_response, build_forbidden_response, build_html_response,

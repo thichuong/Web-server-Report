@@ -16,13 +16,13 @@ use axum::response::Response;
 use tracing::{info, warn};
 
 use crate::services::shared::{
-    build_forbidden_response, build_shadow_dom_response, generate_sandbox_token,
-    verify_sandbox_token, Layer5Result,
+    Layer5Result, build_forbidden_response, build_shadow_dom_response, generate_sandbox_token,
+    verify_sandbox_token,
 };
 use crate::state::AppState;
 
 use super::shared::{
-    sanitize_css_content, sanitize_html_content, sanitize_js_content, Report, SandboxedReport,
+    Report, SandboxedReport, sanitize_css_content, sanitize_html_content, sanitize_js_content,
 };
 
 /// Pre-loaded Shadow DOM template for modern DSD architecture.

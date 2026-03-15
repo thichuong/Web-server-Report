@@ -8,14 +8,14 @@
 //! ✅ OPTIMIZED: Server-side L1/L2 cache with `MediumTerm` strategy (1 hour)
 
 use axum::{
+    Router,
     body::Body,
     extract::State,
-    http::{header, StatusCode},
+    http::{StatusCode, header},
     response::{IntoResponse, Response},
     routing::get,
-    Router,
 };
-use flate2::{write::GzEncoder, Compression};
+use flate2::{Compression, write::GzEncoder};
 use std::io::Write;
 use std::sync::Arc;
 use tracing::{error, info, warn};
@@ -60,12 +60,12 @@ async fn try_get_cached_compressed(
 
     // In v0.6.1, it's already Bytes.
     // To support transition from legacy Base64 JSON format:
-    if let Ok(base64_string) = serde_json::from_slice::<String>(&cached_value) {
-        if let Ok(bytes) = base64::Engine::decode(&base64::prelude::BASE64_STANDARD, base64_string) {
-            return Some(bytes);
-        }
+    if let Ok(base64_string) = serde_json::from_slice::<String>(&cached_value)
+        && let Ok(bytes) = base64::Engine::decode(&base64::prelude::BASE64_STANDARD, base64_string)
+    {
+        return Some(bytes);
     }
-    
+
     // Fallback for legacy Vec<u8> JSON format:
     if let Ok(bytes) = serde_json::from_slice::<Vec<u8>>(&cached_value) {
         return Some(bytes);
@@ -74,7 +74,6 @@ async fn try_get_cached_compressed(
     // New way: raw bytes
     Some(cached_value.to_vec())
 }
-
 
 /// Compress XML string to gzip format
 fn compress_xml(xml: &str) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
@@ -98,15 +97,21 @@ async fn cache_compressed_data(
 ) {
     let bytes = multi_tier_cache::Bytes::from(compressed_data.to_vec());
     match cache_manager
-        .set_with_strategy(cache_key, bytes, multi_tier_cache::CacheStrategy::MediumTerm)
+        .set_with_strategy(
+            cache_key,
+            bytes,
+            multi_tier_cache::CacheStrategy::MediumTerm,
+        )
         .await
-    { Err(e) => {
-        warn!("⚠️ RSS: Failed to cache {label}: {e}");
-    } _ => {
-        info!("💾 RSS: {label} cached with MediumTerm strategy (1 hour)");
-    }}
+    {
+        Err(e) => {
+            warn!("⚠️ RSS: Failed to cache {label}: {e}");
+        }
+        _ => {
+            info!("💾 RSS: {label} cached with MediumTerm strategy (1 hour)");
+        }
+    }
 }
-
 
 /// Generate and serve RSS 2.0 feed with L1/L2 cache
 ///
@@ -156,10 +161,7 @@ async fn rss_feed(State(state): State<Arc<AppState>>) -> impl IntoResponse {
                             error!("Failed to compress RSS XML: {}", e);
                             Response::builder()
                                 .status(StatusCode::OK)
-                                .header(
-                                    header::CONTENT_TYPE,
-                                    "application/rss+xml; charset=utf-8",
-                                )
+                                .header(header::CONTENT_TYPE, "application/rss+xml; charset=utf-8")
                                 .header(header::CACHE_CONTROL, "public, max-age=3600")
                                 .header("X-Robots-Tag", "index, follow")
                                 .body(Body::from(xml))
@@ -173,14 +175,21 @@ async fn rss_feed(State(state): State<Arc<AppState>>) -> impl IntoResponse {
                 }
                 Err(e) => {
                     error!("❌ Failed to generate RSS XML: {}", e);
-                    (StatusCode::INTERNAL_SERVER_ERROR, "Failed to generate RSS feed")
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "Failed to generate RSS feed",
+                    )
                         .into_response()
                 }
             }
         }
         Err(e) => {
             error!("❌ Failed to fetch reports for RSS feed: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to fetch RSS data").into_response()
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to fetch RSS data",
+            )
+                .into_response()
         }
     }
 }

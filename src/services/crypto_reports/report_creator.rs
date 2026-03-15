@@ -18,7 +18,7 @@ use crate::services::data_communication::CryptoDataService;
 // Chart modules are now in AppState
 
 // Import shared utilities
-use super::super::shared::{build_error_response, build_not_found_response, Layer5Result};
+use super::super::shared::{Layer5Result, build_error_response, build_not_found_response};
 
 // Import rendering modules
 use super::rendering::ShadowDomRenderer;

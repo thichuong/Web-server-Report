@@ -8,14 +8,14 @@
 //! ✅ OPTIMIZED: Server-side L1/L2 cache with `MediumTerm` strategy (1 hour)
 
 use axum::{
+    Router,
     body::Body,
     extract::State,
-    http::{header, StatusCode},
+    http::{StatusCode, header},
     response::{IntoResponse, Response},
     routing::get,
-    Router,
 };
-use flate2::{write::GzEncoder, Compression};
+use flate2::{Compression, write::GzEncoder};
 use std::io::Write;
 use std::sync::Arc;
 use tracing::{error, info, warn};
@@ -30,10 +30,7 @@ pub fn configure_seo_routes() -> Router<Arc<AppState>> {
 }
 
 /// Build a gzip-compressed XML response with cache headers
-fn build_compressed_xml_response(
-    compressed_data: Vec<u8>,
-    cache_status: &str,
-) -> Response {
+fn build_compressed_xml_response(compressed_data: Vec<u8>, cache_status: &str) -> Response {
     Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "application/xml; charset=utf-8")
@@ -58,12 +55,12 @@ async fn try_get_cached_compressed(
 
     // In v0.6.1, it's already Bytes.
     // To support transition from legacy Base64 JSON format:
-    if let Ok(base64_string) = serde_json::from_slice::<String>(&cached_value) {
-        if let Ok(bytes) = base64::Engine::decode(&base64::prelude::BASE64_STANDARD, base64_string) {
-            return Some(bytes);
-        }
+    if let Ok(base64_string) = serde_json::from_slice::<String>(&cached_value)
+        && let Ok(bytes) = base64::Engine::decode(&base64::prelude::BASE64_STANDARD, base64_string)
+    {
+        return Some(bytes);
     }
-    
+
     // Fallback for legacy Vec<u8> JSON format:
     if let Ok(bytes) = serde_json::from_slice::<Vec<u8>>(&cached_value) {
         return Some(bytes);
@@ -72,7 +69,6 @@ async fn try_get_cached_compressed(
     // New way: raw bytes
     Some(cached_value.to_vec())
 }
-
 
 /// Compress XML string to gzip format
 fn compress_xml(xml: &str) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
@@ -96,13 +92,20 @@ async fn cache_compressed_data(
 ) {
     let bytes = multi_tier_cache::Bytes::from(compressed_data.to_vec());
     match cache_manager
-        .set_with_strategy(cache_key, bytes, multi_tier_cache::CacheStrategy::MediumTerm)
+        .set_with_strategy(
+            cache_key,
+            bytes,
+            multi_tier_cache::CacheStrategy::MediumTerm,
+        )
         .await
-    { Err(e) => {
-        warn!("⚠️ SEO: Failed to cache {label}: {e}");
-    } _ => {
-        info!("💾 SEO: {label} cached with MediumTerm strategy (1 hour)");
-    }}
+    {
+        Err(e) => {
+            warn!("⚠️ SEO: Failed to cache {label}: {e}");
+        }
+        _ => {
+            info!("💾 SEO: {label} cached with MediumTerm strategy (1 hour)");
+        }
+    }
 }
 
 /// Generate and serve sitemap.xml with L1/L2 cache
@@ -164,13 +167,21 @@ async fn sitemap_xml(State(state): State<Arc<AppState>>) -> impl IntoResponse {
                 }
                 Err(e) => {
                     error!("Failed to generate sitemap XML: {}", e);
-                    (StatusCode::INTERNAL_SERVER_ERROR, "Failed to generate sitemap").into_response()
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "Failed to generate sitemap",
+                    )
+                        .into_response()
                 }
             }
         }
         Err(e) => {
             error!("Failed to fetch reports for sitemap: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to fetch sitemap data").into_response()
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to fetch sitemap data",
+            )
+                .into_response()
         }
     }
 }

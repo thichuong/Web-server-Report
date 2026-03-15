@@ -64,10 +64,9 @@ impl DashboardDataService {
         // Try cache first if available (L1 then L2 fallback with promotion) - OPTIMIZED
         let cache_manager = &state.cache_manager;
         let result = cache_manager.get(cache_key).await;
-        
+
         match result {
             Ok(Some(cached_data)) => match serde_json::from_slice::<Vec<u8>>(&cached_data) {
-
                 Ok(cached_compressed) => {
                     info!("🔥 DashboardDataService: L1 Cache HIT for compressed homepage");
                     return Ok(Some(cached_compressed));
@@ -127,7 +126,6 @@ impl DashboardDataService {
 
         Ok(())
     }
-
 
     /// Health check for dashboard data service
     #[must_use]

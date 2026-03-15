@@ -35,10 +35,12 @@ pub fn load_chart_modules() -> Result<String> {
     for entry in dir_entries {
         let entry = entry?;
         let path = entry.path();
-        if path.is_file() && path.extension().is_some_and(|ext| ext == "js")
-            && let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
-                all_files.push(file_name.to_string());
-            }
+        if path.is_file()
+            && path.extension().is_some_and(|ext| ext == "js")
+            && let Some(file_name) = path.file_name().and_then(|n| n.to_str())
+        {
+            all_files.push(file_name.to_string());
+        }
     }
 
     // Sort files according to priority order

@@ -11,7 +11,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use flate2::{write::GzEncoder, Compression};
+use flate2::{Compression, write::GzEncoder};
 use std::{error::Error as StdError, io::Write, sync::Arc};
 use tera::Context;
 
@@ -91,10 +91,12 @@ impl DashboardHandlers {
         #[allow(clippy::cast_precision_loss)]
         let compression_ratio = (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0;
 
-        info!("🗜️  DashboardHandlers: HTML compressed - Original: {}KB, Compressed: {}KB, Ratio: {:.1}%",
-                 original_size / 1024,
-                 compressed_size / 1024,
-                 compression_ratio);
+        info!(
+            "🗜️  DashboardHandlers: HTML compressed - Original: {}KB, Compressed: {}KB, Ratio: {:.1}%",
+            original_size / 1024,
+            compressed_size / 1024,
+            compression_ratio
+        );
 
         Ok(compressed_data)
     }

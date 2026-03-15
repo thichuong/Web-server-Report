@@ -4,18 +4,18 @@
 //! Includes dashboard APIs, cache APIs, health APIs, and rate limiting APIs.
 
 use axum::{
+    Router,
     extract::{Path, Query, State},
     response::{IntoResponse, Json},
     routing::get,
-    Router,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{debug, error, info, warn};
 
 use crate::dto::{
-    responses::{ApiHealthInfo, ApiHealthResponse, DashboardDataResponse, WebSocketStatsResponse},
     HealthStatus,
+    responses::{ApiHealthInfo, ApiHealthResponse, DashboardDataResponse, WebSocketStatsResponse},
 };
 use crate::state::AppState;
 

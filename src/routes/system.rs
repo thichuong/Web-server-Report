@@ -3,17 +3,17 @@
 //! This module handles all health checks, system monitoring, and administrative routes.
 //! Routes are handled through the Service Islands Architecture.
 
-use axum::{extract::State, http::StatusCode, response::Json, routing::get, Router};
+use axum::{Router, extract::State, http::StatusCode, response::Json, routing::get};
 use std::sync::Arc;
 use tracing::{info, warn};
 
 use crate::dto::{
+    CacheOperationStatus, HealthStatus,
     responses::{
         CacheClearResponse, CacheConfiguration, CacheHealth, CacheStatistics, CacheStatsAvailable,
         CacheStatsResponse, CacheSystemInfo, HealthCheckResponse, PerformanceInfo,
         PerformanceMetricsResponse, ServicesInfo,
     },
-    CacheOperationStatus, HealthStatus,
 };
 use crate::state::AppState;
 

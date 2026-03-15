@@ -33,7 +33,8 @@ impl RedisStreamReader {
     pub async fn read_latest_market_data(&self) -> Result<Option<Value>> {
         info!("📖 Reading latest market data (cache-first with auto-fallback)...");
 
-        self.cache_manager
+        let result = self
+            .cache_manager
             .get_or_compute_typed(
                 "latest_market_data",
                 CacheStrategy::RealTime, // 5 minutes TTL
@@ -41,23 +42,15 @@ impl RedisStreamReader {
                     // Compute function: only called on cache miss
                     info!("💾 Cache miss - reading from Redis Stream...");
 
-                    match self.read_from_stream().await {
-                        Ok(Some(data)) => {
-                            info!("✅ Market data read from Redis Stream (will be cached)");
-                            Ok(Some(data))
-                        }
-                        Ok(None) => {
-                            info!("⚠️ No data in Redis Stream");
-                            Ok(None)
-                        }
-                        Err(e) => {
-                            info!("❌ Failed to read from Redis Stream: {}", e);
-                            Err(anyhow::anyhow!("Failed to read market data: {}", e))
-                        }
-                    }
+                    self.read_from_stream().await.map_err(|e| {
+                        info!("❌ Failed to read from Redis Stream: {}", e);
+                        multi_tier_cache::CacheError::BackendError(e.to_string())
+                    })
                 },
             )
-            .await
+            .await;
+
+        result.map_err(anyhow::Error::from)
     }
 
     /// Read from Redis Stream
@@ -89,11 +82,12 @@ impl RedisStreamReader {
         // Special case: If there's only one field named "data" containing JSON string
         if fields.len() == 1
             && let Some((key, value)) = fields.first()
-                && key == "data"
-                    && let Ok(data) = serde_json::from_str::<Value>(value) {
-                        info!("📦 Unwrapped nested 'data' field from Redis Stream");
-                        return data;
-                    }
+            && key == "data"
+            && let Ok(data) = serde_json::from_str::<Value>(value)
+        {
+            info!("📦 Unwrapped nested 'data' field from Redis Stream");
+            return data;
+        }
 
         // General case: parse each field
         let mut map = serde_json::Map::new();

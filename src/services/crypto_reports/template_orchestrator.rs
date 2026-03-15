@@ -12,7 +12,7 @@ use tracing::{debug, error, info, warn};
 use super::report_creator::{Report, ReportCreator};
 
 // Import shared utilities
-use super::super::shared::{compress_html_to_gzip, get_websocket_url, Layer5Error, Layer5Result};
+use super::super::shared::{Layer5Error, Layer5Result, compress_html_to_gzip, get_websocket_url};
 use tokio::sync::OnceCell;
 
 // Placeholders for pre-rendering
@@ -174,7 +174,9 @@ impl TemplateOrchestrator {
         } else {
             // Fallback for sync context - we can't async fetch here anymore.
             // This assumes the caller handles the fetching if they want charts.
-            warn!("TemplateOrchestrator: No chart modules provided in sync context - using empty placeholder");
+            warn!(
+                "TemplateOrchestrator: No chart modules provided in sync context - using empty placeholder"
+            );
             Arc::new(String::from("// Charts disabled (no modules provided)"))
         };
 

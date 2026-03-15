@@ -1,14 +1,14 @@
 use anyhow::Result;
 use sqlx::PgPool;
 use std::sync::{
-    atomic::{AtomicI32, AtomicU64},
     Arc,
+    atomic::{AtomicI32, AtomicU64},
 };
 use tera::Tera;
 use tracing::{debug, info, warn};
 
 // Import cache system from library
-use multi_tier_cache::{backends::moka_cache::MokaCacheConfig, CacheManager, CacheSystemBuilder};
+use multi_tier_cache::{CacheManager, CacheSystemBuilder, backends::moka_cache::MokaCacheConfig};
 use std::time::Duration;
 
 use crate::assets::load_chart_modules;

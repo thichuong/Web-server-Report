@@ -9,13 +9,13 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
-use flate2::{write::GzEncoder, Compression};
-use std::collections::hash_map::DefaultHasher;
+use flate2::{Compression, write::GzEncoder};
 use std::collections::HashMap;
+use std::collections::hash_map::DefaultHasher;
 use std::error::Error as StdError;
 use std::hash::{Hash, Hasher};
 use std::io::Write;
-use std::sync::{atomic::Ordering, Arc};
+use std::sync::{Arc, atomic::Ordering};
 use tracing::{debug, error, info, warn};
 
 use crate::services::crypto_reports::rendering::{
@@ -265,7 +265,9 @@ impl CryptoHandlers {
                     None,
                 ) {
                     Ok(compressed_data) => {
-                        info!("✅ Layer 5: Render thành công cho latest report. Yêu cầu Layer 3 cache lại compressed data.");
+                        info!(
+                            "✅ Layer 5: Render thành công cho latest report. Yêu cầu Layer 3 cache lại compressed data."
+                        );
                         // BƯỚC 3: SAU KHI RENDER THÀNH CÔNG, YÊU CẦU LAYER 3 LƯU LẠI COMPRESSED DATA
                         // ✅ MEMORY OPTIMIZED: Pass reference instead of cloning entire Vec<u8>
                         if let Err(e) = data_service
@@ -277,7 +279,9 @@ impl CryptoHandlers {
                                 e
                             );
                         }
-                        info!("✅ Template rendered from DB via TemplateOrchestrator - crypto_index complete");
+                        info!(
+                            "✅ Template rendered from DB via TemplateOrchestrator - crypto_index complete"
+                        );
                         Ok(compressed_data)
                     }
                     Err(e) => {
@@ -287,7 +291,9 @@ impl CryptoHandlers {
                 }
             }
             Ok(None) => {
-                warn!("⚠️ No reports found in database - rendering empty template via TemplateOrchestrator");
+                warn!(
+                    "⚠️ No reports found in database - rendering empty template via TemplateOrchestrator"
+                );
 
                 // Use TemplateOrchestrator for empty template (Synchronous)
                 match self
@@ -405,7 +411,10 @@ impl CryptoHandlers {
                     None,
                 ) {
                     Ok(compressed_data) => {
-                        info!("✅ Layer 5: Render thành công cho report #{}. Yêu cầu Layer 3 cache lại compressed data.", report_id);
+                        info!(
+                            "✅ Layer 5: Render thành công cho report #{}. Yêu cầu Layer 3 cache lại compressed data.",
+                            report_id
+                        );
                         // BƯỚC 3: SAU KHI RENDER THÀNH CÔNG, YÊU CẦU LAYER 3 LƯU LẠI COMPRESSED DATA
                         // ✅ MEMORY OPTIMIZED: Pass reference instead of cloning entire Vec<u8>
                         if let Err(e) = data_service
@@ -417,7 +426,9 @@ impl CryptoHandlers {
                                 report_id, e
                             );
                         }
-                        info!("✅ Template rendered from DB via TemplateOrchestrator - crypto_report_by_id complete");
+                        info!(
+                            "✅ Template rendered from DB via TemplateOrchestrator - crypto_report_by_id complete"
+                        );
                         Ok(compressed_data)
                     }
                     Err(e) => {
@@ -427,7 +438,9 @@ impl CryptoHandlers {
                 }
             }
             Ok(None) => {
-                warn!("⚠️ No reports found in database - rendering empty template via TemplateOrchestrator");
+                warn!(
+                    "⚠️ No reports found in database - rendering empty template via TemplateOrchestrator"
+                );
 
                 // Use TemplateOrchestrator for empty template (Synchronous)
                 match self
@@ -565,7 +578,10 @@ impl CryptoHandlers {
         language: Option<&str>,
         chart_modules_content: Option<&str>,
     ) -> Result<axum::response::Response, Box<dyn StdError + Send + Sync>> {
-        info!("CryptoHandlers: Delegating sandboxed content request to ReportCreator for report {} with token {}", report_id, sandbox_token);
+        info!(
+            "CryptoHandlers: Delegating sandboxed content request to ReportCreator for report {} with token {}",
+            report_id, sandbox_token
+        );
 
         // Delegate to ReportCreator and map error for backward compatibility
         self.report_creator
@@ -597,7 +613,10 @@ impl CryptoHandlers {
         language: Option<&str>,
         chart_modules_content: Option<&str>,
     ) -> Result<axum::response::Response, Box<dyn StdError + Send + Sync>> {
-        info!("CryptoHandlers: Delegating Shadow DOM content request to ReportCreator for report {} with token {}", report_id, shadow_dom_token);
+        info!(
+            "CryptoHandlers: Delegating Shadow DOM content request to ReportCreator for report {} with token {}",
+            report_id, shadow_dom_token
+        );
 
         // Delegate to ReportCreator and map error for backward compatibility
         self.report_creator
@@ -629,38 +648,40 @@ impl CryptoHandlers {
 
         // 2. Check Cookie header for preferred_language or language
         if let Some(cookie_header) = headers.get("cookie")
-            && let Ok(cookie_str) = cookie_header.to_str() {
-                // Parse cookies manually
-                for cookie in cookie_str.split(';') {
-                    let parts: Vec<&str> = cookie.trim().splitn(2, '=').collect();
-                    if let [name_part, value_part] = parts.as_slice() {
-                        let (name, value) = (name_part.trim(), value_part.trim());
-                        if name == "preferred_language" || name == "language" {
-                            let lang = value.to_lowercase();
-                            if lang == "en" || lang == "vi" {
-                                debug!("🌐 [Language] Detected from cookie: {}", lang);
-                                return Some(lang);
-                            }
+            && let Ok(cookie_str) = cookie_header.to_str()
+        {
+            // Parse cookies manually
+            for cookie in cookie_str.split(';') {
+                let parts: Vec<&str> = cookie.trim().splitn(2, '=').collect();
+                if let [name_part, value_part] = parts.as_slice() {
+                    let (name, value) = (name_part.trim(), value_part.trim());
+                    if name == "preferred_language" || name == "language" {
+                        let lang = value.to_lowercase();
+                        if lang == "en" || lang == "vi" {
+                            debug!("🌐 [Language] Detected from cookie: {}", lang);
+                            return Some(lang);
                         }
                     }
                 }
             }
+        }
 
         // 3. Check Accept-Language header
         if let Some(accept_lang) = headers.get("accept-language")
-            && let Ok(lang_str) = accept_lang.to_str() {
-                // Parse Accept-Language: "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7"
-                for lang_tag in lang_str.split(',') {
-                    let lang = lang_tag.split(';').next().unwrap_or("").trim();
-                    if lang.starts_with("en") {
-                        debug!("🌐 [Language] Detected from Accept-Language: en");
-                        return Some("en".to_string());
-                    } else if lang.starts_with("vi") {
-                        debug!("🌐 [Language] Detected from Accept-Language: vi");
-                        return Some("vi".to_string());
-                    }
+            && let Ok(lang_str) = accept_lang.to_str()
+        {
+            // Parse Accept-Language: "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7"
+            for lang_tag in lang_str.split(',') {
+                let lang = lang_tag.split(';').next().unwrap_or("").trim();
+                if lang.starts_with("en") {
+                    debug!("🌐 [Language] Detected from Accept-Language: en");
+                    return Some("en".to_string());
+                } else if lang.starts_with("vi") {
+                    debug!("🌐 [Language] Detected from Accept-Language: vi");
+                    return Some("vi".to_string());
                 }
             }
+        }
 
         // 4. Default to Vietnamese
         debug!("🌐 [Language] Using default: vi");
@@ -683,7 +704,9 @@ impl CryptoHandlers {
         chart_modules_content: Arc<String>,
         report_id_opt: Option<i32>, // Optional specific ID, defaults to latest if None
     ) -> Layer5Result<RenderedContent> {
-        debug!("🌓 [Handler] render_crypto_index_dsd called - using Declarative Shadow DOM architecture");
+        debug!(
+            "🌓 [Handler] render_crypto_index_dsd called - using Declarative Shadow DOM architecture"
+        );
 
         // Determine report ID value (use provided or -1 for latest)
         let report_id_value = report_id_opt.unwrap_or(-1);
@@ -736,23 +759,23 @@ impl CryptoHandlers {
             && let Ok(Some(cached_compressed)) = data_service
                 .get_rendered_report_dsd_compressed(state, report_id_value, &preferred_language)
                 .await
-            {
-                info!(
-                    "✅ [Handler] DSD cache HIT (preferred language: {}) - returning compressed HTML for {}",
-                    preferred_language,
-                    if report_id_value == -1 {
-                        "latest".to_string()
-                    } else {
-                        format!("#{report_id_value}")
-                    }
-                );
+        {
+            info!(
+                "✅ [Handler] DSD cache HIT (preferred language: {}) - returning compressed HTML for {}",
+                preferred_language,
+                if report_id_value == -1 {
+                    "latest".to_string()
+                } else {
+                    format!("#{report_id_value}")
+                }
+            );
 
-                return Ok(RenderedContent {
-                    data: cached_compressed,
-                    cache_control: "public, max-age=300",
-                    cache_status: "HIT",
-                });
-            }
+            return Ok(RenderedContent {
+                data: cached_compressed,
+                cache_control: "public, max-age=300",
+                cache_status: "HIT",
+            });
+        }
 
         debug!("🔍 [Handler] DSD cache MISS - generating fresh HTML");
 

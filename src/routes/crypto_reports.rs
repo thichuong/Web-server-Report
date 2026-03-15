@@ -4,10 +4,10 @@
 //! report viewing and listing.
 
 use axum::{
+    Router,
     extract::{Path, Query, State},
     http::HeaderMap,
     routing::get,
-    Router,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
