@@ -25,11 +25,11 @@ pub fn configure_api_routes() -> Router<Arc<AppState>> {
         .route("/api/crypto/dashboard-summary", get(api_dashboard_summary))
         .route("/api/dashboard/data", get(api_dashboard_data))
         .route(
-            "/api/crypto_reports/:id/sandboxed",
+            "/api/crypto_reports/{id}/sandboxed",
             get(api_sandboxed_report),
         )
         .route(
-            "/api/crypto_reports/:id/shadow_dom",
+            "/api/crypto_reports/{id}/shadow_dom",
             get(api_shadow_dom_content),
         )
         .route("/api/health", get(api_health))

@@ -20,7 +20,7 @@ use crate::state::AppState;
 pub fn configure_crypto_reports_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/crypto_report", get(crypto_index))
-        .route("/crypto_report/:id", get(crypto_view_report))
+        .route("/crypto_report/{id}", get(crypto_view_report))
         .route("/crypto_reports_list", get(crypto_reports_list))
 }
 
