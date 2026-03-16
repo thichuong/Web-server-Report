@@ -38,159 +38,85 @@ pub fn configure_api_routes() -> Router<Arc<AppState>> {
 
 /// Dashboard data API endpoint - Enhanced with Redis Streams
 /// Same functionality as `api_dashboard_summary` but with cleaner path
-async fn api_dashboard_data(State(state): State<Arc<AppState>>) -> Json<DashboardDataResponse> {
-    // Phase 3: Primary reads from Redis Streams via RedisStreamReader
-    debug!("🚀 [API] Reading dashboard data from Redis Stream...");
+async fn api_dashboard_data(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let cache_key = "api_dashboard_data_json";
+    let mut cache_hit = "MISS";
 
-    // Use RedisStreamReader to fetch latest market data
-    match state.redis_stream_reader.read_latest_market_data().await {
-        Ok(Some(data)) => {
-            debug!("✅ [API] Dashboard data served from Redis Stream (<1ms)");
-            // Deserialize the Value into our typed response
-            if let Ok(typed_data) = serde_json::from_value::<DashboardDataResponse>(data) {
-                return Json(typed_data);
-            }
-            warn!("⚠️ [API] Failed to deserialize Redis Stream data, using fallback");
-        }
-        Ok(None) => {
-            warn!("⚠️ [API] No data in Redis Stream yet, websocket service will populate it soon");
-        }
-        Err(e) => {
-            warn!("⚠️ [API] Failed to read from Redis Stream: {}", e);
-        }
+    let response_data = state
+        .cache_manager
+        .get_or_compute_typed(
+            cache_key,
+            multi_tier_cache::CacheStrategy::RealTime,
+            || async {
+                debug!("🔍 [API] Cache MISS - reading from Redis Stream...");
+                // Phase 3: Primary reads from Redis Streams via RedisStreamReader
+                match state.redis_stream_reader.read_latest_market_data().await {
+                    Ok(Some(data)) => {
+                        debug!("✅ [API] Data fetched from Redis Stream");
+                        if let Ok(typed_data) =
+                            serde_json::from_value::<DashboardDataResponse>(data)
+                        {
+                            return Ok(typed_data);
+                        }
+                    }
+                    _ => {}
+                }
+
+                // Return fallback data if stream empty or failed
+                Ok(get_fallback_dashboard_data())
+            },
+        )
+        .await
+        .unwrap_or_else(|_| {
+            cache_hit = "ERROR";
+            get_fallback_dashboard_data()
+        });
+
+    if cache_hit != "ERROR" && state.cache_manager.get(cache_key).await.is_ok() {
+        cache_hit = "HIT";
     }
 
-    // Return fallback data - websocket service will populate stream within 10 seconds
-    info!("📊 [API] Returning fallback data (websocket service will update stream)");
-    let fallback_response = DashboardDataResponse {
-        // Bitcoin
+    (
+        [("x-cache", cache_hit)],
+        Json(response_data)
+    )
+}
+
+fn get_fallback_dashboard_data() -> DashboardDataResponse {
+    DashboardDataResponse {
         btc_price_usd: 96000.0,
         btc_change_24h: 0.0,
         btc_market_cap_percentage: 57.0,
         btc_rsi_14: 50.0,
-
-        // Ethereum
         eth_price_usd: 3170.0,
         eth_change_24h: 0.0,
         eth_market_cap_percentage: 11.4,
-
-        // BNB
         bnb_price_usd: 928.0,
         bnb_change_24h: 0.0,
-
-        // Solana
         sol_price_usd: 142.0,
         sol_change_24h: 0.0,
-
-        // XRP
         xrp_price_usd: 2.28,
         xrp_change_24h: 0.0,
-
-        // Cardano
         ada_price_usd: 0.51,
         ada_change_24h: 0.0,
-
-        // Chainlink
         link_price_usd: 14.17,
         link_change_24h: 0.0,
-
-        // Market metrics
         market_cap_usd: 3_340_000_000_000.0,
         market_cap_change_percentage_24h_usd: 0.0,
         volume_24h_usd: 260_000_000_000.0,
-
-        // Fear & Greed Index
         fng_value: 50,
-
-        // US Stock Indices
-        us_stock_indices: HashMap::new(),
-
-        // Metadata
+        us_stock_indices: std::collections::HashMap::new(),
         fetch_duration_ms: 0,
         partial_failure: true,
         last_updated: chrono::Utc::now().to_rfc3339(),
         timestamp: chrono::Utc::now().to_rfc3339(),
         note: Some("Fallback data - fresh data will be available within 10 seconds".to_string()),
-    };
-    Json(fallback_response)
+    }
 }
 
 /// Dashboard summary API endpoint - Reads from Redis Stream via `RedisStreamReader`
-async fn api_dashboard_summary(State(state): State<Arc<AppState>>) -> Json<DashboardDataResponse> {
-    // Stream-first strategy: Read from Redis Stream populated by websocket service
-    debug!("🚀 [API] Reading dashboard summary from Redis Stream...");
-
-    // Use RedisStreamReader to fetch latest market data
-    match state.redis_stream_reader.read_latest_market_data().await {
-        Ok(Some(data)) => {
-            debug!("✅ [API] Dashboard summary served from Redis Stream (<1ms)");
-            // Deserialize the Value into our typed response
-            if let Ok(typed_data) = serde_json::from_value::<DashboardDataResponse>(data) {
-                return Json(typed_data);
-            }
-            warn!("⚠️ [API] Failed to deserialize Redis Stream data, using fallback");
-        }
-        Ok(None) => {
-            warn!("⚠️ [API] No data in Redis Stream yet, websocket service will populate it soon");
-        }
-        Err(e) => {
-            warn!("⚠️ [API] Failed to read from Redis Stream: {}", e);
-        }
-    }
-
-    // Return fallback data - websocket service will populate stream within 10 seconds
-    info!("📊 [API] Returning fallback data (websocket service will update stream)");
-    let fallback_response = DashboardDataResponse {
-        // Bitcoin
-        btc_price_usd: 96000.0,
-        btc_change_24h: 0.0,
-        btc_market_cap_percentage: 57.0,
-        btc_rsi_14: 50.0,
-
-        // Ethereum
-        eth_price_usd: 3170.0,
-        eth_change_24h: 0.0,
-        eth_market_cap_percentage: 11.4,
-
-        // BNB
-        bnb_price_usd: 928.0,
-        bnb_change_24h: 0.0,
-
-        // Solana
-        sol_price_usd: 142.0,
-        sol_change_24h: 0.0,
-
-        // XRP
-        xrp_price_usd: 2.28,
-        xrp_change_24h: 0.0,
-
-        // Cardano
-        ada_price_usd: 0.51,
-        ada_change_24h: 0.0,
-
-        // Chainlink
-        link_price_usd: 14.17,
-        link_change_24h: 0.0,
-
-        // Market metrics
-        market_cap_usd: 3_340_000_000_000.0,
-        market_cap_change_percentage_24h_usd: 0.0,
-        volume_24h_usd: 260_000_000_000.0,
-
-        // Fear & Greed Index
-        fng_value: 50,
-
-        // US Stock Indices
-        us_stock_indices: HashMap::new(),
-
-        // Metadata
-        fetch_duration_ms: 0,
-        partial_failure: true,
-        last_updated: chrono::Utc::now().to_rfc3339(),
-        timestamp: chrono::Utc::now().to_rfc3339(),
-        note: Some("Fallback data - fresh data will be available within 10 seconds".to_string()),
-    };
-    Json(fallback_response)
+async fn api_dashboard_summary(state: State<Arc<AppState>>) -> impl IntoResponse {
+    api_dashboard_data(state).await
 }
 
 /// API health check endpoint

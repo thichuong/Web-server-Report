@@ -13,7 +13,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::debug;
 
-use crate::services::{crypto_reports::handlers::RenderedContent, shared::error::Layer5Result};
+use crate::services::crypto_reports::handlers::{CryptoHandlers, RenderedContent};
+use crate::services::shared::{error::Layer5Result, try_get_cached_compressed};
 use crate::state::AppState;
 
 /// Configure crypto reports routes
@@ -34,6 +35,17 @@ async fn crypto_reports_list(
     // Parse pagination parameter
     let page: i64 = params.get("page").and_then(|p| p.parse().ok()).unwrap_or(1);
     debug!("📄 [Route] Requesting page: {}", page);
+
+    // ⚡ IMMEDIATE CACHE CHECK: Optimized pagination caching
+    let cache_key = format!("crypto_reports_list_page_{page}_compressed");
+    if let Some(cached_data) = try_get_cached_compressed(&state.cache_manager, &cache_key).await {
+        debug!("⚡ [Route] Cache HIT for reports list page {}", page);
+        return Ok(RenderedContent {
+            data: cached_data,
+            cache_control: "public, max-age=60",
+            cache_status: "HIT",
+        });
+    }
 
     // Use Service Islands architecture to get reports list (compressed)
     state
@@ -56,15 +68,36 @@ async fn crypto_index(
     let report_id = params.get("id");
     let report_id_value = if let Some(id_str) = report_id {
         if let Ok(id) = id_str.parse::<i32>() {
-            Some(id)
+            id
         } else {
             return Err(crate::services::shared::error::Layer5Error::InvalidInput(
                 format!("Invalid report ID format: {id_str}"),
             ));
         }
     } else {
-        None // Latest report
+        -1 // Latest report
     };
+
+    // ⚡ IMMEDIATE CACHE CHECK: Language-aware DSD caching
+    // 1. Detect language (default to "vi")
+    let preferred_language =
+        CryptoHandlers::detect_preferred_language(&params, &headers).unwrap_or_else(|| "vi".to_string());
+
+    // 2. Check cache immediately
+    let cache_key = format!("compressed_report_dsd_{report_id_value}_{preferred_language}");
+    if let Some(cached_data) = try_get_cached_compressed(&state.cache_manager, &cache_key).await {
+        debug!(
+            "⚡ [Route] DSD cache HIT for report {} (lang: {})",
+            if report_id_value == -1 { "latest".to_string() } else { format!("#{report_id_value}") },
+            preferred_language
+        );
+
+        return Ok(RenderedContent {
+            data: cached_data,
+            cache_control: "public, max-age=300",
+            cache_status: "HIT",
+        });
+    }
 
     // Get chart modules content
     let chart_modules_content = state
@@ -73,7 +106,6 @@ async fn crypto_index(
         .get_chart_modules_content(&state);
 
     // Delegate to handlers
-
     state
         .crypto_handlers
         .render_crypto_index_dsd(
@@ -81,7 +113,7 @@ async fn crypto_index(
             &params,
             &headers,
             chart_modules_content,
-            report_id_value,
+            if report_id_value == -1 { None } else { Some(report_id_value) },
         )
         .await
 }
@@ -103,6 +135,26 @@ async fn crypto_view_report(
             "Invalid report ID format: {id}"
         ))
     })?;
+
+    // ⚡ IMMEDIATE CACHE CHECK: Language-aware DSD caching
+    // 1. Detect language (default to "vi")
+    let preferred_language =
+        CryptoHandlers::detect_preferred_language(&params, &headers).unwrap_or_else(|| "vi".to_string());
+
+    // 2. Check cache immediately
+    let cache_key = format!("compressed_report_dsd_{report_id}_{preferred_language}");
+    if let Some(cached_data) = try_get_cached_compressed(&state.cache_manager, &cache_key).await {
+        debug!(
+            "⚡ [Route] DSD cache HIT for report #{} (lang: {})",
+            report_id, preferred_language
+        );
+
+        return Ok(RenderedContent {
+            data: cached_data,
+            cache_control: "public, max-age=300",
+            cache_status: "HIT",
+        });
+    }
 
     // Get chart modules content
     let chart_modules_content = state

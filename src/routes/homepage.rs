@@ -11,7 +11,7 @@ use axum::{
     routing::get,
 };
 use std::sync::Arc;
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 use crate::services::dashboard::DashboardHandlers;
 use crate::state::AppState;
@@ -21,10 +21,15 @@ pub fn configure_homepage_route() -> Router<Arc<AppState>> {
     Router::new().route("/", get(homepage))
 }
 
-/// Homepage handler - delegates to Dashboard Island
 async fn homepage(State(state): State<Arc<AppState>>) -> Response {
-    // Use the dashboard island's homepage handler with Tera rendering
-    // Directly await the async method from Layer 5
+    // ⚡ IMMEDIATE CACHE CHECK: Optimized RAM caching
+    // Check if homepage is already pre-rendered and cached in RAM
+    if let Some(cached) = state.dashboard_handlers.cached_homepage.get() {
+        debug!("⚡ [Route] Serving homepage from immediate RAM cache");
+        return DashboardHandlers::create_compressed_response(cached.clone());
+    }
+
+    // Fallback: Use the dashboard island's homepage handler for lazy init/rendering
     match state.dashboard_handlers.homepage_with_tera(&state) {
         Ok(compressed_data) => {
             info!("✅ [Route] Compressed homepage rendered successfully from Layer 5");

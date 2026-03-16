@@ -8,6 +8,8 @@
 //! - security: Cryptographically secure token generation
 //! - `sitemap_creator`: Dynamic sitemap.xml generation
 
+
+pub mod cache_utils;
 pub mod compression;
 pub mod error;
 pub mod response_builder;
@@ -16,7 +18,10 @@ pub mod security;
 pub mod sitemap_creator;
 pub mod websocket;
 
-// Re-export commonly used items
+pub use cache_utils::{
+    build_standard_compressed_response, cache_compressed_data, compress_data,
+    try_get_cached_compressed,
+};
 pub use compression::{CompressionStats, compress_html_to_gzip};
 pub use error::{Layer5Error, Layer5Result};
 pub use response_builder::{
