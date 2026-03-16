@@ -15,6 +15,10 @@ use axum::{
 };
 
 /// Compress XML/JSON string to gzip format
+///
+/// # Errors
+///
+/// Returns error if compression fails
 pub fn compress_data(data: &str) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
     let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
     encoder.write_all(data.as_bytes())?;

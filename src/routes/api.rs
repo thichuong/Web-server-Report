@@ -50,16 +50,13 @@ async fn api_dashboard_data(State(state): State<Arc<AppState>>) -> impl IntoResp
             || async {
                 debug!("🔍 [API] Cache MISS - reading from Redis Stream...");
                 // Phase 3: Primary reads from Redis Streams via RedisStreamReader
-                match state.redis_stream_reader.read_latest_market_data().await {
-                    Ok(Some(data)) => {
-                        debug!("✅ [API] Data fetched from Redis Stream");
-                        if let Ok(typed_data) =
-                            serde_json::from_value::<DashboardDataResponse>(data)
-                        {
-                            return Ok(typed_data);
-                        }
+                if let Ok(Some(data)) = state.redis_stream_reader.read_latest_market_data().await {
+                    debug!("✅ [API] Data fetched from Redis Stream");
+                    if let Ok(typed_data) =
+                        serde_json::from_value::<DashboardDataResponse>(data)
+                    {
+                        return Ok(typed_data);
                     }
-                    _ => {}
                 }
 
                 // Return fallback data if stream empty or failed
