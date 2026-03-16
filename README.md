@@ -6,7 +6,7 @@
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green)](LICENSE)
 
-**Ultra-fast Rust web server** achieving **16,829+ RPS** with **5.2ms latency** for crypto investment reports. Built with **Service Islands Architecture**, multi-tier caching (RAM/Redis), **Zero-Allocation Pre-rendering**, and Declarative Shadow DOM.
+**Ultra-fast Rust web server** achieving **44,700+ RPS** with **11ms latency** under extreme load. Built with **Service Islands Architecture**, 4-tier caching (RAM/Redis), **Zero-Allocation Pre-rendering**, and Declarative Shadow DOM.
 
 > **Microservices Architecture**: This is the **Main Service** handling web presentation and data consumption. External APIs and WebSocket are handled by [Web-server-Report-websocket](https://github.com/thichuong/Web-server-Report-websocket).
 
@@ -59,11 +59,12 @@ Modern rendering approach replacing legacy iframe-based architecture:
 
 ### Multi-tier Cache System
 
-Sophisticated multi-level caching with **Stampede Protection**:
+Sophisticated 4-level caching with **Stampede Protection**:
 
-1.  **Level 0 (App Cache)**: Pre-rendered static frames in RAM (Layer 5).
-2.  **Level 1 (Moka)**: In-memory LRU cache for hot data (Layer 1).
-3.  **Level 2 (Redis)**: Distributed persistent cache (Layer 1).
+1.  **Level 0 (Route Cache)**: Pre-rendered static frames in RAM (`OnceCell`) checked immediately at the route level.
+2.  **Level 1 (Moka)**: In-memory LRU cache (1000 entries) for dynamic reports and list pages.
+3.  **Level 2 (Redis)**: Distributed persistent cache storing compressed GZIP payloads.
+4.  **Level 3 (Stream Cache)**: Optimized Redis Stream reading with local caching.
 
 ### Real-time Data Pipeline
 
@@ -146,11 +147,11 @@ Client Request
 ╔═══════════════════════════════════════════════════════════════════╗
 ║                    PERFORMANCE SUMMARY                             ║
 ╠═══════════════════════════════════════════════════════════════════╣
-║  Peak Throughput      │  16,829.3 req/s (sustained)               ║
-║  Average Latency      │  5.2ms (with full load)                   ║
-║  Homepage Latency     │  <0.5ms (served from RAM)                 ║
+║  Peak Throughput      │  44,714.2 req/s (sustained)               ║
+║  Average Latency      │  11.1ms (under heavy concurrency)         ║
+║  Homepage Latency     │  <0.2ms (served from RAM)                 ║
 ║  Success Rate         │  100%                                     ║
-║  Cache Hit Rate       │  95%+ overall (L1: 90%, L2: 75%)          ║
+║  Cache Hit Rate       │  98%+ overall (L0/L1 optimized)           ║
 ╚═══════════════════════════════════════════════════════════════════╝
 ```
 
