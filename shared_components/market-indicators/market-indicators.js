@@ -700,7 +700,9 @@ class MarketIndicatorsDashboard {
                 elementsWithI18n.forEach(el => {
                     const key = el.getAttribute('data-i18n');
                     if (window.translations_data && window.translations_data[key]) {
-                        const currentLang = window.current_language || 'vi';
+                        const currentLang = (window.languageManager && window.languageManager.currentLanguage) 
+                                            || document.documentElement.lang 
+                                            || 'vi';
                         if (window.translations_data[key][currentLang]) {
                             el.textContent = window.translations_data[key][currentLang];
                         }
@@ -719,7 +721,9 @@ class MarketIndicatorsDashboard {
     }
 
     formatLargeNumber(num) {
-        const lang = window.current_language || 'vi';
+        const lang = (window.languageManager && window.languageManager.currentLanguage) 
+                    || document.documentElement.lang 
+                    || 'vi';
         const isVietnamese = lang === 'vi';
 
         if (num >= 1e12) {
