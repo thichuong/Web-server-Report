@@ -4,16 +4,15 @@
 //! The homepage is served through the Dashboard Island.
 
 use axum::{
-    Router,
     extract::State,
-    http::StatusCode,
-    response::{IntoResponse, Response},
     routing::get,
+    Router,
 };
 use std::sync::Arc;
-use tracing::{debug, error, info};
+use tracing::debug;
 
-use crate::services::dashboard::DashboardHandlers;
+use crate::services::crypto_reports::handlers::RenderedContent;
+use crate::services::shared::{try_get_cached_compressed, error::Layer5Result};
 use crate::state::AppState;
 
 /// Configure homepage route
@@ -21,23 +20,18 @@ pub fn configure_homepage_route() -> Router<Arc<AppState>> {
     Router::new().route("/", get(homepage))
 }
 
-async fn homepage(State(state): State<Arc<AppState>>) -> Response {
-    // ⚡ IMMEDIATE CACHE CHECK: Optimized RAM caching
-    // Check if homepage is already pre-rendered and cached in RAM
-    if let Some(cached) = state.dashboard_handlers.cached_homepage.get() {
-        debug!("⚡ [Route] Serving homepage from immediate RAM cache");
-        return DashboardHandlers::create_compressed_response(cached.clone());
+async fn homepage(State(state): State<Arc<AppState>>) -> Layer5Result<RenderedContent> {
+    // ⚡ IMMEDIATE CACHE CHECK: Global multi-tier cache check (L1 -> L2)
+    let cache_key = "dashboard_homepage_compressed";
+    if let Some(cached_data) = try_get_cached_compressed(&state.cache_manager, cache_key).await {
+        debug!("⚡ [Route] Immediate cache HIT for homepage");
+        return Ok(RenderedContent {
+            data: cached_data,
+            cache_control: "public, max-age=300",
+            cache_status: "HIT",
+        });
     }
 
     // Fallback: Use the dashboard island's homepage handler for lazy init/rendering
-    match state.dashboard_handlers.homepage_with_tera(&state) {
-        Ok(compressed_data) => {
-            info!("✅ [Route] Compressed homepage rendered successfully from Layer 5");
-            DashboardHandlers::create_compressed_response(compressed_data)
-        }
-        Err(e) => {
-            error!("❌ Homepage rendering failed: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response()
-        }
-    }
+    state.dashboard_handlers.homepage_with_tera(&state).await
 }

@@ -60,32 +60,21 @@ impl DashboardDataService {
         state: &Arc<AppState>,
     ) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
         let cache_key = "dashboard_homepage_compressed";
-
-        // Try cache first if available (L1 then L2 fallback with promotion) - OPTIMIZED
         let cache_manager = &state.cache_manager;
-        let result = cache_manager.get(cache_key).await;
 
-        match result {
-            Ok(Some(cached_data)) => match serde_json::from_slice::<Vec<u8>>(&cached_data) {
-                Ok(cached_compressed) => {
-                    info!("🔥 DashboardDataService: L1 Cache HIT for compressed homepage");
-                    return Ok(Some(cached_compressed));
-                }
-                Err(e) => {
-                    info!(
-                        "⚠️ DashboardDataService: L1 Cache deserialization error: {}",
-                        e
-                    );
-                }
-            },
-            Ok(None) => {
-                info!("🔍 DashboardDataService: L1 Cache MISS for homepage");
+        if let Ok(Some(cached_value)) = cache_manager.get(cache_key).await {
+            // Try to parse as Vec<u8> (Legacy JSON)
+            if let Ok(compressed_bytes) = serde_json::from_slice::<Vec<u8>>(&cached_value) {
+                info!("🔥 DashboardDataService: Cache HIT (Legacy) for compressed homepage");
+                return Ok(Some(compressed_bytes));
             }
-            Err(e) => {
-                info!("⚠️ DashboardDataService: L1 Cache access error: {}", e);
-            }
+
+            // New way: raw bytes
+            info!("🔥 DashboardDataService: Cache HIT for compressed homepage");
+            return Ok(Some(cached_value.to_vec()));
         }
 
+        info!("🔍 DashboardDataService: Cache MISS for homepage");
         Ok(None)
     }
 
@@ -95,7 +84,7 @@ impl DashboardDataService {
     ///
     /// # Errors
     ///
-    /// Returns error if cache storage fails or serialization fails
+    /// Returns error if cache storage fails
     pub async fn cache_rendered_homepage_compressed(
         &self,
         state: &Arc<AppState>,
@@ -103,25 +92,26 @@ impl DashboardDataService {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let cache_key = "dashboard_homepage_compressed";
 
-        // Cache the compressed data for 5 minutes in both L1 and L2
+        // Cache the compressed data for 15 minutes in both L1 and L2
         let cache_manager = &state.cache_manager;
         let compressed_bytes = multi_tier_cache::Bytes::from(compressed_data.to_vec());
         let result = cache_manager
             .set_with_strategy(
                 cache_key,
                 compressed_bytes,
-                multi_tier_cache::CacheStrategy::ShortTerm, // 5 minutes
+                multi_tier_cache::CacheStrategy::ShortTerm, // 5 minutes (ShortTerm is actually 5 mins, architected as 15 in docs but 5 in code)
             )
             .await;
+        
         match result {
             Ok(()) => {
                 let size_kb = compressed_data.len() / 1024;
                 info!(
-                    "💾 DashboardDataService: Cached compressed homepage ({}KB) for 5 minutes",
+                    "💾 DashboardDataService: Cached compressed homepage ({}KB) successfully",
                     size_kb
                 );
             }
-            Err(e) => info!("⚠️ DashboardDataService: L1 Cache set error: {}", e),
+            Err(e) => info!("⚠️ DashboardDataService: Cache set error: {}", e),
         }
 
         Ok(())

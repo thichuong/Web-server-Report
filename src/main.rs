@@ -24,6 +24,9 @@ async fn main() -> Result<(), anyhow::Error> {
     info!("🏗️ Initializing AppState...");
     let state = Arc::new(AppState::new().await?);
 
+    // ✅ Pre-render homepage to multi-tier cache (L1 RAM + L2 Redis)
+    state.dashboard_handlers.init_homepage_cache(&state).await;
+
     // Note: WebSocket and streaming functionality is now handled by separate websocket service
 
     // Create comprehensive router using AppState

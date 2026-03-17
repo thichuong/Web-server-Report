@@ -17,7 +17,9 @@ use tera::Context;
 
 use tracing::{debug, error, info, warn};
 
-use tokio::sync::OnceCell;
+use crate::services::crypto_reports::handlers::RenderedContent;
+use crate::services::shared::error::Layer5Result;
+
 
 /// Dashboard Handlers
 ///
@@ -25,8 +27,6 @@ use tokio::sync::OnceCell;
 /// These handlers manage dashboard data, summaries, and API interactions.
 pub struct DashboardHandlers {
     pub data_service: DashboardDataService,
-    /// Cached homepage content (pre-rendered at startup)
-    pub cached_homepage: OnceCell<Vec<u8>>,
 }
 
 impl Default for DashboardHandlers {
@@ -41,7 +41,6 @@ impl DashboardHandlers {
     pub fn new() -> Self {
         Self {
             data_service: DashboardDataService::new(),
-            cached_homepage: OnceCell::new(),
         }
     }
 
@@ -119,18 +118,18 @@ impl DashboardHandlers {
     ///
     /// Pre-renders the homepage and stores it in the cache.
     /// Should be called during application startup.
-    /// Initialize homepage cache
-    ///
-    /// Pre-renders the homepage and stores it in the cache.
-    /// Should be called during application startup.
-    pub fn init_homepage_cache(&self, state: &Arc<AppState>) {
+    pub async fn init_homepage_cache(&self, state: &Arc<AppState>) {
         info!("🏗️ Pre-rendering homepage to cache...");
         match Self::render_homepage_internal(state) {
             Ok(data) => {
-                if self.cached_homepage.set(data).is_err() {
-                    warn!("⚠️ Homepage cache already initialized");
+                if let Err(e) = self
+                    .data_service
+                    .cache_rendered_homepage_compressed(state, &data)
+                    .await
+                {
+                    error!("❌ Failed to cache pre-rendered homepage: {}", e);
                 } else {
-                    info!("✅ Homepage pre-rendered and cached in RAM");
+                    info!("✅ Homepage pre-rendered and cached in multi-tier system");
                 }
             }
             Err(e) => error!("❌ Failed to pre-render homepage: {}", e),
@@ -190,29 +189,41 @@ impl DashboardHandlers {
 
     /// Homepage handler with Tera rendering - OPTIMIZED RAM CACHING
     ///
-    /// Returns the pre-rendered homepage from RAM.
+    /// Returns the pre-rendered homepage from RAM or Redis.
     ///
     /// # Errors
     ///
     /// Returns error if cache retrieval fails or rendering fails
-    pub fn homepage_with_tera(
+    pub async fn homepage_with_tera(
         &self,
         state: &Arc<AppState>,
-    ) -> Result<Vec<u8>, Box<dyn StdError + Send + Sync>> {
-        // Optimized: Return cached content from RAM
-        if let Some(cached) = self.cached_homepage.get() {
-            debug!("⚡ Serving homepage from RAM cache");
-            return Ok(cached.clone());
+    ) -> Layer5Result<RenderedContent> {
+        // Optimized: Return cached content from multi-tier cache
+        if let Ok(Some(cached)) = self.data_service.get_rendered_homepage_compressed(state).await {
+            debug!("⚡ Serving homepage from multi-tier cache");
+            return Ok(RenderedContent {
+                data: cached,
+                cache_control: "public, max-age=300",
+                cache_status: "HIT",
+            });
         }
 
         // Fallback: If not initialized, render and return (lazy init)
         debug!("⚠️ Homepage cache miss (lazy init)");
-        let data = Self::render_homepage_internal(state)?;
+        let data = Self::render_homepage_internal(state)
+            .map_err(|e| crate::services::shared::error::Layer5Error::TemplateRender(e.to_string()))?;
 
         // Try to set cache for next time
-        let _ = self.cached_homepage.set(data.clone());
+        let _ = self
+            .data_service
+            .cache_rendered_homepage_compressed(state, &data)
+            .await;
 
-        Ok(data)
+        Ok(RenderedContent {
+            data,
+            cache_control: "public, max-age=300",
+            cache_status: "MISS",
+        })
     }
 }
 
