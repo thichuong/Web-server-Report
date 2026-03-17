@@ -38,7 +38,7 @@
         }
     }
 
-    // Setter to inject translations from external script (e.g. dashboards/.../translations.js)
+    // Setter to inject translations from external script (e.g. /shared_assets/translations.js)
     function setTranslations(obj) {
         if (!obj || typeof obj !== 'object') return;
         // Store in global variables for getTranslationsData() to access
