@@ -93,7 +93,10 @@
 (function() {
     'use strict';
 
-    console.log('🔧 Shadow DOM Proxy: Initializing...');
+    // ✨ DEBUG FLAG: Set to true to see proxy logs in the console
+    const PROXY_DEBUG = false;
+
+    if (PROXY_DEBUG) console.log('🔧 Shadow DOM Proxy: Initializing...');
 
     // Get the shadow root - with Declarative Shadow DOM fallback
     function getShadowRoot() {
@@ -101,7 +104,7 @@
         if (document.currentScript) {
             const root = document.currentScript.getRootNode();
             if (root && root !== document) {
-                console.log('✅ Shadow DOM Proxy: Got shadowRoot via currentScript');
+                if (PROXY_DEBUG) console.log('✅ Shadow DOM Proxy: Got shadowRoot via currentScript');
                 return root;
             }
         }
@@ -109,7 +112,7 @@
         // Fallback: Get from host element (reliable for Declarative Shadow DOM)
         const host = document.getElementById('report-shadow-host');
         if (host && host.shadowRoot) {
-            console.log('✅ Shadow DOM Proxy: Got shadowRoot via host element fallback');
+            if (PROXY_DEBUG) console.log('✅ Shadow DOM Proxy: Got shadowRoot via host element fallback');
             return host.shadowRoot;
         }
 
@@ -124,7 +127,7 @@
         return;
     }
 
-    console.log('✅ Shadow DOM Proxy: Shadow root acquired:', shadowRoot);
+    if (PROXY_DEBUG) console.log('✅ Shadow DOM Proxy: Shadow root acquired:', shadowRoot);
 
     // Store original document methods
     const originalMethods = {
@@ -141,12 +144,12 @@
         // Try shadow DOM first
         const shadowElement = shadowRoot.getElementById(id);
         if (shadowElement) {
-            console.log(`🎯 Proxy: Found "${id}" in shadow DOM`);
+            if (PROXY_DEBUG) console.log(`🎯 Proxy: Found "${id}" in shadow DOM`);
             return shadowElement;
         }
 
         // Fallback to light DOM
-        console.log(`🔍 Proxy: "${id}" not in shadow DOM, checking light DOM`);
+        if (PROXY_DEBUG) console.log(`🔍 Proxy: "${id}" not in shadow DOM, checking light DOM`);
         return originalMethods.getElementById(id);
     };
 
@@ -154,11 +157,11 @@
     document.querySelector = function(selector) {
         const shadowElement = shadowRoot.querySelector(selector);
         if (shadowElement) {
-            console.log(`🎯 Proxy: Found "${selector}" in shadow DOM`);
+            if (PROXY_DEBUG) console.log(`🎯 Proxy: Found "${selector}" in shadow DOM`);
             return shadowElement;
         }
 
-        console.log(`🔍 Proxy: "${selector}" not in shadow DOM, checking light DOM`);
+        if (PROXY_DEBUG) console.log(`🔍 Proxy: "${selector}" not in shadow DOM, checking light DOM`);
         return originalMethods.querySelector(selector);
     };
 
@@ -166,11 +169,11 @@
     document.querySelectorAll = function(selector) {
         const shadowElements = shadowRoot.querySelectorAll(selector);
         if (shadowElements.length > 0) {
-            console.log(`🎯 Proxy: Found ${shadowElements.length} elements for "${selector}" in shadow DOM`);
+            if (PROXY_DEBUG) console.log(`🎯 Proxy: Found ${shadowElements.length} elements for "${selector}" in shadow DOM`);
             return shadowElements;
         }
 
-        console.log(`🔍 Proxy: No elements for "${selector}" in shadow DOM, checking light DOM`);
+        if (PROXY_DEBUG) console.log(`🔍 Proxy: No elements for "${selector}" in shadow DOM, checking light DOM`);
         return originalMethods.querySelectorAll(selector);
     };
 
@@ -178,11 +181,11 @@
     document.getElementsByClassName = function(className) {
         const shadowElements = shadowRoot.querySelectorAll('.' + className);
         if (shadowElements.length > 0) {
-            console.log(`🎯 Proxy: Found ${shadowElements.length} elements for class "${className}" in shadow DOM`);
+            if (PROXY_DEBUG) console.log(`🎯 Proxy: Found ${shadowElements.length} elements for class "${className}" in shadow DOM`);
             return shadowElements;
         }
 
-        console.log(`🔍 Proxy: No elements for class "${className}" in shadow DOM, checking light DOM`);
+        if (PROXY_DEBUG) console.log(`🔍 Proxy: No elements for class "${className}" in shadow DOM, checking light DOM`);
         return originalMethods.getElementsByClassName(className);
     };
 
@@ -190,19 +193,21 @@
     document.getElementsByTagName = function(tagName) {
         const shadowElements = shadowRoot.querySelectorAll(tagName);
         if (shadowElements.length > 0) {
-            console.log(`🎯 Proxy: Found ${shadowElements.length} elements for tag "${tagName}" in shadow DOM`);
+            if (PROXY_DEBUG) console.log(`🎯 Proxy: Found ${shadowElements.length} elements for tag "${tagName}" in shadow DOM`);
             return shadowElements;
         }
 
-        console.log(`🔍 Proxy: No elements for tag "${tagName}" in shadow DOM, checking light DOM`);
+        if (PROXY_DEBUG) console.log(`🔍 Proxy: No elements for tag "${tagName}" in shadow DOM, checking light DOM`);
         return originalMethods.getElementsByTagName(tagName);
     };
 
     // Store shadow root globally for scripts that need direct access
     window.reportShadowRoot = shadowRoot;
 
-    console.log('✅ Shadow DOM Proxy: All proxies installed successfully');
-    console.log('💡 Shadow DOM Proxy: Scripts can now use document.getElementById() normally');
+    if (PROXY_DEBUG) {
+        console.log('✅ Shadow DOM Proxy: All proxies installed successfully');
+        console.log('💡 Shadow DOM Proxy: Scripts can now use document.getElementById() normally');
+    }
 })();
 </script>
 

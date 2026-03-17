@@ -7,45 +7,38 @@ const THEME_DEBUG = false;
  * Hàm thông báo tất cả iframe về việc thay đổi theme
  */
 function notifyIframesThemeChange(theme) {
-    if (THEME_DEBUG) console.log('🎨 Parent: Broadcasting theme change to iframes:', theme);
+    if (THEME_DEBUG) console.log('🎨 Parent: Broadcasting theme change:', theme);
     
-    // Target specifically sandboxed iframes first
-    const sandboxedIframes = document.querySelectorAll('iframe[src*="/api/sandboxed"]');
-    if (sandboxedIframes.length > 0) {
-        sandboxedIframes.forEach(iframe => {
-            try {
-                if (THEME_DEBUG) console.log('📨 Parent: Sending theme change message to sandboxed iframe:', theme);
-                iframe.contentWindow.postMessage({
-                    type: 'theme-change',
-                    theme: theme
-                }, '*');
-            } catch (e) {
-                if (THEME_DEBUG) console.warn('❌ Parent: Could not send theme message to sandboxed iframe:', e);
-            }
-        });
-    }
-    
-    // Also send to all other iframes as fallback
-    const allIframes = document.querySelectorAll('iframe');
-    allIframes.forEach(iframe => {
-        // Skip sandboxed iframes as they were already handled above
-        if (iframe.src && iframe.src.includes('/api/sandboxed')) {
-            return;
+    // ✨ Shadow DOM Support: Direct function call (standard for DSD)
+    // This is much faster and cleaner than postMessage for Shadow DOM
+    if (typeof window.applyReportTheme === 'function') {
+        try {
+            if (THEME_DEBUG) console.log('📞 Parent: Calling window.applyReportTheme():', theme);
+            window.applyReportTheme(theme);
+        } catch (e) {
+            if (THEME_DEBUG) console.warn('⚠️ Parent: applyReportTheme failed:', e);
         }
-        
+    }
+
+    // Legacy Iframe Support: Only run if iframes are actually present
+    const allIframes = document.querySelectorAll('iframe');
+    if (allIframes.length === 0) {
+        if (THEME_DEBUG) console.log('📭 Parent: No iframes found for theme message');
+        return;
+    }
+
+    if (THEME_DEBUG) console.log(`📨 Parent: Found ${allIframes.length} iframes, sending theme message`);
+
+    allIframes.forEach(iframe => {
         try {
             iframe.contentWindow.postMessage({
                 type: 'theme-change',
                 theme: theme
             }, '*');
         } catch (e) {
-            if (THEME_DEBUG) console.log('📭 Parent: Could not send theme message to regular iframe:', e);
+            if (THEME_DEBUG) console.log('📭 Parent: Could not send theme message to iframe:', e);
         }
     });
-    
-    if (THEME_DEBUG && sandboxedIframes.length === 0 && allIframes.length === 0) {
-        console.log('📭 Parent: No iframes found for theme message');
-    }
 }
 
 /**

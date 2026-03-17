@@ -207,10 +207,15 @@
             }, 50);
         }
 
-        // Re-initialize report visuals after language change (handled by iframe now)
-        // Note: Visual functions are now called inside iframe, not from parent page
+        // Re-initialize report visuals after language change (handled by iframe or DSD now)
+        if (document.getElementById('report-shadow-host')) {
+            if (LANG_DEBUG) console.log('🌓 Shadow DOM host detected - DSD logic will handle visual initialization');
+            // switchReportLanguage was already called in setPreferredLanguage
+            return;
+        }
+
         if (document.getElementById('report-container')) {
-            if (LANG_DEBUG) console.log('🎨 Report container detected - iframe will handle visual initialization');
+            if (LANG_DEBUG) console.log('🎨 Iframe report container detected - checking for iframes');
             
             // Send language change message to iframe if it exists
             const iframe = document.querySelector('iframe[src*="/api/sandboxed"]');
