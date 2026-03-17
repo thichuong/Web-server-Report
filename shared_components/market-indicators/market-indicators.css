@@ -9,8 +9,6 @@
     box-shadow: var(--card-shadow);
     border: 1px solid var(--card-border);
     backdrop-filter: blur(10px);
-    max-height: 90vh;
-    overflow-y: auto;
 }
 
 /* Card Styles */
@@ -418,7 +416,6 @@
 @media (max-width: 768px) {
     .market-indicators-container {
         padding: 1rem;
-        max-height: 85vh;
     }
 
     .market-card {
@@ -582,8 +579,6 @@
 @media (max-width: 768px) {
     .market-indicators-container {
         padding: 1rem;
-        max-height: none;
-        overflow-y: visible;
     }
 
     .market-indicators-container h2 {
@@ -604,23 +599,6 @@
     }
 }
 
-/* Scrollbar styling for webkit browsers */
-.market-indicators-container::-webkit-scrollbar {
-    width: 6px;
-}
-
-.market-indicators-container::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.market-indicators-container::-webkit-scrollbar-thumb {
-    background: var(--border-color);
-    border-radius: 3px;
-}
-
-.market-indicators-container::-webkit-scrollbar-thumb:hover {
-    background: var(--text-muted);
-}
 
 /* Enhanced spacing for better visual hierarchy */
 .market-indicators-container>div.mb-8 {

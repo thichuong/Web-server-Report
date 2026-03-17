@@ -13,6 +13,15 @@
   margin-top: 0;
 }
 
+/* Sticky hero section on desktop */
+@media (min-width: 1025px) {
+  .hero-section {
+    position: sticky;
+    top: 2rem;
+    z-index: 10;
+  }
+}
+
 /* Homepage responsive adjustments */
 @media (max-width: 768px) {
   .homepage .center {
