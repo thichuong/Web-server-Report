@@ -413,6 +413,55 @@
             const currentLang = localStorage.getItem('preferred_language') || 'vi';
             updateBreadcrumbsLanguage(currentLang);
         });
+
+        // Symbol to Icon conversion failsafe
+        window.addEventListener('shadowDOMReady', function (e) {
+            const shadowRoot = e.detail.shadowRoot;
+            if (!shadowRoot) return;
+
+            console.log('✨ Parent: Running symbol-to-icon conversion failsafe...');
+
+            const transformations = [
+                // Composite patterns (Ordinal directions - must come first)
+                { regex: /\$\s*\\uparrow\s*\$\s*\$\s*\\rightarrow\s*\$/g, replacement: '<i class="fas fa-arrow-trend-up mx-1 text-green-500" aria-hidden="true"></i>' },
+                { regex: /\$\s*\\uparrow\s*\$\s*\$\s*\\leftarrow\s*\$/g, replacement: '<i class="fas fa-arrow-up-left mx-1 text-green-500" aria-hidden="true"></i>' },
+                { regex: /\$\s*\\downarrow\s*\$\s*\$\s*\\rightarrow\s*\$/g, replacement: '<i class="fas fa-arrow-trend-down mx-1 text-red-500" aria-hidden="true"></i>' },
+                { regex: /\$\s*\\downarrow\s*\$\s*\$\s*\\leftarrow\s*\$/g, replacement: '<i class="fas fa-arrow-down-left mx-1 text-red-500" aria-hidden="true"></i>' },
+                // Individual symbols (Cardinal directions)
+                { regex: /\$\s*\\rightarrow\s*\$/g, replacement: '<i class="fas fa-arrow-right mx-1 text-blue-500" aria-hidden="true"></i>' },
+                { regex: /\$\s*\\leftarrow\s*\$/g, replacement: '<i class="fas fa-arrow-left mx-1 text-gray-500" aria-hidden="true"></i>' },
+                { regex: /\$\s*\\uparrow\s*\$/g, replacement: '<i class="fas fa-arrow-up mx-1 text-green-500" aria-hidden="true"></i>' },
+                { regex: /\$\s*\\downarrow\s*\$/g, replacement: '<i class="fas fa-arrow-down mx-1 text-red-500" aria-hidden="true"></i>' }
+            ];
+
+            function transformTextNodes(node) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    let content = node.textContent;
+                    let hasMatch = false;
+                    transformations.forEach(t => {
+                        if (t.regex.test(content)) hasMatch = true;
+                    });
+
+                    if (hasMatch) {
+                        const span = document.createElement('span');
+                        let html = content;
+                        transformations.forEach(t => {
+                            html = html.replace(t.regex, t.replacement);
+                        });
+                        span.innerHTML = html;
+                        node.parentNode.replaceChild(span, node);
+                    }
+                } else if (node.nodeType === Node.ELEMENT_NODE && node.shadowRoot) {
+                    node.shadowRoot.childNodes.forEach(transformTextNodes);
+                } else {
+                    node.childNodes.forEach(transformTextNodes);
+                }
+            }
+
+            // Start transformation from language content containers
+            const containers = shadowRoot.querySelectorAll('.lang-content');
+            containers.forEach(container => transformTextNodes(container));
+        });
     </script>
 
 </body>

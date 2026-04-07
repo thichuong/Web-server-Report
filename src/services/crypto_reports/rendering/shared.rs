@@ -33,6 +33,47 @@ pub static HTML_SANITIZE_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
     ]
 });
 
+/// Pre-compiled symbol transformation patterns for crypto reports
+#[allow(clippy::expect_used)] // Safe: Regex patterns are verified
+pub static SYMBOL_TRANSFORM_PATTERNS: LazyLock<Vec<(Regex, &'static str)>> = LazyLock::new(|| {
+    vec![
+        // Composite patterns (Ordinal directions - must come first)
+        (
+            Regex::new(r"\$\s*\\uparrow\s*\$\s*\$\s*\\rightarrow\s*\$").expect("Invalid regex"),
+            r#"<i class="fas fa-arrow-trend-up mx-1 text-green-500" aria-hidden="true"></i>"#,
+        ),
+        (
+            Regex::new(r"\$\s*\\uparrow\s*\$\s*\$\s*\\leftarrow\s*\$").expect("Invalid regex"),
+            r#"<i class="fas fa-arrow-up-left mx-1 text-green-500" aria-hidden="true"></i>"#,
+        ),
+        (
+            Regex::new(r"\$\s*\\downarrow\s*\$\s*\$\s*\\rightarrow\s*\$").expect("Invalid regex"),
+            r#"<i class="fas fa-arrow-trend-down mx-1 text-red-500" aria-hidden="true"></i>"#,
+        ),
+        (
+            Regex::new(r"\$\s*\\downarrow\s*\$\s*\$\s*\\leftarrow\s*\$").expect("Invalid regex"),
+            r#"<i class="fas fa-arrow-down-left mx-1 text-red-500" aria-hidden="true"></i>"#,
+        ),
+        // Individual symbols (Cardinal directions)
+        (
+            Regex::new(r"\$\s*\\rightarrow\s*\$").expect("Invalid regex"),
+            r#"<i class="fas fa-arrow-right mx-1 text-blue-500" aria-hidden="true"></i>"#,
+        ),
+        (
+            Regex::new(r"\$\s*\\leftarrow\s*\$").expect("Invalid regex"),
+            r#"<i class="fas fa-arrow-left mx-1 text-gray-500" aria-hidden="true"></i>"#,
+        ),
+        (
+            Regex::new(r"\$\s*\\uparrow\s*\$").expect("Invalid regex"),
+            r#"<i class="fas fa-arrow-up mx-1 text-green-500" aria-hidden="true"></i>"#,
+        ),
+        (
+            Regex::new(r"\$\s*\\downarrow\s*\$").expect("Invalid regex"),
+            r#"<i class="fas fa-arrow-down mx-1 text-red-500" aria-hidden="true"></i>"#,
+        ),
+    ]
+});
+
 /// Pre-compiled CSS sanitization patterns
 #[allow(clippy::expect_used)] // Safe: Regex patterns are hardcoded and verified
 pub static CSS_SANITIZE_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
@@ -127,10 +168,27 @@ pub fn sanitize_html_content(html: &str) -> Cow<'_, str> {
                 if let Cow::Owned(owned) = replaced {
                     result = Cow::Owned(owned);
                 }
-                // If Borrowed, no change was made, keep result as-is
             }
             Cow::Owned(ref s) => {
                 let replaced = re.replace_all(s, "");
+                if let Cow::Owned(owned) = replaced {
+                    result = Cow::Owned(owned);
+                }
+            }
+        }
+    }
+
+    // Apply symbol transformations
+    for (re, replacement) in SYMBOL_TRANSFORM_PATTERNS.iter() {
+        match result {
+            Cow::Borrowed(s) => {
+                let replaced = re.replace_all(s, *replacement);
+                if let Cow::Owned(owned) = replaced {
+                    result = Cow::Owned(owned);
+                }
+            }
+            Cow::Owned(ref s) => {
+                let replaced = re.replace_all(s, *replacement);
                 if let Cow::Owned(owned) = replaced {
                     result = Cow::Owned(owned);
                 }
