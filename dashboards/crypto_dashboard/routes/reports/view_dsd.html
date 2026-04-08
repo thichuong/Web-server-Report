@@ -31,6 +31,27 @@
     <link rel="stylesheet" href="/shared_assets/css/chart.css">
     <link rel="stylesheet" href="/crypto_dashboard/assets/report-view.css">
 
+    <!-- MathJax for Crypto Symbols rendering -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                enableMenu: false
+            },
+            startup: {
+                ready: () => {
+                    console.log('MathJax is ready, but waiting for Shadow DOM...');
+                    MathJax.startup.defaultReady();
+                }
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
     <!-- DSD-specific styles -->
     <style>
         /* Shadow host container */
@@ -414,53 +435,26 @@
             updateBreadcrumbsLanguage(currentLang);
         });
 
-        // Symbol to Icon conversion failsafe
+        // MathJax typesetting for Shadow DOM content
         window.addEventListener('shadowDOMReady', function (e) {
             const shadowRoot = e.detail.shadowRoot;
-            if (!shadowRoot) return;
+            if (!shadowRoot || !window.MathJax) return;
 
-            console.log('✨ Parent: Running symbol-to-icon conversion failsafe...');
+            console.log('✨ Parent: Running MathJax typesetting for Shadow DOM...');
 
-            const transformations = [
-                // Composite patterns (Ordinal directions - must come first)
-                { regex: /\$\s*\\uparrow\s*\$\s*\$\s*\\rightarrow\s*\$/g, replacement: '<i class="fas fa-arrow-trend-up mx-1 text-green-500" aria-hidden="true"></i>' },
-                { regex: /\$\s*\\uparrow\s*\$\s*\$\s*\\leftarrow\s*\$/g, replacement: '<i class="fas fa-arrow-up-left mx-1 text-green-500" aria-hidden="true"></i>' },
-                { regex: /\$\s*\\downarrow\s*\$\s*\$\s*\\rightarrow\s*\$/g, replacement: '<i class="fas fa-arrow-trend-down mx-1 text-red-500" aria-hidden="true"></i>' },
-                { regex: /\$\s*\\downarrow\s*\$\s*\$\s*\\leftarrow\s*\$/g, replacement: '<i class="fas fa-arrow-down-left mx-1 text-red-500" aria-hidden="true"></i>' },
-                // Individual symbols (Cardinal directions)
-                { regex: /\$\s*\\rightarrow\s*\$/g, replacement: '<i class="fas fa-arrow-right mx-1 text-blue-500" aria-hidden="true"></i>' },
-                { regex: /\$\s*\\leftarrow\s*\$/g, replacement: '<i class="fas fa-arrow-left mx-1 text-gray-500" aria-hidden="true"></i>' },
-                { regex: /\$\s*\\uparrow\s*\$/g, replacement: '<i class="fas fa-arrow-up mx-1 text-green-500" aria-hidden="true"></i>' },
-                { regex: /\$\s*\\downarrow\s*\$/g, replacement: '<i class="fas fa-arrow-down mx-1 text-red-500" aria-hidden="true"></i>' }
-            ];
-
-            function transformTextNodes(node) {
-                if (node.nodeType === Node.TEXT_NODE) {
-                    let content = node.textContent;
-                    let hasMatch = false;
-                    transformations.forEach(t => {
-                        if (t.regex.test(content)) hasMatch = true;
-                    });
-
-                    if (hasMatch) {
-                        const span = document.createElement('span');
-                        let html = content;
-                        transformations.forEach(t => {
-                            html = html.replace(t.regex, t.replacement);
-                        });
-                        span.innerHTML = html;
-                        node.parentNode.replaceChild(span, node);
-                    }
-                } else if (node.nodeType === Node.ELEMENT_NODE && node.shadowRoot) {
-                    node.shadowRoot.childNodes.forEach(transformTextNodes);
-                } else {
-                    node.childNodes.forEach(transformTextNodes);
-                }
-            }
-
-            // Start transformation from language content containers
             const containers = shadowRoot.querySelectorAll('.lang-content');
-            containers.forEach(container => transformTextNodes(container));
+            if (containers.length > 0) {
+                // MathJax 3 requires passing an array of elements or a single element
+                // to typesetPromise. Since we have multiple containers, we'll map them.
+                const elements = Array.from(containers);
+                
+                // Use typesetPromise to ensure all containers are processed
+                MathJax.typesetPromise(elements).then(() => {
+                    console.log('✅ MathJax: Typesetting complete for report containers.');
+                }).catch((err) => {
+                    console.error('❌ MathJax: Typesetting failed:', err);
+                });
+            }
         });
     </script>
 
