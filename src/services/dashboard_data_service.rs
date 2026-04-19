@@ -102,7 +102,7 @@ impl DashboardDataService {
                 multi_tier_cache::CacheStrategy::ShortTerm, // 5 minutes (ShortTerm is actually 5 mins, architected as 15 in docs but 5 in code)
             )
             .await;
-        
+
         match result {
             Ok(()) => {
                 let size_kb = compressed_data.len() / 1024;

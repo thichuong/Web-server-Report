@@ -80,15 +80,19 @@ async fn crypto_index(
 
     // ⚡ IMMEDIATE CACHE CHECK: Language-aware DSD caching
     // 1. Detect language (default to "vi")
-    let preferred_language =
-        CryptoHandlers::detect_preferred_language(&params, &headers).unwrap_or_else(|| "vi".to_string());
+    let preferred_language = CryptoHandlers::detect_preferred_language(&params, &headers)
+        .unwrap_or_else(|| "vi".to_string());
 
     // 2. Check cache immediately
     let cache_key = format!("compressed_report_dsd_{report_id_value}_{preferred_language}");
     if let Some(cached_data) = try_get_cached_compressed(&state.cache_manager, &cache_key).await {
         debug!(
             "⚡ [Route] DSD cache HIT for report {} (lang: {})",
-            if report_id_value == -1 { "latest".to_string() } else { format!("#{report_id_value}") },
+            if report_id_value == -1 {
+                "latest".to_string()
+            } else {
+                format!("#{report_id_value}")
+            },
             preferred_language
         );
 
@@ -113,7 +117,11 @@ async fn crypto_index(
             &params,
             &headers,
             chart_modules_content,
-            if report_id_value == -1 { None } else { Some(report_id_value) },
+            if report_id_value == -1 {
+                None
+            } else {
+                Some(report_id_value)
+            },
         )
         .await
 }
@@ -138,8 +146,8 @@ async fn crypto_view_report(
 
     // ⚡ IMMEDIATE CACHE CHECK: Language-aware DSD caching
     // 1. Detect language (default to "vi")
-    let preferred_language =
-        CryptoHandlers::detect_preferred_language(&params, &headers).unwrap_or_else(|| "vi".to_string());
+    let preferred_language = CryptoHandlers::detect_preferred_language(&params, &headers)
+        .unwrap_or_else(|| "vi".to_string());
 
     // 2. Check cache immediately
     let cache_key = format!("compressed_report_dsd_{report_id}_{preferred_language}");

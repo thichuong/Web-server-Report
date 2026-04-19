@@ -3,16 +3,16 @@
 //! Standardized utilities for caching compressed binary data (Vec<u8>)
 //! with support for legacy Base64/JSON formats and new Raw Bytes.
 
-use tracing::{info, warn, debug};
-use base64::{Engine, prelude::BASE64_STANDARD};
-use multi_tier_cache::{CacheManager, CacheStrategy, Bytes};
-use flate2::{Compression, write::GzEncoder};
-use std::io::Write;
 use axum::{
     body::Body,
-    http::{StatusCode, header, Response},
+    http::{Response, StatusCode, header},
     response::IntoResponse,
 };
+use base64::{Engine, prelude::BASE64_STANDARD};
+use flate2::{Compression, write::GzEncoder};
+use multi_tier_cache::{Bytes, CacheManager, CacheStrategy};
+use std::io::Write;
+use tracing::{debug, info, warn};
 
 /// Compress XML/JSON string to gzip format
 ///
@@ -62,7 +62,10 @@ pub async fn cache_compressed_data(
     label: &str,
 ) {
     let bytes = Bytes::from(compressed_data.to_vec());
-    match cache_manager.set_with_strategy(cache_key, bytes, strategy).await {
+    match cache_manager
+        .set_with_strategy(cache_key, bytes, strategy)
+        .await
+    {
         Err(e) => {
             warn!("⚠️ Cache: Failed to cache {label} at {cache_key}: {e}");
         }

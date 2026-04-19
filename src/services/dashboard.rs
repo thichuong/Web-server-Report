@@ -20,7 +20,6 @@ use tracing::{debug, error, info, warn};
 use crate::services::crypto_reports::handlers::RenderedContent;
 use crate::services::shared::error::Layer5Result;
 
-
 /// Dashboard Handlers
 ///
 /// Contains all HTTP request handlers for dashboard-related operations.
@@ -194,12 +193,13 @@ impl DashboardHandlers {
     /// # Errors
     ///
     /// Returns error if cache retrieval fails or rendering fails
-    pub async fn homepage_with_tera(
-        &self,
-        state: &Arc<AppState>,
-    ) -> Layer5Result<RenderedContent> {
+    pub async fn homepage_with_tera(&self, state: &Arc<AppState>) -> Layer5Result<RenderedContent> {
         // Optimized: Return cached content from multi-tier cache
-        if let Ok(Some(cached)) = self.data_service.get_rendered_homepage_compressed(state).await {
+        if let Ok(Some(cached)) = self
+            .data_service
+            .get_rendered_homepage_compressed(state)
+            .await
+        {
             debug!("⚡ Serving homepage from multi-tier cache");
             return Ok(RenderedContent {
                 data: cached,
@@ -210,8 +210,9 @@ impl DashboardHandlers {
 
         // Fallback: If not initialized, render and return (lazy init)
         debug!("⚠️ Homepage cache miss (lazy init)");
-        let data = Self::render_homepage_internal(state)
-            .map_err(|e| crate::services::shared::error::Layer5Error::TemplateRender(e.to_string()))?;
+        let data = Self::render_homepage_internal(state).map_err(|e| {
+            crate::services::shared::error::Layer5Error::TemplateRender(e.to_string())
+        })?;
 
         // Try to set cache for next time
         let _ = self

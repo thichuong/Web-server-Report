@@ -21,9 +21,7 @@ use crate::services::shared::{
 };
 use crate::state::AppState;
 
-use super::shared::{
-    Report, SandboxedReport, sanitize_css_content, sanitize_html_content, sanitize_js_content,
-};
+use super::shared::{Report, SandboxedReport, sanitize_css_content, sanitize_js_content};
 
 /// Pre-loaded Shadow DOM template for modern DSD architecture.
 /// Replaces iframe-based approach with Declarative Shadow DOM.
@@ -68,7 +66,7 @@ impl ShadowDomRenderer {
 
         SandboxedReport {
             id: report.id,
-            html_content: sanitize_html_content(&report.html_content).into_owned(),
+            html_content: report.html_content.clone(),
             css_content: report.css_content.as_deref().map(sanitize_css_content),
             js_content: report
                 .js_content
@@ -77,7 +75,7 @@ impl ShadowDomRenderer {
             html_content_en: report
                 .html_content_en
                 .as_deref()
-                .map(|h| sanitize_html_content(h).into_owned()),
+                .map(std::string::ToString::to_string),
             js_content_en: report
                 .js_content_en
                 .as_deref()

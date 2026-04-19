@@ -3,16 +3,12 @@
 //! This module handles the main homepage route using the Service Islands Architecture.
 //! The homepage is served through the Dashboard Island.
 
-use axum::{
-    extract::State,
-    routing::get,
-    Router,
-};
+use axum::{Router, extract::State, routing::get};
 use std::sync::Arc;
 use tracing::debug;
 
 use crate::services::crypto_reports::handlers::RenderedContent;
-use crate::services::shared::{try_get_cached_compressed, error::Layer5Result};
+use crate::services::shared::{error::Layer5Result, try_get_cached_compressed};
 use crate::state::AppState;
 
 /// Configure homepage route

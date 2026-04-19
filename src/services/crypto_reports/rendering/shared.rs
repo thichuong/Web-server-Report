@@ -93,13 +93,6 @@ pub struct SandboxedReport {
     pub complete_html_document: String, // Complete HTML document ready for iframe
 }
 
-#[inline]
-pub fn sanitize_html_content(html: &str) -> Cow<'_, str> {
-    // Note: HTML_SANITIZE_PATTERNS and SYMBOL_TRANSFORM_PATTERNS have been removed
-    // in favor of frontend MathJax rendering.
-    Cow::Borrowed(html)
-}
-
 /// CSS wrapper prefix for isolation
 const CSS_WRAPPER_PREFIX: &str =
     "/* CSS isolated within iframe sandbox */\n.sandboxed-report-container {\n";

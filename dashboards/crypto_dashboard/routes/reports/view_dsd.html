@@ -31,26 +31,6 @@
     <link rel="stylesheet" href="/shared_assets/css/chart.css">
     <link rel="stylesheet" href="/crypto_dashboard/assets/report-view.css">
 
-    <!-- MathJax for Crypto Symbols rendering -->
-    <script>
-        window.MathJax = {
-            tex: {
-                inlineMath: [['$', '$'], ['\\(', '\\)']],
-                displayMath: [['$$', '$$'], ['\\[', '\\]']],
-                processEscapes: true
-            },
-            options: {
-                enableMenu: false
-            },
-            startup: {
-                ready: () => {
-                    console.log('MathJax is ready, but waiting for Shadow DOM...');
-                    MathJax.startup.defaultReady();
-                }
-            }
-        };
-    </script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
     <!-- DSD-specific styles -->
     <style>
@@ -435,27 +415,6 @@
             updateBreadcrumbsLanguage(currentLang);
         });
 
-        // MathJax typesetting for Shadow DOM content
-        window.addEventListener('shadowDOMReady', function (e) {
-            const shadowRoot = e.detail.shadowRoot;
-            if (!shadowRoot || !window.MathJax) return;
-
-            console.log('✨ Parent: Running MathJax typesetting for Shadow DOM...');
-
-            const containers = shadowRoot.querySelectorAll('.lang-content');
-            if (containers.length > 0) {
-                // MathJax 3 requires passing an array of elements or a single element
-                // to typesetPromise. Since we have multiple containers, we'll map them.
-                const elements = Array.from(containers);
-                
-                // Use typesetPromise to ensure all containers are processed
-                MathJax.typesetPromise(elements).then(() => {
-                    console.log('✅ MathJax: Typesetting complete for report containers.');
-                }).catch((err) => {
-                    console.error('❌ MathJax: Typesetting failed:', err);
-                });
-            }
-        });
     </script>
 
 </body>

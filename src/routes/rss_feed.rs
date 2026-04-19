@@ -35,7 +35,6 @@ pub fn configure_rss_routes() -> Router<Arc<AppState>> {
         .route("/rss", get(rss_feed)) // Alternative path without .xml extension
 }
 
-
 /// Generate and serve RSS 2.0 feed with L1/L2 cache
 ///
 /// Uses `MediumTerm` cache strategy (1 hour) since RSS changes infrequently.

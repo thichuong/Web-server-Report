@@ -52,9 +52,7 @@ async fn api_dashboard_data(State(state): State<Arc<AppState>>) -> impl IntoResp
                 // Phase 3: Primary reads from Redis Streams via RedisStreamReader
                 if let Ok(Some(data)) = state.redis_stream_reader.read_latest_market_data().await {
                     debug!("✅ [API] Data fetched from Redis Stream");
-                    if let Ok(typed_data) =
-                        serde_json::from_value::<DashboardDataResponse>(data)
-                    {
+                    if let Ok(typed_data) = serde_json::from_value::<DashboardDataResponse>(data) {
                         return Ok(typed_data);
                     }
                 }
@@ -73,10 +71,7 @@ async fn api_dashboard_data(State(state): State<Arc<AppState>>) -> impl IntoResp
         cache_hit = "HIT";
     }
 
-    (
-        [("x-cache", cache_hit)],
-        Json(response_data)
-    )
+    ([("x-cache", cache_hit)], Json(response_data))
 }
 
 fn get_fallback_dashboard_data() -> DashboardDataResponse {

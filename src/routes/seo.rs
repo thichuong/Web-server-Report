@@ -30,7 +30,6 @@ pub fn configure_seo_routes() -> Router<Arc<AppState>> {
     Router::new().route("/sitemap.xml", get(sitemap_xml))
 }
 
-
 /// Generate and serve sitemap.xml with L1/L2 cache
 ///
 /// Uses `MediumTerm` cache strategy (1 hour) since sitemap changes infrequently.

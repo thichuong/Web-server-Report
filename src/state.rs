@@ -9,8 +9,8 @@ use tracing::{debug, info, warn};
 
 // Import cache system from library
 use multi_tier_cache::{
-    backends::moka_cache::MokaCacheConfig, backends::redis_cache::RedisCache, CacheManager,
-    CacheSystemBuilder, RedisStreams,
+    CacheManager, CacheSystemBuilder, RedisStreams, backends::moka_cache::MokaCacheConfig,
+    backends::redis_cache::RedisCache,
 };
 use std::time::Duration;
 
@@ -58,15 +58,19 @@ impl AppState {
             time_to_idle: Duration::from_secs(2 * 60),  // 2 mins
         };
 
-        let redis_url = std::env::var("REDIS_URL")
-            .unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
-        let redis_backend = Arc::new(RedisCache::with_url(&redis_url).await.map_err(|e| {
-            anyhow::anyhow!("Failed to initialize Redis cache backend: {}", e)
-        })?);
+        let redis_url =
+            std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+        let redis_backend = Arc::new(
+            RedisCache::with_url(&redis_url)
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to initialize Redis cache backend: {}", e))?,
+        );
 
-        let redis_streams = Arc::new(RedisStreams::new(&redis_url).await.map_err(|e| {
-            anyhow::anyhow!("Failed to initialize Redis streams backend: {e}")
-        })?);
+        let redis_streams = Arc::new(
+            RedisStreams::new(&redis_url)
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to initialize Redis streams backend: {e}"))?,
+        );
 
         let cache_system = CacheSystemBuilder::new()
             .with_moka_config(moka_config)
