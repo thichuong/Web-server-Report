@@ -527,12 +527,12 @@ impl CryptoDataService {
 
         let total = total_res.map_err(|e| {
             error!("❌ Layer 3: Database error getting total count: {}", e);
-            anyhow::anyhow!("Database error: {}", e)
+            anyhow::anyhow!("Database error: {e}")
         })?;
 
         let list = rows_res.map_err(|e| {
             error!("❌ Layer 3: Database error getting report list: {}", e);
-            anyhow::anyhow!("Database error: {}", e)
+            anyhow::anyhow!("Database error: {e}")
         })?;
 
         debug!(
@@ -660,7 +660,7 @@ impl CryptoDataService {
         tera.render("crypto/routes/reports/list.html", &context)
             .map_err(|e| {
                 error!("❌ Layer 3: Reports list template render error: {:#?}", e);
-                anyhow::anyhow!("Template render error: {}", e)
+                anyhow::anyhow!("Template render error: {e}")
             })
     }
 
@@ -675,7 +675,7 @@ impl CryptoDataService {
                 "❌ Layer 3: Compression write error for reports list page {}: {}",
                 page, e
             );
-            anyhow::anyhow!("Compression error: {}", e)
+            anyhow::anyhow!("Compression error: {e}")
         })?;
 
         let compressed_data = encoder.finish().map_err(|e| {
@@ -683,7 +683,7 @@ impl CryptoDataService {
                 "❌ Layer 3: Compression finish error for reports list page {}: {}",
                 page, e
             );
-            anyhow::anyhow!("Compression error: {}", e)
+            anyhow::anyhow!("Compression error: {e}")
         })?;
 
         let original_size = html.len();

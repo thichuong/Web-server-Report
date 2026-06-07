@@ -54,8 +54,8 @@ impl AppState {
         // 3. Initialize Cache System
         let moka_config = MokaCacheConfig {
             max_capacity: 1000,
-            time_to_live: Duration::from_secs(30 * 60), // 30 mins
-            time_to_idle: Duration::from_secs(2 * 60),  // 2 mins
+            time_to_live: Duration::from_mins(30), // 30 mins
+            time_to_idle: Duration::from_mins(2),  // 2 mins
         };
 
         let redis_url =
@@ -63,7 +63,7 @@ impl AppState {
         let redis_backend = Arc::new(
             RedisCache::with_url(&redis_url)
                 .await
-                .map_err(|e| anyhow::anyhow!("Failed to initialize Redis cache backend: {}", e))?,
+                .map_err(|e| anyhow::anyhow!("Failed to initialize Redis cache backend: {e}"))?,
         );
 
         let redis_streams = Arc::new(
