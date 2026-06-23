@@ -92,3 +92,6 @@ indexing_slicing = "warn"
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
 axum-test = "20.1.0" # Optional, but tower oneshot is enough for now
+
+[target.x86_64-unknown-linux-musl.dependencies]
+openssl = { version = "0.10.80", features = ["vendored"] }
