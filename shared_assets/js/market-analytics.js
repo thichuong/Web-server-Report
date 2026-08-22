@@ -215,7 +215,19 @@
 
                 // If spot candle doesn't exist for exact ts, find closest or default
                 const spotQuoteVol = spot ? spot.quoteVolume : 0;
+                const spotBuyQuoteVol = spot ? spot.takerBuyQuoteVol : 0;
+                const spotSellQuoteVol = Math.max(0, spotQuoteVol - spotBuyQuoteVol);
+                const spotNetDelta = spotBuyQuoteVol - spotSellQuoteVol;
+                const spotBuyRatio = spotSellQuoteVol > 0 ? (spotBuyQuoteVol / spotSellQuoteVol) : (spotBuyQuoteVol > 0 ? 10 : 1);
+                const spotBuyPct = spotQuoteVol > 0 ? (spotBuyQuoteVol / spotQuoteVol) * 100 : 50;
+
                 const futQuoteVol = fut ? fut.quoteVolume : 0;
+                const futBuyQuoteVol = fut ? fut.takerBuyQuoteVol : 0;
+                const futSellQuoteVol = Math.max(0, futQuoteVol - futBuyQuoteVol);
+                const futNetDelta = futBuyQuoteVol - futSellQuoteVol;
+                const futBuyRatio = futSellQuoteVol > 0 ? (futBuyQuoteVol / futSellQuoteVol) : (futBuyQuoteVol > 0 ? 10 : 1);
+                const futBuyPct = futQuoteVol > 0 ? (futBuyQuoteVol / futQuoteVol) * 100 : 50;
+
                 const spotPrice = spot ? spot.close : fut.close;
                 const futPrice = fut.close;
 
@@ -223,12 +235,8 @@
                 const volumeRatio = spotQuoteVol > 0 ? futQuoteVol / spotQuoteVol : 0;
 
                 // Taker CVD calculation (Quote Volume based in USDT)
-                if (spot) {
-                    const spotTakerSell = spot.quoteVolume - spot.takerBuyQuoteVol;
-                    spotCumulativeCvd += (spot.takerBuyQuoteVol - spotTakerSell);
-                }
-                const futTakerSell = fut.quoteVolume - fut.takerBuyQuoteVol;
-                futCumulativeCvd += (fut.takerBuyQuoteVol - futTakerSell);
+                spotCumulativeCvd += spotNetDelta;
+                futCumulativeCvd += futNetDelta;
 
                 // Find matching or closest OI record within timeframe window
                 let matchedOi = null;
@@ -288,7 +296,17 @@
                     low: fut.low,
                     close: fut.close,
                     spotVolumeUsdt: spotQuoteVol,
+                    spotBuyVolumeUsdt: spotBuyQuoteVol,
+                    spotSellVolumeUsdt: spotSellQuoteVol,
+                    spotNetDelta: spotNetDelta,
+                    spotBuyRatio: spotBuyRatio,
+                    spotBuyPct: spotBuyPct,
                     futuresVolumeUsdt: futQuoteVol,
+                    futuresBuyVolumeUsdt: futBuyQuoteVol,
+                    futuresSellVolumeUsdt: futSellQuoteVol,
+                    futuresNetDelta: futNetDelta,
+                    futuresBuyRatio: futBuyRatio,
+                    futuresBuyPct: futBuyPct,
                     volumeDelta: volumeDelta,
                     volumeRatio: volumeRatio,
                     spotCvd: spotCumulativeCvd,
@@ -368,10 +386,12 @@
         constructor() {
             this.charts = {
                 priceVolume: null,
+                buySellBreakdown: null,
                 volumeDelta: null,
                 longShortSpot: null,
                 longShortRatio: null,
                 openInterest: null,
+                netTakerDelta: null,
                 correlationCvd: null
             };
         }
@@ -390,6 +410,14 @@
                 spotColorBg: 'rgba(59, 130, 246, 0.4)',
                 futuresColor: '#f59e0b', // Amber / Orange
                 futuresColorBg: 'rgba(245, 158, 11, 0.4)',
+                buyColor: '#10b981', // Emerald Green
+                buyColorBg: 'rgba(16, 185, 129, 0.5)',
+                sellColor: '#f43f5e', // Rose Red
+                sellColorBg: 'rgba(244, 63, 94, 0.5)',
+                spotBuyColor: '#06b6d4', // Cyan
+                spotSellColor: '#3b82f6', // Blue
+                futBuyColor: '#10b981', // Emerald
+                futSellColor: '#f43f5e', // Rose
                 deltaPositive: '#10b981', // Green (Futures > Spot)
                 deltaNegative: '#6366f1', // Indigo (Spot > Futures)
                 longColor: '#10b981', // Emerald Green
@@ -420,12 +448,21 @@
             const colors = this.getThemeColors();
             const labels = data.items.map(d => d.label);
 
+            // Layer 1: Price Action & Real-Time Flow
             this.renderPriceVolumeChart(data.items, labels, colors);
+            this.renderBuySellBreakdownChart(data.items, labels, colors);
+
+            // Layer 2: Order Flow Net Delta & CVD
+            this.renderNetTakerDeltaChart(data.items, labels, colors);
+            this.renderCorrelationCvdChart(data.items, labels, colors);
+
+            // Layer 3: Open Interest & Long/Short Positioning
+            this.renderOpenInterestChart(data.items, labels, colors);
+            this.renderLongShortRatioChart(data.items, labels, colors);
+
+            // Layer 4: Derivatives Leverage & Spot Liquidity
             this.renderVolumeDeltaChart(data.items, labels, colors);
             this.renderLongShortSpotChart(data.items, labels, colors);
-            this.renderLongShortRatioChart(data.items, labels, colors);
-            this.renderOpenInterestChart(data.items, labels, colors);
-            this.renderCorrelationCvdChart(data.items, labels, colors);
         }
 
         renderPriceVolumeChart(items, labels, colors) {
@@ -513,6 +550,120 @@
                             ticks: {
                                 color: colors.mutedText,
                                 callback: val => '$' + formatNumber(val)
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        renderBuySellBreakdownChart(items, labels, colors) {
+            const ctx = document.getElementById('chart-buy-sell-breakdown');
+            if (!ctx) return;
+
+            const spotBuyVols = items.map(d => d.spotBuyVolumeUsdt);
+            const spotSellVols = items.map(d => d.spotSellVolumeUsdt);
+            const futBuyVols = items.map(d => d.futuresBuyVolumeUsdt);
+            const futSellVols = items.map(d => d.futuresSellVolumeUsdt);
+            const futBuyRatios = items.map(d => d.futuresBuyRatio);
+
+            this.charts.buySellBreakdown = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            type: 'line',
+                            label: 'Futures Buy/Sell Ratio',
+                            data: futBuyRatios,
+                            borderColor: colors.lsRatioColor,
+                            backgroundColor: 'transparent',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                            yAxisID: 'yRatio',
+                            order: 1
+                        },
+                        {
+                            type: 'bar',
+                            label: 'Spot Buy ($)',
+                            data: spotBuyVols,
+                            backgroundColor: 'rgba(6, 182, 212, 0.65)',
+                            borderColor: '#06b6d4',
+                            borderWidth: 1,
+                            yAxisID: 'yVolume',
+                            order: 2
+                        },
+                        {
+                            type: 'bar',
+                            label: 'Spot Sell ($)',
+                            data: spotSellVols,
+                            backgroundColor: 'rgba(59, 130, 246, 0.45)',
+                            borderColor: '#3b82f6',
+                            borderWidth: 1,
+                            yAxisID: 'yVolume',
+                            order: 3
+                        },
+                        {
+                            type: 'bar',
+                            label: 'Futures Buy / Long ($)',
+                            data: futBuyVols,
+                            backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                            borderColor: '#10b981',
+                            borderWidth: 1,
+                            yAxisID: 'yVolume',
+                            order: 4
+                        },
+                        {
+                            type: 'bar',
+                            label: 'Futures Sell / Short ($)',
+                            data: futSellVols,
+                            backgroundColor: 'rgba(244, 63, 94, 0.7)',
+                            borderColor: '#f43f5e',
+                            borderWidth: 1,
+                            yAxisID: 'yVolume',
+                            order: 5
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { labels: { color: colors.text, font: { family: 'Inter', size: 11 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    if (context.dataset.yAxisID === 'yRatio') {
+                                        return ` Buy/Sell Ratio: ${Number(context.raw).toFixed(2)}`;
+                                    }
+                                    return ` ${context.dataset.label}: $${formatNumber(context.raw)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: colors.grid },
+                            ticks: { color: colors.mutedText, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }
+                        },
+                        yVolume: {
+                            type: 'linear',
+                            position: 'left',
+                            grid: { color: colors.grid },
+                            ticks: {
+                                color: colors.text,
+                                callback: val => '$' + formatNumber(val)
+                            }
+                        },
+                        yRatio: {
+                            type: 'linear',
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            ticks: {
+                                color: colors.lsRatioColor,
+                                callback: val => Number(val).toFixed(1)
                             }
                         }
                     }
@@ -896,6 +1047,97 @@
             });
         }
 
+        renderNetTakerDeltaChart(items, labels, colors) {
+            const ctx = document.getElementById('chart-net-taker-delta');
+            if (!ctx) return;
+
+            const spotDeltas = items.map(d => d.spotNetDelta);
+            const futDeltas = items.map(d => d.futuresNetDelta);
+            const prices = items.map(d => d.price);
+
+            this.charts.netTakerDelta = new Chart(ctx, {
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            type: 'line',
+                            label: 'Price ($)',
+                            data: prices,
+                            borderColor: colors.priceColor,
+                            backgroundColor: 'transparent',
+                            borderWidth: 1.5,
+                            pointRadius: 0,
+                            yAxisID: 'yPrice',
+                            order: 1
+                        },
+                        {
+                            type: 'bar',
+                            label: 'Spot Net Delta ($)',
+                            data: spotDeltas,
+                            backgroundColor: spotDeltas.map(v => v >= 0 ? 'rgba(6, 182, 212, 0.75)' : 'rgba(59, 130, 246, 0.75)'),
+                            borderColor: '#06b6d4',
+                            borderWidth: 1,
+                            yAxisID: 'yDelta',
+                            order: 2
+                        },
+                        {
+                            type: 'bar',
+                            label: 'Futures Net Delta ($)',
+                            data: futDeltas,
+                            backgroundColor: futDeltas.map(v => v >= 0 ? 'rgba(16, 185, 129, 0.75)' : 'rgba(244, 63, 94, 0.75)'),
+                            borderColor: futDeltas.map(v => v >= 0 ? '#10b981' : '#f43f5e'),
+                            borderWidth: 1,
+                            yAxisID: 'yDelta',
+                            order: 3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { labels: { color: colors.text, font: { family: 'Inter', size: 11 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    if (context.dataset.yAxisID === 'yPrice') {
+                                        return ` Price: $${formatPrice(context.raw)}`;
+                                    }
+                                    const sign = context.raw >= 0 ? '+' : '';
+                                    return ` ${context.dataset.label}: ${sign}$${formatNumber(context.raw)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: colors.grid },
+                            ticks: { color: colors.mutedText, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }
+                        },
+                        yDelta: {
+                            type: 'linear',
+                            position: 'left',
+                            grid: { color: colors.grid },
+                            ticks: {
+                                color: colors.text,
+                                callback: val => '$' + formatNumber(val)
+                            }
+                        },
+                        yPrice: {
+                            type: 'linear',
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            ticks: {
+                                color: colors.mutedText,
+                                callback: val => '$' + formatPrice(val)
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
         renderCorrelationCvdChart(items, labels, colors) {
             const ctx = document.getElementById('chart-correlation-cvd');
             if (!ctx) return;
@@ -1039,8 +1281,11 @@
 
                 // KPI Elements
                 kpiSpotVol: document.getElementById('kpi-spot-vol'),
+                kpiSpotBuySell: document.getElementById('kpi-spot-buy-sell'),
                 kpiFutVol: document.getElementById('kpi-fut-vol'),
+                kpiFutBuySell: document.getElementById('kpi-fut-buy-sell'),
                 kpiFsRatio: document.getElementById('kpi-fs-ratio'),
+                kpiBsRatio: document.getElementById('kpi-bs-ratio'),
                 kpiOiUsdt: document.getElementById('kpi-oi-usdt'),
                 kpiOiCoins: document.getElementById('kpi-oi-coins'),
                 kpiLongPos: document.getElementById('kpi-long-pos'),
@@ -1312,25 +1557,51 @@
                 this.el.analyticsUpdatedAt.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} - ${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
             }
 
-            // Spot 24h Vol
+            // Spot 24h Vol & Buy/Sell
             let spot24hVol = 0;
+            let spotBuy24h = 0;
+            let spotSell24h = 0;
             if (this.el.kpiSpotVol) {
                 spot24hVol = tickers.spot ? parseFloat(tickers.spot.quoteVolume) : (lastItem ? lastItem.spotVolumeUsdt * 24 : 0);
                 this.el.kpiSpotVol.textContent = '$' + formatNumber(spot24hVol);
+
+                const spotBuyPct = lastItem ? (lastItem.spotBuyPct / 100) : 0.5;
+                spotBuy24h = spot24hVol * spotBuyPct;
+                spotSell24h = Math.max(0, spot24hVol - spotBuy24h);
+
+                if (this.el.kpiSpotBuySell) {
+                    this.el.kpiSpotBuySell.innerHTML = `Mua: <span class="font-bold text-cyan-400">$${formatNumber(spotBuy24h)}</span> | Bán: <span class="font-bold text-blue-400">$${formatNumber(spotSell24h)}</span>`;
+                }
             }
 
-            // Futures 24h Vol
+            // Futures 24h Vol & Buy/Sell
+            let fut24hVol = 0;
+            let futBuy24h = 0;
+            let futSell24h = 0;
             if (this.el.kpiFutVol) {
-                const futVol = tickers.futures ? parseFloat(tickers.futures.quoteVolume) : (lastItem ? lastItem.futuresVolumeUsdt * 24 : 0);
-                this.el.kpiFutVol.textContent = '$' + formatNumber(futVol);
+                fut24hVol = tickers.futures ? parseFloat(tickers.futures.quoteVolume) : (lastItem ? lastItem.futuresVolumeUsdt * 24 : 0);
+                this.el.kpiFutVol.textContent = '$' + formatNumber(fut24hVol);
+
+                const futBuyPct = lastItem ? (lastItem.futuresBuyPct / 100) : 0.5;
+                futBuy24h = fut24hVol * futBuyPct;
+                futSell24h = Math.max(0, fut24hVol - futBuy24h);
+
+                if (this.el.kpiFutBuySell) {
+                    this.el.kpiFutBuySell.innerHTML = `Mua: <span class="font-bold text-emerald-400">$${formatNumber(futBuy24h)}</span> | Bán: <span class="font-bold text-rose-400">$${formatNumber(futSell24h)}</span>`;
+                }
             }
 
-            // F/S Ratio
+            // F/S Ratio & Buy/Sell Ratio
             if (this.el.kpiFsRatio) {
-                const spotVol = tickers.spot ? parseFloat(tickers.spot.quoteVolume) : 1;
-                const futVol = tickers.futures ? parseFloat(tickers.futures.quoteVolume) : 1;
+                const spotVol = spot24hVol > 0 ? spot24hVol : 1;
+                const futVol = fut24hVol > 0 ? fut24hVol : 1;
                 const ratio = spotVol > 0 ? (futVol / spotVol) : 0;
                 this.el.kpiFsRatio.textContent = ratio.toFixed(2) + 'x';
+            }
+            if (this.el.kpiBsRatio) {
+                const futBsRatio = futSell24h > 0 ? (futBuy24h / futSell24h).toFixed(2) : '--';
+                const spotBsRatio = spotSell24h > 0 ? (spotBuy24h / spotSell24h).toFixed(2) : '--';
+                this.el.kpiBsRatio.textContent = `Tỷ lệ Mua/Bán: ${futBsRatio} (Fut) | ${spotBsRatio} (Spot)`;
             }
 
             // Open Interest
@@ -1468,18 +1739,26 @@
 
                 html += `
                     <tr class="hover:bg-white/5 dark:hover:bg-black/20 transition-all duration-200" style="border-bottom: 1px solid var(--border-color);">
-                        <td class="px-4 py-3 text-xs font-medium" style="color: var(--text-primary);">${row.label}</td>
-                        <td class="px-4 py-3 text-xs font-bold" style="color: var(--text-primary);">$${formatPrice(row.price)} <span class="${priceColor} ml-1 font-semibold">(${priceSign}${row.priceChangePct.toFixed(2)}%)</span></td>
-                        <td class="px-4 py-3 text-xs text-blue-500 font-semibold">$${formatNumber(row.spotVolumeUsdt)}</td>
-                        <td class="px-4 py-3 text-xs text-yellow-500 font-semibold">$${formatNumber(row.futuresVolumeUsdt)}</td>
-                        <td class="px-4 py-3 text-xs text-emerald-500 font-semibold">${row.longPositionUsdt !== null ? '$' + formatNumber(row.longPositionUsdt) : '--'}</td>
-                        <td class="px-4 py-3 text-xs text-rose-500 font-semibold">${row.shortPositionUsdt !== null ? '$' + formatNumber(row.shortPositionUsdt) : '--'}</td>
-                        <td class="px-4 py-3 text-xs font-bold text-emerald-400">${row.longSpotRatio ? row.longSpotRatio.toFixed(2) + 'x' : '--'}</td>
-                        <td class="px-4 py-3 text-xs font-bold text-rose-400">${row.shortSpotRatio ? row.shortSpotRatio.toFixed(2) + 'x' : '--'}</td>
-                        <td class="px-4 py-3 text-xs font-semibold text-indigo-400">${row.longShortRatio ? row.longShortRatio.toFixed(2) : '--'}</td>
-                        <td class="px-4 py-3 text-xs font-bold" style="color: var(--text-primary);">${row.volumeRatio.toFixed(2)}x</td>
-                        <td class="px-4 py-3 text-xs text-pink-500 font-semibold">${row.openInterestUsdt ? '$' + formatNumber(row.openInterestUsdt) : '--'}</td>
-                        <td class="px-4 py-3 text-xs text-center">${stateTag}</td>
+                        <td class="px-3.5 py-3 text-xs font-medium" style="color: var(--text-primary);">${row.label}</td>
+                        <td class="px-3.5 py-3 text-xs font-bold" style="color: var(--text-primary);">$${formatPrice(row.price)} <span class="${priceColor} ml-1 font-semibold">(${priceSign}${row.priceChangePct.toFixed(2)}%)</span></td>
+                        <td class="px-3.5 py-3 text-xs text-blue-400 font-semibold">$${formatNumber(row.spotVolumeUsdt)}</td>
+                        <td class="px-3.5 py-3 text-xs">
+                            <span class="text-cyan-400 font-semibold">$${formatNumber(row.spotBuyVolumeUsdt)}</span> / <span class="text-blue-400 font-semibold">$${formatNumber(row.spotSellVolumeUsdt)}</span>
+                            <span class="text-[10px] text-gray-400 ml-1">(${row.spotBuyPct.toFixed(0)}%)</span>
+                        </td>
+                        <td class="px-3.5 py-3 text-xs text-yellow-400 font-semibold">$${formatNumber(row.futuresVolumeUsdt)}</td>
+                        <td class="px-3.5 py-3 text-xs">
+                            <span class="text-emerald-400 font-semibold">$${formatNumber(row.futuresBuyVolumeUsdt)}</span> / <span class="text-rose-400 font-semibold">$${formatNumber(row.futuresSellVolumeUsdt)}</span>
+                            <span class="text-[10px] text-gray-400 ml-1">(${row.futuresBuyPct.toFixed(0)}%)</span>
+                        </td>
+                        <td class="px-3.5 py-3 text-xs text-emerald-500 font-semibold">${row.longPositionUsdt !== null ? '$' + formatNumber(row.longPositionUsdt) : '--'}</td>
+                        <td class="px-3.5 py-3 text-xs text-rose-500 font-semibold">${row.shortPositionUsdt !== null ? '$' + formatNumber(row.shortPositionUsdt) : '--'}</td>
+                        <td class="px-3.5 py-3 text-xs font-bold text-emerald-400">${row.longSpotRatio ? row.longSpotRatio.toFixed(2) + 'x' : '--'}</td>
+                        <td class="px-3.5 py-3 text-xs font-bold text-rose-400">${row.shortSpotRatio ? row.shortSpotRatio.toFixed(2) + 'x' : '--'}</td>
+                        <td class="px-3.5 py-3 text-xs font-semibold text-indigo-400">${row.longShortRatio ? row.longShortRatio.toFixed(2) : '--'}</td>
+                        <td class="px-3.5 py-3 text-xs font-bold" style="color: var(--text-primary);">${row.volumeRatio.toFixed(2)}x</td>
+                        <td class="px-3.5 py-3 text-xs text-pink-400 font-semibold">${row.openInterestUsdt ? '$' + formatNumber(row.openInterestUsdt) : '--'}</td>
+                        <td class="px-3.5 py-3 text-xs text-center">${stateTag}</td>
                     </tr>
                 `;
             });
@@ -1500,14 +1779,27 @@
                 'Price',
                 'PriceChangePct',
                 'SpotVolumeUSDT',
+                'SpotBuyVolumeUSDT',
+                'SpotSellVolumeUSDT',
+                'SpotBuyRatio',
+                'SpotNetDeltaUSDT',
                 'FuturesVolumeUSDT',
+                'FuturesBuyVolumeUSDT',
+                'FuturesSellVolumeUSDT',
+                'FuturesBuyRatio',
+                'FuturesNetDeltaUSDT',
                 'LongPositionUSDT',
                 'ShortPositionUSDT',
+                'LongRatio',
+                'ShortRatio',
+                'LongShortRatio',
                 'LongSpotRatio',
                 'ShortSpotRatio',
-                'LongShortRatio',
                 'FuturesSpotRatio',
                 'OpenInterestUSDT',
+                'OpenInterestCoins',
+                'SpotCVD',
+                'FuturesCVD',
                 'Correlation14',
                 'MarketState'
             ];
@@ -1517,14 +1809,27 @@
                 d.price,
                 d.priceChangePct.toFixed(2),
                 d.spotVolumeUsdt.toFixed(2),
+                d.spotBuyVolumeUsdt.toFixed(2),
+                d.spotSellVolumeUsdt.toFixed(2),
+                d.spotBuyRatio.toFixed(2),
+                d.spotNetDelta.toFixed(2),
                 d.futuresVolumeUsdt.toFixed(2),
+                d.futuresBuyVolumeUsdt.toFixed(2),
+                d.futuresSellVolumeUsdt.toFixed(2),
+                d.futuresBuyRatio.toFixed(2),
+                d.futuresNetDelta.toFixed(2),
                 d.longPositionUsdt !== null ? d.longPositionUsdt.toFixed(2) : '',
                 d.shortPositionUsdt !== null ? d.shortPositionUsdt.toFixed(2) : '',
+                d.longRatio.toFixed(4),
+                d.shortRatio.toFixed(4),
+                d.longShortRatio ? d.longShortRatio.toFixed(2) : '',
                 d.longSpotRatio ? d.longSpotRatio.toFixed(2) : '',
                 d.shortSpotRatio ? d.shortSpotRatio.toFixed(2) : '',
-                d.longShortRatio ? d.longShortRatio.toFixed(2) : '',
                 d.volumeRatio.toFixed(2),
                 d.openInterestUsdt ? d.openInterestUsdt.toFixed(2) : '',
+                d.openInterestCoins ? d.openInterestCoins.toFixed(2) : '',
+                d.spotCvd.toFixed(2),
+                d.futuresCvd.toFixed(2),
                 d.correlation !== null ? d.correlation.toFixed(3) : '',
                 `"${d.marketState}"`
             ]);
