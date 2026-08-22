@@ -759,7 +759,8 @@
 
                 // Table element
                 dataTableBody: document.getElementById('analytics-data-table-body'),
-                tableSymbolLabel: document.getElementById('table-current-symbol')
+                tableSymbolLabel: document.getElementById('table-current-symbol'),
+                analyticsUpdatedAt: document.getElementById('analytics-updated-at')
             };
         }
 
@@ -1000,6 +1001,13 @@
             const items = data.items;
             const lastItem = items.length > 0 ? items[items.length - 1] : null;
 
+            // Updated at timestamp
+            if (this.el.analyticsUpdatedAt) {
+                const now = new Date();
+                const pad = n => String(n).padStart(2, '0');
+                this.el.analyticsUpdatedAt.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} - ${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
+            }
+
             // Spot 24h Vol
             if (this.el.kpiSpotVol) {
                 const spotVol = tickers.spot ? parseFloat(tickers.spot.quoteVolume) : (lastItem ? lastItem.spotVolumeUsdt * 24 : 0);
@@ -1044,13 +1052,13 @@
                 const isVi = (document.documentElement.lang || 'vi') === 'vi';
                 if (corr >= 0.7) {
                     this.el.kpiCorrelationStatus.textContent = isVi ? 'Đồng thuận cao (Thị trường thực)' : 'High Alignment (Organic)';
-                    this.el.kpiCorrelationStatus.className = 'text-xs font-semibold text-emerald-400';
+                    this.el.kpiCorrelationStatus.className = 'text-xs font-semibold text-emerald-500';
                 } else if (corr <= 0.3) {
                     this.el.kpiCorrelationStatus.textContent = isVi ? 'Phân kỳ / Đầu cơ phái sinh' : 'Divergence (Speculative)';
-                    this.el.kpiCorrelationStatus.className = 'text-xs font-semibold text-amber-400';
+                    this.el.kpiCorrelationStatus.className = 'text-xs font-semibold text-amber-500';
                 } else {
                     this.el.kpiCorrelationStatus.textContent = isVi ? 'Tương quan trung bình' : 'Moderate Correlation';
-                    this.el.kpiCorrelationStatus.className = 'text-xs font-semibold text-blue-400';
+                    this.el.kpiCorrelationStatus.className = 'text-xs font-semibold text-blue-500';
                 }
             }
 
@@ -1062,27 +1070,27 @@
                 switch (state) {
                     case 'LONG_BUILDUP':
                         this.el.kpiMarketStateBadge.textContent = '🟢 Long Build-up';
-                        this.el.kpiMarketStateBadge.className = 'px-3 py-1 text-sm font-bold rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+                        this.el.kpiMarketStateBadge.className = 'text-lg font-bold text-emerald-500';
                         this.el.kpiMarketStateDesc.textContent = isVi ? 'Giá tăng + Vị thế mở tăng: Dòng tiền mở Long áp đảo' : 'Price ↑ + OI ↑: Aggressive Long build-up';
                         break;
                     case 'SHORT_SQUEEZE':
                         this.el.kpiMarketStateBadge.textContent = '🟡 Short Squeeze';
-                        this.el.kpiMarketStateBadge.className = 'px-3 py-1 text-sm font-bold rounded-full bg-yellow-500/20 text-yellow-400 border border-yellow-500/30';
+                        this.el.kpiMarketStateBadge.className = 'text-lg font-bold text-yellow-500';
                         this.el.kpiMarketStateDesc.textContent = isVi ? 'Giá tăng + Vị thế mở giảm: Tăng do Short bị thanh lý/cắt lỗ' : 'Price ↑ + OI ↓: Rally driven by Short covering';
                         break;
                     case 'SHORT_BUILDUP':
                         this.el.kpiMarketStateBadge.textContent = '🔴 Short Build-up';
-                        this.el.kpiMarketStateBadge.className = 'px-3 py-1 text-sm font-bold rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30';
+                        this.el.kpiMarketStateBadge.className = 'text-lg font-bold text-rose-500';
                         this.el.kpiMarketStateDesc.textContent = isVi ? 'Giá giảm + Vị thế mở tăng: Dòng tiền mở Short áp đảo' : 'Price ↓ + OI ↑: Aggressive Short build-up';
                         break;
                     case 'LONG_LIQUIDATION':
                         this.el.kpiMarketStateBadge.textContent = '⚪ Long Liquidation';
-                        this.el.kpiMarketStateBadge.className = 'px-3 py-1 text-sm font-bold rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30';
+                        this.el.kpiMarketStateBadge.className = 'text-lg font-bold text-indigo-500';
                         this.el.kpiMarketStateDesc.textContent = isVi ? 'Giá giảm + Vị thế mở giảm: Long bị thanh lý / rời bỏ vị thế' : 'Price ↓ + OI ↓: Long capitulation & liquidation';
                         break;
                     default:
                         this.el.kpiMarketStateBadge.textContent = '⚪ Neutral';
-                        this.el.kpiMarketStateBadge.className = 'px-3 py-1 text-sm font-bold rounded-full bg-gray-500/20 text-gray-400 border border-gray-500/30';
+                        this.el.kpiMarketStateBadge.className = 'text-lg font-bold text-gray-500';
                         this.el.kpiMarketStateDesc.textContent = isVi ? 'Thị trường cân bằng hoặc chưa đủ nến để xác định' : 'Balanced market state';
                 }
             }
@@ -1092,44 +1100,44 @@
             if (!this.el.dataTableBody) return;
             const isVi = (document.documentElement.lang || 'vi') === 'vi';
 
-            // Show latest 25 candles in reverse order
+            // Show latest 30 candles in reverse order
             const displayItems = items.slice().reverse().slice(0, 30);
 
             let html = '';
             displayItems.forEach(row => {
-                const deltaColor = row.volumeDelta >= 0 ? 'text-emerald-400' : 'text-indigo-400';
+                const deltaColor = row.volumeDelta >= 0 ? 'text-emerald-500' : 'text-indigo-500';
                 const deltaSign = row.volumeDelta >= 0 ? '+' : '';
-                const priceColor = row.priceChangePct >= 0 ? 'text-emerald-400' : 'text-rose-400';
+                const priceColor = row.priceChangePct >= 0 ? 'text-emerald-500' : 'text-rose-500';
                 const priceSign = row.priceChangePct >= 0 ? '+' : '';
 
                 let stateTag = '';
                 switch (row.marketState) {
                     case 'LONG_BUILDUP':
-                        stateTag = '<span class="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-500/20 text-emerald-400">Long Build-up</span>';
+                        stateTag = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">Long Build-up</span>';
                         break;
                     case 'SHORT_SQUEEZE':
-                        stateTag = '<span class="px-2 py-0.5 rounded text-xs font-semibold bg-yellow-500/20 text-yellow-400">Short Squeeze</span>';
+                        stateTag = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-500/20 text-yellow-500 border border-yellow-500/30">Short Squeeze</span>';
                         break;
                     case 'SHORT_BUILDUP':
-                        stateTag = '<span class="px-2 py-0.5 rounded text-xs font-semibold bg-rose-500/20 text-rose-400">Short Build-up</span>';
+                        stateTag = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-500 border border-rose-500/30">Short Build-up</span>';
                         break;
                     case 'LONG_LIQUIDATION':
-                        stateTag = '<span class="px-2 py-0.5 rounded text-xs font-semibold bg-indigo-500/20 text-indigo-400">Long Liquidation</span>';
+                        stateTag = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-500 border border-indigo-500/30">Long Liquidation</span>';
                         break;
                     default:
-                        stateTag = '<span class="px-2 py-0.5 rounded text-xs font-semibold bg-gray-500/20 text-gray-400">Neutral</span>';
+                        stateTag = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-500/20 text-gray-500 border border-gray-500/30">Neutral</span>';
                 }
 
                 html += `
-                    <tr class="border-b border-gray-800/40 hover:bg-white/5 transition-colors">
-                        <td class="px-4 py-3 text-xs font-medium text-gray-300">${row.label}</td>
-                        <td class="px-4 py-3 text-xs font-bold text-gray-100">$${formatPrice(row.price)} <span class="${priceColor} ml-1">(${priceSign}${row.priceChangePct.toFixed(2)}%)</span></td>
-                        <td class="px-4 py-3 text-xs text-blue-400 font-semibold">$${formatNumber(row.spotVolumeUsdt)}</td>
-                        <td class="px-4 py-3 text-xs text-amber-400 font-semibold">$${formatNumber(row.futuresVolumeUsdt)}</td>
-                        <td class="px-4 py-3 text-xs font-semibold ${deltaColor}">${deltaSign}$${formatNumber(row.volumeDelta)}</td>
-                        <td class="px-4 py-3 text-xs font-bold text-gray-200">${row.volumeRatio.toFixed(2)}x</td>
-                        <td class="px-4 py-3 text-xs text-pink-400 font-semibold">${row.openInterestUsdt ? '$' + formatNumber(row.openInterestUsdt) : '--'}</td>
-                        <td class="px-4 py-3 text-xs">${stateTag}</td>
+                    <tr class="hover:bg-white/5 dark:hover:bg-black/20 transition-all duration-200" style="border-bottom: 1px solid var(--border-color);">
+                        <td class="px-6 py-4 text-xs font-medium" style="color: var(--text-primary);">${row.label}</td>
+                        <td class="px-6 py-4 text-xs font-bold" style="color: var(--text-primary);">$${formatPrice(row.price)} <span class="${priceColor} ml-1 font-semibold">(${priceSign}${row.priceChangePct.toFixed(2)}%)</span></td>
+                        <td class="px-6 py-4 text-xs text-blue-500 font-semibold">$${formatNumber(row.spotVolumeUsdt)}</td>
+                        <td class="px-6 py-4 text-xs text-yellow-500 font-semibold">$${formatNumber(row.futuresVolumeUsdt)}</td>
+                        <td class="px-6 py-4 text-xs font-semibold ${deltaColor}">${deltaSign}$${formatNumber(row.volumeDelta)}</td>
+                        <td class="px-6 py-4 text-xs font-bold" style="color: var(--text-primary);">${row.volumeRatio.toFixed(2)}x</td>
+                        <td class="px-6 py-4 text-xs text-pink-500 font-semibold">${row.openInterestUsdt ? '$' + formatNumber(row.openInterestUsdt) : '--'}</td>
+                        <td class="px-6 py-4 text-xs text-center">${stateTag}</td>
                     </tr>
                 `;
             });
