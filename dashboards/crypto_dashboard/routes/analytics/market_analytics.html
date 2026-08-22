@@ -111,14 +111,12 @@
             </p>
         </header>
 
-        <!-- Market Overview Cards - Horizontal Scroll Layout (Matching Report UI) -->
-        <div class="mb-12 relative">
-            <!-- Scroll Container -->
-            <div class="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory custom-scrollbar"
-                style="scroll-behavior: smooth; -webkit-overflow-scrolling: touch;">
-
+        <!-- Market Overview Cards - 2 Rows Grid Layout -->
+        <div class="space-y-4 mb-12">
+            <!-- Row 1: Spot & Futures Volume / Open Interest -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <!-- Card 1: Spot Volume 24h -->
-                <div class="card flex-shrink-0 w-64 snap-center min-h-[180px] flex flex-col justify-between">
+                <div class="card min-h-[170px] flex flex-col justify-between">
                     <div class="flex items-center mb-3">
                         <i class="fas fa-coins text-blue-500 text-2xl mr-2"></i>
                         <h3 class="text-sm font-semibold" style="color: var(--text-secondary);" data-i18n="spot-volume-24h">Spot Vol (24h)</h3>
@@ -130,7 +128,7 @@
                 </div>
 
                 <!-- Card 2: Futures Volume 24h -->
-                <div class="card flex-shrink-0 w-64 snap-center min-h-[180px] flex flex-col justify-between">
+                <div class="card min-h-[170px] flex flex-col justify-between">
                     <div class="flex items-center mb-3">
                         <i class="fas fa-bolt text-yellow-500 text-2xl mr-2"></i>
                         <h3 class="text-sm font-semibold" style="color: var(--text-secondary);" data-i18n="futures-volume-24h">Futures Vol (24h)</h3>
@@ -142,7 +140,7 @@
                 </div>
 
                 <!-- Card 3: Futures / Spot Ratio -->
-                <div class="card flex-shrink-0 w-64 snap-center min-h-[180px] flex flex-col justify-between">
+                <div class="card min-h-[170px] flex flex-col justify-between">
                     <div class="flex items-center mb-3">
                         <i class="fas fa-balance-scale text-indigo-500 text-2xl mr-2"></i>
                         <h3 class="text-sm font-semibold" style="color: var(--text-secondary);" data-i18n="futures-spot-ratio">Tỷ Lệ Futures / Spot</h3>
@@ -154,7 +152,7 @@
                 </div>
 
                 <!-- Card 4: Open Interest -->
-                <div class="card flex-shrink-0 w-64 snap-center min-h-[180px] flex flex-col justify-between">
+                <div class="card min-h-[170px] flex flex-col justify-between">
                     <div class="flex items-center mb-3">
                         <i class="fas fa-layer-group text-pink-500 text-2xl mr-2"></i>
                         <h3 class="text-sm font-semibold" style="color: var(--text-secondary);" data-i18n="open-interest">Vị Thế Mở (OI)</h3>
@@ -164,9 +162,12 @@
                         <p id="kpi-oi-coins" class="text-xs font-semibold mt-1" style="color: var(--text-secondary);">-- Coins</p>
                     </div>
                 </div>
+            </div>
 
+            <!-- Row 2: Long/Short Positions, Correlation & Market State -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <!-- Card 5: Long Position (OI) -->
-                <div class="card flex-shrink-0 w-64 snap-center min-h-[180px] flex flex-col justify-between">
+                <div class="card min-h-[170px] flex flex-col justify-between">
                     <div class="flex items-center mb-3">
                         <i class="fas fa-arrow-trend-up text-emerald-500 text-2xl mr-2"></i>
                         <h3 class="text-sm font-semibold" style="color: var(--text-secondary);" data-i18n="long-position-card">Vị Thế Long (OI)</h3>
@@ -178,7 +179,7 @@
                 </div>
 
                 <!-- Card 6: Short Position (OI) -->
-                <div class="card flex-shrink-0 w-64 snap-center min-h-[180px] flex flex-col justify-between">
+                <div class="card min-h-[170px] flex flex-col justify-between">
                     <div class="flex items-center mb-3">
                         <i class="fas fa-arrow-trend-down text-rose-500 text-2xl mr-2"></i>
                         <h3 class="text-sm font-semibold" style="color: var(--text-secondary);" data-i18n="short-position-card">Vị Thế Short (OI)</h3>
@@ -190,10 +191,10 @@
                 </div>
 
                 <!-- Card 7: Volume Correlation -->
-                <div class="card flex-shrink-0 w-64 snap-center min-h-[180px] flex flex-col justify-between">
+                <div class="card min-h-[170px] flex flex-col justify-between">
                     <div class="flex items-center mb-3">
                         <i class="fas fa-project-diagram text-purple-500 text-2xl mr-2"></i>
-                        <h3 class="text-sm font-semibold" style="color: var(--text-secondary);" data-i18n="volume-correlation">Tương Quan Volume</h3>
+                        <h3 class="text-sm font-semibold" style="color: var(--text-secondary);" data-i18n="volume-correlation">Tương Quan Volume (Pearson)</h3>
                     </div>
                     <div class="flex-1 flex flex-col justify-center">
                         <p id="kpi-correlation" class="text-2xl font-bold text-purple-500">--</p>
@@ -202,23 +203,17 @@
                 </div>
 
                 <!-- Card 8: Market State Matrix -->
-                <div class="card flex-shrink-0 w-64 snap-center min-h-[180px] flex flex-col justify-between">
+                <div class="card min-h-[170px] flex flex-col justify-between">
                     <div class="flex items-center mb-3">
                         <i class="fas fa-compass text-green-500 text-2xl mr-2"></i>
-                        <h3 class="text-sm font-semibold" style="color: var(--text-secondary);" data-i18n="market-state">Trạng Thái OI</h3>
+                        <h3 class="text-sm font-semibold" style="color: var(--text-secondary);" data-i18n="market-state">Trạng Thái Thị Trường</h3>
                     </div>
                     <div class="flex-1 flex flex-col justify-center">
                         <div id="kpi-market-state-badge" class="font-bold text-lg text-emerald-500">--</div>
                         <p id="kpi-market-state-desc" class="text-xs font-semibold mt-1 line-clamp-1" style="color: var(--text-secondary);">--</p>
                     </div>
                 </div>
-
             </div>
-
-            <!-- Scroll Hint -->
-            <div class="absolute right-0 top-0 bottom-4 w-12 pointer-events-none lg:hidden"
-                style="background: linear-gradient(to left, var(--scroll-hint-from), var(--scroll-hint-to));"
-                aria-hidden="true"></div>
         </div>
 
         <!-- Disclaimer Banner (Exact Matching Report UI) -->
