@@ -117,7 +117,45 @@ function get_translations_data()
     // Unit translations for large numbers
     'unit-trillion': { vi: ' Nghìn Tỷ', en: ' T' },
     'unit-billion': { vi: ' Tỷ', en: ' B' },
-    'unit-million': { vi: ' Triệu', en: ' M' }
+    'unit-million': { vi: ' Triệu', en: ' M' },
+
+    // Market Analytics Page Translations
+    'analytics-page-title': { vi: 'Phân Tích Tương Quan Volume & Open Interest - Crypto Dashboard', en: 'Volume & Open Interest Correlation Analytics - Crypto Dashboard' },
+    'analytics-title': { vi: 'Phân Tích Tương Quan Volume Spot & Futures', en: 'Spot vs Futures Volume & Open Interest Analytics' },
+    'analytics-subtitle': { vi: 'So sánh tương quan khối lượng giao dịch Spot vs Phái sinh và Vị thế mở (Open Interest) theo thời gian thực từ Binance API', en: 'Real-time correlation analysis of Spot vs Derivatives trading volume and Open Interest directly from Binance API' },
+    'analytics-nav-btn': { vi: 'Phân Tích Volume & Vị Thế Mở (OI)', en: 'Volume & Open Interest Analytics' },
+    'analytics-desc': { vi: 'Công cụ phân tích tương quan dòng tiền Spot - Futures, đo lường độ chênh lệch Volume và theo dõi biến động vị thế mở.', en: 'Analyze Spot vs Futures capital flows, volume delta, ratio, and track open interest fluctuations.' },
+    'select-symbol': { vi: 'Chọn Cặp Giao Dịch', en: 'Select Trading Pair' },
+    'custom-symbol': { vi: 'Nhập cặp khác...', en: 'Custom pair (e.g. SOLUSDT)...' },
+    'timeframe': { vi: 'Khung thời gian', en: 'Timeframe' },
+    'candle-limit': { vi: 'Số lượng nến', en: 'Candle Limit' },
+    'auto-refresh': { vi: 'Tự động cập nhật', en: 'Auto Refresh' },
+    'manual-refresh': { vi: 'Cập nhật ngay', en: 'Refresh Now' },
+    'api-status': { vi: 'Trạng thái API', en: 'API Status' },
+    'spot-volume-24h': { vi: 'Khối lượng Spot (24h)', en: '24h Spot Volume' },
+    'futures-volume-24h': { vi: 'Khối lượng Futures (24h)', en: '24h Futures Volume' },
+    'futures-spot-ratio': { vi: 'Tỷ lệ Futures / Spot', en: 'Futures / Spot Ratio' },
+    'open-interest': { vi: 'Vị thế mở (Open Interest)', en: 'Open Interest (OI)' },
+    'volume-correlation': { vi: 'Tương quan Volume (Pearson)', en: 'Volume Correlation (Pearson)' },
+    'market-state': { vi: 'Trạng thái thị trường', en: 'Market State' },
+    'high-correlation': { vi: 'Đồng thuận cao (Thị trường thực)', en: 'High Alignment (Spot-driven)' },
+    'low-correlation': { vi: 'Phân kỳ / Đầu cơ phái sinh', en: 'Divergence (Speculative)' },
+    'moderate-correlation': { vi: 'Tương quan trung bình', en: 'Moderate Correlation' },
+    'long-buildup': { vi: 'Long Tích lũy (Giá ↑, OI ↑)', en: 'Long Build-up (Price ↑, OI ↑)' },
+    'short-squeeze': { vi: 'Short Squeeze (Giá ↑, OI ↓)', en: 'Short Squeeze (Price ↑, OI ↓)' },
+    'short-buildup': { vi: 'Short Tích lũy (Giá ↓, OI ↑)', en: 'Short Build-up (Price ↓, OI ↑)' },
+    'long-liquidation': { vi: 'Long Thanh lý (Giá ↓, OI ↓)', en: 'Long Liquidation (Price ↓, OI ↓)' },
+    'tab-price-volume': { vi: 'Giá & Khối lượng Song hành', en: 'Price & Dual Volume' },
+    'tab-volume-delta': { vi: 'Độ lệch Volume & Tỷ lệ F/S', en: 'Volume Delta & Ratio' },
+    'tab-open-interest': { vi: 'Vị thế mở & Giá', en: 'Open Interest & Price' },
+    'tab-correlation-cvd': { vi: 'Tương quan & CVD', en: 'Correlation & CVD' },
+    'data-breakdown-title': { vi: 'Bảng Thống Kê Chi Tiết Từng Chu Kỳ', en: 'Period-by-Period Data Breakdown' },
+    'export-csv': { vi: 'Xuất dữ liệu (CSV)', en: 'Export to CSV' },
+    'methodology-title': { vi: 'Hướng dẫn Phân tích & Ý nghĩa Chỉ số', en: 'Methodology & Indicator Interpretation' },
+    'client-side-note': { vi: '⚡ Toàn bộ dữ liệu được tải và tính toán trực tiếp trên trình duyệt của bạn từ Binance Public API.', en: '⚡ All data is fetched and computed directly in your browser from Binance Public APIs.' },
+    'fetch-error': { vi: 'Lỗi tải dữ liệu từ Binance API. Vui lòng thử lại!', en: 'Error fetching data from Binance API. Please try again!' },
+    'fetching-data': { vi: 'Đang tải dữ liệu từ Binance...', en: 'Fetching data from Binance...' },
+    'candles': { vi: 'nến', en: 'candles' }
     };
     return translations_data;
 }

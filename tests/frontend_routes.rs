@@ -68,3 +68,21 @@ async fn test_crypto_reports_list() {
 
     assert_eq!(response.status(), StatusCode::OK);
 }
+
+#[tokio::test]
+#[ignore = "requires running database and Redis"]
+async fn test_market_analytics() {
+    let app = get_app().await.expect("Failed to initialize app");
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/market_analytics")
+                .body(Body::empty())
+                .expect("Failed to build request"),
+        )
+        .await
+        .expect("Failed to get response");
+
+    assert_eq!(response.status(), StatusCode::OK);
+}

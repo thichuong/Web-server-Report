@@ -133,6 +133,10 @@ impl AppState {
                 "crypto/routes/reports/list.html",
             ),
             (
+                "dashboards/crypto_dashboard/routes/analytics/market_analytics.html",
+                "crypto/routes/analytics/market_analytics.html",
+            ),
+            (
                 "shared_components/theme_toggle.html",
                 "crypto/components/theme_toggle.html",
             ),

@@ -6,6 +6,7 @@
 pub mod api;
 pub mod crypto_reports;
 pub mod homepage;
+pub mod market_analytics;
 pub mod rss_feed;
 pub mod seo;
 pub mod static_files;
@@ -29,6 +30,8 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .merge(system::configure_system_routes())
         // Crypto Reports routes
         .merge(crypto_reports::configure_crypto_reports_routes())
+        // Market Analytics routes (Volume Spot vs Futures & OI)
+        .merge(market_analytics::configure_market_analytics_routes())
         // API endpoints
         .merge(api::configure_api_routes())
         // SEO endpoints (sitemap.xml)
