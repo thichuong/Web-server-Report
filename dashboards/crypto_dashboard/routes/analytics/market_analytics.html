@@ -165,7 +165,31 @@
                     </div>
                 </div>
 
-                <!-- Card 5: Volume Correlation -->
+                <!-- Card 5: Long Position (OI) -->
+                <div class="card flex-shrink-0 w-64 snap-center min-h-[180px] flex flex-col justify-between">
+                    <div class="flex items-center mb-3">
+                        <i class="fas fa-arrow-trend-up text-emerald-500 text-2xl mr-2"></i>
+                        <h3 class="text-sm font-semibold" style="color: var(--text-secondary);" data-i18n="long-position-card">Vị Thế Long (OI)</h3>
+                    </div>
+                    <div class="flex-1 flex flex-col justify-center">
+                        <p id="kpi-long-pos" class="text-2xl font-bold text-emerald-500">$--</p>
+                        <p id="kpi-long-desc" class="text-xs font-semibold mt-1 text-emerald-400">--% OI | vs Spot: --x</p>
+                    </div>
+                </div>
+
+                <!-- Card 6: Short Position (OI) -->
+                <div class="card flex-shrink-0 w-64 snap-center min-h-[180px] flex flex-col justify-between">
+                    <div class="flex items-center mb-3">
+                        <i class="fas fa-arrow-trend-down text-rose-500 text-2xl mr-2"></i>
+                        <h3 class="text-sm font-semibold" style="color: var(--text-secondary);" data-i18n="short-position-card">Vị Thế Short (OI)</h3>
+                    </div>
+                    <div class="flex-1 flex flex-col justify-center">
+                        <p id="kpi-short-pos" class="text-2xl font-bold text-rose-500">$--</p>
+                        <p id="kpi-short-desc" class="text-xs font-semibold mt-1 text-rose-400">--% OI | vs Spot: --x</p>
+                    </div>
+                </div>
+
+                <!-- Card 7: Volume Correlation -->
                 <div class="card flex-shrink-0 w-64 snap-center min-h-[180px] flex flex-col justify-between">
                     <div class="flex items-center mb-3">
                         <i class="fas fa-project-diagram text-purple-500 text-2xl mr-2"></i>
@@ -177,7 +201,7 @@
                     </div>
                 </div>
 
-                <!-- Card 6: Market State Matrix -->
+                <!-- Card 8: Market State Matrix -->
                 <div class="card flex-shrink-0 w-64 snap-center min-h-[180px] flex flex-col justify-between">
                     <div class="flex items-center mb-3">
                         <i class="fas fa-compass text-green-500 text-2xl mr-2"></i>
@@ -294,7 +318,7 @@
             </div>
         </div>
 
-        <!-- Multi-Chart Analytics Grid (2x2 Cards matching Report UI) -->
+        <!-- Multi-Chart Analytics Grid (3x2 Layout for Comprehensive Long/Short & Spot Analytics) -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
 
             <!-- Chart 1: Price & Dual Volume Breakdown -->
@@ -331,7 +355,43 @@
                 </div>
             </div>
 
-            <!-- Chart 3: Open Interest & Price Trajectory -->
+            <!-- Chart 3: Long & Short Positions vs Spot Volume -->
+            <div class="card p-6 flex flex-col">
+                <div class="flex items-center justify-between mb-4 pb-3 border-b" style="border-color: var(--border-color);">
+                    <div>
+                        <h2 class="text-base font-bold" style="color: var(--text-primary);" data-i18n="tab-long-short-spot">Vị thế Long / Short vs Volume Spot</h2>
+                        <p class="text-xs" style="color: var(--text-secondary);">Đối chiếu quy mô vị thế Long và Short so với thanh khoản thị trường Spot</p>
+                    </div>
+                    <div class="flex items-center space-x-3 text-xs font-semibold">
+                        <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-blue-500 inline-block mr-1"></span>Spot Vol</span>
+                        <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-emerald-500 inline-block mr-1"></span>Long Pos</span>
+                        <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-rose-500 inline-block mr-1"></span>Short Pos</span>
+                    </div>
+                </div>
+                <div class="relative w-full h-80">
+                    <canvas id="chart-long-short-spot"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 4: Position Distribution & Long / Short Ratio -->
+            <div class="card p-6 flex flex-col">
+                <div class="flex items-center justify-between mb-4 pb-3 border-b" style="border-color: var(--border-color);">
+                    <div>
+                        <h2 class="text-base font-bold" style="color: var(--text-primary);" data-i18n="tab-long-short-ratio">Phân bổ Vị thế & Tỷ lệ Long / Short</h2>
+                        <p class="text-xs" style="color: var(--text-secondary);">Tỷ trọng tài khoản Long vs Short và tỷ lệ L/S Ratio theo thời gian</p>
+                    </div>
+                    <div class="flex items-center space-x-3 text-xs font-semibold">
+                        <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-emerald-500 inline-block mr-1"></span>% Long</span>
+                        <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-rose-500 inline-block mr-1"></span>% Short</span>
+                        <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-indigo-500 inline-block mr-1"></span>L/S Ratio</span>
+                    </div>
+                </div>
+                <div class="relative w-full h-80">
+                    <canvas id="chart-long-short-ratio"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 5: Open Interest & Price Trajectory -->
             <div class="card p-6 flex flex-col">
                 <div class="flex items-center justify-between mb-4 pb-3 border-b" style="border-color: var(--border-color);">
                     <div>
@@ -347,7 +407,7 @@
                 </div>
             </div>
 
-            <!-- Chart 4: Rolling Correlation & Cumulative Volume Delta (CVD) -->
+            <!-- Chart 6: Rolling Correlation & Cumulative Volume Delta (CVD) -->
             <div class="card p-6 flex flex-col">
                 <div class="flex items-center justify-between mb-4 pb-3 border-b" style="border-color: var(--border-color);">
                     <div>
@@ -375,7 +435,7 @@
                         <i class="fas fa-table text-indigo-600 mr-2"></i>
                         <span data-i18n="data-breakdown-title">Bảng Thống Kê Chi Tiết Từng Chu Kỳ</span>: <span id="table-current-symbol" class="text-blue-500">BTCUSDT</span>
                     </h2>
-                    <p class="text-xs mt-1" style="color: var(--text-secondary);">Dữ liệu đối chiếu chi tiết các chu kỳ nến gần nhất</p>
+                    <p class="text-xs mt-1" style="color: var(--text-secondary);">Dữ liệu đối chiếu chi tiết các chu kỳ nến gần nhất với phân tích Long/Short và tương quan Spot</p>
                 </div>
                 <button type="button" id="btn-export-csv" class="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow hover:shadow-md">
                     <i class="fas fa-file-csv text-sm"></i>
@@ -387,17 +447,21 @@
                 <table class="min-w-full leading-normal">
                     <thead>
                         <tr style="background-color: rgba(var(--bg-secondary-rgb), 0.5); border-bottom: 1px solid var(--border-color);">
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">Thời gian</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">Giá Đóng Cửa</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">Spot Vol ($)</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">Futures Vol ($)</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">Volume Delta ($)</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">Tỷ lệ F/S</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">Vị thế mở (OI)</th>
-                            <th class="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">Trạng thái OI</th>
+                            <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">Thời gian</th>
+                            <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">Giá Đóng Cửa</th>
+                            <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">Spot Vol ($)</th>
+                            <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">Futures Vol ($)</th>
+                            <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-emerald-500">Vị thế Long ($)</th>
+                            <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-rose-500">Vị thế Short ($)</th>
+                            <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-emerald-400">Long / Spot</th>
+                            <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-rose-400">Short / Spot</th>
+                            <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">Tỷ lệ L/S</th>
+                            <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">Tỷ lệ F/S</th>
+                            <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">Vị thế mở (OI)</th>
+                            <th class="px-4 py-3.5 text-center text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">Trạng thái OI</th>
                         </tr>
                     </thead>
-                    <tbody id="analytics-data-table-body" class="divide-y divide-gray-800/20 font-mono">
+                    <tbody id="analytics-data-table-body" class="divide-y divide-gray-800/20 font-mono text-xs">
                         <!-- Populated by JavaScript -->
                     </tbody>
                 </table>
@@ -410,7 +474,7 @@
                 <i class="fas fa-graduation-cap text-yellow-500 mr-2"></i>
                 <span data-i18n="methodology-title">Hướng dẫn Phân tích & Ý nghĩa Chỉ số</span>
             </h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs" style="color: var(--text-secondary);">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs" style="color: var(--text-secondary);">
                 <div class="p-4 rounded-xl border" style="background-color: var(--bg-secondary); border-color: var(--border-color);">
                     <h3 class="font-bold text-emerald-500 mb-1 text-sm">🟢 Long Build-up (Giá ↑, OI ↑)</h3>
                     <p>Dòng tiền phái sinh liên tục mở mới vị thế mua khi giá tăng, củng cố xu hướng tăng giá mạnh mẽ.</p>
@@ -426,6 +490,14 @@
                 <div class="p-4 rounded-xl border" style="background-color: var(--bg-secondary); border-color: var(--border-color);">
                     <h3 class="font-bold text-indigo-500 mb-1 text-sm">⚪ Long Liquidation (Giá ↓, OI ↓)</h3>
                     <p>Các vị thế Long bị thanh lý hàng loạt hoặc cắt lỗ rời thị trường, thường xuất hiện ở giai đoạn rũ bỏ cuối cùng.</p>
+                </div>
+                <div class="p-4 rounded-xl border" style="background-color: var(--bg-secondary); border-color: var(--border-color);">
+                    <h3 class="font-bold text-emerald-400 mb-1 text-sm">📈 Long / Spot Vol Ratio</h3>
+                    <p>Đo lường quy mô vị thế Long so với thanh khoản Spot. Tỷ lệ &gt; 3x - 5x cảnh báo thanh khoản Spot có thể không hấp thụ nổi nếu xảy ra chuỗi thanh lý Long đột ngột.</p>
+                </div>
+                <div class="p-4 rounded-xl border" style="background-color: var(--bg-secondary); border-color: var(--border-color);">
+                    <h3 class="font-bold text-rose-400 mb-1 text-sm">📉 Short / Spot Vol Ratio</h3>
+                    <p>Đo lường quy mô vị thế Short so với thanh khoản Spot. Tỷ lệ &gt; 3x - 5x là tín hiệu cảnh báo rủi ro bùng nổ Short Squeeze cực mạnh khi giá đảo chiều tăng.</p>
                 </div>
             </div>
         </div>

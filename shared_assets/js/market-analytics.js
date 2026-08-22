@@ -2,7 +2,8 @@
  * Market Analytics Client-side Engine
  * Pure client-side fetching from Binance Spot & Futures APIs,
  * mathematical calculation of Volume Correlation, Volume Delta, Futures/Spot Ratio,
- * Open Interest analysis, CVD, and Chart.js rendering.
+ * Open Interest analysis, Long/Short Position separation & Spot Volume comparison,
+ * CVD, and Chart.js multi-chart rendering.
  */
 
 (function () {
@@ -65,9 +66,22 @@
         async getOpenInterestHist(symbol, period, limit) {
             // Map timeframe to valid Binance OI period: 5m, 15m, 30m, 1h, 2h, 4h, 6h, 12h, 1d
             let oiPeriod = period;
-            if (period === '1m') oiPeriod = '5m';
-            if (period === '3m') oiPeriod = '5m';
+            if (period === '1m' || period === '3m') oiPeriod = '5m';
             const url = `${this.futuresBaseUrl}/futures/data/openInterestHist?symbol=${encodeURIComponent(symbol)}&period=${oiPeriod}&limit=${limit}`;
+            return this.fetchWithTiming(url);
+        }
+
+        async getTopLongShortPositionRatio(symbol, period, limit) {
+            let oiPeriod = period;
+            if (period === '1m' || period === '3m') oiPeriod = '5m';
+            const url = `${this.futuresBaseUrl}/futures/data/topLongShortPositionRatio?symbol=${encodeURIComponent(symbol)}&period=${oiPeriod}&limit=${limit}`;
+            return this.fetchWithTiming(url);
+        }
+
+        async getGlobalLongShortAccountRatio(symbol, period, limit) {
+            let oiPeriod = period;
+            if (period === '1m' || period === '3m') oiPeriod = '5m';
+            const url = `${this.futuresBaseUrl}/futures/data/globalLongShortAccountRatio?symbol=${encodeURIComponent(symbol)}&period=${oiPeriod}&limit=${limit}`;
             return this.fetchWithTiming(url);
         }
 
@@ -123,7 +137,7 @@
             return rolling;
         }
 
-        static processAndAlignData(spotKlines, futKlines, oiHistory, timeframe) {
+        static processAndAlignData(spotKlines, futKlines, oiHistory, lsHistory, timeframe) {
             // Build lookup maps by openTime
             const spotMap = new Map();
             spotKlines.forEach(k => {
@@ -171,6 +185,22 @@
                 });
             }
 
+            // Process Long/Short history sorted by timestamp
+            const lsMap = new Map();
+            if (Array.isArray(lsHistory)) {
+                lsHistory.forEach(item => {
+                    const ts = parseInt(item.timestamp, 10);
+                    const longAcc = parseFloat(item.longAccount || item.longPosition || 0.5);
+                    const shortAcc = parseFloat(item.shortAccount || item.shortPosition || (1.0 - longAcc));
+                    const ratio = parseFloat(item.longShortRatio || (shortAcc > 0 ? longAcc / shortAcc : 1.0));
+                    lsMap.set(ts, {
+                        longRatio: longAcc,
+                        shortRatio: shortAcc,
+                        longShortRatio: ratio
+                    });
+                });
+            }
+
             // Find matching timestamps in chronological order
             const sortedTimestamps = Array.from(futMap.keys()).sort((a, b) => a - b);
             const alignedData = [];
@@ -205,7 +235,6 @@
                 if (oiMap.has(ts)) {
                     matchedOi = oiMap.get(ts);
                 } else {
-                    // Find closest OI timestamp <= ts
                     let closestTs = 0;
                     for (const oiTs of oiMap.keys()) {
                         if (oiTs <= ts && oiTs > closestTs) {
@@ -216,6 +245,38 @@
                         matchedOi = oiMap.get(closestTs);
                     }
                 }
+
+                // Find matching or closest Long/Short ratio record
+                let matchedLs = null;
+                if (lsMap.has(ts)) {
+                    matchedLs = lsMap.get(ts);
+                } else {
+                    let closestLsTs = 0;
+                    for (const lTs of lsMap.keys()) {
+                        if (lTs <= ts && lTs > closestLsTs) {
+                            closestLsTs = lTs;
+                        }
+                    }
+                    if (closestLsTs > 0) {
+                        matchedLs = lsMap.get(closestLsTs);
+                    }
+                }
+
+                const longRatio = matchedLs ? matchedLs.longRatio : 0.5;
+                const shortRatio = matchedLs ? matchedLs.shortRatio : 0.5;
+                const lsRatio = matchedLs ? matchedLs.longShortRatio : 1.0;
+
+                const openInterestCoins = matchedOi ? matchedOi.sumOpenInterest : null;
+                const openInterestUsdt = matchedOi ? matchedOi.sumOpenInterestValue : null;
+
+                // Estimated notional position values ($)
+                const longPositionUsdt = openInterestUsdt !== null ? (openInterestUsdt * longRatio) : null;
+                const shortPositionUsdt = openInterestUsdt !== null ? (openInterestUsdt * shortRatio) : null;
+
+                // Direct comparison with Spot Volume:
+                const longSpotRatio = (spotQuoteVol > 0 && longPositionUsdt !== null) ? (longPositionUsdt / spotQuoteVol) : 0;
+                const shortSpotRatio = (spotQuoteVol > 0 && shortPositionUsdt !== null) ? (shortPositionUsdt / spotQuoteVol) : 0;
+                const netPositionUsdt = (longPositionUsdt !== null && shortPositionUsdt !== null) ? (longPositionUsdt - shortPositionUsdt) : 0;
 
                 alignedData.push({
                     timestamp: ts,
@@ -232,8 +293,16 @@
                     volumeRatio: volumeRatio,
                     spotCvd: spotCumulativeCvd,
                     futuresCvd: futCumulativeCvd,
-                    openInterestCoins: matchedOi ? matchedOi.sumOpenInterest : null,
-                    openInterestUsdt: matchedOi ? matchedOi.sumOpenInterestValue : null,
+                    openInterestCoins: openInterestCoins,
+                    openInterestUsdt: openInterestUsdt,
+                    longRatio: longRatio,
+                    shortRatio: shortRatio,
+                    longShortRatio: lsRatio,
+                    longPositionUsdt: longPositionUsdt,
+                    shortPositionUsdt: shortPositionUsdt,
+                    longSpotRatio: longSpotRatio,
+                    shortSpotRatio: shortSpotRatio,
+                    netPositionUsdt: netPositionUsdt,
                     tradesCount: fut.trades
                 });
             }
@@ -300,6 +369,8 @@
             this.charts = {
                 priceVolume: null,
                 volumeDelta: null,
+                longShortSpot: null,
+                longShortRatio: null,
                 openInterest: null,
                 correlationCvd: null
             };
@@ -321,6 +392,11 @@
                 futuresColorBg: 'rgba(245, 158, 11, 0.4)',
                 deltaPositive: '#10b981', // Green (Futures > Spot)
                 deltaNegative: '#6366f1', // Indigo (Spot > Futures)
+                longColor: '#10b981', // Emerald Green
+                longColorBg: 'rgba(16, 185, 129, 0.4)',
+                shortColor: '#f43f5e', // Rose Red
+                shortColorBg: 'rgba(244, 63, 94, 0.4)',
+                lsRatioColor: '#818cf8', // Light Indigo
                 oiColor: '#ec4899', // Pink / Magenta
                 oiColorBg: 'rgba(236, 72, 153, 0.15)',
                 priceColor: isDark ? '#f8fafc' : '#0f172a',
@@ -346,6 +422,8 @@
 
             this.renderPriceVolumeChart(data.items, labels, colors);
             this.renderVolumeDeltaChart(data.items, labels, colors);
+            this.renderLongShortSpotChart(data.items, labels, colors);
+            this.renderLongShortRatioChart(data.items, labels, colors);
             this.renderOpenInterestChart(data.items, labels, colors);
             this.renderCorrelationCvdChart(data.items, labels, colors);
         }
@@ -516,6 +594,219 @@
                             ticks: {
                                 color: colors.futuresColor,
                                 callback: val => Number(val).toFixed(1) + 'x'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        renderLongShortSpotChart(items, labels, colors) {
+            const ctx = document.getElementById('chart-long-short-spot');
+            if (!ctx) return;
+
+            const spotVols = items.map(d => d.spotVolumeUsdt);
+            const longPositions = items.map(d => d.longPositionUsdt);
+            const shortPositions = items.map(d => d.shortPositionUsdt);
+            const longSpotRatios = items.map(d => d.longSpotRatio);
+            const shortSpotRatios = items.map(d => d.shortSpotRatio);
+
+            this.charts.longShortSpot = new Chart(ctx, {
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            type: 'line',
+                            label: 'Long / Spot Ratio',
+                            data: longSpotRatios,
+                            borderColor: colors.longColor,
+                            backgroundColor: 'transparent',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                            yAxisID: 'yRatio',
+                            order: 1
+                        },
+                        {
+                            type: 'line',
+                            label: 'Short / Spot Ratio',
+                            data: shortSpotRatios,
+                            borderColor: colors.shortColor,
+                            backgroundColor: 'transparent',
+                            borderWidth: 2,
+                            borderDash: [3, 3],
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                            yAxisID: 'yRatio',
+                            order: 2
+                        },
+                        {
+                            type: 'bar',
+                            label: 'Spot Volume ($)',
+                            data: spotVols,
+                            backgroundColor: colors.spotColorBg,
+                            borderColor: colors.spotColor,
+                            borderWidth: 1,
+                            yAxisID: 'yVolume',
+                            order: 3
+                        },
+                        {
+                            type: 'bar',
+                            label: 'Vị thế Long ($)',
+                            data: longPositions,
+                            backgroundColor: colors.longColorBg,
+                            borderColor: colors.longColor,
+                            borderWidth: 1,
+                            yAxisID: 'yVolume',
+                            order: 4
+                        },
+                        {
+                            type: 'bar',
+                            label: 'Vị thế Short ($)',
+                            data: shortPositions,
+                            backgroundColor: colors.shortColorBg,
+                            borderColor: colors.shortColor,
+                            borderWidth: 1,
+                            yAxisID: 'yVolume',
+                            order: 5
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { labels: { color: colors.text, font: { family: 'Inter', size: 12 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    if (context.dataset.yAxisID === 'yRatio') {
+                                        return ` ${context.dataset.label}: ${Number(context.raw).toFixed(2)}x`;
+                                    }
+                                    return ` ${context.dataset.label}: $${formatNumber(context.raw)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: colors.grid },
+                            ticks: { color: colors.mutedText, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }
+                        },
+                        yVolume: {
+                            type: 'linear',
+                            position: 'left',
+                            grid: { color: colors.grid },
+                            ticks: {
+                                color: colors.text,
+                                callback: val => '$' + formatNumber(val)
+                            }
+                        },
+                        yRatio: {
+                            type: 'linear',
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            ticks: {
+                                color: colors.mutedText,
+                                callback: val => Number(val).toFixed(1) + 'x'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        renderLongShortRatioChart(items, labels, colors) {
+            const ctx = document.getElementById('chart-long-short-ratio');
+            if (!ctx) return;
+
+            const longPcts = items.map(d => d.longRatio * 100);
+            const shortPcts = items.map(d => d.shortRatio * 100);
+            const lsRatios = items.map(d => d.longShortRatio);
+
+            this.charts.longShortRatio = new Chart(ctx, {
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            type: 'line',
+                            label: 'Tỷ lệ L/S Ratio',
+                            data: lsRatios,
+                            borderColor: colors.lsRatioColor,
+                            backgroundColor: 'transparent',
+                            borderWidth: 2.5,
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                            yAxisID: 'yRatio',
+                            order: 1
+                        },
+                        {
+                            type: 'line',
+                            label: '% Vị thế Long',
+                            data: longPcts,
+                            borderColor: colors.longColor,
+                            backgroundColor: colors.longColorBg,
+                            fill: true,
+                            borderWidth: 1.5,
+                            pointRadius: 0,
+                            yAxisID: 'yPct',
+                            order: 2
+                        },
+                        {
+                            type: 'line',
+                            label: '% Vị thế Short',
+                            data: shortPcts,
+                            borderColor: colors.shortColor,
+                            backgroundColor: colors.shortColorBg,
+                            fill: true,
+                            borderWidth: 1.5,
+                            pointRadius: 0,
+                            yAxisID: 'yPct',
+                            order: 3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { labels: { color: colors.text, font: { family: 'Inter', size: 12 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    if (context.dataset.yAxisID === 'yRatio') {
+                                        return ` L/S Ratio: ${Number(context.raw).toFixed(2)}`;
+                                    }
+                                    return ` ${context.dataset.label}: ${Number(context.raw).toFixed(1)}%`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: colors.grid },
+                            ticks: { color: colors.mutedText, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }
+                        },
+                        yPct: {
+                            type: 'linear',
+                            position: 'left',
+                            min: 0,
+                            max: 100,
+                            grid: { color: colors.grid },
+                            ticks: {
+                                color: colors.text,
+                                callback: val => val + '%'
+                            }
+                        },
+                        yRatio: {
+                            type: 'linear',
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            ticks: {
+                                color: colors.lsRatioColor,
+                                callback: val => Number(val).toFixed(2)
                             }
                         }
                     }
@@ -752,6 +1043,10 @@
                 kpiFsRatio: document.getElementById('kpi-fs-ratio'),
                 kpiOiUsdt: document.getElementById('kpi-oi-usdt'),
                 kpiOiCoins: document.getElementById('kpi-oi-coins'),
+                kpiLongPos: document.getElementById('kpi-long-pos'),
+                kpiLongDesc: document.getElementById('kpi-long-desc'),
+                kpiShortPos: document.getElementById('kpi-short-pos'),
+                kpiShortDesc: document.getElementById('kpi-short-desc'),
                 kpiCorrelation: document.getElementById('kpi-correlation'),
                 kpiCorrelationStatus: document.getElementById('kpi-correlation-status'),
                 kpiMarketStateBadge: document.getElementById('kpi-market-state-badge'),
@@ -960,10 +1255,13 @@
                 const { symbol, timeframe, limit } = this.state;
 
                 // Concurrent fetch directly from Binance Public REST API
-                const [spotRes, futRes, oiRes, tickers] = await Promise.all([
+                const [spotRes, futRes, oiRes, lsRes, tickers] = await Promise.all([
                     this.apiClient.getSpotKlines(symbol, timeframe, limit),
                     this.apiClient.getFuturesKlines(symbol, timeframe, limit),
                     this.apiClient.getOpenInterestHist(symbol, timeframe, limit).catch(() => ({ data: [], latency: 0 })),
+                    this.apiClient.getTopLongShortPositionRatio(symbol, timeframe, limit)
+                        .catch(() => this.apiClient.getGlobalLongShortAccountRatio(symbol, timeframe, limit))
+                        .catch(() => ({ data: [], latency: 0 })),
                     this.apiClient.get24hTickers(symbol)
                 ]);
 
@@ -977,7 +1275,13 @@
                 }
 
                 // Process and align data in client
-                const processed = AnalyticsEngine.processAndAlignData(spotRes.data, futRes.data, oiRes.data, timeframe);
+                const processed = AnalyticsEngine.processAndAlignData(
+                    spotRes.data,
+                    futRes.data,
+                    oiRes.data,
+                    lsRes.data,
+                    timeframe
+                );
                 processed.tickers = tickers;
 
                 this.state.currentData = processed;
@@ -1009,9 +1313,10 @@
             }
 
             // Spot 24h Vol
+            let spot24hVol = 0;
             if (this.el.kpiSpotVol) {
-                const spotVol = tickers.spot ? parseFloat(tickers.spot.quoteVolume) : (lastItem ? lastItem.spotVolumeUsdt * 24 : 0);
-                this.el.kpiSpotVol.textContent = '$' + formatNumber(spotVol);
+                spot24hVol = tickers.spot ? parseFloat(tickers.spot.quoteVolume) : (lastItem ? lastItem.spotVolumeUsdt * 24 : 0);
+                this.el.kpiSpotVol.textContent = '$' + formatNumber(spot24hVol);
             }
 
             // Futures 24h Vol
@@ -1029,18 +1334,54 @@
             }
 
             // Open Interest
+            let totalOiUsdt = 0;
             if (this.el.kpiOiUsdt && this.el.kpiOiCoins) {
                 if (tickers.currentOi && lastItem) {
                     const oiCoins = parseFloat(tickers.currentOi.openInterest);
-                    const oiUsdt = oiCoins * lastItem.price;
-                    this.el.kpiOiUsdt.textContent = '$' + formatNumber(oiUsdt);
+                    totalOiUsdt = oiCoins * lastItem.price;
+                    this.el.kpiOiUsdt.textContent = '$' + formatNumber(totalOiUsdt);
                     this.el.kpiOiCoins.textContent = `${formatNumber(oiCoins)} ${this.state.symbol.replace('USDT', '')}`;
                 } else if (lastItem && lastItem.openInterestUsdt) {
+                    totalOiUsdt = lastItem.openInterestUsdt;
                     this.el.kpiOiUsdt.textContent = '$' + formatNumber(lastItem.openInterestUsdt);
                     this.el.kpiOiCoins.textContent = `${formatNumber(lastItem.openInterestCoins)} ${this.state.symbol.replace('USDT', '')}`;
                 } else {
                     this.el.kpiOiUsdt.textContent = '--';
                     this.el.kpiOiCoins.textContent = '--';
+                }
+            }
+
+            // Long Position Card
+            if (this.el.kpiLongPos && this.el.kpiLongDesc) {
+                if (lastItem) {
+                    const longRatio = lastItem.longRatio;
+                    const oiVal = totalOiUsdt > 0 ? totalOiUsdt : (lastItem.openInterestUsdt || 0);
+                    const longPosVal = oiVal * longRatio;
+                    const longSpotRatio = lastItem.longSpotRatio ? lastItem.longSpotRatio.toFixed(2) : '--';
+                    const longPct = (longRatio * 100).toFixed(1);
+
+                    this.el.kpiLongPos.textContent = '$' + formatNumber(longPosVal);
+                    this.el.kpiLongDesc.textContent = `${longPct}% OI | vs Spot: ${longSpotRatio}x`;
+                } else {
+                    this.el.kpiLongPos.textContent = '--';
+                    this.el.kpiLongDesc.textContent = '--% OI | vs Spot: --x';
+                }
+            }
+
+            // Short Position Card
+            if (this.el.kpiShortPos && this.el.kpiShortDesc) {
+                if (lastItem) {
+                    const shortRatio = lastItem.shortRatio;
+                    const oiVal = totalOiUsdt > 0 ? totalOiUsdt : (lastItem.openInterestUsdt || 0);
+                    const shortPosVal = oiVal * shortRatio;
+                    const shortSpotRatio = lastItem.shortSpotRatio ? lastItem.shortSpotRatio.toFixed(2) : '--';
+                    const shortPct = (shortRatio * 100).toFixed(1);
+
+                    this.el.kpiShortPos.textContent = '$' + formatNumber(shortPosVal);
+                    this.el.kpiShortDesc.textContent = `${shortPct}% OI | vs Spot: ${shortSpotRatio}x`;
+                } else {
+                    this.el.kpiShortPos.textContent = '--';
+                    this.el.kpiShortDesc.textContent = '--% OI | vs Spot: --x';
                 }
             }
 
@@ -1098,46 +1439,47 @@
 
         renderTable(items) {
             if (!this.el.dataTableBody) return;
-            const isVi = (document.documentElement.lang || 'vi') === 'vi';
 
             // Show latest 30 candles in reverse order
             const displayItems = items.slice().reverse().slice(0, 30);
 
             let html = '';
             displayItems.forEach(row => {
-                const deltaColor = row.volumeDelta >= 0 ? 'text-emerald-500' : 'text-indigo-500';
-                const deltaSign = row.volumeDelta >= 0 ? '+' : '';
                 const priceColor = row.priceChangePct >= 0 ? 'text-emerald-500' : 'text-rose-500';
                 const priceSign = row.priceChangePct >= 0 ? '+' : '';
 
                 let stateTag = '';
                 switch (row.marketState) {
                     case 'LONG_BUILDUP':
-                        stateTag = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">Long Build-up</span>';
+                        stateTag = '<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">Long Build-up</span>';
                         break;
                     case 'SHORT_SQUEEZE':
-                        stateTag = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-500/20 text-yellow-500 border border-yellow-500/30">Short Squeeze</span>';
+                        stateTag = '<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-yellow-500/20 text-yellow-500 border border-yellow-500/30">Short Squeeze</span>';
                         break;
                     case 'SHORT_BUILDUP':
-                        stateTag = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-500 border border-rose-500/30">Short Build-up</span>';
+                        stateTag = '<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-500/20 text-rose-500 border border-rose-500/30">Short Build-up</span>';
                         break;
                     case 'LONG_LIQUIDATION':
-                        stateTag = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-500 border border-indigo-500/30">Long Liquidation</span>';
+                        stateTag = '<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-500/20 text-indigo-500 border border-indigo-500/30">Long Liquidation</span>';
                         break;
                     default:
-                        stateTag = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-500/20 text-gray-500 border border-gray-500/30">Neutral</span>';
+                        stateTag = '<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-gray-500/20 text-gray-500 border border-gray-500/30">Neutral</span>';
                 }
 
                 html += `
                     <tr class="hover:bg-white/5 dark:hover:bg-black/20 transition-all duration-200" style="border-bottom: 1px solid var(--border-color);">
-                        <td class="px-6 py-4 text-xs font-medium" style="color: var(--text-primary);">${row.label}</td>
-                        <td class="px-6 py-4 text-xs font-bold" style="color: var(--text-primary);">$${formatPrice(row.price)} <span class="${priceColor} ml-1 font-semibold">(${priceSign}${row.priceChangePct.toFixed(2)}%)</span></td>
-                        <td class="px-6 py-4 text-xs text-blue-500 font-semibold">$${formatNumber(row.spotVolumeUsdt)}</td>
-                        <td class="px-6 py-4 text-xs text-yellow-500 font-semibold">$${formatNumber(row.futuresVolumeUsdt)}</td>
-                        <td class="px-6 py-4 text-xs font-semibold ${deltaColor}">${deltaSign}$${formatNumber(row.volumeDelta)}</td>
-                        <td class="px-6 py-4 text-xs font-bold" style="color: var(--text-primary);">${row.volumeRatio.toFixed(2)}x</td>
-                        <td class="px-6 py-4 text-xs text-pink-500 font-semibold">${row.openInterestUsdt ? '$' + formatNumber(row.openInterestUsdt) : '--'}</td>
-                        <td class="px-6 py-4 text-xs text-center">${stateTag}</td>
+                        <td class="px-4 py-3 text-xs font-medium" style="color: var(--text-primary);">${row.label}</td>
+                        <td class="px-4 py-3 text-xs font-bold" style="color: var(--text-primary);">$${formatPrice(row.price)} <span class="${priceColor} ml-1 font-semibold">(${priceSign}${row.priceChangePct.toFixed(2)}%)</span></td>
+                        <td class="px-4 py-3 text-xs text-blue-500 font-semibold">$${formatNumber(row.spotVolumeUsdt)}</td>
+                        <td class="px-4 py-3 text-xs text-yellow-500 font-semibold">$${formatNumber(row.futuresVolumeUsdt)}</td>
+                        <td class="px-4 py-3 text-xs text-emerald-500 font-semibold">${row.longPositionUsdt !== null ? '$' + formatNumber(row.longPositionUsdt) : '--'}</td>
+                        <td class="px-4 py-3 text-xs text-rose-500 font-semibold">${row.shortPositionUsdt !== null ? '$' + formatNumber(row.shortPositionUsdt) : '--'}</td>
+                        <td class="px-4 py-3 text-xs font-bold text-emerald-400">${row.longSpotRatio ? row.longSpotRatio.toFixed(2) + 'x' : '--'}</td>
+                        <td class="px-4 py-3 text-xs font-bold text-rose-400">${row.shortSpotRatio ? row.shortSpotRatio.toFixed(2) + 'x' : '--'}</td>
+                        <td class="px-4 py-3 text-xs font-semibold text-indigo-400">${row.longShortRatio ? row.longShortRatio.toFixed(2) : '--'}</td>
+                        <td class="px-4 py-3 text-xs font-bold" style="color: var(--text-primary);">${row.volumeRatio.toFixed(2)}x</td>
+                        <td class="px-4 py-3 text-xs text-pink-500 font-semibold">${row.openInterestUsdt ? '$' + formatNumber(row.openInterestUsdt) : '--'}</td>
+                        <td class="px-4 py-3 text-xs text-center">${stateTag}</td>
                     </tr>
                 `;
             });
@@ -1152,7 +1494,23 @@
             }
 
             const items = this.state.currentData.items;
-            const headers = ['Timestamp', 'Date', 'Price', 'PriceChangePct', 'SpotVolumeUSDT', 'FuturesVolumeUSDT', 'VolumeDeltaUSDT', 'FuturesSpotRatio', 'OpenInterestUSDT', 'Correlation14', 'MarketState'];
+            const headers = [
+                'Timestamp',
+                'Date',
+                'Price',
+                'PriceChangePct',
+                'SpotVolumeUSDT',
+                'FuturesVolumeUSDT',
+                'LongPositionUSDT',
+                'ShortPositionUSDT',
+                'LongSpotRatio',
+                'ShortSpotRatio',
+                'LongShortRatio',
+                'FuturesSpotRatio',
+                'OpenInterestUSDT',
+                'Correlation14',
+                'MarketState'
+            ];
             const rows = items.map(d => [
                 d.timestamp,
                 `"${d.label}"`,
@@ -1160,7 +1518,11 @@
                 d.priceChangePct.toFixed(2),
                 d.spotVolumeUsdt.toFixed(2),
                 d.futuresVolumeUsdt.toFixed(2),
-                d.volumeDelta.toFixed(2),
+                d.longPositionUsdt !== null ? d.longPositionUsdt.toFixed(2) : '',
+                d.shortPositionUsdt !== null ? d.shortPositionUsdt.toFixed(2) : '',
+                d.longSpotRatio ? d.longSpotRatio.toFixed(2) : '',
+                d.shortSpotRatio ? d.shortSpotRatio.toFixed(2) : '',
+                d.longShortRatio ? d.longShortRatio.toFixed(2) : '',
                 d.volumeRatio.toFixed(2),
                 d.openInterestUsdt ? d.openInterestUsdt.toFixed(2) : '',
                 d.correlation !== null ? d.correlation.toFixed(3) : '',
@@ -1171,7 +1533,7 @@
             const encodedUri = encodeURI(csvContent);
             const link = document.createElement('a');
             link.setAttribute('href', encodedUri);
-            link.setAttribute('download', `${this.state.symbol}_${this.state.timeframe}_volume_analytics.csv`);
+            link.setAttribute('download', `${this.state.symbol}_${this.state.timeframe}_market_analytics.csv`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
