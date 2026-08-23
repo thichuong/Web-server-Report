@@ -219,7 +219,13 @@ function get_translations_data()
     'th-long-pos': { vi: 'Vị thế Long ($)', en: 'Long Pos ($)' },
     'th-short-pos': { vi: 'Vị thế Short ($)', en: 'Short Pos ($)' },
     'th-ls-ratio': { vi: 'Tỷ lệ L/S', en: 'L/S Ratio' },
-    'th-fs-ratio': { vi: 'Tỷ lệ F/S', en: 'F/S Ratio' }
+    'th-fs-ratio': { vi: 'Tỷ lệ F/S', en: 'F/S Ratio' },
+    'websocket-status': { vi: 'WebSocket Thời gian thực', en: 'Real-time WebSocket' },
+    'live-stream': { vi: 'Dữ liệu Trực tiếp', en: 'Live Stream' },
+    'ws-connected': { vi: 'Kết nối WebSocket thành công', en: 'WebSocket Connected' },
+    'ws-reconnecting': { vi: 'Đang kết nối lại WebSocket...', en: 'Reconnecting WebSocket...' },
+    'ws-disconnected': { vi: 'Mất kết nối WebSocket', en: 'WebSocket Disconnected' },
+    'ws-live': { vi: 'Trực tiếp (Live)', en: 'Live Stream' }
     };
     return translations_data;
 }

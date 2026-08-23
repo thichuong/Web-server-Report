@@ -66,9 +66,9 @@
                 <!-- Live Status & Toggles -->
                 <div class="flex items-center space-x-4">
                     <div class="hidden sm:flex items-center space-x-2 text-xs" style="color: var(--text-secondary);">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span data-i18n="api-status">API Binance</span>:
-                        <span id="api-latency-badge" class="px-2 py-0.5 text-xs font-semibold rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">-- ms</span>
+                        <span id="ws-pulse-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span id="ws-status-title" data-i18n="websocket-status">WebSocket</span>:
+                        <span id="api-latency-badge" class="px-2 py-0.5 text-xs font-semibold rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Live Stream</span>
                     </div>
                     {% include "crypto/components/theme_toggle.html" %}
                     {% include "crypto/components/language_toggle.html" %}
@@ -297,20 +297,96 @@
                         <button type="button" data-limit="500" class="limit-btn px-2 py-1 rounded text-xs font-semibold text-gray-300 hover:text-white transition-colors">500</button>
                     </div>
 
-                    <!-- Auto Refresh & Manual Refresh -->
+                    <!-- Real-time WebSocket, Sync & Debug -->
                     <div class="flex items-center space-x-2">
                         <label class="flex items-center space-x-1.5 text-xs cursor-pointer select-none" style="color: var(--text-secondary);">
                             <input type="checkbox" id="auto-refresh-toggle" checked class="rounded border-gray-600 text-blue-600 focus:ring-0">
-                            <span data-i18n="auto-refresh">Tự động</span>
-                            <span id="refresh-countdown" class="font-mono text-blue-500 font-semibold">20s</span>
+                            <span data-i18n="live-stream">Real-time WS</span>
+                            <span id="refresh-countdown" class="font-mono text-emerald-400 font-semibold flex items-center"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block mr-1"></span>Live</span>
                         </label>
 
                         <button type="button" id="btn-manual-refresh" class="p-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow hover:shadow-md" title="Cập nhật ngay" data-i18n-title="manual-refresh">
                             <i class="fas fa-sync-alt"></i>
                         </button>
+
+                        <button type="button" id="btn-toggle-debug" class="px-2.5 py-2 rounded-lg bg-gray-800/80 hover:bg-gray-700 text-gray-300 hover:text-white text-xs font-bold transition-all border border-gray-700 shadow flex items-center space-x-1" title="Mở bảng Debug WebSocket">
+                            <i class="fas fa-terminal text-emerald-400"></i>
+                            <span class="hidden sm:inline">Debug WS</span>
+                        </button>
                     </div>
                 </div>
 
+            </div>
+        </div>
+
+        <!-- WebSocket Debug Console Panel (Collapsible) -->
+        <div id="debug-panel" class="hidden card p-4 sm:p-6 mb-8 border border-emerald-500/30 bg-gray-900/90 shadow-2xl backdrop-blur-md">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 mb-4 border-b border-gray-800">
+                <div class="flex items-center space-x-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <h3 class="text-sm font-bold text-emerald-400 font-mono flex items-center">
+                        <i class="fas fa-terminal mr-2"></i> WebSocket Live Stream Diagnostics & Monitor
+                    </h3>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" id="btn-dbg-reconnect" class="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-colors">
+                        <i class="fas fa-sync-alt mr-1"></i> Reconnect WS
+                    </button>
+                    <button type="button" id="btn-dbg-refresh" class="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors">
+                        <i class="fas fa-download mr-1"></i> Fetch Snapshot
+                    </button>
+                    <button type="button" id="btn-dbg-sim-tick" class="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors">
+                        <i class="fas fa-bolt mr-1"></i> Test Tick
+                    </button>
+                    <button type="button" id="btn-dbg-clear" class="px-2.5 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-semibold transition-colors">
+                        <i class="fas fa-trash-alt mr-1"></i> Clear Log
+                    </button>
+                    <button type="button" id="btn-close-debug" class="px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white text-xs">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Debug Status Cards Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4 font-mono text-xs">
+                <!-- Card 1: Spot WS -->
+                <div class="p-3 rounded-lg bg-gray-800/60 border border-gray-700/60">
+                    <div class="text-gray-400 font-semibold mb-1 flex items-center justify-between">
+                        <span>Spot Stream:</span>
+                        <span id="dbg-spot-status" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400">Connecting</span>
+                    </div>
+                    <div class="text-gray-300">Msgs: <span id="dbg-spot-count" class="text-emerald-400 font-bold">0</span></div>
+                    <div class="text-[11px] text-gray-400 truncate mt-0.5">Last: <span id="dbg-spot-last" class="text-gray-300">None</span></div>
+                </div>
+
+                <!-- Card 2: Futures WS -->
+                <div class="p-3 rounded-lg bg-gray-800/60 border border-gray-700/60">
+                    <div class="text-gray-400 font-semibold mb-1 flex items-center justify-between">
+                        <span>Futures Stream:</span>
+                        <span id="dbg-fut-status" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400">Connecting</span>
+                    </div>
+                    <div class="text-gray-300">Msgs: <span id="dbg-fut-count" class="text-emerald-400 font-bold">0</span></div>
+                    <div class="text-[11px] text-gray-400 truncate mt-0.5">Last: <span id="dbg-fut-last" class="text-gray-300">None</span></div>
+                </div>
+
+                <!-- Card 3: In-Memory Data Buffer -->
+                <div class="p-3 rounded-lg bg-gray-800/60 border border-gray-700/60">
+                    <div class="text-gray-400 font-semibold mb-1">Data Buffer:</div>
+                    <div class="text-gray-300">Spot / Fut Klines: <span id="dbg-buffer-counts" class="text-cyan-400 font-bold">0 / 0</span></div>
+                    <div class="text-[11px] text-gray-400 truncate mt-0.5">Aligned Items: <span id="dbg-aligned-count" class="text-indigo-400 font-bold">0</span></div>
+                </div>
+
+                <!-- Card 4: Render Engine -->
+                <div class="p-3 rounded-lg bg-gray-800/60 border border-gray-700/60">
+                    <div class="text-gray-400 font-semibold mb-1">Render Engine:</div>
+                    <div class="text-gray-300">Renders: <span id="dbg-render-count" class="text-yellow-400 font-bold">0</span></div>
+                    <div class="text-[11px] text-gray-400 truncate mt-0.5">Last Update: <span id="dbg-last-render-time" class="text-gray-300">--</span></div>
+                </div>
+            </div>
+
+            <!-- Live Event Log -->
+            <div class="rounded-lg bg-black/70 border border-gray-800 p-3 font-mono text-[11px] max-h-48 overflow-y-auto custom-scrollbar" id="dbg-log-container">
+                <div class="text-gray-500">// WebSocket and rendering logs will stream here in real time...</div>
             </div>
         </div>
 

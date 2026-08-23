@@ -1,9 +1,12 @@
 /**
- * Market Analytics Client-side Engine
- * Pure client-side fetching from Binance Spot & Futures APIs,
- * mathematical calculation of Volume Correlation, Volume Delta, Futures/Spot Ratio,
- * Open Interest analysis, Long/Short Position separation & Spot Volume comparison,
- * CVD, and Chart.js multi-chart rendering.
+ * Market Analytics Client-side Engine with Real-Time WebSocket Streaming & Diagnostics
+ * 
+ * Features:
+ * 1. Historical Snapshot Bootstrap from Binance REST API (Spot & Futures Klines, OI, Long/Short Ratio).
+ * 2. Real-time live streaming via Binance Spot & Futures WebSockets (wss://stream.binance.com:9443 & wss://fstream.binance.com).
+ * 3. In-place Chart.js Multi-Chart Engine with persistent legend visibility & options preservation across reloads and ticks.
+ * 4. High-performance throttled mathematical computation: Pearson Correlation, Net Delta, CVD, OI Valuation, Position Ratios.
+ * 5. Integrated Real-time Diagnostics / Debug Console with live metrics and event logs.
  */
 
 (function () {
@@ -34,7 +37,7 @@
         return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} (${d.getDate()}/${d.getMonth() + 1})`;
     };
 
-    // 1. BINANCE API CLIENT (Client-side execution directly in browser)
+    // 1. BINANCE REST API CLIENT (For initial snapshots and background sync)
     class BinanceApiClient {
         constructor() {
             this.spotBaseUrl = 'https://api.binance.com';
@@ -64,7 +67,6 @@
         }
 
         async getOpenInterestHist(symbol, period, limit) {
-            // Map timeframe to valid Binance OI period: 5m, 15m, 30m, 1h, 2h, 4h, 6h, 12h, 1d
             let oiPeriod = period;
             if (period === '1m' || period === '3m') oiPeriod = '5m';
             const url = `${this.futuresBaseUrl}/futures/data/openInterestHist?symbol=${encodeURIComponent(symbol)}&period=${oiPeriod}&limit=${limit}`;
@@ -100,7 +102,188 @@
         }
     }
 
-    // 2. MATHEMATICAL & ANALYTICAL COMPUTATION ENGINE
+    // 2. BINANCE WEBSOCKET MANAGER (Dual Independent Streams for Spot & Futures)
+    class BinanceWebSocketManager {
+        constructor(config = {}) {
+            this.spotWs = null;
+            this.futuresWs = null;
+            this.currentSymbol = null;
+            this.currentTimeframe = null;
+
+            this.spotConnected = false;
+            this.futuresConnected = false;
+            this.spotMsgCount = 0;
+            this.futuresMsgCount = 0;
+            this.spotReconnectAttempts = 0;
+            this.futuresReconnectAttempts = 0;
+            this.maxReconnectAttempts = 12;
+
+            this.onSpotKline = config.onSpotKline || (() => {});
+            this.onFuturesKline = config.onFuturesKline || (() => {});
+            this.onSpotTicker = config.onSpotTicker || (() => {});
+            this.onFuturesTicker = config.onFuturesTicker || (() => {});
+            this.onStatusChange = config.onStatusChange || (() => {});
+            this.onLog = config.onLog || (() => {});
+        }
+
+        subscribe(symbol, timeframe) {
+            this.currentSymbol = symbol.toLowerCase();
+            this.currentTimeframe = timeframe;
+            this.disconnect();
+            this.connectSpot();
+            this.connectFutures();
+        }
+
+        connectSpot() {
+            if (!this.currentSymbol || !this.currentTimeframe) return;
+            const sym = this.currentSymbol;
+            const tf = this.currentTimeframe;
+
+            this.onLog('spot', `Initiating Spot WS connection: ${sym}@kline_${tf} & ${sym}@ticker`);
+            this.onStatusChange('spot', 'connecting');
+
+            try {
+                // Try combined stream on port 9443
+                const url = `wss://stream.binance.com:9443/stream?streams=${sym}@kline_${tf}/${sym}@ticker`;
+                this.spotWs = new WebSocket(url);
+
+                this.spotWs.onopen = () => {
+                    this.spotConnected = true;
+                    this.spotReconnectAttempts = 0;
+                    this.onLog('spot', '🟢 Spot WebSocket connected successfully');
+                    this.onStatusChange('spot', 'connected');
+                };
+
+                this.spotWs.onmessage = (event) => {
+                    this.spotMsgCount++;
+                    try {
+                        const parsed = JSON.parse(event.data);
+                        const data = parsed.data || parsed;
+                        const streamName = parsed.stream || '';
+
+                        if (data.e === 'kline' && data.k) {
+                            this.onSpotKline(data.k);
+                        } else if (data.e === '24hrTicker' || data.e === '24hrMiniTicker' || streamName.includes('@ticker')) {
+                            this.onSpotTicker(data);
+                        }
+                    } catch (err) {
+                        this.onLog('spot', `❌ Error parsing Spot message: ${err.message}`);
+                    }
+                };
+
+                this.spotWs.onerror = (err) => {
+                    this.onLog('spot', `⚠️ Spot WS error: ${err.message || 'Connection failed'}`);
+                };
+
+                this.spotWs.onclose = (event) => {
+                    this.spotConnected = false;
+                    this.onLog('spot', `🔌 Spot WS disconnected (code: ${event.code})`);
+                    this.onStatusChange('spot', 'disconnected');
+                    if (event.code !== 1000) {
+                        this.scheduleSpotReconnect();
+                    }
+                };
+            } catch (e) {
+                this.onLog('spot', `❌ Spot WS Init Exception: ${e.message}`);
+                this.scheduleSpotReconnect();
+            }
+        }
+
+        connectFutures() {
+            if (!this.currentSymbol || !this.currentTimeframe) return;
+            const sym = this.currentSymbol;
+            const tf = this.currentTimeframe;
+
+            this.onLog('futures', `Initiating Futures WS connection: ${sym}@kline_${tf} & ${sym}@ticker`);
+            this.onStatusChange('futures', 'connecting');
+
+            try {
+                // Futures combined stream (Binance upgraded USDS-M Futures to dedicated /market base endpoint)
+                const url = `wss://fstream.binance.com/market/stream?streams=${sym}@kline_${tf}/${sym}@ticker`;
+                this.futuresWs = new WebSocket(url);
+
+                this.futuresWs.onopen = () => {
+                    this.futuresConnected = true;
+                    this.futuresReconnectAttempts = 0;
+                    this.onLog('futures', '🟢 Futures WebSocket connected successfully');
+                    this.onStatusChange('futures', 'connected');
+                };
+
+                this.futuresWs.onmessage = (event) => {
+                    this.futuresMsgCount++;
+                    try {
+                        const parsed = JSON.parse(event.data);
+                        const data = parsed.data || parsed;
+                        const streamName = parsed.stream || '';
+
+                        if (data.e === 'kline' && data.k) {
+                            this.onFuturesKline(data.k);
+                        } else if (data.e === '24hrTicker' || data.e === '24hrMiniTicker' || streamName.includes('@ticker')) {
+                            this.onFuturesTicker(data);
+                        }
+                    } catch (err) {
+                        this.onLog('futures', `❌ Error parsing Futures message: ${err.message}`);
+                    }
+                };
+
+                this.futuresWs.onerror = (err) => {
+                    this.onLog('futures', `⚠️ Futures WS error: ${err.message || 'Connection failed'}`);
+                };
+
+                this.futuresWs.onclose = (event) => {
+                    this.futuresConnected = false;
+                    this.onLog('futures', `🔌 Futures WS disconnected (code: ${event.code})`);
+                    this.onStatusChange('futures', 'disconnected');
+                    if (event.code !== 1000) {
+                        this.scheduleFuturesReconnect();
+                    }
+                };
+            } catch (e) {
+                this.onLog('futures', `❌ Futures WS Init Exception: ${e.message}`);
+                this.scheduleFuturesReconnect();
+            }
+        }
+
+        scheduleSpotReconnect() {
+            if (this.spotReconnectAttempts >= this.maxReconnectAttempts) {
+                this.onLog('spot', '❌ Spot WS max reconnect attempts reached');
+                return;
+            }
+            this.spotReconnectAttempts++;
+            const delay = Math.min(1000 * Math.pow(1.5, this.spotReconnectAttempts), 10000);
+            this.onLog('spot', `🔄 Reconnecting Spot WS in ${Math.round(delay)}ms... (Attempt ${this.spotReconnectAttempts})`);
+            setTimeout(() => this.connectSpot(), delay);
+        }
+
+        scheduleFuturesReconnect() {
+            if (this.futuresReconnectAttempts >= this.maxReconnectAttempts) {
+                this.onLog('futures', '❌ Futures WS max reconnect attempts reached');
+                return;
+            }
+            this.futuresReconnectAttempts++;
+            const delay = Math.min(1000 * Math.pow(1.5, this.futuresReconnectAttempts), 10000);
+            this.onLog('futures', `🔄 Reconnecting Futures WS in ${Math.round(delay)}ms... (Attempt ${this.futuresReconnectAttempts})`);
+            setTimeout(() => this.connectFutures(), delay);
+        }
+
+        disconnect() {
+            if (this.spotWs) {
+                this.spotWs.onclose = null;
+                this.spotWs.close();
+                this.spotWs = null;
+            }
+            if (this.futuresWs) {
+                this.futuresWs.onclose = null;
+                this.futuresWs.close();
+                this.futuresWs = null;
+            }
+            this.spotConnected = false;
+            this.futuresConnected = false;
+            this.onStatusChange('all', 'disconnected');
+        }
+    }
+
+    // 3. MATHEMATICAL & ANALYTICAL COMPUTATION ENGINE
     class AnalyticsEngine {
         static calculatePearsonCorrelation(x, y) {
             const n = x.length;
@@ -138,19 +321,20 @@
         }
 
         static processAndAlignData(spotKlines, futKlines, oiHistory, lsHistory, timeframe) {
-            // Build lookup maps by openTime
+            // Build lookup maps by openTime (parsed as integer timestamp)
             const spotMap = new Map();
             spotKlines.forEach(k => {
-                spotMap.set(k[0], {
-                    openTime: k[0],
+                const ts = parseInt(k[0], 10);
+                spotMap.set(ts, {
+                    openTime: ts,
                     open: parseFloat(k[1]),
                     high: parseFloat(k[2]),
                     low: parseFloat(k[3]),
                     close: parseFloat(k[4]),
                     volume: parseFloat(k[5]),
-                    closeTime: k[6],
+                    closeTime: parseInt(k[6], 10),
                     quoteVolume: parseFloat(k[7]),
-                    trades: parseInt(k[8], 10),
+                    trades: parseInt(k[8], 10) || 0,
                     takerBuyBaseVol: parseFloat(k[9]),
                     takerBuyQuoteVol: parseFloat(k[10])
                 });
@@ -158,16 +342,17 @@
 
             const futMap = new Map();
             futKlines.forEach(k => {
-                futMap.set(k[0], {
-                    openTime: k[0],
+                const ts = parseInt(k[0], 10);
+                futMap.set(ts, {
+                    openTime: ts,
                     open: parseFloat(k[1]),
                     high: parseFloat(k[2]),
                     low: parseFloat(k[3]),
                     close: parseFloat(k[4]),
                     volume: parseFloat(k[5]),
-                    closeTime: k[6],
+                    closeTime: parseInt(k[6], 10),
                     quoteVolume: parseFloat(k[7]),
-                    trades: parseInt(k[8], 10),
+                    trades: parseInt(k[8], 10) || 0,
                     takerBuyBaseVol: parseFloat(k[9]),
                     takerBuyQuoteVol: parseFloat(k[10])
                 });
@@ -201,8 +386,9 @@
                 });
             }
 
-            // Find matching timestamps in chronological order
-            const sortedTimestamps = Array.from(futMap.keys()).sort((a, b) => a - b);
+            // Merge all timestamps from both Spot and Futures
+            const allTimestamps = new Set([...spotMap.keys(), ...futMap.keys()]);
+            const sortedTimestamps = Array.from(allTimestamps).sort((a, b) => a - b);
             const alignedData = [];
 
             let spotCumulativeCvd = 0;
@@ -210,10 +396,14 @@
 
             for (let i = 0; i < sortedTimestamps.length; i++) {
                 const ts = sortedTimestamps[i];
-                const fut = futMap.get(ts);
-                const spot = spotMap.get(ts);
+                const futCandle = futMap.get(ts);
+                const spotCandle = spotMap.get(ts);
 
-                // If spot candle doesn't exist for exact ts, find closest or default
+                // Fallback to whichever is available if one stream has a slight lead
+                const fut = futCandle || spotCandle;
+                const spot = spotCandle || futCandle;
+                if (!fut && !spot) continue;
+
                 const spotQuoteVol = spot ? spot.quoteVolume : 0;
                 const spotBuyQuoteVol = spot ? spot.takerBuyQuoteVol : 0;
                 const spotSellQuoteVol = Math.max(0, spotQuoteVol - spotBuyQuoteVol);
@@ -229,7 +419,7 @@
                 const futBuyPct = futQuoteVol > 0 ? (futBuyQuoteVol / futQuoteVol) * 100 : 50;
 
                 const spotPrice = spot ? spot.close : fut.close;
-                const futPrice = fut.close;
+                const futPrice = fut ? fut.close : spot.close;
 
                 const volumeDelta = futQuoteVol - spotQuoteVol;
                 const volumeRatio = spotQuoteVol > 0 ? futQuoteVol / spotQuoteVol : 0;
@@ -238,7 +428,7 @@
                 spotCumulativeCvd += spotNetDelta;
                 futCumulativeCvd += futNetDelta;
 
-                // Find matching or closest OI record within timeframe window
+                // Find matching or closest OI record
                 let matchedOi = null;
                 if (oiMap.has(ts)) {
                     matchedOi = oiMap.get(ts);
@@ -281,7 +471,7 @@
                 const longPositionUsdt = openInterestUsdt !== null ? (openInterestUsdt * longRatio) : null;
                 const shortPositionUsdt = openInterestUsdt !== null ? (openInterestUsdt * shortRatio) : null;
 
-                // Direct comparison with Spot Volume:
+                // Comparison with Spot Volume:
                 const longSpotRatio = (spotQuoteVol > 0 && longPositionUsdt !== null) ? (longPositionUsdt / spotQuoteVol) : 0;
                 const shortSpotRatio = (spotQuoteVol > 0 && shortPositionUsdt !== null) ? (shortPositionUsdt / spotQuoteVol) : 0;
                 const netPositionUsdt = (longPositionUsdt !== null && shortPositionUsdt !== null) ? (longPositionUsdt - shortPositionUsdt) : 0;
@@ -371,7 +561,7 @@
                 }
             }
 
-            // Global Pearson correlation across entire dataset
+            // Global Pearson correlation
             const overallCorrelation = this.calculatePearsonCorrelation(spotVols, futVols);
 
             return {
@@ -381,7 +571,7 @@
         }
     }
 
-    // 3. CHART MANAGER (Chart.js Multi-Chart Rendering Engine)
+    // 4. CHART MANAGER (In-Place Updates with Absolute Legend State Preservation)
     class ChartManager {
         constructor() {
             this.charts = {
@@ -394,6 +584,32 @@
                 netTakerDelta: null,
                 correlationCvd: null
             };
+            this.savedVisibility = {};
+        }
+
+        saveVisibility(chartKey) {
+            const chart = this.charts[chartKey];
+            if (!chart || !chart.data || !chart.data.datasets) return;
+            if (!this.savedVisibility[chartKey]) this.savedVisibility[chartKey] = {};
+
+            chart.data.datasets.forEach((ds, idx) => {
+                const isVisible = chart.isDatasetVisible(idx);
+                const label = ds.label || `dataset_${idx}`;
+                this.savedVisibility[chartKey][label] = isVisible;
+            });
+        }
+
+        restoreVisibility(chartKey) {
+            const chart = this.charts[chartKey];
+            const saved = this.savedVisibility[chartKey];
+            if (!chart || !saved || !chart.data || !chart.data.datasets) return;
+
+            chart.data.datasets.forEach((ds, idx) => {
+                const label = ds.label || `dataset_${idx}`;
+                if (label in saved) {
+                    chart.setDatasetVisibility(idx, saved[label]);
+                }
+            });
         }
 
         getThemeColors() {
@@ -406,61 +622,44 @@
                 mutedText: isDark ? '#94a3b8' : '#64748b',
                 grid: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
                 border: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.1)',
-                spotColor: '#3b82f6', // Blue
+                spotColor: '#3b82f6',
                 spotColorBg: 'rgba(59, 130, 246, 0.4)',
-                futuresColor: '#f59e0b', // Amber / Orange
+                futuresColor: '#f59e0b',
                 futuresColorBg: 'rgba(245, 158, 11, 0.4)',
-                buyColor: '#10b981', // Emerald Green
+                buyColor: '#10b981',
                 buyColorBg: 'rgba(16, 185, 129, 0.5)',
-                sellColor: '#f43f5e', // Rose Red
+                sellColor: '#f43f5e',
                 sellColorBg: 'rgba(244, 63, 94, 0.5)',
-                spotBuyColor: '#06b6d4', // Cyan
-                spotSellColor: '#3b82f6', // Blue
-                futBuyColor: '#10b981', // Emerald
-                futSellColor: '#f43f5e', // Rose
-                deltaPositive: '#10b981', // Green (Futures > Spot)
-                deltaNegative: '#6366f1', // Indigo (Spot > Futures)
-                longColor: '#10b981', // Emerald Green
+                spotBuyColor: '#06b6d4',
+                spotSellColor: '#3b82f6',
+                futBuyColor: '#10b981',
+                futSellColor: '#f43f5e',
+                deltaPositive: '#10b981',
+                deltaNegative: '#6366f1',
+                longColor: '#10b981',
                 longColorBg: 'rgba(16, 185, 129, 0.4)',
-                shortColor: '#f43f5e', // Rose Red
+                shortColor: '#f43f5e',
                 shortColorBg: 'rgba(244, 63, 94, 0.4)',
-                lsRatioColor: '#818cf8', // Light Indigo
-                oiColor: '#ec4899', // Pink / Magenta
+                lsRatioColor: '#818cf8',
+                oiColor: '#ec4899',
                 oiColorBg: 'rgba(236, 72, 153, 0.15)',
                 priceColor: isDark ? '#f8fafc' : '#0f172a',
-                corrColor: '#8b5cf6', // Purple
-                cvdSpotColor: '#06b6d4', // Cyan
-                cvdFutColor: '#f97316' // Orange
+                corrColor: '#8b5cf6',
+                cvdSpotColor: '#06b6d4',
+                cvdFutColor: '#f97316'
             };
         }
 
-        destroyAll() {
-            Object.keys(this.charts).forEach(key => {
-                if (this.charts[key]) {
-                    this.charts[key].destroy();
-                    this.charts[key] = null;
-                }
-            });
-        }
-
         renderAll(data) {
-            this.destroyAll();
             const colors = this.getThemeColors();
             const labels = data.items.map(d => d.label);
 
-            // Layer 1: Price Action & Real-Time Flow
             this.renderPriceVolumeChart(data.items, labels, colors);
             this.renderBuySellBreakdownChart(data.items, labels, colors);
-
-            // Layer 2: Order Flow Net Delta & CVD
             this.renderNetTakerDeltaChart(data.items, labels, colors);
             this.renderCorrelationCvdChart(data.items, labels, colors);
-
-            // Layer 3: Open Interest & Long/Short Positioning
             this.renderOpenInterestChart(data.items, labels, colors);
             this.renderLongShortRatioChart(data.items, labels, colors);
-
-            // Layer 4: Derivatives Leverage & Spot Liquidity
             this.renderVolumeDeltaChart(data.items, labels, colors);
             this.renderLongShortSpotChart(data.items, labels, colors);
         }
@@ -472,6 +671,16 @@
             const prices = items.map(d => d.price);
             const spotVols = items.map(d => d.spotVolumeUsdt);
             const futVols = items.map(d => d.futuresVolumeUsdt);
+
+            if (this.charts.priceVolume) {
+                const chart = this.charts.priceVolume;
+                chart.data.labels = labels;
+                chart.data.datasets[0].data = prices;
+                chart.data.datasets[1].data = spotVols;
+                chart.data.datasets[2].data = futVols;
+                chart.update('none');
+                return;
+            }
 
             this.charts.priceVolume = new Chart(ctx, {
                 type: 'bar',
@@ -515,9 +724,24 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: false,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
-                        legend: { labels: { color: colors.text, font: { family: 'Inter', size: 12 } } },
+                        legend: {
+                            labels: { color: colors.text, font: { family: 'Inter', size: 12 } },
+                            onClick: (e, legendItem, legend) => {
+                                const index = legendItem.datasetIndex;
+                                const ci = legend.chart;
+                                if (ci.isDatasetVisible(index)) {
+                                    ci.hide(index);
+                                    legendItem.hidden = true;
+                                } else {
+                                    ci.show(index);
+                                    legendItem.hidden = false;
+                                }
+                                this.saveVisibility('priceVolume');
+                            }
+                        },
                         tooltip: {
                             callbacks: {
                                 label: function (context) {
@@ -538,23 +762,18 @@
                             type: 'linear',
                             position: 'left',
                             grid: { color: colors.grid },
-                            ticks: {
-                                color: colors.text,
-                                callback: val => '$' + formatPrice(val)
-                            }
+                            ticks: { color: colors.text, callback: val => '$' + formatPrice(val) }
                         },
                         yVolume: {
                             type: 'linear',
                             position: 'right',
                             grid: { drawOnChartArea: false },
-                            ticks: {
-                                color: colors.mutedText,
-                                callback: val => '$' + formatNumber(val)
-                            }
+                            ticks: { color: colors.mutedText, callback: val => '$' + formatNumber(val) }
                         }
                     }
                 }
             });
+            this.restoreVisibility('priceVolume');
         }
 
         renderBuySellBreakdownChart(items, labels, colors) {
@@ -566,6 +785,18 @@
             const futBuyVols = items.map(d => d.futuresBuyVolumeUsdt);
             const futSellVols = items.map(d => d.futuresSellVolumeUsdt);
             const futBuyRatios = items.map(d => d.futuresBuyRatio);
+
+            if (this.charts.buySellBreakdown) {
+                const chart = this.charts.buySellBreakdown;
+                chart.data.labels = labels;
+                chart.data.datasets[0].data = futBuyRatios;
+                chart.data.datasets[1].data = spotBuyVols;
+                chart.data.datasets[2].data = spotSellVols;
+                chart.data.datasets[3].data = futBuyVols;
+                chart.data.datasets[4].data = futSellVols;
+                chart.update('none');
+                return;
+            }
 
             this.charts.buySellBreakdown = new Chart(ctx, {
                 type: 'bar',
@@ -629,9 +860,24 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: false,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
-                        legend: { labels: { color: colors.text, font: { family: 'Inter', size: 11 } } },
+                        legend: {
+                            labels: { color: colors.text, font: { family: 'Inter', size: 11 } },
+                            onClick: (e, legendItem, legend) => {
+                                const index = legendItem.datasetIndex;
+                                const ci = legend.chart;
+                                if (ci.isDatasetVisible(index)) {
+                                    ci.hide(index);
+                                    legendItem.hidden = true;
+                                } else {
+                                    ci.show(index);
+                                    legendItem.hidden = false;
+                                }
+                                this.saveVisibility('buySellBreakdown');
+                            }
+                        },
                         tooltip: {
                             callbacks: {
                                 label: function (context) {
@@ -652,23 +898,18 @@
                             type: 'linear',
                             position: 'left',
                             grid: { color: colors.grid },
-                            ticks: {
-                                color: colors.text,
-                                callback: val => '$' + formatNumber(val)
-                            }
+                            ticks: { color: colors.text, callback: val => '$' + formatNumber(val) }
                         },
                         yRatio: {
                             type: 'linear',
                             position: 'right',
                             grid: { drawOnChartArea: false },
-                            ticks: {
-                                color: colors.lsRatioColor,
-                                callback: val => Number(val).toFixed(1)
-                            }
+                            ticks: { color: colors.lsRatioColor, callback: val => Number(val).toFixed(1) }
                         }
                     }
                 }
             });
+            this.restoreVisibility('buySellBreakdown');
         }
 
         renderVolumeDeltaChart(items, labels, colors) {
@@ -678,6 +919,16 @@
             const deltas = items.map(d => d.volumeDelta);
             const ratios = items.map(d => d.volumeRatio);
             const barBgColors = deltas.map(v => v >= 0 ? colors.deltaPositive : colors.deltaNegative);
+
+            if (this.charts.volumeDelta) {
+                const chart = this.charts.volumeDelta;
+                chart.data.labels = labels;
+                chart.data.datasets[0].data = ratios;
+                chart.data.datasets[1].data = deltas;
+                chart.data.datasets[1].backgroundColor = barBgColors;
+                chart.update('none');
+                return;
+            }
 
             this.charts.volumeDelta = new Chart(ctx, {
                 data: {
@@ -709,9 +960,24 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: false,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
-                        legend: { labels: { color: colors.text, font: { family: 'Inter', size: 12 } } },
+                        legend: {
+                            labels: { color: colors.text, font: { family: 'Inter', size: 12 } },
+                            onClick: (e, legendItem, legend) => {
+                                const index = legendItem.datasetIndex;
+                                const ci = legend.chart;
+                                if (ci.isDatasetVisible(index)) {
+                                    ci.hide(index);
+                                    legendItem.hidden = true;
+                                } else {
+                                    ci.show(index);
+                                    legendItem.hidden = false;
+                                }
+                                this.saveVisibility('volumeDelta');
+                            }
+                        },
                         tooltip: {
                             callbacks: {
                                 label: function (context) {
@@ -733,23 +999,18 @@
                             type: 'linear',
                             position: 'left',
                             grid: { color: colors.grid },
-                            ticks: {
-                                color: colors.text,
-                                callback: val => '$' + formatNumber(val)
-                            }
+                            ticks: { color: colors.text, callback: val => '$' + formatNumber(val) }
                         },
                         yRatio: {
                             type: 'linear',
                             position: 'right',
                             grid: { drawOnChartArea: false },
-                            ticks: {
-                                color: colors.futuresColor,
-                                callback: val => Number(val).toFixed(1) + 'x'
-                            }
+                            ticks: { color: colors.futuresColor, callback: val => Number(val).toFixed(1) + 'x' }
                         }
                     }
                 }
             });
+            this.restoreVisibility('volumeDelta');
         }
 
         renderLongShortSpotChart(items, labels, colors) {
@@ -761,6 +1022,18 @@
             const shortPositions = items.map(d => d.shortPositionUsdt);
             const longSpotRatios = items.map(d => d.longSpotRatio);
             const shortSpotRatios = items.map(d => d.shortSpotRatio);
+
+            if (this.charts.longShortSpot) {
+                const chart = this.charts.longShortSpot;
+                chart.data.labels = labels;
+                chart.data.datasets[0].data = longSpotRatios;
+                chart.data.datasets[1].data = shortSpotRatios;
+                chart.data.datasets[2].data = spotVols;
+                chart.data.datasets[3].data = longPositions;
+                chart.data.datasets[4].data = shortPositions;
+                chart.update('none');
+                return;
+            }
 
             this.charts.longShortSpot = new Chart(ctx, {
                 data: {
@@ -826,9 +1099,24 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: false,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
-                        legend: { labels: { color: colors.text, font: { family: 'Inter', size: 12 } } },
+                        legend: {
+                            labels: { color: colors.text, font: { family: 'Inter', size: 12 } },
+                            onClick: (e, legendItem, legend) => {
+                                const index = legendItem.datasetIndex;
+                                const ci = legend.chart;
+                                if (ci.isDatasetVisible(index)) {
+                                    ci.hide(index);
+                                    legendItem.hidden = true;
+                                } else {
+                                    ci.show(index);
+                                    legendItem.hidden = false;
+                                }
+                                this.saveVisibility('longShortSpot');
+                            }
+                        },
                         tooltip: {
                             callbacks: {
                                 label: function (context) {
@@ -849,23 +1137,18 @@
                             type: 'linear',
                             position: 'left',
                             grid: { color: colors.grid },
-                            ticks: {
-                                color: colors.text,
-                                callback: val => '$' + formatNumber(val)
-                            }
+                            ticks: { color: colors.text, callback: val => '$' + formatNumber(val) }
                         },
                         yRatio: {
                             type: 'linear',
                             position: 'right',
                             grid: { drawOnChartArea: false },
-                            ticks: {
-                                color: colors.mutedText,
-                                callback: val => Number(val).toFixed(1) + 'x'
-                            }
+                            ticks: { color: colors.mutedText, callback: val => Number(val).toFixed(1) + 'x' }
                         }
                     }
                 }
             });
+            this.restoreVisibility('longShortSpot');
         }
 
         renderLongShortRatioChart(items, labels, colors) {
@@ -875,6 +1158,16 @@
             const longPcts = items.map(d => d.longRatio * 100);
             const shortPcts = items.map(d => d.shortRatio * 100);
             const lsRatios = items.map(d => d.longShortRatio);
+
+            if (this.charts.longShortRatio) {
+                const chart = this.charts.longShortRatio;
+                chart.data.labels = labels;
+                chart.data.datasets[0].data = lsRatios;
+                chart.data.datasets[1].data = longPcts;
+                chart.data.datasets[2].data = shortPcts;
+                chart.update('none');
+                return;
+            }
 
             this.charts.longShortRatio = new Chart(ctx, {
                 data: {
@@ -921,9 +1214,24 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: false,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
-                        legend: { labels: { color: colors.text, font: { family: 'Inter', size: 12 } } },
+                        legend: {
+                            labels: { color: colors.text, font: { family: 'Inter', size: 12 } },
+                            onClick: (e, legendItem, legend) => {
+                                const index = legendItem.datasetIndex;
+                                const ci = legend.chart;
+                                if (ci.isDatasetVisible(index)) {
+                                    ci.hide(index);
+                                    legendItem.hidden = true;
+                                } else {
+                                    ci.show(index);
+                                    legendItem.hidden = false;
+                                }
+                                this.saveVisibility('longShortRatio');
+                            }
+                        },
                         tooltip: {
                             callbacks: {
                                 label: function (context) {
@@ -946,23 +1254,18 @@
                             min: 0,
                             max: 100,
                             grid: { color: colors.grid },
-                            ticks: {
-                                color: colors.text,
-                                callback: val => val + '%'
-                            }
+                            ticks: { color: colors.text, callback: val => val + '%' }
                         },
                         yRatio: {
                             type: 'linear',
                             position: 'right',
                             grid: { drawOnChartArea: false },
-                            ticks: {
-                                color: colors.lsRatioColor,
-                                callback: val => Number(val).toFixed(2)
-                            }
+                            ticks: { color: colors.lsRatioColor, callback: val => Number(val).toFixed(2) }
                         }
                     }
                 }
             });
+            this.restoreVisibility('longShortRatio');
         }
 
         renderOpenInterestChart(items, labels, colors) {
@@ -971,6 +1274,15 @@
 
             const prices = items.map(d => d.price);
             const oiUsdt = items.map(d => d.openInterestUsdt);
+
+            if (this.charts.openInterest) {
+                const chart = this.charts.openInterest;
+                chart.data.labels = labels;
+                chart.data.datasets[0].data = prices;
+                chart.data.datasets[1].data = oiUsdt;
+                chart.update('none');
+                return;
+            }
 
             this.charts.openInterest = new Chart(ctx, {
                 data: {
@@ -1005,9 +1317,24 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: false,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
-                        legend: { labels: { color: colors.text, font: { family: 'Inter', size: 12 } } },
+                        legend: {
+                            labels: { color: colors.text, font: { family: 'Inter', size: 12 } },
+                            onClick: (e, legendItem, legend) => {
+                                const index = legendItem.datasetIndex;
+                                const ci = legend.chart;
+                                if (ci.isDatasetVisible(index)) {
+                                    ci.hide(index);
+                                    legendItem.hidden = true;
+                                } else {
+                                    ci.show(index);
+                                    legendItem.hidden = false;
+                                }
+                                this.saveVisibility('openInterest');
+                            }
+                        },
                         tooltip: {
                             callbacks: {
                                 label: function (context) {
@@ -1028,23 +1355,18 @@
                             type: 'linear',
                             position: 'left',
                             grid: { color: colors.grid },
-                            ticks: {
-                                color: colors.text,
-                                callback: val => '$' + formatPrice(val)
-                            }
+                            ticks: { color: colors.text, callback: val => '$' + formatPrice(val) }
                         },
                         yOi: {
                             type: 'linear',
                             position: 'right',
                             grid: { drawOnChartArea: false },
-                            ticks: {
-                                color: colors.oiColor,
-                                callback: val => '$' + formatNumber(val)
-                            }
+                            ticks: { color: colors.oiColor, callback: val => '$' + formatNumber(val) }
                         }
                     }
                 }
             });
+            this.restoreVisibility('openInterest');
         }
 
         renderNetTakerDeltaChart(items, labels, colors) {
@@ -1054,6 +1376,23 @@
             const spotDeltas = items.map(d => d.spotNetDelta);
             const futDeltas = items.map(d => d.futuresNetDelta);
             const prices = items.map(d => d.price);
+
+            const spotBgColors = spotDeltas.map(v => v >= 0 ? 'rgba(6, 182, 212, 0.75)' : 'rgba(59, 130, 246, 0.75)');
+            const futBgColors = futDeltas.map(v => v >= 0 ? 'rgba(16, 185, 129, 0.75)' : 'rgba(244, 63, 94, 0.75)');
+            const futBorderColors = futDeltas.map(v => v >= 0 ? '#10b981' : '#f43f5e');
+
+            if (this.charts.netTakerDelta) {
+                const chart = this.charts.netTakerDelta;
+                chart.data.labels = labels;
+                chart.data.datasets[0].data = prices;
+                chart.data.datasets[1].data = spotDeltas;
+                chart.data.datasets[1].backgroundColor = spotBgColors;
+                chart.data.datasets[2].data = futDeltas;
+                chart.data.datasets[2].backgroundColor = futBgColors;
+                chart.data.datasets[2].borderColor = futBorderColors;
+                chart.update('none');
+                return;
+            }
 
             this.charts.netTakerDelta = new Chart(ctx, {
                 data: {
@@ -1074,7 +1413,7 @@
                             type: 'bar',
                             label: 'Spot Net Delta ($)',
                             data: spotDeltas,
-                            backgroundColor: spotDeltas.map(v => v >= 0 ? 'rgba(6, 182, 212, 0.75)' : 'rgba(59, 130, 246, 0.75)'),
+                            backgroundColor: spotBgColors,
                             borderColor: '#06b6d4',
                             borderWidth: 1,
                             yAxisID: 'yDelta',
@@ -1084,8 +1423,8 @@
                             type: 'bar',
                             label: 'Futures Net Delta ($)',
                             data: futDeltas,
-                            backgroundColor: futDeltas.map(v => v >= 0 ? 'rgba(16, 185, 129, 0.75)' : 'rgba(244, 63, 94, 0.75)'),
-                            borderColor: futDeltas.map(v => v >= 0 ? '#10b981' : '#f43f5e'),
+                            backgroundColor: futBgColors,
+                            borderColor: futBorderColors,
                             borderWidth: 1,
                             yAxisID: 'yDelta',
                             order: 3
@@ -1095,9 +1434,24 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: false,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
-                        legend: { labels: { color: colors.text, font: { family: 'Inter', size: 11 } } },
+                        legend: {
+                            labels: { color: colors.text, font: { family: 'Inter', size: 11 } },
+                            onClick: (e, legendItem, legend) => {
+                                const index = legendItem.datasetIndex;
+                                const ci = legend.chart;
+                                if (ci.isDatasetVisible(index)) {
+                                    ci.hide(index);
+                                    legendItem.hidden = true;
+                                } else {
+                                    ci.show(index);
+                                    legendItem.hidden = false;
+                                }
+                                this.saveVisibility('netTakerDelta');
+                            }
+                        },
                         tooltip: {
                             callbacks: {
                                 label: function (context) {
@@ -1119,23 +1473,18 @@
                             type: 'linear',
                             position: 'left',
                             grid: { color: colors.grid },
-                            ticks: {
-                                color: colors.text,
-                                callback: val => '$' + formatNumber(val)
-                            }
+                            ticks: { color: colors.text, callback: val => '$' + formatNumber(val) }
                         },
                         yPrice: {
                             type: 'linear',
                             position: 'right',
                             grid: { drawOnChartArea: false },
-                            ticks: {
-                                color: colors.mutedText,
-                                callback: val => '$' + formatPrice(val)
-                            }
+                            ticks: { color: colors.mutedText, callback: val => '$' + formatPrice(val) }
                         }
                     }
                 }
             });
+            this.restoreVisibility('netTakerDelta');
         }
 
         renderCorrelationCvdChart(items, labels, colors) {
@@ -1145,6 +1494,16 @@
             const corrs = items.map(d => d.correlation);
             const spotCvd = items.map(d => d.spotCvd);
             const futCvd = items.map(d => d.futuresCvd);
+
+            if (this.charts.correlationCvd) {
+                const chart = this.charts.correlationCvd;
+                chart.data.labels = labels;
+                chart.data.datasets[0].data = corrs;
+                chart.data.datasets[1].data = spotCvd;
+                chart.data.datasets[2].data = futCvd;
+                chart.update('none');
+                return;
+            }
 
             this.charts.correlationCvd = new Chart(ctx, {
                 data: {
@@ -1189,9 +1548,24 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: false,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
-                        legend: { labels: { color: colors.text, font: { family: 'Inter', size: 12 } } },
+                        legend: {
+                            labels: { color: colors.text, font: { family: 'Inter', size: 12 } },
+                            onClick: (e, legendItem, legend) => {
+                                const index = legendItem.datasetIndex;
+                                const ci = legend.chart;
+                                if (ci.isDatasetVisible(index)) {
+                                    ci.hide(index);
+                                    legendItem.hidden = true;
+                                } else {
+                                    ci.show(index);
+                                    legendItem.hidden = false;
+                                }
+                                this.saveVisibility('correlationCvd');
+                            }
+                        },
                         tooltip: {
                             callbacks: {
                                 label: function (context) {
@@ -1214,44 +1588,76 @@
                             min: -1.0,
                             max: 1.0,
                             grid: { color: colors.grid },
-                            ticks: {
-                                color: colors.corrColor,
-                                callback: val => Number(val).toFixed(2)
-                            }
+                            ticks: { color: colors.corrColor, callback: val => Number(val).toFixed(2) }
                         },
                         yCvd: {
                             type: 'linear',
                             position: 'right',
                             grid: { drawOnChartArea: false },
-                            ticks: {
-                                color: colors.mutedText,
-                                callback: val => '$' + formatNumber(val)
-                            }
+                            ticks: { color: colors.mutedText, callback: val => '$' + formatNumber(val) }
                         }
                     }
                 }
             });
+            this.restoreVisibility('correlationCvd');
+        }
+
+        updateTheme() {
+            const colors = this.getThemeColors();
+            Object.keys(this.charts).forEach(key => {
+                const chart = this.charts[key];
+                if (!chart) return;
+
+                if (chart.options && chart.options.scales) {
+                    Object.keys(chart.options.scales).forEach(scaleKey => {
+                        const scale = chart.options.scales[scaleKey];
+                        if (scale.grid) scale.grid.color = colors.grid;
+                        if (scale.ticks) scale.ticks.color = colors.mutedText;
+                    });
+                }
+                if (chart.options && chart.options.plugins && chart.options.plugins.legend) {
+                    chart.options.plugins.legend.labels.color = colors.text;
+                }
+                chart.update('none');
+            });
         }
     }
 
-    // 4. MAIN CONTROLLER & UI MANAGER
+    // 5. MAIN CONTROLLER & DIAGNOSTICS MANAGER
     class MarketAnalyticsApp {
         constructor() {
             this.apiClient = new BinanceApiClient();
             this.chartManager = new ChartManager();
+
+            this.wsManager = new BinanceWebSocketManager({
+                onSpotKline: (k) => this.handleSpotKlineTick(k),
+                onFuturesKline: (k) => this.handleFuturesKlineTick(k),
+                onSpotTicker: (t) => this.handleSpotTickerTick(t),
+                onFuturesTicker: (t) => this.handleFuturesTickerTick(t),
+                onStatusChange: (market, status) => this.handleWsStatusChange(market, status),
+                onLog: (cat, msg) => this.addDebugLog(cat, msg)
+            });
 
             this.state = {
                 symbol: 'BTCUSDT',
                 timeframe: '1h',
                 limit: 100,
                 autoRefresh: true,
-                refreshIntervalSec: 20,
-                countdown: 20,
-                timerId: null,
-                countdownId: null,
+                bgSyncIntervalSec: 25,
+                bgSyncId: null,
                 isLoading: false,
-                currentData: null
+                currentData: null,
+                rawSpotKlines: [],
+                rawFutKlines: [],
+                rawOiHistory: [],
+                rawLsHistory: [],
+                latestTickers: { spot: null, futures: null, currentOi: null },
+                renderCount: 0
             };
+
+            this.throttleTimer = null;
+            this.lastRenderTime = 0;
+            this.minRenderIntervalMs = 120; // 60fps throttling
 
             this.init();
         }
@@ -1260,8 +1666,28 @@
             this.bindElements();
             this.bindEvents();
             this.listenThemeChanges();
-            this.fetchAndRender();
-            this.startAutoRefresh();
+            this.fetchInitialSnapshot();
+            this.startBackgroundSync();
+
+            // Expose globally for developer inspection & test
+            window.marketAnalyticsApp = this;
+            window.marketAnalyticsDebug = {
+                app: this,
+                getStatus: () => ({
+                    symbol: this.state.symbol,
+                    timeframe: this.state.timeframe,
+                    spotConnected: this.wsManager.spotConnected,
+                    futuresConnected: this.wsManager.futuresConnected,
+                    spotMsgCount: this.wsManager.spotMsgCount,
+                    futuresMsgCount: this.wsManager.futuresMsgCount,
+                    spotKlines: this.state.rawSpotKlines.length,
+                    futKlines: this.state.rawFutKlines.length,
+                    renderCount: this.state.renderCount
+                }),
+                reconnect: () => this.wsManager.subscribe(this.state.symbol, this.state.timeframe),
+                fetchSnapshot: () => this.fetchInitialSnapshot(),
+                simulateTick: () => this.simulateTestTick()
+            };
         }
 
         bindElements() {
@@ -1274,10 +1700,32 @@
                 autoRefreshToggle: document.getElementById('auto-refresh-toggle'),
                 countdownBadge: document.getElementById('refresh-countdown'),
                 apiLatency: document.getElementById('api-latency-badge'),
+                wsPulseDot: document.getElementById('ws-pulse-dot'),
+                wsStatusTitle: document.getElementById('ws-status-title'),
                 loadingOverlay: document.getElementById('loading-overlay'),
                 errorMessage: document.getElementById('error-banner'),
                 errorText: document.getElementById('error-banner-text'),
                 btnExportCsv: document.getElementById('btn-export-csv'),
+
+                // Debug Panel Elements
+                debugPanel: document.getElementById('debug-panel'),
+                btnToggleDebug: document.getElementById('btn-toggle-debug'),
+                btnCloseDebug: document.getElementById('btn-close-debug'),
+                btnDbgReconnect: document.getElementById('btn-dbg-reconnect'),
+                btnDbgRefresh: document.getElementById('btn-dbg-refresh'),
+                btnDbgSimTick: document.getElementById('btn-dbg-sim-tick'),
+                btnDbgClear: document.getElementById('btn-dbg-clear'),
+                dbgSpotStatus: document.getElementById('dbg-spot-status'),
+                dbgFutStatus: document.getElementById('dbg-fut-status'),
+                dbgSpotCount: document.getElementById('dbg-spot-count'),
+                dbgFutCount: document.getElementById('dbg-fut-count'),
+                dbgSpotLast: document.getElementById('dbg-spot-last'),
+                dbgFutLast: document.getElementById('dbg-fut-last'),
+                dbgBufferCounts: document.getElementById('dbg-buffer-counts'),
+                dbgAlignedCount: document.getElementById('dbg-aligned-count'),
+                dbgRenderCount: document.getElementById('dbg-render-count'),
+                dbgLastRenderTime: document.getElementById('dbg-last-render-time'),
+                dbgLogContainer: document.getElementById('dbg-log-container'),
 
                 // KPI Elements
                 kpiSpotVol: document.getElementById('kpi-spot-vol'),
@@ -1309,9 +1757,7 @@
             this.el.symbolButtons.forEach(btn => {
                 btn.addEventListener('click', () => {
                     const sym = btn.getAttribute('data-symbol');
-                    if (sym) {
-                        this.setSymbol(sym);
-                    }
+                    if (sym) this.setSymbol(sym);
                 });
             });
 
@@ -1332,9 +1778,7 @@
             this.el.timeframeButtons.forEach(btn => {
                 btn.addEventListener('click', () => {
                     const tf = btn.getAttribute('data-timeframe');
-                    if (tf) {
-                        this.setTimeframe(tf);
-                    }
+                    if (tf) this.setTimeframe(tf);
                 });
             });
 
@@ -1342,28 +1786,76 @@
             this.el.limitButtons.forEach(btn => {
                 btn.addEventListener('click', () => {
                     const lim = parseInt(btn.getAttribute('data-limit'), 10);
-                    if (lim) {
-                        this.setLimit(lim);
-                    }
+                    if (lim) this.setLimit(lim);
                 });
             });
 
             // Refresh button
             if (this.el.btnRefresh) {
                 this.el.btnRefresh.addEventListener('click', () => {
-                    this.fetchAndRender();
+                    this.fetchInitialSnapshot();
                 });
             }
 
-            // Auto-refresh toggle
+            // Auto-refresh / Live stream toggle
             if (this.el.autoRefreshToggle) {
                 this.el.autoRefreshToggle.addEventListener('change', (e) => {
                     this.state.autoRefresh = e.target.checked;
                     if (this.state.autoRefresh) {
-                        this.startAutoRefresh();
+                        this.addDebugLog('control', '▶️ Resumed Live WebSocket & background sync');
+                        this.wsManager.subscribe(this.state.symbol, this.state.timeframe);
+                        this.startBackgroundSync();
+                        if (this.el.countdownBadge) {
+                            this.el.countdownBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block mr-1"></span>Live';
+                        }
                     } else {
-                        this.stopAutoRefresh();
+                        this.addDebugLog('control', '⏸️ Paused Live WebSocket & background sync');
+                        this.wsManager.disconnect();
+                        this.stopBackgroundSync();
+                        if (this.el.countdownBadge) {
+                            this.el.countdownBadge.textContent = 'Paused';
+                        }
                     }
+                });
+            }
+
+            // Debug Panel Controls
+            if (this.el.btnToggleDebug && this.el.debugPanel) {
+                this.el.btnToggleDebug.addEventListener('click', () => {
+                    this.el.debugPanel.classList.toggle('hidden');
+                    this.updateDebugStats();
+                });
+            }
+
+            if (this.el.btnCloseDebug && this.el.debugPanel) {
+                this.el.btnCloseDebug.addEventListener('click', () => {
+                    this.el.debugPanel.classList.add('hidden');
+                });
+            }
+
+            if (this.el.btnDbgReconnect) {
+                this.el.btnDbgReconnect.addEventListener('click', () => {
+                    this.addDebugLog('debug', 'Manual WS reconnect triggered by user');
+                    this.wsManager.subscribe(this.state.symbol, this.state.timeframe);
+                });
+            }
+
+            if (this.el.btnDbgRefresh) {
+                this.el.btnDbgRefresh.addEventListener('click', () => {
+                    this.addDebugLog('debug', 'Manual REST snapshot triggered by user');
+                    this.fetchInitialSnapshot();
+                });
+            }
+
+            if (this.el.btnDbgSimTick) {
+                this.el.btnDbgSimTick.addEventListener('click', () => {
+                    this.simulateTestTick();
+                });
+            }
+
+            if (this.el.btnDbgClear && this.el.dbgLogContainer) {
+                this.el.btnDbgClear.addEventListener('click', () => {
+                    this.el.dbgLogContainer.innerHTML = '<div class="text-gray-500">// Debug log cleared</div>';
                 });
             }
 
@@ -1385,16 +1877,87 @@
 
         listenThemeChanges() {
             const observer = new MutationObserver(() => {
-                if (this.state.currentData) {
-                    this.chartManager.renderAll(this.state.currentData);
-                }
+                this.chartManager.updateTheme();
             });
             observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
             window.addEventListener('themeChanged', () => {
-                if (this.state.currentData) {
-                    this.chartManager.renderAll(this.state.currentData);
-                }
+                this.chartManager.updateTheme();
             });
+        }
+
+        addDebugLog(category, message) {
+            console.log(`[MarketAnalytics:${category}] ${message}`);
+
+            if (!this.el.dbgLogContainer) return;
+            const now = new Date();
+            const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}.${String(now.getMilliseconds()).padStart(3, '0')}`;
+
+            let colorClass = 'text-gray-300';
+            if (category === 'spot') colorClass = 'text-cyan-400';
+            else if (category === 'futures') colorClass = 'text-yellow-400';
+            else if (category === 'render') colorClass = 'text-emerald-400';
+            else if (category === 'error') colorClass = 'text-rose-400';
+
+            const logLine = document.createElement('div');
+            logLine.className = 'py-0.5 border-b border-gray-900 flex items-start space-x-1.5';
+            logLine.innerHTML = `<span class="text-gray-500 font-mono">[${timeStr}]</span> <span class="font-bold uppercase text-[10px] px-1 rounded bg-gray-800 text-gray-400">${category}</span> <span class="${colorClass}">${message}</span>`;
+
+            this.el.dbgLogContainer.appendChild(logLine);
+
+            // Keep max 100 lines
+            while (this.el.dbgLogContainer.children.length > 100) {
+                this.el.dbgLogContainer.removeChild(this.el.dbgLogContainer.firstChild);
+            }
+
+            this.el.dbgLogContainer.scrollTop = this.el.dbgLogContainer.scrollHeight;
+        }
+
+        handleWsStatusChange(market, status) {
+            this.updateDebugStats();
+
+            if (!this.el.apiLatency || !this.el.wsPulseDot) return;
+            const isVi = (document.documentElement.lang || 'vi') === 'vi';
+
+            const isAllConnected = this.wsManager.spotConnected && this.wsManager.futuresConnected;
+            const isAnyConnecting = !isAllConnected && (this.wsManager.spotWs || this.wsManager.futuresWs);
+
+            if (isAllConnected) {
+                this.el.wsPulseDot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+                this.el.apiLatency.textContent = 'Live WS';
+                this.el.apiLatency.className = 'px-2 py-0.5 text-xs font-semibold rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+            } else if (isAnyConnecting) {
+                this.el.wsPulseDot.className = 'w-2 h-2 rounded-full bg-amber-500 animate-pulse';
+                this.el.apiLatency.textContent = isVi ? 'Đang kết nối...' : 'Connecting...';
+                this.el.apiLatency.className = 'px-2 py-0.5 text-xs font-semibold rounded bg-amber-500/20 text-amber-400 border border-amber-500/30';
+            } else {
+                this.el.wsPulseDot.className = 'w-2 h-2 rounded-full bg-rose-500';
+                this.el.apiLatency.textContent = isVi ? 'REST Polling' : 'REST Polling';
+                this.el.apiLatency.className = 'px-2 py-0.5 text-xs font-semibold rounded bg-rose-500/20 text-rose-400 border border-rose-500/30';
+            }
+        }
+
+        updateDebugStats() {
+            if (this.el.dbgSpotStatus) {
+                this.el.dbgSpotStatus.textContent = this.wsManager.spotConnected ? 'Connected' : 'Disconnected';
+                this.el.dbgSpotStatus.className = this.wsManager.spotConnected
+                    ? 'px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400'
+                    : 'px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-400';
+            }
+            if (this.el.dbgFutStatus) {
+                this.el.dbgFutStatus.textContent = this.wsManager.futuresConnected ? 'Connected' : 'Disconnected';
+                this.el.dbgFutStatus.className = this.wsManager.futuresConnected
+                    ? 'px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400'
+                    : 'px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-400';
+            }
+            if (this.el.dbgSpotCount) this.el.dbgSpotCount.textContent = this.wsManager.spotMsgCount;
+            if (this.el.dbgFutCount) this.el.dbgFutCount.textContent = this.wsManager.futuresMsgCount;
+            if (this.el.dbgBufferCounts) {
+                this.el.dbgBufferCounts.textContent = `${this.state.rawSpotKlines.length} / ${this.state.rawFutKlines.length}`;
+            }
+            if (this.el.dbgAlignedCount) {
+                this.el.dbgAlignedCount.textContent = this.state.currentData ? this.state.currentData.items.length : 0;
+            }
+            if (this.el.dbgRenderCount) this.el.dbgRenderCount.textContent = this.state.renderCount;
         }
 
         setSymbol(sym) {
@@ -1410,7 +1973,8 @@
             });
             if (this.el.symbolInput) this.el.symbolInput.value = this.state.symbol;
             if (this.el.tableSymbolLabel) this.el.tableSymbolLabel.textContent = this.state.symbol;
-            this.fetchAndRender();
+            this.addDebugLog('control', `Switched symbol to: ${this.state.symbol}`);
+            this.fetchInitialSnapshot();
         }
 
         setTimeframe(tf) {
@@ -1424,7 +1988,8 @@
                     btn.classList.add('bg-gray-800/40', 'text-gray-300');
                 }
             });
-            this.fetchAndRender();
+            this.addDebugLog('control', `Switched timeframe to: ${this.state.timeframe}`);
+            this.fetchInitialSnapshot();
         }
 
         setLimit(lim) {
@@ -1438,40 +2003,8 @@
                     btn.classList.add('bg-gray-800/40', 'text-gray-300');
                 }
             });
-            this.fetchAndRender();
-        }
-
-        startAutoRefresh() {
-            this.stopAutoRefresh();
-            this.state.countdown = this.state.refreshIntervalSec;
-            this.updateCountdownDisplay();
-
-            this.state.countdownId = setInterval(() => {
-                if (this.state.countdown > 1) {
-                    this.state.countdown--;
-                    this.updateCountdownDisplay();
-                } else {
-                    this.state.countdown = this.state.refreshIntervalSec;
-                    this.updateCountdownDisplay();
-                    this.fetchAndRender(true);
-                }
-            }, 1000);
-        }
-
-        stopAutoRefresh() {
-            if (this.state.countdownId) {
-                clearInterval(this.state.countdownId);
-                this.state.countdownId = null;
-            }
-            if (this.el.countdownBadge) {
-                this.el.countdownBadge.textContent = 'Paused';
-            }
-        }
-
-        updateCountdownDisplay() {
-            if (this.el.countdownBadge) {
-                this.el.countdownBadge.textContent = `${this.state.countdown}s`;
-            }
+            this.addDebugLog('control', `Set candle limit to: ${this.state.limit}`);
+            this.fetchInitialSnapshot();
         }
 
         showLoading(show) {
@@ -1492,14 +2025,14 @@
             }
         }
 
-        async fetchAndRender(isBackground = false) {
-            if (!isBackground) this.showLoading(true);
+        async fetchInitialSnapshot() {
+            this.showLoading(true);
             this.showError(null);
 
             try {
                 const { symbol, timeframe, limit } = this.state;
+                this.addDebugLog('rest', `Fetching initial REST snapshot for ${symbol} (${timeframe}, limit=${limit})...`);
 
-                // Concurrent fetch directly from Binance Public REST API
                 const [spotRes, futRes, oiRes, lsRes, tickers] = await Promise.all([
                     this.apiClient.getSpotKlines(symbol, timeframe, limit),
                     this.apiClient.getFuturesKlines(symbol, timeframe, limit),
@@ -1510,39 +2043,222 @@
                     this.apiClient.get24hTickers(symbol)
                 ]);
 
-                // Update latency badge
-                const avgLatency = Math.round((spotRes.latency + futRes.latency) / 2);
-                if (this.el.apiLatency) {
-                    this.el.apiLatency.textContent = `${avgLatency} ms`;
-                    this.el.apiLatency.className = avgLatency < 300
-                        ? 'px-2 py-0.5 text-xs font-semibold rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                        : 'px-2 py-0.5 text-xs font-semibold rounded bg-amber-500/20 text-amber-400 border border-amber-500/30';
-                }
+                this.state.rawSpotKlines = spotRes.data || [];
+                this.state.rawFutKlines = futRes.data || [];
+                this.state.rawOiHistory = oiRes.data || [];
+                this.state.rawLsHistory = lsRes.data || [];
+                this.state.latestTickers = tickers || {};
 
-                // Process and align data in client
+                this.addDebugLog('rest', `✅ Snapshot loaded: ${this.state.rawSpotKlines.length} Spot klines, ${this.state.rawFutKlines.length} Fut klines`);
+
+                // Process initial dataset
                 const processed = AnalyticsEngine.processAndAlignData(
-                    spotRes.data,
-                    futRes.data,
-                    oiRes.data,
-                    lsRes.data,
+                    this.state.rawSpotKlines,
+                    this.state.rawFutKlines,
+                    this.state.rawOiHistory,
+                    this.state.rawLsHistory,
                     timeframe
                 );
-                processed.tickers = tickers;
-
+                processed.tickers = this.state.latestTickers;
                 this.state.currentData = processed;
 
-                // Render components
+                // Render UI & Charts (preserves any toggles)
+                this.state.renderCount++;
                 this.updateKpiDisplays(processed);
                 this.chartManager.renderAll(processed);
                 this.renderTable(processed.items);
+                this.updateDebugStats();
+
+                // Start Live WebSocket Stream
+                if (this.state.autoRefresh) {
+                    this.wsManager.subscribe(symbol, timeframe);
+                }
 
             } catch (err) {
-                console.error('Fetch and render error:', err);
+                this.addDebugLog('error', `Failed to fetch snapshot: ${err.message}`);
                 const isVi = (document.documentElement.lang || 'vi') === 'vi';
-                this.showError((isVi ? 'Không thể tải dữ liệu: ' : 'Failed to fetch data: ') + err.message);
+                this.showError((isVi ? 'Không thể tải dữ liệu snapshot: ' : 'Failed to fetch snapshot data: ') + err.message);
             } finally {
                 this.showLoading(false);
             }
+        }
+
+        startBackgroundSync() {
+            this.stopBackgroundSync();
+            this.state.bgSyncId = setInterval(async () => {
+                if (!this.state.autoRefresh) return;
+                try {
+                    const { symbol, timeframe, limit } = this.state;
+                    const [oiRes, lsRes, tickers] = await Promise.all([
+                        this.apiClient.getOpenInterestHist(symbol, timeframe, limit).catch(() => ({ data: [] })),
+                        this.apiClient.getTopLongShortPositionRatio(symbol, timeframe, limit)
+                            .catch(() => this.apiClient.getGlobalLongShortAccountRatio(symbol, timeframe, limit))
+                            .catch(() => ({ data: [] })),
+                        this.apiClient.get24hTickers(symbol).catch(() => ({}))
+                    ]);
+
+                    if (oiRes.data && oiRes.data.length) this.state.rawOiHistory = oiRes.data;
+                    if (lsRes.data && lsRes.data.length) this.state.rawLsHistory = lsRes.data;
+                    if (tickers.currentOi) this.state.latestTickers.currentOi = tickers.currentOi;
+                    if (tickers.spot) this.state.latestTickers.spot = tickers.spot;
+                    if (tickers.futures) this.state.latestTickers.futures = tickers.futures;
+
+                    this.addDebugLog('sync', `🔄 Background sync refreshed OI & LS Ratios`);
+                    this.scheduleThrottledUpdate();
+                } catch (e) {
+                    this.addDebugLog('sync', `⚠️ Background sync warning: ${e.message}`);
+                }
+            }, this.state.bgSyncIntervalSec * 1000);
+        }
+
+        stopBackgroundSync() {
+            if (this.state.bgSyncId) {
+                clearInterval(this.state.bgSyncId);
+                this.state.bgSyncId = null;
+            }
+        }
+
+        updateKlineArray(arr, k) {
+            const openTime = parseInt(k.t, 10);
+            const formatted = [
+                openTime,
+                k.o,
+                k.h,
+                k.l,
+                k.c,
+                k.v,
+                parseInt(k.T, 10),
+                k.q,
+                parseInt(k.n, 10) || 0,
+                k.V,
+                k.Q
+            ];
+
+            if (arr.length === 0) {
+                arr.push(formatted);
+                return;
+            }
+
+            const last = arr[arr.length - 1];
+            const lastOpenTime = parseInt(last[0], 10);
+
+            if (lastOpenTime === openTime) {
+                // In-place update current candle
+                arr[arr.length - 1] = formatted;
+            } else if (openTime > lastOpenTime) {
+                // New candle
+                arr.push(formatted);
+                if (arr.length > this.state.limit * 1.5) arr.shift();
+            } else {
+                const idx = arr.findIndex(item => parseInt(item[0], 10) === openTime);
+                if (idx !== -1) {
+                    arr[idx] = formatted;
+                }
+            }
+        }
+
+        handleSpotKlineTick(k) {
+            this.updateKlineArray(this.state.rawSpotKlines, k);
+            if (this.el.dbgSpotLast) {
+                this.el.dbgSpotLast.textContent = `$${formatPrice(k.c)} (vol: ${formatNumber(k.q)})`;
+            }
+            this.scheduleThrottledUpdate();
+        }
+
+        handleFuturesKlineTick(k) {
+            this.updateKlineArray(this.state.rawFutKlines, k);
+            if (this.el.dbgFutLast) {
+                this.el.dbgFutLast.textContent = `$${formatPrice(k.c)} (vol: ${formatNumber(k.q)})`;
+            }
+            this.scheduleThrottledUpdate();
+        }
+
+        handleSpotTickerTick(data) {
+            if (!this.state.latestTickers.spot) this.state.latestTickers.spot = {};
+            if (data.q) this.state.latestTickers.spot.quoteVolume = data.q;
+            if (data.c) this.state.latestTickers.spot.lastPrice = data.c;
+            this.scheduleThrottledUpdate();
+        }
+
+        handleFuturesTickerTick(data) {
+            if (!this.state.latestTickers.futures) this.state.latestTickers.futures = {};
+            if (data.q) this.state.latestTickers.futures.quoteVolume = data.q;
+            if (data.c) this.state.latestTickers.futures.lastPrice = data.c;
+            this.scheduleThrottledUpdate();
+        }
+
+        simulateTestTick() {
+            if (!this.state.rawFutKlines.length) {
+                this.addDebugLog('debug', 'Cannot simulate: no klines in memory');
+                return;
+            }
+            const lastFut = this.state.rawFutKlines[this.state.rawFutKlines.length - 1];
+            const currentClose = parseFloat(lastFut[4]);
+            const delta = (Math.random() - 0.48) * (currentClose * 0.002);
+            const newClose = (currentClose + delta).toFixed(2);
+
+            const simKline = {
+                t: lastFut[0],
+                T: lastFut[6],
+                o: lastFut[1],
+                h: Math.max(parseFloat(lastFut[2]), parseFloat(newClose)).toFixed(2),
+                l: Math.min(parseFloat(lastFut[3]), parseFloat(newClose)).toFixed(2),
+                c: newClose,
+                v: (parseFloat(lastFut[5]) + Math.random() * 5).toFixed(4),
+                q: (parseFloat(lastFut[7]) + Math.random() * 50000).toFixed(2),
+                n: (parseInt(lastFut[8], 10) + 10),
+                V: (parseFloat(lastFut[9]) + Math.random() * 3).toFixed(4),
+                Q: (parseFloat(lastFut[10]) + Math.random() * 30000).toFixed(2),
+                x: false
+            };
+
+            this.addDebugLog('debug', `⚡ Simulating tick: close=$${newClose}`);
+            this.handleFuturesKlineTick(simKline);
+            this.handleSpotKlineTick(simKline);
+        }
+
+        scheduleThrottledUpdate() {
+            const now = performance.now();
+            const elapsed = now - this.lastRenderTime;
+
+            if (elapsed >= this.minRenderIntervalMs) {
+                this.lastRenderTime = now;
+                this.executeProcessAndRender();
+            } else {
+                if (this.throttleTimer) return;
+                this.throttleTimer = setTimeout(() => {
+                    this.throttleTimer = null;
+                    this.lastRenderTime = performance.now();
+                    this.executeProcessAndRender();
+                }, this.minRenderIntervalMs - elapsed);
+            }
+        }
+
+        executeProcessAndRender() {
+            if (!this.state.rawSpotKlines.length || !this.state.rawFutKlines.length) return;
+
+            const startTime = performance.now();
+            const processed = AnalyticsEngine.processAndAlignData(
+                this.state.rawSpotKlines,
+                this.state.rawFutKlines,
+                this.state.rawOiHistory,
+                this.state.rawLsHistory,
+                this.state.timeframe
+            );
+            processed.tickers = this.state.latestTickers;
+            this.state.currentData = processed;
+
+            this.state.renderCount++;
+            this.updateKpiDisplays(processed);
+            this.chartManager.renderAll(processed);
+            this.renderTable(processed.items);
+
+            const duration = Math.round(performance.now() - startTime);
+            if (this.el.dbgLastRenderTime) {
+                const now = new Date();
+                this.el.dbgLastRenderTime.textContent = `${now.toLocaleTimeString()} (${duration}ms)`;
+            }
+            this.updateDebugStats();
         }
 
         updateKpiDisplays(data) {
@@ -1562,7 +2278,7 @@
             let spotBuy24h = 0;
             let spotSell24h = 0;
             if (this.el.kpiSpotVol) {
-                spot24hVol = tickers.spot ? parseFloat(tickers.spot.quoteVolume) : (lastItem ? lastItem.spotVolumeUsdt * 24 : 0);
+                spot24hVol = (tickers.spot && tickers.spot.quoteVolume) ? parseFloat(tickers.spot.quoteVolume) : (lastItem ? lastItem.spotVolumeUsdt * 24 : 0);
                 this.el.kpiSpotVol.textContent = '$' + formatNumber(spot24hVol);
 
                 const spotBuyPct = lastItem ? (lastItem.spotBuyPct / 100) : 0.5;
@@ -1579,7 +2295,7 @@
             let futBuy24h = 0;
             let futSell24h = 0;
             if (this.el.kpiFutVol) {
-                fut24hVol = tickers.futures ? parseFloat(tickers.futures.quoteVolume) : (lastItem ? lastItem.futuresVolumeUsdt * 24 : 0);
+                fut24hVol = (tickers.futures && tickers.futures.quoteVolume) ? parseFloat(tickers.futures.quoteVolume) : (lastItem ? lastItem.futuresVolumeUsdt * 24 : 0);
                 this.el.kpiFutVol.textContent = '$' + formatNumber(fut24hVol);
 
                 const futBuyPct = lastItem ? (lastItem.futuresBuyPct / 100) : 0.5;
