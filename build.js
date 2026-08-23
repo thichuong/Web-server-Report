@@ -56,12 +56,7 @@ const bundles = [
     outfile: 'dist/market-indicators.bundle.js',
     description: 'Market Indicators Dashboard Module'
   },
-  {
-    name: 'report-view-iframe',
-    entryPoint: 'dashboards/crypto_dashboard/assets/report-view-iframe.js',
-    outfile: 'dist/report-view-iframe.bundle.js',
-    description: 'Report View Iframe Manager'
-  },
+
   {
     name: 'report-view-shadow-dom',
     entryPoint: 'dashboards/crypto_dashboard/assets/report-view-shadow-dom.js',

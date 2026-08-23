@@ -19,15 +19,7 @@ pub mod cache_control {
     pub const NO_CACHE: &str = "no-cache, no-store, must-revalidate";
 }
 
-/// Common security headers for responses
-pub mod security_headers {
-    /// Content Security Policy for sandboxed content
-    pub const CSP_SANDBOX: &str = "default-src 'self' 'unsafe-inline'; \
-        script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com https://cdn.tailwindcss.com; \
-        style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; \
-        font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; \
-        img-src 'self' data: https:; connect-src 'self'";
-}
+
 
 /// Build a compressed HTML response with proper headers
 ///
@@ -87,24 +79,7 @@ pub fn build_not_found_response(message: &str) -> Response {
     build_error_response(StatusCode::NOT_FOUND, message)
 }
 
-/// Build a sandboxed HTML response with security headers
-#[inline]
-#[must_use]
-pub fn build_sandboxed_response(html: String) -> Response {
-    Response::builder()
-        .status(StatusCode::OK)
-        .header("content-type", "text/html; charset=utf-8")
-        .header("x-frame-options", "SAMEORIGIN")
-        .header("content-security-policy", security_headers::CSP_SANDBOX)
-        .header("x-content-type-options", "nosniff")
-        .header("cache-control", cache_control::PRIVATE_LONG)
-        .header("access-control-allow-origin", "*")
-        .header("access-control-allow-methods", "GET, POST, OPTIONS")
-        .header("access-control-allow-headers", "Content-Type")
-        .body(Body::from(html))
-        .unwrap_or_else(|_| fallback_error_response())
-        .into_response()
-}
+
 
 /// Build a Shadow DOM response with appropriate headers
 #[inline]

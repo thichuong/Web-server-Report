@@ -25,10 +25,6 @@ pub fn configure_api_routes() -> Router<Arc<AppState>> {
         .route("/api/crypto/dashboard-summary", get(api_dashboard_summary))
         .route("/api/dashboard/data", get(api_dashboard_data))
         .route(
-            "/api/crypto_reports/{id}/sandboxed",
-            get(api_sandboxed_report),
-        )
-        .route(
             "/api/crypto_reports/{id}/shadow_dom",
             get(api_shadow_dom_content),
         )
@@ -130,79 +126,9 @@ async fn api_health(State(state): State<Arc<AppState>>) -> Json<ApiHealthRespons
     Json(response)
 }
 
-/// Sandboxed report content API endpoint
-///
-/// Serves sanitized HTML content for iframe embedding with security headers
-async fn api_sandboxed_report(
-    Path(id): Path<String>,
-    Query(params): Query<HashMap<String, String>>,
-    State(state): State<Arc<AppState>>,
-) -> impl IntoResponse {
-    debug!("🔒 [API] Sandboxed report requested for ID: {}", id);
-
-    // Parse report ID (-1 for latest)
-    let report_id: i32 = if id == "latest" {
-        -1
-    } else if let Ok(id) = id.parse() {
-        id
-    } else {
-        error!("❌ [API] Invalid report ID format for sandboxing: {}", id);
-        return "Invalid report ID format".into_response();
-    };
-
-    // Get sandbox token from query parameters
-    let Some(sandbox_token) = params.get("token") else {
-        warn!("❌ [API] Missing sandbox token for report {}", report_id);
-        return "Missing sandbox token".into_response();
-    };
-
-    // Get language parameter (optional, defaults to Vietnamese)
-    // Note: Language switching is now handled dynamically inside iframe
-    let initial_language = params.get("lang").map(std::string::String::as_str);
-
-    // Get chart modules content for iframe inclusion
-    let chart_modules = if params.contains_key("chart_modules") {
-        // If chart_modules parameter is present, load actual chart modules
-        debug!("📊 [API] Loading chart modules for iframe");
-        Some(state.chart_modules_content.as_str())
-    } else {
-        warn!("⚠️ [API] No chart_modules parameter - iframe will have empty charts");
-        None
-    };
-
-    // Use Service Islands to serve sandboxed content
-    match state
-        .crypto_handlers
-        .serve_sandboxed_report(
-            &state,
-            report_id,
-            sandbox_token,
-            initial_language,
-            chart_modules,
-        )
-        .await
-    {
-        Ok(response) => {
-            info!(
-                "✅ [API] Sandboxed report {} served successfully",
-                report_id
-            );
-            response
-        }
-        Err(e) => {
-            error!(
-                "❌ [API] Failed to serve sandboxed report {}: {}",
-                report_id, e
-            );
-            "Failed to serve sandboxed content".into_response()
-        }
-    }
-}
-
 /// Shadow DOM content endpoint for Declarative Shadow DOM architecture
 ///
 /// Returns HTML fragment for embedding within <template shadowrootmode="open">
-/// This is the modern replacement for `api_sandboxed_report`
 async fn api_shadow_dom_content(
     Path(id): Path<String>,
     Query(params): Query<HashMap<String, String>>,
@@ -229,16 +155,6 @@ async fn api_shadow_dom_content(
     // Get language parameter (optional, defaults to Vietnamese)
     let initial_language = params.get("lang").map(std::string::String::as_str);
 
-    // Get chart modules content for Shadow DOM inclusion
-    let chart_modules = if params.contains_key("chart_modules") {
-        // If chart_modules parameter is present, load actual chart modules
-        debug!("📊 [API] Loading chart modules for Shadow DOM");
-        Some(state.chart_modules_content.as_str())
-    } else {
-        debug!("💡 [API] No chart_modules parameter - using default behavior");
-        Some(state.chart_modules_content.as_str())
-    };
-
     // Use Service Islands to serve Shadow DOM content
     match state
         .crypto_handlers
@@ -247,7 +163,6 @@ async fn api_shadow_dom_content(
             report_id,
             shadow_dom_token,
             initial_language,
-            chart_modules,
         )
         .await
     {

@@ -25,7 +25,7 @@ pub use compression::{CompressionStats, compress_html_to_gzip};
 pub use error::{Layer5Error, Layer5Result};
 pub use response_builder::{
     build_compressed_response, build_error_response, build_forbidden_response, build_html_response,
-    build_not_found_response, build_sandboxed_response, build_shadow_dom_response,
+    build_not_found_response, build_shadow_dom_response,
 };
 pub use rss_creator::RssCreator;
 pub use security::{generate_sandbox_token, verify_sandbox_token};

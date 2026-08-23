@@ -1,4 +1,3 @@
-pub mod assets;
 pub mod dto;
 pub mod error;
 pub mod performance;

@@ -1,22 +1,18 @@
 //! Template Orchestrator Component
 //!
-//! This component handles all template rendering operations for crypto reports,
-//! including context preparation, chart modules injection, and Tera integration.
+//! This component handles template rendering operations for crypto reports,
+//! including context preparation and Tera integration.
 //! Follows Service Islands Architecture Layer 5 patterns.
 
 use std::{collections::HashMap, sync::Arc};
 use tera::Context;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 
 // Import from our specialized components
 use super::report_creator::{Report, ReportCreator};
 
 // Import shared utilities
-use super::super::shared::{Layer5Error, Layer5Result, compress_html_to_gzip, get_websocket_url};
-use tokio::sync::OnceCell;
-
-// Placeholders for pre-rendering
-const PLACEHOLDER_SANDBOX_TOKEN: &str = "__PRE_RENDER_SANDBOX_TOKEN__";
+use super::super::shared::{Layer5Error, Layer5Result, get_websocket_url};
 
 /// Template Context Data
 ///
@@ -24,8 +20,7 @@ const PLACEHOLDER_SANDBOX_TOKEN: &str = "__PRE_RENDER_SANDBOX_TOKEN__";
 /// Optimized to use Arc for heavy data to avoid expensive clones
 #[derive(Debug, Clone)]
 pub struct TemplateContext {
-    pub report: Arc<Report>, // ✅ Use Arc to avoid cloning full Report data
-    pub chart_modules_content: Arc<String>, // ✅ Use Arc to avoid string clones
+    pub report: Arc<Report>,
     pub current_route: String,
     pub current_lang: String,
     pub current_time: String,
@@ -35,122 +30,33 @@ pub struct TemplateContext {
 
 /// Template Orchestrator
 ///
-/// Manages all template rendering operations for crypto reports.
+/// Manages template rendering operations for crypto reports.
 /// Separates template logic from HTTP handlers following Layer 5 architecture.
 pub struct TemplateOrchestrator {
     /// Reference to `ReportCreator` for data operations
     pub report_creator: ReportCreator,
-    /// Cached report frame (pre-rendered at startup)
-    pub cached_report_frame: OnceCell<String>,
 }
 
 impl TemplateOrchestrator {
     /// Create a new `TemplateOrchestrator`
     #[must_use]
     pub fn new(report_creator: ReportCreator) -> Self {
-        Self {
-            report_creator,
-            cached_report_frame: OnceCell::new(),
-        }
+        Self { report_creator }
     }
 
     /// Health check for template orchestrator
     #[must_use]
     pub fn health_check(&self) -> bool {
-        // Verify template orchestrator is functioning properly
         self.report_creator.health_check()
-    }
-
-    /// Compress HTML content using shared compression utility
-    ///
-    /// # Errors
-    ///
-    /// Returns error if gzip compression fails
-    #[inline]
-    fn compress_html(html: &str) -> Layer5Result<Vec<u8>> {
-        let (data, stats) = compress_html_to_gzip(html)?;
-        info!(
-            "TemplateOrchestrator: Compression completed - Original: {}KB, Compressed: {}KB, Ratio: {:.1}%",
-            stats.original_kb(),
-            stats.compressed_kb(),
-            stats.ratio_percent
-        );
-        Ok(data)
-    }
-
-    /// Initialize report frame cache
-    ///
-    /// Pre-renders the report frame with placeholders and stores it in the cache.
-    /// Should be called during application startup.
-    pub fn init_report_frame_cache(&self, tera: &tera::Tera) {
-        info!("🏗️ Pre-rendering report frame to cache...");
-
-        // Create a dummy report with placeholders
-        let dummy_report = Report {
-            id: 0,                       // Will not be used in display due to string replacement
-            html_content: String::new(), // Content loaded via iframe
-            css_content: None,
-            js_content: None,
-            html_content_en: None,
-            js_content_en: None,
-            created_at: chrono::Utc::now(),
-        };
-
-        // Prepare context with placeholders
-        let mut context = TemplateContext {
-            report: Arc::new(dummy_report),
-            // Use empty chart modules content for frame - it will be injected or loaded separately
-            chart_modules_content: Arc::new(String::from(
-                "/* Pre-rendered chart modules placeholder */",
-            )),
-            current_route: "dashboard".to_string(),
-            current_lang: "vi".to_string(),
-            current_time: String::new(), // Dynamic, handled by client or during replacement if needed
-            pdf_url: "#".to_string(),
-            additional_context: None,
-        };
-
-        // Add specific placeholders for replacement
-        let mut extra_context = HashMap::new();
-        extra_context.insert(
-            "sandbox_token".to_string(),
-            serde_json::Value::String(PLACEHOLDER_SANDBOX_TOKEN.to_string()),
-        );
-
-        // Let's use a distinct ID for the dummy report to avoid replacing legitimate 0s if they existed
-        let placeholder_id = -999_999;
-        let dummy_report_safe = Report {
-            id: placeholder_id,
-            ..context.report.as_ref().clone()
-        };
-        context.report = Arc::new(dummy_report_safe);
-
-        context.additional_context = Some(extra_context);
-
-        // Render the template
-        match self.render_template(tera, "crypto/routes/reports/view.html", context) {
-            Ok(html) => {
-                // Store the frame
-                if self.cached_report_frame.set(html).is_err() {
-                    warn!("⚠️ Report frame cache already initialized");
-                } else {
-                    info!("✅ Report frame pre-rendered and cached in RAM");
-                }
-            }
-            Err(e) => error!("❌ Failed to pre-render report frame: {}", e),
-        }
     }
 
     /// Prepare template context for crypto reports
     ///
     /// Builds complete template context with all necessary data for rendering.
-    /// Enhanced to accept pre-loaded `chart_modules_content` for optimal performance.
-    /// Now includes sandbox token generation for iframe security.
     ///
     /// # Memory Optimization
     /// Takes Report by value (move) and wraps in Arc without cloning.
     ///
-    /// Returns error if chart modules content is missing (now strictly required)
     /// # Errors
     ///
     /// Returns error if context preparation fails
@@ -158,7 +64,6 @@ impl TemplateOrchestrator {
         &self,
         report: Report,
         template_type: &str,
-        chart_modules_content: Option<Arc<String>>,
         additional_context: Option<HashMap<String, serde_json::Value>>,
     ) -> Layer5Result<TemplateContext> {
         info!(
@@ -166,24 +71,7 @@ impl TemplateOrchestrator {
             template_type
         );
 
-        // Use provided chart_modules_content or use default empty/error placeholder
-        // ✅ SYNC: No longer fetches async. Caller must provide content.
-        let chart_modules_content = if let Some(content) = chart_modules_content {
-            debug!("TemplateOrchestrator: Using pre-loaded chart modules (Arc - zero clone)");
-            content
-        } else {
-            // Fallback for sync context - we can't async fetch here anymore.
-            // This assumes the caller handles the fetching if they want charts.
-            warn!(
-                "TemplateOrchestrator: No chart modules provided in sync context - using empty placeholder"
-            );
-            Arc::new(String::from("// Charts disabled (no modules provided)"))
-        };
-
-        // Generate sandbox token for iframe security
-        let sandboxed_report = self
-            .report_creator
-            .create_sandboxed_report(&report, Some(&chart_modules_content));
+        let sandboxed_report = self.report_creator.create_sandboxed_report(&report);
 
         // Prepare basic context
         let current_time = chrono::Utc::now()
@@ -193,7 +81,6 @@ impl TemplateOrchestrator {
 
         let mut context = TemplateContext {
             report: Arc::new(report),
-            chart_modules_content,
             current_route: "dashboard".to_string(),
             current_lang: "vi".to_string(),
             current_time,
@@ -214,14 +101,13 @@ impl TemplateOrchestrator {
 
         context.additional_context = Some(extra_context);
 
-        info!("TemplateOrchestrator: Context prepared successfully with sandbox token");
+        info!("TemplateOrchestrator: Context prepared successfully");
         Ok(context)
     }
 
     /// Render crypto template with prepared context
     ///
     /// Core template rendering method using Tera engine with proper error handling.
-    /// Uses `spawn_blocking` with timeout to prevent hanging on CPU-intensive renders.
     ///
     /// # Performance
     /// `TemplateContext` uses Arc internally, so clone is lightweight (only pointers cloned).
@@ -240,16 +126,10 @@ impl TemplateOrchestrator {
             template_path
         );
 
-        // ✅ MEMORY FIX: Render synchronously to avoid cloning Tera
-        // Tera render is typically <10ms, so blocking is acceptable
         let mut tera_context = Context::new();
 
         // Insert core template data (dereference Arc)
         tera_context.insert("report", context.report.as_ref());
-        tera_context.insert(
-            "chart_modules_content",
-            context.chart_modules_content.as_ref(),
-        );
         tera_context.insert("current_route", &context.current_route);
         tera_context.insert("current_lang", &context.current_lang);
         tera_context.insert("current_time", &context.current_time);
@@ -278,7 +158,6 @@ impl TemplateOrchestrator {
             }
             Err(e) => {
                 error!("TemplateOrchestrator: Template render error: {:#?}", e);
-                // Log error chain
                 let mut src = std::error::Error::source(&e);
                 while let Some(s) = src {
                     error!("Template render error source: {:#?}", s);
@@ -287,81 +166,6 @@ impl TemplateOrchestrator {
                 Err(Layer5Error::TemplateRender(e.to_string()))
             }
         }
-    }
-
-    /// Render crypto report view template - High level method
-    ///
-    /// Combines context preparation and template rendering for crypto report views.
-    /// Returns compressed HTML data for optimal file size and transfer speed.
-    ///
-    /// # Memory Optimization
-    /// Takes Report by value (move) to avoid cloning.
-    ///
-    /// # Errors
-    ///
-    /// Returns error if context preparation, template rendering, or HTML compression fails
-    pub fn render_crypto_report_view(
-        &self,
-        tera: &tera::Tera,
-        report: Report,
-        chart_modules_content: Option<Arc<String>>,
-        additional_context: Option<HashMap<String, serde_json::Value>>,
-    ) -> Layer5Result<Vec<u8>> {
-        debug!("TemplateOrchestrator: Rendering crypto report view (Optimized)");
-
-        // Check if we have a cached frame
-        if let Some(frame) = self.cached_report_frame.get() {
-            debug!("⚡ Using cached report frame - performing string replacement");
-
-            // Prepare data for replacement
-            let report_id_str = report.id.to_string();
-
-            // Calculate sandbox token
-            let chart_content_ref = chart_modules_content.as_ref().map(|s| s.as_str());
-            let sandboxed_report = self
-                .report_creator
-                .create_sandboxed_report(&report, chart_content_ref);
-            let sandbox_token_str = sandboxed_report.sandbox_token;
-
-            // Perform replacements
-            let placeholder_id = "-999999";
-
-            let html = frame
-                .replace(placeholder_id, &report_id_str)
-                .replace(PLACEHOLDER_SANDBOX_TOKEN, &sandbox_token_str);
-
-            // Replace chart modules placeholder
-            let chart_content = chart_modules_content.as_ref().map_or("", |s| s.as_str());
-            let html = html.replace(
-                "/* Pre-rendered chart modules placeholder */",
-                chart_content,
-            );
-
-            // Compress
-            let compressed_data = Self::compress_html(&html)?;
-            info!("✅ Optimized render complete (RAM Cache + String Replacment)");
-            return Ok(compressed_data);
-        }
-
-        // Fallback to original logic if cache not ready
-        debug!("⚠️ Report frame cache miss - performing full render");
-
-        // Step 1: Prepare template context (moves report ownership)
-        let context = self.prepare_crypto_report_context(
-            report,
-            "view",
-            chart_modules_content,
-            additional_context,
-        )?;
-
-        // Step 2: Render template
-        let html = self.render_template(tera, "crypto/routes/reports/view.html", context)?;
-
-        // Step 3: Compress HTML
-        let compressed_data = Self::compress_html(&html)?;
-
-        info!("TemplateOrchestrator: HTML compression completed successfully");
-        Ok(compressed_data)
     }
 
     /// Render empty template for no reports case
@@ -385,14 +189,8 @@ impl TemplateOrchestrator {
             created_at: chrono::Utc::now(),
         };
 
-        // Prepare context
-        // ✅ SYNC: No await needed
-        let mut context = self.prepare_crypto_report_context(empty_report, "empty", None, None)?;
-
-        // Override PDF URL for empty case
+        let mut context = self.prepare_crypto_report_context(empty_report, "empty", None)?;
         context.pdf_url = "#".to_string();
-
-        // Render template
         self.render_template(tera, "crypto/routes/reports/view.html", context)
     }
 
@@ -409,12 +207,6 @@ impl TemplateOrchestrator {
         tera: &tera::Tera,
         report_id: i32,
     ) -> Layer5Result<String> {
-        debug!(
-            "TemplateOrchestrator: Rendering 404 template for report ID: {}",
-            report_id
-        );
-
-        // Create not found report with error messages
         let not_found_report = Report {
             id: report_id,
             html_content: format!(
@@ -431,15 +223,9 @@ impl TemplateOrchestrator {
             created_at: chrono::Utc::now(),
         };
 
-        // Prepare context
-        // ✅ SYNC: No await needed
         let mut context =
-            self.prepare_crypto_report_context(not_found_report, "404", None, None)?;
-
-        // Override PDF URL for 404 case
+            self.prepare_crypto_report_context(not_found_report, "404", None)?;
         context.pdf_url = "#".to_string();
-
-        // Render template
         self.render_template(tera, "crypto/routes/reports/view.html", context)
     }
 }

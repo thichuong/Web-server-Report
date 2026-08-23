@@ -103,12 +103,6 @@ async fn crypto_index(
         });
     }
 
-    // Get chart modules content
-    let chart_modules_content = state
-        .crypto_handlers
-        .report_creator
-        .get_chart_modules_content(&state);
-
     // Delegate to handlers
     state
         .crypto_handlers
@@ -116,7 +110,6 @@ async fn crypto_index(
             &state,
             &params,
             &headers,
-            chart_modules_content,
             if report_id_value == -1 {
                 None
             } else {
@@ -164,15 +157,9 @@ async fn crypto_view_report(
         });
     }
 
-    // Get chart modules content
-    let chart_modules_content = state
-        .crypto_handlers
-        .report_creator
-        .get_chart_modules_content(&state);
-
     // Delegate to handlers
     state
         .crypto_handlers
-        .render_crypto_report_dsd(&state, report_id, &params, &headers, chart_modules_content)
+        .render_crypto_report_dsd(&state, report_id, &params, &headers)
         .await
 }

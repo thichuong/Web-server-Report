@@ -24,7 +24,6 @@ use crate::state::AppState;
 use super::shared::{Report, SandboxedReport, sanitize_css_content, sanitize_js_content};
 
 /// Pre-loaded Shadow DOM template for modern DSD architecture.
-/// Replaces iframe-based approach with Declarative Shadow DOM.
 static VIEW_SHADOW_DOM_TEMPLATE: LazyLock<String> = LazyLock::new(|| {
     std::fs::read_to_string("shared_components/view_shadow_dom.html").unwrap_or_else(|_| {
         include_str!("../../../../shared_components/view_shadow_dom.html").to_owned()
@@ -51,11 +50,7 @@ impl ShadowDomRenderer {
     /// # Security
     /// Uses blake3 for cryptographically secure token generation.
     #[must_use]
-    pub fn create_sandboxed_report(
-        &self,
-        report: &Report,
-        chart_modules_content: Option<&str>,
-    ) -> SandboxedReport {
+    pub fn create_sandboxed_report(&self, report: &Report) -> SandboxedReport {
         let sandbox_token = generate_sandbox_token(report.id, &report.created_at);
 
         info!(
@@ -82,15 +77,12 @@ impl ShadowDomRenderer {
                 .map(|js| sanitize_js_content(js).into_owned()),
             created_at: report.created_at,
             sandbox_token,
-            chart_modules_content: chart_modules_content.map(ToOwned::to_owned),
-            complete_html_document: String::new(),
         }
     }
 
     /// Generate Shadow DOM content for Declarative Shadow DOM architecture.
     ///
     /// Creates HTML fragment to be embedded within `<template shadowrootmode="open">`.
-    /// Modern replacement for iframe-based approach with better performance.
     ///
     /// # Performance
     /// Uses `as_deref()` pattern for zero-allocation Option handling.
@@ -99,7 +91,6 @@ impl ShadowDomRenderer {
         &self,
         sandboxed_report: &SandboxedReport,
         language: Option<&str>,
-        chart_modules_content: Option<&str>,
     ) -> String {
         let lang = language.unwrap_or("vi");
 
@@ -112,13 +103,6 @@ impl ShadowDomRenderer {
         let js_vi = sandboxed_report.js_content.as_deref().unwrap_or_default();
         let js_en = sandboxed_report.js_content_en.as_deref().unwrap_or(js_vi);
         let css = sandboxed_report.css_content.as_deref().unwrap_or_default();
-
-        // Prefer report's chart modules, fall back to parameter
-        let chart_modules = sandboxed_report
-            .chart_modules_content
-            .as_deref()
-            .or(chart_modules_content)
-            .unwrap_or_default();
 
         // Language-based active class assignment
         let (vi_active, en_active) = if lang == "en" {
@@ -136,7 +120,6 @@ impl ShadowDomRenderer {
             .replace("{{css_content}}", css)
             .replace("{{html_content_vi}}", html_vi)
             .replace("{{html_content_en}}", html_en)
-            .replace("{{chart_modules}}", chart_modules)
             .replace("{{js_content_vi}}", js_vi)
             .replace("{{js_content_en}}", js_en)
     }
@@ -144,7 +127,6 @@ impl ShadowDomRenderer {
     /// Serve Shadow DOM content for Declarative Shadow DOM architecture.
     ///
     /// Returns HTML fragment for embedding within `<template shadowrootmode="open">`.
-    /// Modern replacement for `serve_sandboxed_report` with better performance.
     ///
     /// # Security
     /// Uses constant-time token comparison to prevent timing attacks.
@@ -158,7 +140,6 @@ impl ShadowDomRenderer {
         report: &Report,
         shadow_dom_token: &str,
         language: Option<&str>,
-        chart_modules_content: Option<&str>,
     ) -> Layer5Result<Response> {
         info!(
             report_id = report.id,
@@ -175,9 +156,8 @@ impl ShadowDomRenderer {
             return Ok(build_forbidden_response("Invalid shadow DOM token"));
         }
 
-        let sandboxed_report = self.create_sandboxed_report(report, chart_modules_content);
-        let shadow_dom_html =
-            self.generate_shadow_dom_content(&sandboxed_report, language, chart_modules_content);
+        let sandboxed_report = self.create_sandboxed_report(report);
+        let shadow_dom_html = self.generate_shadow_dom_content(&sandboxed_report, language);
 
         info!(
             report_id = report.id,

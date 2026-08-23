@@ -225,27 +225,11 @@
             }, 50);
         }
 
-        // Re-initialize report visuals after language change (handled by iframe or DSD now)
+        // Re-initialize report visuals after language change (handled by Shadow DOM)
         if (document.getElementById('report-shadow-host')) {
             if (LANG_DEBUG) console.log('🌓 Shadow DOM host detected - DSD logic will handle visual initialization');
             // switchReportLanguage was already called in setPreferredLanguage
             return;
-        }
-
-        if (document.getElementById('report-container')) {
-            if (LANG_DEBUG) console.log('🎨 Iframe report container detected - checking for iframes');
-            
-            // Send language change message to iframe if it exists
-            const iframe = document.querySelector('iframe[src*="/api/sandboxed"]');
-            if (iframe && iframe.contentWindow) {
-                if (LANG_DEBUG) console.log('📨 Parent: Sending language change message to iframe:', lang);
-                iframe.contentWindow.postMessage({
-                    type: 'language-change',
-                    language: lang
-                }, '*');
-            } else {
-                if (LANG_DEBUG) console.log('📭 Parent: No sandboxed iframe found for language message');
-            }
         }
     }
 

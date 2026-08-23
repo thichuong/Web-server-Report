@@ -49,7 +49,7 @@ pub static JS_SANITIZE_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
     ]
 });
 
-/// Report model - exactly from `archive_old_code/models.rs` with iframe sandboxing support
+/// Report model - with Declarative Shadow DOM support
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Report {
     pub id: i32,
@@ -78,7 +78,7 @@ impl From<ReportData> for Report {
     }
 }
 
-/// Sandboxed report content for secure iframe delivery
+/// Sandboxed report content for secure Shadow DOM delivery
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SandboxedReport {
     pub id: i32,
@@ -88,14 +88,12 @@ pub struct SandboxedReport {
     pub html_content_en: Option<String>,
     pub js_content_en: Option<String>,
     pub created_at: chrono::DateTime<chrono::Utc>,
-    pub sandbox_token: String, // Security token for iframe access
-    pub chart_modules_content: Option<String>, // Chart modules content for iframe
-    pub complete_html_document: String, // Complete HTML document ready for iframe
+    pub sandbox_token: String, // Security token for Shadow DOM access
 }
 
 /// CSS wrapper prefix for isolation
 const CSS_WRAPPER_PREFIX: &str =
-    "/* CSS isolated within iframe sandbox */\n.sandboxed-report-container {\n";
+    "/* CSS isolated within Shadow DOM sandbox */\n.sandboxed-report-container {\n";
 const CSS_WRAPPER_SUFFIX: &str = "\n}";
 
 /// Sanitize CSS content for sandbox
