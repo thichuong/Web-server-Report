@@ -167,6 +167,24 @@
             // Use textContent to avoid interpreting HTML from translations
             el.textContent = map[lang];
         });
+
+        // translate title attributes that use data-i18n-title
+        document.querySelectorAll('[data-i18n-title]').forEach(el => {
+            const key = el.getAttribute('data-i18n-title');
+            if (!key) return;
+            const map = translations_data[key];
+            if (!map || !map[lang]) return;
+            el.setAttribute('title', map[lang]);
+        });
+
+        // translate placeholder attributes that use data-i18n-placeholder
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+            const key = el.getAttribute('data-i18n-placeholder');
+            if (!key) return;
+            const map = translations_data[key];
+            if (!map || !map[lang]) return;
+            el.setAttribute('placeholder', map[lang]);
+        });
         // expose a minimal languageManager for other scripts
         try {
             window.languageManager = window.languageManager || {};

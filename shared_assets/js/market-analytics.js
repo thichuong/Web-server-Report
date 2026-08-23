@@ -2277,6 +2277,11 @@
             let spot24hVol = 0;
             let spotBuy24h = 0;
             let spotSell24h = 0;
+            const isVi = (document.documentElement.lang || 'vi') === 'vi';
+            const buyText = isVi ? 'Mua' : 'Buy';
+            const sellText = isVi ? 'Bán' : 'Sell';
+            const bsRatioText = isVi ? 'Tỷ lệ Mua/Bán' : 'Buy/Sell Ratio';
+
             if (this.el.kpiSpotVol) {
                 spot24hVol = (tickers.spot && tickers.spot.quoteVolume) ? parseFloat(tickers.spot.quoteVolume) : (lastItem ? lastItem.spotVolumeUsdt * 24 : 0);
                 this.el.kpiSpotVol.textContent = '$' + formatNumber(spot24hVol);
@@ -2286,7 +2291,7 @@
                 spotSell24h = Math.max(0, spot24hVol - spotBuy24h);
 
                 if (this.el.kpiSpotBuySell) {
-                    this.el.kpiSpotBuySell.innerHTML = `Mua: <span class="font-bold text-cyan-400">$${formatNumber(spotBuy24h)}</span> | Bán: <span class="font-bold text-blue-400">$${formatNumber(spotSell24h)}</span>`;
+                    this.el.kpiSpotBuySell.innerHTML = `${buyText}: <span class="font-bold text-cyan-400">$${formatNumber(spotBuy24h)}</span> | ${sellText}: <span class="font-bold text-blue-400">$${formatNumber(spotSell24h)}</span>`;
                 }
             }
 
@@ -2303,7 +2308,7 @@
                 futSell24h = Math.max(0, fut24hVol - futBuy24h);
 
                 if (this.el.kpiFutBuySell) {
-                    this.el.kpiFutBuySell.innerHTML = `Mua: <span class="font-bold text-emerald-400">$${formatNumber(futBuy24h)}</span> | Bán: <span class="font-bold text-rose-400">$${formatNumber(futSell24h)}</span>`;
+                    this.el.kpiFutBuySell.innerHTML = `${buyText}: <span class="font-bold text-emerald-400">$${formatNumber(futBuy24h)}</span> | ${sellText}: <span class="font-bold text-rose-400">$${formatNumber(futSell24h)}</span>`;
                 }
             }
 
@@ -2317,7 +2322,7 @@
             if (this.el.kpiBsRatio) {
                 const futBsRatio = futSell24h > 0 ? (futBuy24h / futSell24h).toFixed(2) : '--';
                 const spotBsRatio = spotSell24h > 0 ? (spotBuy24h / spotSell24h).toFixed(2) : '--';
-                this.el.kpiBsRatio.textContent = `Tỷ lệ Mua/Bán: ${futBsRatio} (Fut) | ${spotBsRatio} (Spot)`;
+                this.el.kpiBsRatio.textContent = `${bsRatioText}: ${futBsRatio} (Fut) | ${spotBsRatio} (Spot)`;
             }
 
             // Open Interest
