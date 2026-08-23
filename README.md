@@ -1,14 +1,18 @@
 # Web Server Report - High-Performance Crypto Dashboard
 
-[![Rust](https://img.shields.io/badge/Rust-1.70%2B-orange?logo=rust)](https://www.rust-lang.org/)
-[![Axum](https://img.shields.io/badge/Axum-0.6-blue)](https://github.com/tokio-rs/axum)
+[![Rust](https://img.shields.io/badge/Rust-2024%20Edition-orange?logo=rust)](https://www.rust-lang.org/)
+[![Axum](https://img.shields.io/badge/Axum-0.8-blue)](https://github.com/tokio-rs/axum)
+[![Tokio](https://img.shields.io/badge/Tokio-1.52-black?logo=tokio)](https://tokio.rs/)
+[![Multi-tier-cache](https://img.shields.io/badge/Multi--Tier--Cache-0.6.7-purple)](https://crates.io/crates/multi-tier-cache)
 [![Redis](https://img.shields.io/badge/Redis-Streams-red?logo=redis)](https://redis.io/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker)](https://www.docker.com/)
+[![SQLx](https://img.shields.io/badge/SQLx-0.9-blue?logo=postgresql)](https://github.com/launchbadge/sqlx)
+[![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?logo=github-actions)](.github/workflows/rust-cd.yml)
+[![Target](https://img.shields.io/badge/Target-x86__64--unknown--linux--musl-blue?logo=linux)](https://musl.libc.org/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green)](LICENSE)
 
-**Ultra-fast Rust web server** achieving **44,700+ RPS** with **11ms latency** under extreme load. Built with **Service Islands Architecture**, 4-tier caching (RAM/Redis), **Zero-Allocation Pre-rendering**, and Declarative Shadow DOM.
+An enterprise-grade, ultra-high-throughput **Rust** web server achieving **44,700+ RPS** with **11ms latency** under 500 concurrent connections. Built with **Service Islands Architecture**, 4-tier caching (RAM / Moka / Redis / Streams), **Zero-Allocation Pre-rendering**, and **Declarative Shadow DOM (DSD)**.
 
-> **Microservices Architecture**: This is the **Main Service** handling web presentation and data consumption. External APIs and WebSocket are handled by [Web-server-Report-websocket](https://github.com/thichuong/Web-server-Report-websocket).
+> **Microservices Topology**: This is the **Main Web Presentation & Consumption Service**. External exchange API polling and live WebSocket broadcasts are handled by the decoupled [Web-server-Report-websocket](https://github.com/thichuong/Web-server-Report-websocket) microservice via **Redis Streams** (`market_data_stream`).
 
 ---
 
@@ -17,281 +21,395 @@
 - [Key Features](#-key-features)
 - [Architecture Overview](#-architecture-overview)
 - [Performance Metrics](#-performance-metrics)
+- [Route & API Reference](#-route--api-reference)
 - [Getting Started](#-getting-started)
-- [API Reference](#-api-reference)
+- [Testing & Quality Assurance](#-testing--quality-assurance)
+- [Benchmarking Performance](#-benchmarking-performance)
 - [Project Structure](#-project-structure)
 - [Deployment](#-deployment)
 - [Documentation](#-documentation)
-- [Contributing](#-contributing)
 - [License](#-license)
 
 ---
 
-## Key Features
+## 🚀 Key Features
 
-### Core Services Architecture
+### 1. Service Islands Architecture
+The codebase is structured into strictly bounded, decoupled layers:
+- **Routing Layer (`src/routes/`)**: Axum routes with immediate L0/L1 cache bypass.
+- **Handler Layer (`src/services/`)**: Transport abstraction using `RenderedContent` and DTO mapping.
+- **Data Communication Layer (`src/services/data_communication/`)**: Abstracted database access (`SQLx`) and cached queries.
+- **Real-time Ingestion Layer (`src/stream.rs`)**: Asynchronous Redis Streams reader (`market_data_stream`).
+- **Templating & Presentation Layer (`src/services/crypto_reports/rendering/`)**: DSD rendering, GEO metadata, breadcrumbs, and Tera templates.
 
-The application is structured into domain-driven services for maintainability and scalability:
+### 2. Zero-Allocation Pre-rendering (L0 Cache)
+- **Homepage (`/`)**: Pre-rendered and Gzip-compressed directly into RAM (`Vec<u8>`) during application boot (`init_homepage_cache`). Requests are served with **< 0.2ms latency** and zero dynamic allocations.
+- **Report Frames**: Static HTML/DSD frames are cached in memory; dynamic parameters (tokens, language flags) are injected via optimized string replacement.
 
-| Module | Name | Responsibility |
-|-------|------|----------------|
-| **Services** | Business Logic | Core application features like `dashboard`, `crypto_reports`, and `shared` logic. |
-| **Handlers** | Request Processing | Axum HTTP handlers for processing inbound requests. |
-| **Routes** | Routing & APIs | Registering routes and middleware (e.g., `api_routes.rs`). |
-| **DTOs** | Data Transfer | Type-safe JSON request and response payloads. |
-| **Infrastructure** | Foundational | Real-time streams (`stream.rs`) and shared assets. |
+### 3. Declarative Shadow DOM (DSD)
+Modern server-side component encapsulation replacing legacy `<iframe>` approaches:
+- **30-40% Faster** page load times vs iframe-based isolation.
+- **SEO & AI Bot Friendly**: Fully crawlable by Googlebot, Bingbot, and LLM crawlers.
+- **Native Style & Script Isolation**: Zero CSS leakage to the parent application.
+- **Multi-Language Support**: Seamless instant switching between Vietnamese (`vi`) and English (`en`).
+- **Cryptographic Security**: Blake3 token verification (`sb_<token>`) with constant-time comparison to prevent timing attacks.
 
-### Zero-Allocation Pre-rendering
+### 4. Multi-Tier Cache with Stampede Protection
+Orchestrated via the [`multi-tier-cache`](https://crates.io/crates/multi-tier-cache) crate:
+1. **Level 0 (Route RAM Cache)**: Pre-rendered static pages in memory.
+2. **Level 1 (Moka In-Memory Cache)**: High-concurrency LRU cache (1,000 entries, 30m TTL, 2m TTI).
+3. **Level 2 (Redis Distributed Cache)**: Persistent multi-node cache storing pre-compressed GZIP blobs.
+4. **Level 3 (Stream Cache)**: Cache-first pattern on Redis Streams to minimize `XREAD` overhead.
+- **Stampede Protection**: Internal request coalescing prevents redundant database or stream reads during concurrent spikes.
 
-Layer 5 implements intelligent pre-rendering for high-traffic routes to minimize CPU usage:
-- **Homepage**: Pre-compressed GZIP content is rendered during startup and stored in RAM (`Vec<u8>`). Requests are served instantly with zero allocations.
-- **Report Frames**: The static "shell" of crypto reports is pre-rendered. Dynamic data (IDs, charts, tokens) is injected via optimized string replacement, bypassing expensive template re-rendering.
+### 5. Market Analytics & SEO Suite
+- **Market Analytics Dashboard (`/market_analytics`, `/analytics`)**: Spot vs. Futures Volume comparisons and Open Interest (OI) analysis.
+- **Dynamic XML Sitemap (`/sitemap.xml`)**: Automated sitemap generation with 1-hour caching.
+- **RSS 2.0 Feed (`/rss.xml`, `/rss`)**: Automated syndication feed for aggregators and search engines.
+- **Structured GEO & Schema.org Metadata**: Complete JSON-LD schemas (`Article`, `FinancialProduct`, `BreadcrumbList`).
 
-### Declarative Shadow DOM (DSD)
-
-Modern rendering approach replacing legacy iframe-based architecture:
-
-- **30-40% faster** page load vs iframe
-- **SEO-friendly** - Content indexable by search engines
-- **Style isolation** - Native Shadow DOM encapsulation
-- **No postMessage** - Direct JavaScript access
-- Browser support: Chrome 90+, Edge 91+, Safari 16.4+, Firefox 123+
-
-### Multi-tier Cache System
-
-Sophisticated 4-level caching with **Stampede Protection**:
-
-1.  **Level 0 (Route Cache)**: Pre-rendered static frames in RAM (`OnceCell`) checked immediately at the route level.
-2.  **Level 1 (Moka)**: In-memory LRU cache (1000 entries) for dynamic reports and list pages.
-3.  **Level 2 (Redis)**: Distributed persistent cache storing compressed GZIP payloads.
-4.  **Level 3 (Stream Cache)**: Optimized Redis Stream reading with local caching.
-
-### Real-time Data Pipeline
-
-Redis Streams integration for microservices communication:
-
-- **Consumer role**: Main service reads from `market_data_stream`
-- **Publisher**: Separate Websocket Service handles external APIs
-- **Throughput**: 10,000+ entries/second
-- **Latency**: <2ms read operations
+### 6. Idiomatic Rust & Strict Error Handling
+- **Edition 2024 / 2021 Idioms**: Zero unsafe blocks in application code.
+- **Strictly No Unwrap**: `.unwrap()` is prohibited across the codebase (enforced via `clippy::unwrap_used`). All errors are propagated cleanly using `Result`, `Option`, and the `?` operator.
 
 ---
 
-## Architecture Overview
+## 🏗 Architecture Overview
 
-### Microservices Architecture
+### Microservices Communication Flow
+
+```mermaid
+flowchart TD
+    subgraph External["External Data Sources"]
+        Binance["Binance APIs"]
+        CoinGecko["CoinGecko / CoinMarketCap"]
+        FNG["Fear & Greed Index"]
+    end
+
+    subgraph WebSocket_Service["Websocket Microservice (Port 8081)"]
+        Ingestion["API Polling Engine"]
+        Producer["Redis Stream Producer"]
+        WSServer["WebSocket Server (ws://localhost:8081)"]
+    end
+
+    subgraph Redis_Cluster["Redis Infrastructure"]
+        Stream["Redis Stream: market_data_stream"]
+        L2_Cache["Redis L2 Distributed Cache"]
+    end
+
+    subgraph Main_Service["Main Web Server (Port 8000) - This Repo"]
+        StreamReader["src/stream.rs: RedisStreamReader"]
+        Router["src/routes/ - Axum Router"]
+        L0_L1["L0 RAM & L1 Moka Cache"]
+        Services["Service Islands Layer 5"]
+        DB[(PostgreSQL)]
+    end
+
+    External --> Ingestion
+    Ingestion --> Producer
+    Producer -->|XADD| Stream
+    Ingestion --> WSServer
+
+    Stream -->|XREAD Cache-First| StreamReader
+    StreamReader --> Services
+    Services <--> L0_L1
+    Services <--> L2_Cache
+    Services <--> DB
+    Router --> Services
+
+    Client[Web Browsers / Crawlers] <-->|HTTP / DSD| Router
+    WSServer -->|Live Tickers| Client
+```
+
+### Request Resolution Pipeline
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                    Websocket Service (Port 3001)                   │
-│  External APIs -> Redis Streams (market_data_stream)               │
-└──────────────────────────────┬──────────────────────────────────────┘
-                               │ XREAD
-                               ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    Main Service (Port 8000) - This Repo             │
-│                                                                     │
-│  ┌───────────────────────────────────────────────────────────────┐  │
-│  │  Services (src/services/)                                     │  │
-│  │  • crypto_reports: Dashboard & Renderings                     │  │
-│  │  • dashboard: Pre-rendering Homepage RAM Cache                │  │
-│  │  • shared: Utilities, compression, seo                        │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-│                              │                                      │
-│                              ▼                                      │
-│  ┌───────────────────────────────────────────────────────────────┐  │
-│  │  Handlers & Routes (src/handlers/, src/routes/)               │  │
-│  │  • Request logic, API routing                                 │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-│                              │                                      │
-│                              ▼                                      │
-│  ┌───────────────────────────────────────────────────────────────┐  │
-│  │  Infrastructure (src/stream.rs, src/dto/)                     │  │
-│  │  • Data flowing, types, DB Pool, Redis Connections            │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-### Request Flow with Pre-rendering
-
-```
-Client Request
+Incoming Request
       │
       ▼
-┌─────────────────┐
-│  Axum Router    │
-│  (src/routes/)  │
-└─────────────────┘
-      │
-      ▼
-┌──────────────────────────────────────────────┐
-│  Services Logic (src/services/)              │
-│                                              │
-│  [1] Check Pre-rendered RAM Cache?           │
-│      ├── YES -> SERVE INSTANTLY (0 allocs)   │
-│      └── NO  -> [2] Render/Pre-render        │
-└──────────────────────────────────────────────┘
-                        │
-                        ▼ (Dynamic Data Needed)
-┌─────────────────────────────────────────────────────────┐
-│                    Data Cache                           │
-│  L1 (Moka) ◄──── Cache Miss ────► L2 (Redis)            │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────┐
+│  Axum Route Handler     │
+│  (src/routes/)          │
+└───────────┬─────────────┘
+            │
+            ├─► [1] Immediate L0/L1 Cache Check (Gzip Buffer)?
+            │        └── YES ──► Serve directly (Zero allocation, < 0.2ms)
+            │
+            └─► [2] Cache MISS ──► Layer 5 Service Orchestration
+                     │
+                     ├─► Check L2 Redis Cache (Compressed Bytes)
+                     │
+                     ├─► Check L3 Redis Stream (`RedisStreamReader`)
+                     │
+                     ├─► Query PostgreSQL (`CryptoDataService` / SQLx)
+                     │
+                     ▼
+             Render Tera / DSD Template
+                     │
+                     ▼
+             Flate2 Gzip Compression
+                     │
+                     ▼
+             Populate L1 + L2 Cache & Return Response
 ```
 
 ---
 
-## Performance Metrics
+## 📊 Performance Metrics
 
 ```
-╔═══════════════════════════════════════════════════════════════════╗
-║                    PERFORMANCE SUMMARY                             ║
-╠═══════════════════════════════════════════════════════════════════╣
-║  Peak Throughput      │  44,714.2 req/s (sustained)               ║
-║  Average Latency      │  11.1ms (under heavy concurrency)         ║
-║  Homepage Latency     │  <0.2ms (served from RAM)                 ║
-║  Success Rate         │  100%                                     ║
-║  Cache Hit Rate       │  98%+ overall (L0/L1 optimized)           ║
-╚═══════════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════════════╗
+║                          BENCHMARK SUMMARY                               ║
+╠══════════════════════════════════════════════════════════════════════════╣
+║  Peak Sustained RPS     │  44,714.2 requests/sec (Apache Benchmark)      ║
+║  Concurrency Tested     │  500 concurrent connections                    ║
+║  Mean Latency           │  11.1 ms (under heavy concurrent load)         ║
+║  Homepage Latency       │  < 0.2 ms (served directly from RAM L0)        ║
+║  Success Rate           │  100.00% (50,000 / 50,000 requests)            ║
+║  Cache Hit Rate         │  98%+ overall across L0/L1/L2 tiers            ║
+║  Memory Footprint       │  ~25MB baseline RSS                            ║
+╚══════════════════════════════════════════════════════════════════════════╝
 ```
 
 ---
 
-## Getting Started
+## 📡 Route & API Reference
+
+### Web UI Routes
+
+| Method | Endpoint | Description | Cache Policy |
+|---|---|---|---|
+| `GET` | `/` | Pre-rendered Homepage (Market summary & quick links) | L0 RAM (`max-age=300`) |
+| `GET` | `/crypto_report` | Latest Crypto Report with Declarative Shadow DOM | L0/L1/L2 (`max-age=300`) |
+| `GET` | `/crypto_report/{id}` | Specific Crypto Report by numerical ID | L1/L2 (`max-age=300`) |
+| `GET` | `/crypto_reports_list` | Paginated Report History (`?page=1`) | L1/L2 (`max-age=60`) |
+| `GET` | `/market_analytics` | Spot vs Futures Volume & Open Interest Analytics | L1/L2 (`max-age=300`) |
+| `GET` | `/analytics` | Alias for `/market_analytics` | L1/L2 (`max-age=300`) |
+
+### REST API Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/dashboard/data` | Real-time market data JSON read from Redis Stream |
+| `GET` | `/api/crypto/dashboard-summary` | Summary JSON payload for dashboards |
+| `GET` | `/api/crypto_reports/{id}/shadow_dom` | Returns raw Shadow DOM HTML fragment (`?token=...&lang=...`) |
+| `GET` | `/api/health` | API subsystem health status |
+| `GET` | `/api/websocket/stats` | Status and redirect info for WebSocket microservice |
+
+### SEO & Syndication Feeds
+
+| Method | Endpoint | Content-Type | Description |
+|---|---|---|---|
+| `GET` | `/sitemap.xml` | `application/xml` | Dynamic XML sitemap with 1-hour cache |
+| `GET` | `/rss.xml` / `/rss` | `application/rss+xml` | RSS 2.0 feed containing latest 20 reports |
+| `GET` | `/robots.txt` | `text/plain` | Crawler indexation rules |
+
+### System & Admin Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/health` | Core server and stream health status (`200 OK`) |
+| `GET` | `/metrics` | Server performance and multi-tier cache metrics |
+| `GET` | `/admin/cache/stats` | Detailed cache statistics (hits, misses, promotions, hit rate) |
+| `GET` | `/admin/cache/clear` | Invalidate all keys across L1 and L2 cache |
+
+---
+
+## 🛠 Getting Started
 
 ### Prerequisites
 
-- **Rust** 1.70+ ([Install Rust](https://rustup.rs/))
-- **PostgreSQL** database
-- **Redis** server (required)
-- **Node.js** 18+ (for frontend)
+- **Rust**: 1.70+ or Rust 2024 Edition ([Install Rust](https://rustup.rs/))
+- **PostgreSQL**: 14+ database
+- **Redis**: 6+ (Redis Streams enabled)
+- **Node.js**: 18+ (for building frontend assets)
 
-### Local Development
+### Local Setup
 
 ```bash
-# Clone repository
+# 1. Clone the repository
 git clone https://github.com/thichuong/Web-server-Report.git
 cd Web-server-Report
 
-# Setup Environment
+# 2. Configure Environment Variables
 cp .env.example .env
 nano .env
 
-# Build and Run
-cargo run
+# 3. Build frontend assets (ESBuild)
+npm install
+npm run build
 
-# Build Frontend (optional if using pre-built assets)
-npm install && npm run build
+# 4. Run the development server
+cargo run
 ```
 
-Server starts at `http://localhost:8000`.
+The web server will start at `http://localhost:8000`.
 
-### Environment Variables
+### Environment Configuration (`.env`)
 
 ```env
-DATABASE_URL=postgresql://user:password@localhost:5432/database
-REDIS_URL=redis://localhost:6379
-AUTO_UPDATE_SECRET_KEY=your_secret
+# Database Configuration
+DATABASE_URL=postgresql://user:password@localhost:5432/crypto_reports
+
+# Redis Configuration (L2 Cache + Streams)
+REDIS_URL=redis://127.0.0.1:6379
+
+# Server Binding
+HOST=0.0.0.0
+PORT=8000
+RUST_LOG=info
+
+# Microservices Integration
 WEBSOCKET_SERVICE_URL=ws://localhost:8081
+AUTO_UPDATE_SECRET_KEY=your_secret_key_here
 ```
 
 ---
 
----
+## 🧪 Testing & Quality Assurance
 
-## Testing
-
-Run the test suite to ensure system stability:
-
-### Unit Tests
-Run standard unit tests (DTOs, Handlers, Utilities):
+### Run Unit Tests
 ```bash
 cargo test
 ```
+*All 38 unit tests run in < 0.01s.*
 
-### Integration Tests
-Run integration tests (Requires running Database and Redis):
+### Run Integration Tests (Requires DB & Redis)
 ```bash
 cargo test -- --ignored
 ```
 
-### Code Quality
-Run linter and formatter:
+### Strict Code Quality & Linting
+Enforce strict zero-unwrap policy and Clippy pedantic rules:
 ```bash
-cargo check
-cargo clippy
+cargo clippy --all-targets -- -D warnings -D clippy::unwrap_used
 ```
 
-### Benchmarking Performance
-You can test the Requests Per Second (RPS) of the server using the provided script (requires `ab` - Apache Benchmark):
+---
 
-1. **Ensure the server is running**: `cargo run --release`
-2. **Run the benchmark**:
-   ```bash
-   ./test_rps.sh http://localhost:8000/ 500 50000
-   ```
-   ```bash
-   ./test_rps.sh http://127.0.0.1:8000/crypto_report 500 50000
-   ```
-   *Parameters: [URL] [Concurrency] [Total Requests]*
+## ⚡ Benchmarking Performance
 
-If `ab` is not installed, install it via:
-- **Ubuntu/Debian**: `sudo apt install apache2-utils`
-- **Fedora/CentOS**: `sudo dnf install httpd-tools`
+Run the included Apache Benchmark testing script:
 
-## Project Structure
+```bash
+# Benchmark Homepage (Pre-rendered RAM Cache)
+./test_rps.sh http://localhost:8000/ 500 50000
+
+# Benchmark Crypto Report (Declarative Shadow DOM)
+./test_rps.sh http://localhost:8000/crypto_report 500 50000
+```
+
+*Parameters: `./test_rps.sh [URL] [Concurrency] [Total Requests]`*
+
+---
+
+## 📁 Project Structure
 
 ```
 Web-server-Report/
-├── src/
-│   ├── main.rs                          # Entry point
-│   ├── routes/                          # Axum routes (e.g. api_routes.rs)
-│   ├── handlers/                        # API request handlers
-│   ├── services/                        # Core Domain Logic
-│   │   ├── crypto_reports/              # Report Generation & Logic
-│   │   │   ├── rendering/               # DSD / HTML renderers
-│   │   │   └── ...
-│   │   ├── dashboard/                   # Homepage & Dashboard features
-│   │   └── shared/                      # Utilities, Compression, SEO
-│   ├── dto/                             # Data Transfer Objects
-│   └── stream.rs                        # Redis Streams connectivity
-├── dashboards/                          # HTML Templates
-├── shared_assets/                       # Static Files (CSS/JS)
-├── docs/                                # Detailed Documentation
-├── Dockerfile.railway                   # Production build
-└── Cargo.toml                           # Dependencies
+├── .agents/                                # Agent workflows and coding rules
+├── dashboards/                             # Tera HTML Templates
+│   ├── crypto_dashboard/                   # Crypto report & analytics views
+│   │   ├── assets/                         # Dashboard CSS/JS assets
+│   │   └── routes/
+│   │       ├── analytics/                  # Market analytics templates
+│   │       └── reports/                    # View & list report templates
+│   └── home.html                           # Pre-rendered homepage template
+├── shared_assets/                          # Static assets (CSS, JS, Logos)
+├── shared_components/                      # Modular UI components (DSD, Toggles)
+├── src/                                    # Rust Source Code
+│   ├── dto/                                # Data Transfer Objects & Responses
+│   │   ├── common.rs                       # Shared DTOs (Health, Status)
+│   │   └── responses/                      # Typed JSON responses
+│   ├── routes/                             # Axum HTTP Routes (Layer 1)
+│   │   ├── api.rs                          # REST APIs
+│   │   ├── crypto_reports.rs               # DSD Report routes
+│   │   ├── homepage.rs                     # Pre-rendered homepage route
+│   │   ├── market_analytics.rs             # Spot vs Futures & OI route
+│   │   ├── rss_feed.rs                     # RSS 2.0 feed route
+│   │   ├── seo.rs                          # Sitemap.xml route
+│   │   ├── static_files.rs                 # Static asset server
+│   │   ├── system.rs                       # Health, metrics & admin cache
+│   │   └── mod.rs                          # Router composition
+│   ├── services/                           # Service Islands Domain Logic (Layer 5)
+│   │   ├── crypto_reports/                 # Crypto report domain island
+│   │   │   ├── rendering/                  # DSD renderer, GEO metadata, Breadcrumbs
+│   │   │   ├── data_manager.rs             # Report data orchestration
+│   │   │   ├── handlers.rs                 # Domain request handlers
+│   │   │   ├── report_creator.rs           # Report builder
+│   │   │   └── template_orchestrator.rs    # Tera context orchestration
+│   │   ├── dashboard_data_service.rs       # Layer 3 data service for dashboard
+│   │   ├── dashboard.rs                    # Dashboard & homepage service
+│   │   ├── data_communication/             # Layer 3 Database & Cache communication
+│   │   │   └── crypto_data_service.rs      # SQLx queries with multi-tier cache
+│   │   └── shared/                         # Shared utilities
+│   │       ├── cache_utils.rs              # Cache helpers & Gzip response builder
+│   │       ├── compression.rs              # Flate2 compression utilities
+│   │       ├── error.rs                    # Layer 5 custom error types
+│   │       ├── response_builder.rs         # HTTP response builder
+│   │       ├── rss_creator.rs              # RSS 2.0 XML generator
+│   │       ├── security.rs                 # Blake3 cryptographic sandbox tokens
+│   │       ├── sitemap_creator.rs          # Sitemap XML generator
+│   │       └── websocket.rs                # WebSocket URL resolver
+│   ├── error.rs                            # Top-level application error handler
+│   ├── lib.rs                              # Library root
+│   ├── main.rs                             # Application entry point & graceful shutdown
+│   ├── state.rs                            # Global AppState (DB, Cache, Tera)
+│   └── stream.rs                           # Redis Streams Reader (Layer 4)
+├── tests/                                  # Integration test suite
+├── build.js                                # Frontend ESBuild bundling pipeline
+├── Cargo.toml                              # Rust dependencies & optimization profiles
+├── package.json                            # Node.js build configuration
+├── test_rps.sh                             # Apache Benchmark RPS testing script
+├── architecture.md                         # Detailed Architectural Specification
+└── README.md                               # Project overview and documentation
 ```
 
 ---
 
-## Deployment
+## 🚢 Deployment & CI/CD
 
-### Railway / Docker
+### Automated GitHub Actions Workflow (`.github/workflows/rust-cd.yml`)
 
-```bash
-docker build -f Dockerfile.railway -t crypto-dashboard .
-docker run -p 8000:8000 --env-file .env crypto-dashboard
+The repository uses automated continuous deployment triggered on pushes to `main`:
+
+1. **Static Compilation with Musl**:
+   - Cross-compiles a self-contained, statically linked binary targeting `x86_64-unknown-linux-musl`.
+   - Embeds OpenSSL (`vendored`) with zero dynamic runtime dependency.
+   ```bash
+   cargo build --release --target x86_64-unknown-linux-musl
+   ```
+2. **Google Cloud IAP Deployment**:
+   - Authenticates securely via Google Cloud Service Account (`GCP_SA_KEY`).
+   - Uses Google Cloud Identity-Aware Proxy (IAP) SSH tunneling to safely transfer and deploy the release binary to the Google Cloud VM without opening public SSH ports.
+   - Gracefully stops any running instance and restarts the new binary in the background (`setsid nohup ./target/release/web-server-report > app.log 2>&1 &`).
+
+### Production Release Profile
+In `Cargo.toml`, the release profile is tuned for maximum throughput and minimal binary footprint:
+```toml
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+overflow-checks = false
 ```
 
-Health check: `curl http://localhost:8000/health`
+---
+
+## 📖 Documentation
+
+For in-depth technical specifications, please consult:
+- [architecture.md](architecture.md) — Comprehensive Service Islands Architecture, Multi-Tier Cache Topology, and Security Design.
 
 ---
 
-## Documentation
+## 📄 License
 
-See `docs/` for detailed guides:
-
-- [SERVICE_ISLANDS_ARCHITECTURE.md](docs/SERVICE_ISLANDS_ARCHITECTURE.md)
-- [DECLARATIVE_SHADOW_DOM.md](docs/DECLARATIVE_SHADOW_DOM.md)
-- [CACHE_ARCHITECTURE_ANALYSIS.md](docs/CACHE_ARCHITECTURE_ANALYSIS.md)
-
----
-
-## License
-
-Apache License 2.0 - [LICENSE](LICENSE)
+Licensed under the Apache License, Version 2.0 — see the [LICENSE](LICENSE) file for details.
 
 <p align="center">
-  <b>Built with Rust for maximum performance</b><br>
-  <sub>16,829+ RPS | 5.2ms latency | Zero-Allocation Pre-rendering</sub>
+  <b>Built with Rust for Maximum Performance & Reliability</b><br>
+  <sub>44,700+ RPS | 11ms Latency | Zero-Allocation Pre-rendering</sub>
 </p>
