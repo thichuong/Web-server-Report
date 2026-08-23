@@ -15,10 +15,10 @@ use super::shared::Report;
 const SITE_BASE_URL: &str = "https://cryptodashboard.me";
 
 /// Default logo URL for publisher
-const PUBLISHER_LOGO_URL: &str = "https://cryptodashboard.me/shared_assets/images/logo.png";
+const PUBLISHER_LOGO_URL: &str = "https://cryptodashboard.me/frontend/shared/assets/images/logo.png";
 
 /// Default OG image URL
-const DEFAULT_OG_IMAGE: &str = "https://cryptodashboard.me/shared_assets/images/image.jpg";
+const DEFAULT_OG_IMAGE: &str = "https://cryptodashboard.me/frontend/shared/assets/images/image.jpg";
 
 /// GEO Metadata container
 ///

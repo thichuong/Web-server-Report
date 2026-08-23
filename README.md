@@ -222,7 +222,6 @@ Incoming Request
 - **Rust**: 1.70+ or Rust 2024 Edition ([Install Rust](https://rustup.rs/))
 - **PostgreSQL**: 14+ database
 - **Redis**: 6+ (Redis Streams enabled)
-- **Node.js**: 18+ (for building frontend assets)
 
 ### Local Setup
 
@@ -235,11 +234,7 @@ cd Web-server-Report
 cp .env.example .env
 nano .env
 
-# 3. Build frontend assets (ESBuild)
-npm install
-npm run build
-
-# 4. Run the development server
+# 3. Run the development server
 cargo run
 ```
 
@@ -308,16 +303,19 @@ Run the included Apache Benchmark testing script:
 ```
 Web-server-Report/
 ├── .agents/                                # Agent workflows and coding rules
-├── dashboards/                             # Tera HTML Templates
-│   ├── crypto_dashboard/                   # Crypto report & analytics views
-│   │   ├── assets/                         # Dashboard CSS/JS assets
-│   │   └── routes/
-│   │       ├── analytics/                  # Market analytics templates
-│   │       └── reports/                    # View & list report templates
-│   └── home.html                           # Pre-rendered homepage template
-├── shared_assets/                          # Static assets (CSS, JS, Logos)
-├── shared_components/                      # Modular UI components (DSD, Toggles)
-├── src/                                    # Rust Source Code
+├── frontend/                               # Modular Frontend Architecture (Zero-Build ESM)
+│   ├── pages/                              # Self-contained page bundles
+│   │   ├── home/                           # Homepage (home.html, home.css, components/)
+│   │   │   └── components/                 # Page-specific components (market-indicators, etc.)
+│   │   ├── report_view/                    # DSD Report View (view.html, view.css, view.js)
+│   │   ├── reports_list/                   # Paginated List (list.html, list.css, list.js)
+│   │   └── market_analytics/               # Spot vs Futures Analytics (analytics.html, .css, .js)
+│   └── shared/                             # Shared cross-page modular assets
+│       ├── components/                     # Reusable Tera partials (header, footer, nav, seo)
+│       ├── css/                            # Design system & modular stylesheets (charts/)
+│       ├── js/                             # Shared ESM modules (translations, theme, charts/)
+│       └── assets/                         # Static brand assets (Logos, Icons, Favicons)
+├── src/                                    # Rust Source Code (Service Islands Architecture)
 │   ├── dto/                                # Data Transfer Objects & Responses
 │   │   ├── common.rs                       # Shared DTOs (Health, Status)
 │   │   └── responses/                      # Typed JSON responses
@@ -328,7 +326,7 @@ Web-server-Report/
 │   │   ├── market_analytics.rs             # Spot vs Futures & OI route
 │   │   ├── rss_feed.rs                     # RSS 2.0 feed route
 │   │   ├── seo.rs                          # Sitemap.xml route
-│   │   ├── static_files.rs                 # Static asset server
+│   │   ├── static_files.rs                 # Static asset server (/frontend)
 │   │   ├── system.rs                       # Health, metrics & admin cache
 │   │   └── mod.rs                          # Router composition
 │   ├── services/                           # Service Islands Domain Logic (Layer 5)
@@ -357,9 +355,7 @@ Web-server-Report/
 │   ├── state.rs                            # Global AppState (DB, Cache, Tera)
 │   └── stream.rs                           # Redis Streams Reader (Layer 4)
 ├── tests/                                  # Integration test suite
-├── build.js                                # Frontend ESBuild bundling pipeline
 ├── Cargo.toml                              # Rust dependencies & optimization profiles
-├── package.json                            # Node.js build configuration
 ├── test_rps.sh                             # Apache Benchmark RPS testing script
 ├── architecture.md                         # Detailed Architectural Specification
 └── README.md                               # Project overview and documentation

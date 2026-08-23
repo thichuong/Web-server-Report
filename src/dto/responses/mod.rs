@@ -7,6 +7,6 @@ pub mod websocket;
 
 // Re-export all response types for convenience
 pub use cache::*;
-pub use dashboard::{DashboardDataResponse, StockIndexData};
+pub use dashboard::DashboardDataResponse;
 pub use health::*;
 pub use websocket::*;

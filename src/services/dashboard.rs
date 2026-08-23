@@ -107,7 +107,7 @@ impl DashboardHandlers {
     ///
     /// Returns error if file reading fails or template parsing fails
     pub fn homepage(&self) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-        match std::fs::read_to_string("dashboards/home.html") {
+        match std::fs::read_to_string("frontend/pages/home/home.html") {
             Ok(content) => Ok(content),
             Err(e) => Err(Box::new(e)),
         }
@@ -180,7 +180,7 @@ impl DashboardHandlers {
             Err(e) => {
                 error!("❌ Failed to render homepage template: {}", e);
                 // Fallback to simple file reading
-                let html_content = std::fs::read_to_string("dashboards/home.html")?;
+                let html_content = std::fs::read_to_string("frontend/pages/home/home.html")?;
                 Self::compress_html(&html_content)
             }
         }

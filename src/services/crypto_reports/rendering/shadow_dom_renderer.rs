@@ -25,8 +25,8 @@ use super::shared::{Report, SandboxedReport, sanitize_css_content, sanitize_js_c
 
 /// Pre-loaded Shadow DOM template for modern DSD architecture.
 static VIEW_SHADOW_DOM_TEMPLATE: LazyLock<String> = LazyLock::new(|| {
-    std::fs::read_to_string("shared_components/view_shadow_dom.html").unwrap_or_else(|_| {
-        include_str!("../../../../shared_components/view_shadow_dom.html").to_owned()
+    std::fs::read_to_string("frontend/pages/report_view/view_shadow_dom.html").unwrap_or_else(|_| {
+        include_str!("../../../../frontend/pages/report_view/view_shadow_dom.html").to_owned()
     })
 });
 

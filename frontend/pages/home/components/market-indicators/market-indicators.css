@@ -1,0 +1,836 @@
+/* Market Indicators Dashboard Styles */
+
+.market-indicators-container {
+    max-width: 100%;
+    margin: 0;
+    padding: 1rem;
+    background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
+    border-radius: 16px;
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--card-border);
+    backdrop-filter: blur(10px);
+}
+
+/* Card Styles */
+.market-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--card-border);
+    transition: all 0.3s ease;
+    will-change: border-color, box-shadow;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(8px);
+}
+
+.market-card:hover {
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+    border-color: var(--accent-color);
+}
+
+.realtime-indicator::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--positive-color);
+    margin-right: 0.5rem;
+    /* animation: pulse-dot 2s infinite; */
+    /* Disabled for performance - real-time updates already indicate live data */
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
+}
+
+.market-card:hover::before {
+    opacity: 1;
+}
+
+/* Compact card variant for smaller stats */
+.market-card.compact {
+    padding: 1rem;
+    border-radius: 8px;
+}
+
+/* Compact hover inherits border-color change from .market-card:hover */
+
+.market-mini-card {
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    border: 1px solid var(--border-color);
+    transition: border-color 0.1s ease;
+    /* Only border color transition */
+}
+
+.market-mini-card:hover {
+    /* Removed transform and box-shadow - only border color change */
+    border-color: var(--accent-color);
+}
+
+/* Section Headings */
+.market-indicators-container h2 {
+    background: linear-gradient(135deg, #059669, #10b981);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 1.5rem;
+    position: relative;
+}
+
+.market-indicators-container h2::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 3px;
+    background: linear-gradient(90deg, #059669, #10b981);
+    border-radius: 2px;
+}
+
+.market-indicators-container h3 {
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+    position: relative;
+    padding-left: 1rem;
+}
+
+.market-indicators-container h3::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 1.2em;
+    background: linear-gradient(135deg, var(--accent-color), var(--positive-color));
+    border-radius: 2px;
+}
+
+/* Value Container */
+.market-value-container {
+    margin-bottom: 0.75rem;
+}
+
+.market-value {
+    font-size: 1.875rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.2;
+}
+
+.market-change {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-top: 0;
+    display: flex;
+    align-items: center;
+}
+
+.market-change.positive {
+    color: var(--positive-color);
+}
+
+.market-change.negative {
+    color: var(--negative-color);
+}
+
+.market-change.neutral {
+    color: var(--neutral-color);
+}
+
+.change-icon {
+    margin-right: 0.25rem;
+    font-size: 0.75rem;
+}
+
+/* Real-time Indicator */
+.real-time-indicator {
+    display: flex;
+    align-items: center;
+    margin-top: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    background: rgba(34, 197, 94, 0.1);
+    border-radius: 12px;
+    border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--positive-color);
+    margin-right: 0.5rem;
+    animation: pulse-dot 2s infinite;
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
+}
+
+@keyframes pulse-dot {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.6;
+        transform: scale(1.1);
+    }
+}
+
+/* Skeleton Loader */
+.skeleton-loader {
+    background: linear-gradient(90deg, var(--skeleton-base) 25%, var(--skeleton-highlight) 50%, var(--skeleton-base) 75%);
+    background-size: 200% 100%;
+    /* animation: skeleton-loading 1.5s infinite; */
+    /* Disabled for performance - static shimmer sufficient */
+    border-radius: 4px;
+    height: 2rem;
+    width: 70%;
+}
+
+.skeleton-loader.h-6 {
+    height: 1.5rem;
+}
+
+.skeleton-loader.h-16 {
+    height: 4rem;
+    width: 100%;
+}
+
+@keyframes skeleton-loading {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* Index Display Styles */
+.index-display {
+    padding: 0.5rem;
+}
+
+.index-value {
+    font-size: 2rem;
+    font-weight: 800;
+}
+
+.index-value.fear {
+    color: var(--fng-extreme-fear-color);
+}
+
+.index-value.greed {
+    color: var(--fng-extreme-greed-color);
+}
+
+.index-value.neutral {
+    color: var(--neutral-color);
+}
+
+.index-value.neutral {
+    color: var(--warning-color);
+}
+
+/* RSI Indicator Styles */
+.index-value.oversold {
+    color: var(--rsi-oversold-color, #ef4444);
+}
+
+.index-value.neutral {
+    color: var(--rsi-neutral-color, #f59e0b);
+}
+
+.index-value.overbought {
+    color: var(--rsi-overbought-color, #10b981);
+}
+
+.index-label {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.index-description {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+}
+
+/* Status Bar */
+.market-status-bar {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    margin-top: 1rem;
+}
+
+/* Connection Status */
+.connection-indicator {
+    display: flex;
+    align-items: center;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.connection-indicator.connecting .status-dot {
+    background-color: var(--warning-color);
+    animation: pulse-dot 1s infinite;
+}
+
+.connection-indicator.connected .status-dot {
+    background-color: var(--positive-color);
+}
+
+.connection-indicator.disconnected .status-dot {
+    background-color: var(--negative-color);
+}
+
+.connection-indicator.offline .status-dot {
+    background-color: var(--text-muted);
+}
+
+.status-text {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .market-indicators-container {
+        padding: 0.5rem;
+    }
+
+    .market-card {
+        padding: 1rem;
+    }
+
+    .market-value {
+        font-size: 1.75rem;
+    }
+
+    .index-value {
+        font-size: 1.5rem;
+    }
+
+    .market-mini-card {
+        padding: 0.75rem;
+    }
+}
+
+@media (max-width: 640px) {
+    .market-value {
+        font-size: 1.5rem;
+    }
+
+    .index-value {
+        font-size: 2.5rem;
+    }
+}
+
+/* Dark theme colors are handled by CSS variables in shared_assets/css/colors.css */
+
+/* Animation utilities */
+.fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.pulse-update {
+    animation: pulseUpdate 0.6s ease-out;
+}
+
+@keyframes pulseUpdate {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+    }
+
+    50% {
+        transform: scale(1.02);
+        box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.2);
+    }
+
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+    }
+}
+
+/* Responsive Grid Adjustments */
+@media (max-width: 768px) {
+    .market-indicators-container {
+        padding: 1rem;
+    }
+
+    .market-card {
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+    }
+
+    .market-value {
+        font-size: 1.5rem;
+    }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+    .market-card {
+        padding: 1.25rem;
+    }
+
+    .market-value {
+        font-size: 1.75rem;
+    }
+}
+
+/* Enhanced Grid Layout */
+.market-indicators-container .grid {
+    gap: 1rem;
+}
+
+/* Two-column layout optimizations */
+@media (min-width: 1024px) {
+    .market-indicators-container {
+        padding: 1.5rem 1rem;
+    }
+
+    .market-indicators-container .grid {
+        gap: 0.75rem;
+    }
+
+    .market-card {
+        padding: 1.25rem;
+    }
+
+    .market-value {
+        font-size: 1.5rem;
+    }
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+    .market-indicators-container {
+        padding: 1rem;
+    }
+
+    .market-indicators-container h2 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .market-indicators-container h3 {
+        font-size: 1.125rem;
+    }
+
+    .market-card {
+        padding: 1rem;
+    }
+
+    .market-value {
+        font-size: 1.5rem;
+    }
+}
+
+
+/* Enhanced spacing for better visual hierarchy */
+.market-indicators-container>div.mb-8 {
+    margin-bottom: 2rem;
+}
+
+.market-indicators-container>div.mb-8:last-child {
+    margin-bottom: 1.5rem;
+}
+
+/* Improved card spacing for 2-column crypto layout */
+.market-indicators-container .grid.grid-cols-1.md\\:grid-cols-2 .market-card {
+    margin-bottom: 1.5rem;
+}
+
+/* Binance Prices Section */
+.binance-prices-section {
+    margin-top: 1.5rem;
+    grid-column: 1 / -1;
+}
+
+.binance-prices-section h4 {
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+    position: relative;
+    padding-left: 0.75rem;
+    font-size: 1.125rem;
+}
+
+.binance-prices-section h4::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 1em;
+    background: linear-gradient(135deg, #F7931A, #FF6B35);
+    border-radius: 2px;
+}
+
+.binance-prices-container {
+    border-radius: 12px;
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    background: var(--card-bg);
+    padding: 1rem;
+}
+
+.binance-price-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.binance-price-card {
+    background: var(--background-light);
+    border-radius: 8px;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+    will-change: border-color, box-shadow;
+}
+
+.binance-price-card:hover {
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+    border-color: var(--accent-color);
+}
+
+.binance-coin-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+.binance-price-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-align: center;
+}
+
+.binance-price-change {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-top: 0.25rem;
+    text-align: center;
+}
+
+.binance-price-change.positive {
+    color: var(--positive-color);
+}
+
+.binance-price-change.negative {
+    color: var(--negative-color);
+}
+
+/* Responsive adjustments for Binance prices */
+@media (max-width: 768px) {
+    .binance-price-grid {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 0.75rem;
+    }
+
+    .binance-price-card {
+        padding: 0.5rem;
+    }
+
+    .binance-coin-header {
+        font-size: 0.8rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .binance-price-value {
+        font-size: 1.25rem;
+    }
+
+    .binance-price-change {
+        font-size: 0.9rem;
+    }
+}
+
+/* Dominance Chart Styles */
+.dominance-card {
+    position: relative;
+}
+
+/* Gauge Card Layout */
+.gauge-card-layout {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    /* Không cho xuống hàng */
+}
+
+.gauge-info {
+    flex: 0 0 55%;
+    /* Chiếm 55% chiều rộng */
+    min-width: 0;
+}
+
+.gauge-info .flex.items-center {
+    margin-bottom: 0.25rem;
+}
+
+.gauge-chart-wrapper {
+    flex: 0 0 40%;
+    /* Chiếm 40% chiều rộng */
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.gauge-chart-large {
+    width: 100%;
+    /* Chiếm toàn bộ wrapper */
+    height: auto;
+    display: block;
+}
+
+/* Responsive adjustments for gauge cards */
+@media (max-width: 768px) {
+    .gauge-info {
+        flex: 0 0 50%;
+        /* 50% trên tablet */
+    }
+
+    .gauge-chart-wrapper {
+        flex: 0 0 45%;
+        /* 45% trên tablet */
+    }
+}
+
+@media (max-width: 480px) {
+    .gauge-info {
+        flex: 0 0 52%;
+        /* 52% trên mobile */
+    }
+
+    .gauge-chart-wrapper {
+        flex: 0 0 43%;
+        /* 43% trên mobile */
+    }
+}
+
+.dominance-card-layout {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    /* Không cho xuống hàng */
+}
+
+.dominance-info {
+    flex: 0 0 55%;
+    /* Chiếm 55% chiều rộng */
+    min-width: 0;
+}
+
+.dominance-info .flex.items-center {
+    margin-bottom: 0.25rem;
+}
+
+.dominance-chart-wrapper {
+    flex: 0 0 40%;
+    /* Chiếm 40% chiều rộng */
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.dominance-chart-large {
+    width: 100%;
+    /* Chiếm toàn bộ wrapper */
+    height: auto;
+    display: block;
+}
+
+.dominance-chart-inline {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 1rem;
+}
+
+.dominance-chart-compact {
+    width: 100px;
+    height: 40px;
+    display: block;
+}
+
+.dominance-chart-container {
+    margin-top: 1rem;
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dominance-chart {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* Responsive adjustments for dominance cards */
+@media (max-width: 768px) {
+    .dominance-info {
+        flex: 0 0 50%;
+        /* 50% trên tablet */
+    }
+
+    .dominance-chart-wrapper {
+        flex: 0 0 45%;
+        /* 45% trên tablet */
+    }
+}
+
+@media (max-width: 480px) {
+    .dominance-info {
+        flex: 0 0 52%;
+        /* 52% trên mobile */
+    }
+
+    .dominance-chart-wrapper {
+        flex: 0 0 43%;
+        /* 43% trên mobile */
+    }
+}
+
+/* SVG Chart Styles */
+.dominance-chart .chart-bg {
+    fill: rgba(255, 255, 255, 0.02);
+}
+
+.dominance-chart .grid-line {
+    stroke: rgba(255, 255, 255, 0.1);
+    stroke-width: 0.5;
+    stroke-dasharray: 2, 2;
+}
+
+.dominance-chart .axis-line {
+    stroke: rgba(255, 255, 255, 0.2);
+    stroke-width: 1;
+}
+
+.dominance-chart .axis-label {
+    font-size: 8px;
+    fill: var(--text-secondary);
+    font-family: system-ui, -apple-system, sans-serif;
+}
+
+.dominance-chart .chart-title {
+    font-size: 10px;
+    fill: var(--text-primary);
+    font-weight: 600;
+    font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Bitcoin dominance specific */
+#btc-dominance-svg .dominance-fill {
+    fill: url(#btc-gradient);
+    opacity: 0.3;
+}
+
+#btc-dominance-svg .dominance-line {
+    stroke: #f7931a;
+    stroke-width: 2;
+    fill: none;
+}
+
+#btc-dominance-svg .dominance-point {
+    fill: #f7931a;
+}
+
+/* Ethereum dominance specific */
+#eth-dominance-svg .dominance-fill {
+    fill: url(#eth-gradient);
+    opacity: 0.3;
+}
+
+#eth-dominance-svg .dominance-line {
+    stroke: #627eea;
+    stroke-width: 2;
+    fill: none;
+}
+
+#eth-dominance-svg .dominance-point {
+    fill: #627eea;
+}
+
+.dominance-chart .others-fill {
+    fill: rgba(128, 128, 128, 0.2);
+}
+
+.dominance-chart .others-line {
+    stroke: rgba(128, 128, 128, 0.5);
+    stroke-width: 1;
+    stroke-dasharray: 3, 3;
+    fill: none;
+}
+
+.dominance-chart .value-label {
+    font-size: 10px;
+    font-weight: 600;
+    fill: var(--text-primary);
+    font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Animation for chart updates */
+@keyframes chart-draw {
+    from {
+        stroke-dashoffset: 1000;
+    }
+
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+.dominance-chart .dominance-line.animated {
+    stroke-dasharray: 1000;
+    animation: chart-draw 1s ease-out forwards;
+}
+
+/* Responsive chart adjustments */
+@media (max-width: 768px) {
+    .dominance-chart-container {
+        padding: 0.25rem;
+    }
+}

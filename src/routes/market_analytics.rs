@@ -82,16 +82,16 @@ mod tests {
     #[test]
     fn test_market_analytics_template_compiles() {
         let mut tera = Tera::default();
-        let template_path = "dashboards/crypto_dashboard/routes/analytics/market_analytics.html";
+        let template_path = "frontend/pages/market_analytics/market_analytics.html";
         let template_name = "crypto/routes/analytics/market_analytics.html";
 
         // Load and register required components for include
         let _ = tera.add_template_file(
-            "shared_components/theme_toggle.html",
+            "frontend/shared/components/theme_toggle.html",
             Some("crypto/components/theme_toggle.html"),
         );
         let _ = tera.add_template_file(
-            "shared_components/language_toggle.html",
+            "frontend/shared/components/language_toggle.html",
             Some("crypto/components/language_toggle.html"),
         );
 

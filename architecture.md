@@ -46,7 +46,7 @@ The system is structured using the **Service Islands Architecture**, segregating
 | **Concurrency Primitives**| `rayon`, `dashmap`, `parking_lot` | `1.12`, `6.2`, `0.12` | Lock-free maps, CPU parallel work, fast synchronization |
 | **Security & Hashing** | `blake3` | `1.8` | Constant-time cryptographic token generation for Shadow DOM |
 | **Frontend Rendering** | Declarative Shadow DOM (DSD) | HTML5 Native | Encapsulated DOM components replacing legacy iframe isolation |
-| **Asset Pipeline** | `esbuild` | `^0.19.5` | Fast bundling and minification for JS/CSS assets |
+| **Frontend Architecture** | Native ESM & Vanilla CSS | Modular, Zero-Build | Page-colocated architecture directly served by Axum without Node.js tooling |
 
 ---
 
@@ -257,7 +257,74 @@ The server replaces legacy `<iframe>` isolation with modern **Declarative Shadow
 
 ---
 
-## 7. Security Architecture
+## 7. Modular Page-Colocated Frontend Architecture
+
+The frontend uses a **Page-Colocated Modular Architecture** with **Zero-Build Step** execution:
+
+```
+frontend/
+├── pages/                                  # Self-contained page bundles
+│   ├── home/                               # Homepage (/)
+│   │   ├── home.html                       # Pre-rendered layout template
+│   │   ├── home.css                        # Page-specific styling
+│   │   └── components/                     # Colocated page-specific widgets
+│   │       ├── market-indicators/          # Real-time WebSocket market indicators
+│   │       ├── correlation-matrix/         # Spot/Futures correlation overview
+│   │       └── binance-prices/             # Real-time price cards
+│   ├── report_view/                        # Latest / Single Report View (/crypto_report)
+│   │   ├── view.html                       # Report container with Declarative Shadow DOM
+│   │   ├── view.css                        # View layout and responsive rules
+│   │   └── view.js                         # Language toggle and interaction logic
+│   ├── reports_list/                       # Paginated Reports List (/crypto_reports_list)
+│   │   ├── list.html                       # Paginated table layout
+│   │   ├── list.css                        # Table and pagination styles
+│   │   └── list.js                         # Search, filter, and pagination logic
+│   └── market_analytics/                   # Market Analytics (/market_analytics, /analytics)
+│       ├── analytics.html                  # Spot vs Futures & Open Interest dashboard
+│       ├── analytics.css                   # Analytics visualization layout
+│       └── analytics.js                    # Correlation charts and data fetching
+│
+└── shared/                                 # Shared cross-page modular assets
+    ├── components/                         # Reusable Tera template partials
+    │   ├── header.html                     # Global site header & navigation
+    │   ├── footer.html                     # Global footer & copyright
+    │   ├── nav.html                        # Main navigation bar
+    │   ├── quick-links.html                # Navigation shortcuts
+    │   ├── seo-head.html                   # Global meta tags & OpenGraph
+    │   └── theme-toggle.html               # Dark/light mode switcher
+    ├── css/                                # Design system & base stylesheets
+    │   ├── base.css                        # CSS reset & design tokens
+    │   ├── chart.css                       # Chart visualization styles
+    │   ├── theme.css                       # CSS variables & dark/light theme
+    │   ├── typography.css                  # Font definitions & hierarchies
+    │   └── charts/                         # Modular chart stylesheets
+    │       ├── bar-chart.css
+    │       ├── doughnut-chart.css
+    │       ├── line-chart.css
+    │       ├── gauge-chart.css
+    │       └── charts-common.css
+    ├── js/                                 # Shared ESM modules
+    │   ├── translations.js                 # Multi-language dictionary (VI / EN)
+    │   ├── theme.js                        # Theme manager (Dark / Light)
+    │   ├── api.js                          # Client-side API fetch client
+    │   ├── utils.js                        # Formatting & helper utilities
+    │   └── charts/                         # Shared chart rendering modules
+    │       ├── bar.js
+    │       ├── doughnut.js
+    │       ├── line.js
+    │       └── gauge.js
+    └── assets/                             # Static brand assets (Logos, Icons, Favicons)
+```
+
+### Architectural Principles:
+1. **Colocation of Concerns**: Each page retains its own HTML, CSS, JavaScript, and dedicated sub-components within `frontend/pages/<page_name>/`, making features fully modular, isolated, and easy to maintain.
+2. **Zero-Build Execution**: Relies entirely on native browser ECMAScript Modules (`<script type="module">`) and standard Vanilla CSS (`@import`). No Node.js, Webpack, or ESBuild tooling is required for development or production deployment.
+3. **Direct Rust Axum Serving**: Static assets are mounted at `/frontend` via `src/routes/static_files.rs` (with backwards-compatible aliases `/shared_assets` and `/shared_components`), and Tera engine dynamically compiles `frontend/**/*.html`.
+4. **Focused Real-Time Analytics**: Streamlined dashboard focusing on cryptocurrency market metrics (BTC/ETH Dominance, 14-day RSI, Crypto Prices, Market Cap, 24h Volume, Fear & Greed Index) with non-essential third-party indices removed.
+
+---
+
+## 8. Security Architecture
 
 1. **Cryptographic Sandbox Tokens**:
    - Every report rendered via Shadow DOM requires a Blake3 cryptographic token derived from `(report.id, report.created_at)`:
@@ -271,7 +338,7 @@ The server replaces legacy `<iframe>` isolation with modern **Declarative Shadow
 
 ---
 
-## 8. Rust Engineering & Quality Invariants
+## 9. Rust Engineering & Quality Invariants
 
 1. **Strictly No Unwrap (`clippy::unwrap_used`)**:
    - Explicit prohibition of `.unwrap()` throughout the entire codebase, including tests.

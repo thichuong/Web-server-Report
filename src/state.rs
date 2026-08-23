@@ -102,7 +102,7 @@ impl AppState {
     fn initialize_template_engine() -> Tera {
         debug!("📝 Initializing Tera template engine...");
 
-        let mut tera = match Tera::new("dashboards/**/*.html") {
+        let mut tera = match Tera::new("frontend/**/*.html") {
             Ok(t) => t,
             Err(e) => {
                 warn!("Template parsing error: {}", e);
@@ -113,30 +113,30 @@ impl AppState {
         // Register templates
         let templates = vec![
             (
-                "dashboards/crypto_dashboard/routes/reports/view.html",
+                "frontend/pages/report_view/view.html",
                 "crypto/routes/reports/view.html",
             ),
             (
-                "dashboards/crypto_dashboard/routes/reports/list.html",
+                "frontend/pages/reports_list/list.html",
                 "crypto/routes/reports/list.html",
             ),
             (
-                "dashboards/crypto_dashboard/routes/analytics/market_analytics.html",
+                "frontend/pages/market_analytics/market_analytics.html",
                 "crypto/routes/analytics/market_analytics.html",
             ),
             (
-                "shared_components/theme_toggle.html",
+                "frontend/shared/components/theme_toggle.html",
                 "crypto/components/theme_toggle.html",
             ),
             (
-                "shared_components/language_toggle.html",
+                "frontend/shared/components/language_toggle.html",
                 "crypto/components/language_toggle.html",
             ),
             (
-                "shared_components/market-indicators/market-indicators.html",
+                "frontend/pages/home/components/market-indicators/market-indicators.html",
                 "shared/components/market-indicators.html",
             ),
-            ("dashboards/home.html", "home.html"),
+            ("frontend/pages/home/home.html", "home.html"),
         ];
 
         for (path, name) in templates {

@@ -93,7 +93,6 @@ fn get_fallback_dashboard_data() -> DashboardDataResponse {
         market_cap_change_percentage_24h_usd: 0.0,
         volume_24h_usd: 260_000_000_000.0,
         fng_value: 50,
-        us_stock_indices: std::collections::HashMap::new(),
         fetch_duration_ms: 0,
         partial_failure: true,
         last_updated: chrono::Utc::now().to_rfc3339(),

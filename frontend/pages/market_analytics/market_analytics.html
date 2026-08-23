@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="analytics-page-title">Phân Tích Tương Quan Volume & Open Interest - Crypto Dashboard</title>
+    <link rel="icon" type="image/svg+xml" href="/frontend/shared/assets/images/favicon.svg">
+
+    <!-- Open Graph Meta Tags -->
+    <meta property="fb:app_id" content="2216301062195294" />
+    <meta property="og:title" content="Phân Tích Tương Quan Volume Spot & Futures - Crypto Dashboard" />
+    <meta property="og:description" content="So sánh tương quan khối lượng giao dịch Spot vs Phái sinh và Vị thế mở (Open Interest) theo thời gian thực từ Binance API." />
+    <meta property="og:image" content="https://cryptodashboard.me/frontend/shared/assets/images/image.jpg" />
+    <meta property="og:url" content="https://cryptodashboard.me/market_analytics" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Crypto Dashboard" />
+
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Phân Tích Tương Quan Volume Spot & Futures - Crypto Dashboard" />
+    <meta name="twitter:description" content="So sánh tương quan khối lượng giao dịch Spot vs Phái sinh và Vị thế mở (Open Interest) theo thời gian thực từ Binance API." />
+    <meta name="twitter:image" content="https://cryptodashboard.me/frontend/shared/assets/images/image.jpg" />
+
+    <!-- CDN Dependencies -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+
+    <!-- Report & Base Theme Styles -->
+    <link rel="stylesheet" href="/frontend/shared/css/colors.css">
+    <link rel="stylesheet" href="/frontend/shared/css/reset.css">
+    <link rel="stylesheet" href="/frontend/shared/css/typography.css">
+    <link rel="stylesheet" href="/frontend/shared/css/style.css">
+    <link rel="stylesheet" href="/frontend/shared/css/chart.css">
+    <link rel="stylesheet" href="/frontend/pages/report_view/css/report-view.css">
+</head>
+
+<body class="antialiased min-h-screen pb-24" style="background: linear-gradient(180deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);">
+
+    <!-- Fixed Bottom Navigation Panel (Exact Report UI) -->
+    <div class="fixed bottom-0 left-0 right-0 z-50"
+        style="background-color: var(--bg-secondary); border-top: 1px solid var(--border-color); backdrop-filter: blur(10px);">
+        <div class="px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- Navigation Shortcuts -->
+                <div class="flex items-center space-x-3">
+                    <a href="/"
+                        class="inline-flex items-center justify-center w-10 h-10 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-300 transform hover:scale-110 shadow-md hover:shadow-lg"
+                        data-i18n-title="home" title="Trang chủ">
+                        <i class="fas fa-home text-lg"></i>
+                    </a>
+                    <a href="/crypto_report"
+                        class="inline-flex items-center justify-center w-10 h-10 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-300 transform hover:scale-110 shadow-md hover:shadow-lg"
+                        data-i18n-title="view-dashboard" title="Bài phân tích mới nhất">
+                        <i class="fas fa-chart-pie text-lg"></i>
+                    </a>
+                    <a href="/crypto_reports_list"
+                        class="inline-flex items-center justify-center w-10 h-10 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-all duration-300 transform hover:scale-110 shadow-md hover:shadow-lg"
+                        data-i18n-title="view-report-history" title="Lịch sử báo cáo">
+                        <i class="fas fa-history text-lg"></i>
+                    </a>
+                </div>
+
+                <!-- Live Status & Toggles -->
+                <div class="flex items-center space-x-4">
+                    <div class="hidden sm:flex items-center space-x-2 text-xs" style="color: var(--text-secondary);">
+                        <span id="ws-pulse-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span id="ws-status-title" data-i18n="websocket-status">WebSocket</span>:
+                        <span id="api-latency-badge" class="px-2 py-0.5 text-xs font-semibold rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Live Stream</span>
+                    </div>
+                    {% include "crypto/components/theme_toggle.html" %}
+                    {% include "crypto/components/language_toggle.html" %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container mx-auto p-4 md:p-8 pt-20">
+
+        <!-- Breadcrumbs Navigation (Matching Report UI) -->
+        <nav aria-label="Breadcrumb" class="mb-6">
+            <ol class="flex flex-wrap items-center text-sm" style="color: var(--text-secondary);">
+                <li class="flex items-center">
+                    <a href="/" class="hover:text-blue-600 transition-colors duration-200 flex items-center">
+                        <i class="fas fa-home mr-1 text-xs"></i>
+                        <span data-i18n="home">Trang chủ</span>
+                    </a>
+                </li>
+                <li class="flex items-center">
+                    <span class="mx-2 text-gray-400">/</span>
+                    <span class="font-medium" style="color: var(--text-primary);" data-i18n="analytics-nav-btn">
+                        Phân Tích Volume & OI
+                    </span>
+                </li>
+            </ol>
+        </nav>
+
+        <!-- Header Section (Matching Report UI) -->
+        <header class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-extrabold mb-2" style="color: var(--text-primary);">
+                <span data-i18n="analytics-title">Phân Tích Tương Quan Volume Spot & Futures</span>
+            </h1>
+            <p class="text-lg max-w-3xl mx-auto" style="color: var(--text-secondary);">
+                <span data-i18n="analytics-subtitle">So sánh tương quan khối lượng giao dịch Spot vs Phái sinh và Vị thế mở (Open Interest) theo thời gian thực từ Binance API</span>
+            </p>
+            <p class="text-base max-w-3xl mx-auto mt-2" style="color: var(--text-secondary);">
+                <span data-i18n="created-at">tạo lúc</span>: <span id="analytics-updated-at" class="ml-1 font-medium" style="color: var(--text-primary);">--</span>
+            </p>
+        </header>
+
+        <!-- Market Overview Cards - 2 Rows Grid Layout -->
+        <!-- Market Overview Cards - 2 Rows Grid Layout -->
+        <div class="space-y-4 mb-12">
+            <!-- Row 1: Spot & Futures Volume / Open Interest -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Card 1: Spot Volume 24h & Buy/Sell -->
+                <div class="card min-h-[170px] flex flex-col justify-between">
+                    <div class="flex items-center mb-3">
+                        <i class="fas fa-coins text-blue-500 text-2xl mr-2"></i>
+                        <h3 class="text-sm font-semibold" style="color: var(--text-secondary);" data-i18n="spot-volume-24h">Spot Vol (24h)</h3>
+                    </div>
+                    <div class="flex-1 flex flex-col justify-center">
+                        <p id="kpi-spot-vol" class="text-2xl font-bold text-blue-500">$--</p>
+                        <p id="kpi-spot-buy-sell" class="text-xs font-semibold mt-1 text-emerald-400">Mua: $-- | Bán: $--</p>
+                    </div>
+                </div>
+
+                <!-- Card 2: Futures Volume 24h & Buy/Sell -->
+                <div class="card min-h-[170px] flex flex-col justify-between">
+                    <div class="flex items-center mb-3">
+                        <i class="fas fa-bolt text-yellow-500 text-2xl mr-2"></i>
+                        <h3 class="text-sm font-semibold" style="color: var(--text-secondary);" data-i18n="futures-volume-24h">Futures Vol (24h)</h3>
+                    </div>
+                    <div class="flex-1 flex flex-col justify-center">
+                        <p id="kpi-fut-vol" class="text-2xl font-bold text-yellow-500">$--</p>
+                        <p id="kpi-fut-buy-sell" class="text-xs font-semibold mt-1 text-yellow-400">Mua: $-- | Bán: $--</p>
+                    </div>
+                </div>
+
+                <!-- Card 3: Futures / Spot & Buy/Sell Ratio -->
+                <div class="card min-h-[170px] flex flex-col justify-between">
+                    <div class="flex items-center mb-3">
+                        <i class="fas fa-balance-scale text-indigo-500 text-2xl mr-2"></i>
+                        <h3 class="text-sm font-semibold" style="color: var(--text-secondary);" data-i18n="futures-spot-ratio">Tỷ Lệ Futures / Spot</h3>
+                    </div>
+                    <div class="flex-1 flex flex-col justify-center">
+                        <p id="kpi-fs-ratio" class="text-2xl font-bold text-indigo-500">--x</p>
+                        <p id="kpi-bs-ratio" class="text-xs font-semibold mt-1" style="color: var(--text-secondary);">Tỷ lệ Mua/Bán: --</p>
+                    </div>
+                </div>
+
+                <!-- Card 4: Open Interest -->
+                <div class="card min-h-[170px] flex flex-col justify-between">
+                    <div class="flex items-center mb-3">
+                        <i class="fas fa-layer-group text-pink-500 text-2xl mr-2"></i>
+                        <h3 class="text-sm font-semibold" style="color: var(--text-secondary);" data-i18n="open-interest">Vị Thế Mở (OI)</h3>
+                    </div>
+                    <div class="flex-1 flex flex-col justify-center">
+                        <p id="kpi-oi-usdt" class="text-2xl font-bold text-pink-500">$--</p>
+                        <p id="kpi-oi-coins" class="text-xs font-semibold mt-1" style="color: var(--text-secondary);">-- Coins</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Row 2: Long/Short Positions, Correlation & Market State -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Card 5: Long Position (OI) -->
+                <div class="card min-h-[170px] flex flex-col justify-between">
+                    <div class="flex items-center mb-3">
+                        <i class="fas fa-arrow-trend-up text-emerald-500 text-2xl mr-2"></i>
+                        <h3 class="text-sm font-semibold" style="color: var(--text-secondary);" data-i18n="long-position-card">Vị Thế Long (OI)</h3>
+                    </div>
+                    <div class="flex-1 flex flex-col justify-center">
+                        <p id="kpi-long-pos" class="text-2xl font-bold text-emerald-500">$--</p>
+                        <p id="kpi-long-desc" class="text-xs font-semibold mt-1 text-emerald-400">--% OI | vs Spot: --x</p>
+                    </div>
+                </div>
+
+                <!-- Card 6: Short Position (OI) -->
+                <div class="card min-h-[170px] flex flex-col justify-between">
+                    <div class="flex items-center mb-3">
+                        <i class="fas fa-arrow-trend-down text-rose-500 text-2xl mr-2"></i>
+                        <h3 class="text-sm font-semibold" style="color: var(--text-secondary);" data-i18n="short-position-card">Vị Thế Short (OI)</h3>
+                    </div>
+                    <div class="flex-1 flex flex-col justify-center">
+                        <p id="kpi-short-pos" class="text-2xl font-bold text-rose-500">$--</p>
+                        <p id="kpi-short-desc" class="text-xs font-semibold mt-1 text-rose-400">--% OI | vs Spot: --x</p>
+                    </div>
+                </div>
+
+                <!-- Card 7: Volume Correlation -->
+                <div class="card min-h-[170px] flex flex-col justify-between">
+                    <div class="flex items-center mb-3">
+                        <i class="fas fa-project-diagram text-purple-500 text-2xl mr-2"></i>
+                        <h3 class="text-sm font-semibold" style="color: var(--text-secondary);" data-i18n="volume-correlation">Tương Quan Volume (Pearson)</h3>
+                    </div>
+                    <div class="flex-1 flex flex-col justify-center">
+                        <p id="kpi-correlation" class="text-2xl font-bold text-purple-500">--</p>
+                        <p id="kpi-correlation-status" class="text-xs font-semibold mt-1 text-emerald-500">--</p>
+                    </div>
+                </div>
+
+                <!-- Card 8: Market State Matrix -->
+                <div class="card min-h-[170px] flex flex-col justify-between">
+                    <div class="flex items-center mb-3">
+                        <i class="fas fa-compass text-green-500 text-2xl mr-2"></i>
+                        <h3 class="text-sm font-semibold" style="color: var(--text-secondary);" data-i18n="market-state">Trạng Thái Thị Trường</h3>
+                    </div>
+                    <div class="flex-1 flex flex-col justify-center">
+                        <div id="kpi-market-state-badge" class="font-bold text-lg text-emerald-500">--</div>
+                        <p id="kpi-market-state-desc" class="text-xs font-semibold mt-1 line-clamp-1" style="color: var(--text-secondary);">--</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Disclaimer Banner (Exact Matching Report UI) -->
+        <div id="disclaimer" class="mb-8">
+            <div class="disclaimer-container p-6 rounded-xl border-2 transform hover:scale-[1.01] transition-all duration-300">
+                <div class="flex items-start space-x-3 mb-4">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-bolt text-3xl text-yellow-500"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-base font-bold disclaimer-text-primary mb-2">
+                            <strong data-i18n="engine-title" class="disclaimer-text-primary text-lg font-extrabold">Động cơ tính toán phân tích:</strong>
+                            <span data-i18n="client-side-note" class="font-medium disclaimer-text-primary">Toàn bộ dữ liệu được tải và tính toán trực tiếp trên trình duyệt của bạn từ Binance Public API.</span>
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-start space-x-3">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-robot text-2xl text-blue-500"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-base font-semibold disclaimer-ai-section p-4 rounded-lg border-2 shadow-inner">
+                            <span data-i18n="disclaimer-body" class="font-bold">Nội dung và phân tích trên trang này chỉ mang tính chất tham khảo kỹ thuật và không cấu thành lời khuyên đầu tư. Mọi quyết định đầu tư là trách nhiệm của người đọc.</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Notification Banner -->
+        <div id="error-banner" class="hidden mb-6 p-4 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <i class="fas fa-exclamation-triangle text-rose-400 text-lg"></i>
+                <span id="error-banner-text" class="text-sm font-medium" data-i18n="connection-issue">Lỗi kết nối</span>
+            </div>
+            <button onclick="document.getElementById('error-banner').classList.add('hidden')" class="text-rose-400 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- Control Toolbar Card (Report UI Style) -->
+        <div class="card p-4 sm:p-6 mb-8">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+
+                <!-- Left: Symbol Selector & Custom Input -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-xs font-bold uppercase tracking-wider mr-1" style="color: var(--text-secondary);" data-i18n="select-symbol">Cặp Tiền:</span>
+                    <button type="button" data-symbol="BTCUSDT" class="symbol-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-blue-600 text-white border border-blue-500 shadow-sm">BTC/USDT</button>
+                    <button type="button" data-symbol="ETHUSDT" class="symbol-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-gray-800/40 hover:bg-gray-700/60 text-gray-300 border border-gray-700/50">ETH/USDT</button>
+                    <button type="button" data-symbol="SOLUSDT" class="symbol-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-gray-800/40 hover:bg-gray-700/60 text-gray-300 border border-gray-700/50">SOL/USDT</button>
+                    <button type="button" data-symbol="BNBUSDT" class="symbol-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-gray-800/40 hover:bg-gray-700/60 text-gray-300 border border-gray-700/50">BNB/USDT</button>
+                    <button type="button" data-symbol="XRPUSDT" class="symbol-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-gray-800/40 hover:bg-gray-700/60 text-gray-300 border border-gray-700/50">XRP/USDT</button>
+                    <button type="button" data-symbol="DOGEUSDT" class="symbol-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-gray-800/40 hover:bg-gray-700/60 text-gray-300 border border-gray-700/50">DOGE/USDT</button>
+                    
+                    <!-- Custom Symbol Input -->
+                    <div class="relative inline-block">
+                        <input type="text" id="custom-symbol-input" placeholder="Khác (e.g. SUIUSDT)..." data-i18n-placeholder="custom-symbol"
+                            class="w-36 px-2.5 py-1.5 text-xs rounded-lg border text-[var(--text-primary)] focus:outline-none focus:border-blue-500 transition-colors uppercase font-semibold"
+                            style="background-color: var(--bg-secondary); border-color: var(--border-color);">
+                    </div>
+                </div>
+
+                <!-- Right: Timeframe, Limit, Refresh controls -->
+                <div class="flex flex-wrap items-center gap-3">
+                    <!-- Timeframe -->
+                    <div class="flex items-center space-x-1 p-1 rounded-lg border" style="background-color: var(--bg-secondary); border-color: var(--border-color);">
+                        <span class="text-[10px] font-bold px-1.5 uppercase hidden sm:inline" style="color: var(--text-secondary);" data-i18n="timeframe">Khung:</span>
+                        <button type="button" data-timeframe="5m" class="timeframe-btn px-2 py-1 rounded text-xs font-semibold text-gray-300 hover:text-white transition-colors">5m</button>
+                        <button type="button" data-timeframe="15m" class="timeframe-btn px-2 py-1 rounded text-xs font-semibold text-gray-300 hover:text-white transition-colors">15m</button>
+                        <button type="button" data-timeframe="1h" class="timeframe-btn px-2 py-1 rounded text-xs font-semibold bg-blue-600 text-white border border-blue-500">1h</button>
+                        <button type="button" data-timeframe="4h" class="timeframe-btn px-2 py-1 rounded text-xs font-semibold text-gray-300 hover:text-white transition-colors">4h</button>
+                        <button type="button" data-timeframe="1d" class="timeframe-btn px-2 py-1 rounded text-xs font-semibold text-gray-300 hover:text-white transition-colors">1d</button>
+                    </div>
+
+                    <!-- Candle Limit -->
+                    <div class="flex items-center space-x-1 p-1 rounded-lg border" style="background-color: var(--bg-secondary); border-color: var(--border-color);">
+                        <button type="button" data-limit="50" class="limit-btn px-2 py-1 rounded text-xs font-semibold text-gray-300 hover:text-white transition-colors">50</button>
+                        <button type="button" data-limit="100" class="limit-btn px-2 py-1 rounded text-xs font-semibold bg-blue-600 text-white border border-blue-500">100</button>
+                        <button type="button" data-limit="200" class="limit-btn px-2 py-1 rounded text-xs font-semibold text-gray-300 hover:text-white transition-colors">200</button>
+                        <button type="button" data-limit="500" class="limit-btn px-2 py-1 rounded text-xs font-semibold text-gray-300 hover:text-white transition-colors">500</button>
+                    </div>
+
+                    <!-- Real-time WebSocket, Sync & Debug -->
+                    <div class="flex items-center space-x-2">
+                        <label class="flex items-center space-x-1.5 text-xs cursor-pointer select-none" style="color: var(--text-secondary);">
+                            <input type="checkbox" id="auto-refresh-toggle" checked class="rounded border-gray-600 text-blue-600 focus:ring-0">
+                            <span data-i18n="live-stream">Real-time WS</span>
+                            <span id="refresh-countdown" class="font-mono text-emerald-400 font-semibold flex items-center"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block mr-1"></span>Live</span>
+                        </label>
+
+                        <button type="button" id="btn-manual-refresh" class="p-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow hover:shadow-md" title="Cập nhật ngay" data-i18n-title="manual-refresh">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+
+                        <button type="button" id="btn-toggle-debug" class="px-2.5 py-2 rounded-lg bg-gray-800/80 hover:bg-gray-700 text-gray-300 hover:text-white text-xs font-bold transition-all border border-gray-700 shadow flex items-center space-x-1" title="Mở bảng Debug WebSocket" data-i18n-title="toggle-debug">
+                            <i class="fas fa-terminal text-emerald-400"></i>
+                            <span class="hidden sm:inline" data-i18n="debug-ws">Debug WS</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- WebSocket Debug Console Panel (Collapsible) -->
+        <div id="debug-panel" class="hidden card p-4 sm:p-6 mb-8 border border-emerald-500/30 bg-gray-900/90 shadow-2xl backdrop-blur-md">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 mb-4 border-b border-gray-800">
+                <div class="flex items-center space-x-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <h3 class="text-sm font-bold text-emerald-400 font-mono flex items-center">
+                        <i class="fas fa-terminal mr-2"></i> <span data-i18n="debug-panel-title">WebSocket Live Stream Diagnostics & Monitor</span>
+                    </h3>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" id="btn-dbg-reconnect" class="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-colors">
+                        <i class="fas fa-sync-alt mr-1"></i> <span data-i18n="btn-reconnect-ws">Reconnect WS</span>
+                    </button>
+                    <button type="button" id="btn-dbg-refresh" class="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors">
+                        <i class="fas fa-download mr-1"></i> <span data-i18n="btn-fetch-snapshot">Fetch Snapshot</span>
+                    </button>
+                    <button type="button" id="btn-dbg-sim-tick" class="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors">
+                        <i class="fas fa-bolt mr-1"></i> <span data-i18n="btn-test-tick">Test Tick</span>
+                    </button>
+                    <button type="button" id="btn-dbg-clear" class="px-2.5 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-semibold transition-colors">
+                        <i class="fas fa-trash-alt mr-1"></i> <span data-i18n="btn-clear-log">Clear Log</span>
+                    </button>
+                    <button type="button" id="btn-close-debug" class="px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white text-xs">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Debug Status Cards Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4 font-mono text-xs">
+                <!-- Card 1: Spot WS -->
+                <div class="p-3 rounded-lg bg-gray-800/60 border border-gray-700/60">
+                    <div class="text-gray-400 font-semibold mb-1 flex items-center justify-between">
+                        <span data-i18n="dbg-spot-stream">Spot Stream:</span>
+                        <span id="dbg-spot-status" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400">Connecting</span>
+                    </div>
+                    <div class="text-gray-300">Msgs: <span id="dbg-spot-count" class="text-emerald-400 font-bold">0</span></div>
+                    <div class="text-[11px] text-gray-400 truncate mt-0.5">Last: <span id="dbg-spot-last" class="text-gray-300">None</span></div>
+                </div>
+
+                <!-- Card 2: Futures WS -->
+                <div class="p-3 rounded-lg bg-gray-800/60 border border-gray-700/60">
+                    <div class="text-gray-400 font-semibold mb-1 flex items-center justify-between">
+                        <span data-i18n="dbg-fut-stream">Futures Stream:</span>
+                        <span id="dbg-fut-status" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400">Connecting</span>
+                    </div>
+                    <div class="text-gray-300">Msgs: <span id="dbg-fut-count" class="text-emerald-400 font-bold">0</span></div>
+                    <div class="text-[11px] text-gray-400 truncate mt-0.5">Last: <span id="dbg-fut-last" class="text-gray-300">None</span></div>
+                </div>
+
+                <!-- Card 3: In-Memory Data Buffer -->
+                <div class="p-3 rounded-lg bg-gray-800/60 border border-gray-700/60">
+                    <div class="text-gray-400 font-semibold mb-1" data-i18n="dbg-data-buffer">Data Buffer:</div>
+                    <div class="text-gray-300"><span data-i18n="dbg-spot-fut-klines">Spot / Fut Klines</span>: <span id="dbg-buffer-counts" class="text-cyan-400 font-bold">0 / 0</span></div>
+                    <div class="text-[11px] text-gray-400 truncate mt-0.5"><span data-i18n="dbg-aligned-items">Aligned Items</span>: <span id="dbg-aligned-count" class="text-indigo-400 font-bold">0</span></div>
+                </div>
+
+                <!-- Card 4: Render Engine -->
+                <div class="p-3 rounded-lg bg-gray-800/60 border border-gray-700/60">
+                    <div class="text-gray-400 font-semibold mb-1" data-i18n="dbg-render-engine">Render Engine:</div>
+                    <div class="text-gray-300"><span data-i18n="dbg-renders">Renders</span>: <span id="dbg-render-count" class="text-yellow-400 font-bold">0</span></div>
+                    <div class="text-[11px] text-gray-400 truncate mt-0.5"><span data-i18n="dbg-last-update">Last Update</span>: <span id="dbg-last-render-time" class="text-gray-300">--</span></div>
+                </div>
+            </div>
+
+            <!-- Live Event Log -->
+            <div class="rounded-lg bg-black/70 border border-gray-800 p-3 font-mono text-[11px] max-h-48 overflow-y-auto custom-scrollbar" id="dbg-log-container">
+                <div class="text-gray-500" data-i18n="dbg-log-placeholder">// WebSocket and rendering logs will stream here in real time...</div>
+            </div>
+        </div>
+
+        <!-- Multi-Chart Analytics Grid (8-Chart Comprehensive Layout - Organized by Order Flow Sequence) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+
+            <!-- ================= LAYER 1: PRICE & REAL-TIME TAKER FLOW ================= -->
+            <!-- Chart 1: Price & Dual Volume Breakdown -->
+            <div class="card p-6 flex flex-col">
+                <div class="flex items-center justify-between mb-4 pb-3 border-b" style="border-color: var(--border-color);">
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30 uppercase" data-i18n="chart1-badge">1. Giá & Volume</span>
+                            <h2 class="text-base font-bold" style="color: var(--text-primary);" data-i18n="tab-price-volume">Giá & Khối lượng Song hành (Spot vs Futures)</h2>
+                        </div>
+                        <p class="text-xs mt-1" style="color: var(--text-secondary);" data-i18n="chart1-desc">So sánh tổng thanh khoản dòng tiền giao ngay (Spot) và phái sinh (Futures)</p>
+                    </div>
+                    <div class="flex items-center space-x-3 text-xs font-semibold">
+                        <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-blue-500 inline-block mr-1"></span><span data-i18n="legend-spot">Spot</span></span>
+                        <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-amber-500 inline-block mr-1"></span><span data-i18n="legend-futures">Futures</span></span>
+                    </div>
+                </div>
+                <div class="relative w-full h-80">
+                    <canvas id="chart-price-volume"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 2: Taker Buy vs Sell Volume Breakdown -->
+            <div class="card p-6 flex flex-col">
+                <div class="flex items-center justify-between mb-4 pb-3 border-b" style="border-color: var(--border-color);">
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 uppercase" data-i18n="chart2-badge">2. Khớp Lệnh Taker</span>
+                            <h2 class="text-base font-bold" style="color: var(--text-primary);" data-i18n="tab-buy-sell-volume">Khối lượng Mua vs Bán Chủ Động (Taker)</h2>
+                        </div>
+                        <p class="text-xs mt-1" style="color: var(--text-secondary);" data-i18n="chart2-desc">Phân tách chi tiết áp lực Mua chủ động (Taker Buy) và Bán chủ động (Taker Sell)</p>
+                    </div>
+                    <div class="flex items-center space-x-3 text-xs font-semibold">
+                        <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-emerald-500 inline-block mr-1"></span><span data-i18n="legend-buy">Mua (Buy)</span></span>
+                        <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-rose-500 inline-block mr-1"></span><span data-i18n="legend-sell">Bán (Sell)</span></span>
+                    </div>
+                </div>
+                <div class="relative w-full h-80">
+                    <canvas id="chart-buy-sell-breakdown"></canvas>
+                </div>
+            </div>
+
+            <!-- ================= LAYER 2: ORDER FLOW NET DELTA & CVD ================= -->
+            <!-- Chart 3: Net Taker Buy/Sell Delta (Spot vs Futures) -->
+            <div class="card p-6 flex flex-col">
+                <div class="flex items-center justify-between mb-4 pb-3 border-b" style="border-color: var(--border-color);">
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 uppercase" data-i18n="chart3-badge">3. Net Delta Nến</span>
+                            <h2 class="text-base font-bold" style="color: var(--text-primary);" data-i18n="tab-net-taker-delta">Net Delta Mua/Bán Ròng (Spot & Futures)</h2>
+                        </div>
+                        <p class="text-xs mt-1" style="color: var(--text-secondary);" data-i18n="chart3-desc">Chênh lệch khối lượng Mua - Bán chủ động (Taker Buy - Sell) từng chu kỳ</p>
+                    </div>
+                    <div class="flex items-center space-x-3 text-xs font-semibold">
+                        <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-cyan-500 inline-block mr-1"></span><span data-i18n="legend-spot-delta">Spot Delta</span></span>
+                        <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-orange-500 inline-block mr-1"></span><span data-i18n="legend-fut-delta">Fut Delta</span></span>
+                    </div>
+                </div>
+                <div class="relative w-full h-80">
+                    <canvas id="chart-net-taker-delta"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 4: Rolling Correlation & Cumulative Volume Delta (CVD) -->
+            <div class="card p-6 flex flex-col">
+                <div class="flex items-center justify-between mb-4 pb-3 border-b" style="border-color: var(--border-color);">
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30 uppercase" data-i18n="chart4-badge">4. Tích Lũy CVD</span>
+                            <h2 class="text-base font-bold" style="color: var(--text-primary);" data-i18n="tab-correlation-cvd">Hệ số Tương quan Trượt & CVD Taker</h2>
+                        </div>
+                        <p class="text-xs mt-1" style="color: var(--text-secondary);" data-i18n="chart4-desc">Pearson Correlation (14 chu kỳ) và Cumulative Volume Delta tích lũy (phát hiện Phân kỳ CVD)</p>
+                    </div>
+                    <div class="flex items-center space-x-3 text-xs font-semibold">
+                        <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-purple-500 inline-block mr-1"></span><span data-i18n="legend-corr">Corr (&rho;)</span></span>
+                        <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-cyan-500 inline-block mr-1"></span><span data-i18n="legend-spot-cvd">Spot CVD</span></span>
+                        <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-orange-500 inline-block mr-1"></span><span data-i18n="legend-fut-cvd">Fut CVD</span></span>
+                    </div>
+                </div>
+                <div class="relative w-full h-80">
+                    <canvas id="chart-correlation-cvd"></canvas>
+                </div>
+            </div>
+
+            <!-- ================= LAYER 3: OPEN INTEREST & LONG/SHORT POSITIONING ================= -->
+            <!-- Chart 5: Open Interest & Price Trajectory -->
+            <div class="card p-6 flex flex-col">
+                <div class="flex items-center justify-between mb-4 pb-3 border-b" style="border-color: var(--border-color);">
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-pink-500/20 text-pink-400 border border-pink-500/30 uppercase" data-i18n="chart5-badge">5. Vị Thế Mở OI</span>
+                            <h2 class="text-base font-bold" style="color: var(--text-primary);" data-i18n="tab-open-interest">Vị thế mở (Open Interest) & Hành động Giá</h2>
+                        </div>
+                        <p class="text-xs mt-1" style="color: var(--text-secondary);" data-i18n="chart5-desc">Theo dõi tổng lượng hợp đồng phái sinh đang lưu hành (Nhận diện Build-up vs Squeeze)</p>
+                    </div>
+                    <div class="flex items-center space-x-2 text-xs font-semibold">
+                        <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-pink-500 inline-block mr-1"></span><span data-i18n="legend-oi">OI ($)</span></span>
+                    </div>
+                </div>
+                <div class="relative w-full h-80">
+                    <canvas id="chart-open-interest"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 6: Position Distribution & Long / Short Ratio -->
+            <div class="card p-6 flex flex-col">
+                <div class="flex items-center justify-between mb-4 pb-3 border-b" style="border-color: var(--border-color);">
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 uppercase" data-i18n="chart6-badge">6. Tỷ Lệ L/S</span>
+                            <h2 class="text-base font-bold" style="color: var(--text-primary);" data-i18n="tab-long-short-ratio">Phân bổ Vị thế & Tỷ lệ Long / Short</h2>
+                        </div>
+                        <p class="text-xs mt-1" style="color: var(--text-secondary);" data-i18n="chart6-desc">Tỷ trọng tài khoản Long vs Short và tỷ lệ L/S Ratio theo thời gian (Đo lường Crowd Bias)</p>
+                    </div>
+                    <div class="flex items-center space-x-3 text-xs font-semibold">
+                        <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-emerald-500 inline-block mr-1"></span><span data-i18n="legend-pct-long">% Long</span></span>
+                        <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-rose-500 inline-block mr-1"></span><span data-i18n="legend-pct-short">% Short</span></span>
+                        <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-indigo-500 inline-block mr-1"></span><span data-i18n="legend-ls-ratio">L/S Ratio</span></span>
+                    </div>
+                </div>
+                <div class="relative w-full h-80">
+                    <canvas id="chart-long-short-ratio"></canvas>
+                </div>
+            </div>
+
+            <!-- ================= LAYER 4: DERIVATIVES LEVERAGE & SPOT LIQUIDITY ================= -->
+            <!-- Chart 7: Volume Delta & Futures/Spot Ratio -->
+            <div class="card p-6 flex flex-col">
+                <div class="flex items-center justify-between mb-4 pb-3 border-b" style="border-color: var(--border-color);">
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 uppercase" data-i18n="chart7-badge">7. Tỷ Lệ F/S</span>
+                            <h2 class="text-base font-bold" style="color: var(--text-primary);" data-i18n="tab-volume-delta">Độ lệch Volume & Tỷ lệ Futures / Spot</h2>
+                        </div>
+                        <p class="text-xs mt-1" style="color: var(--text-secondary);" data-i18n="chart7-desc">Chênh lệch khối lượng (Futures - Spot) và tỷ số khuếch đại đòn bẩy</p>
+                    </div>
+                    <div class="flex items-center space-x-3 text-xs font-semibold">
+                        <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-emerald-500 inline-block mr-1"></span><span data-i18n="legend-delta-pos">Delta &gt; 0</span></span>
+                        <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-amber-500 inline-block mr-1"></span><span data-i18n="legend-fs-ratio">F/S Ratio</span></span>
+                    </div>
+                </div>
+                <div class="relative w-full h-80">
+                    <canvas id="chart-volume-delta"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 8: Long & Short Positions vs Spot Volume -->
+            <div class="card p-6 flex flex-col">
+                <div class="flex items-center justify-between mb-4 pb-3 border-b" style="border-color: var(--border-color);">
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 uppercase" data-i18n="chart8-badge">8. Thanh Khoản Spot</span>
+                            <h2 class="text-base font-bold" style="color: var(--text-primary);" data-i18n="tab-long-short-spot">Vị thế Long / Short vs Volume Spot</h2>
+                        </div>
+                        <p class="text-xs mt-1" style="color: var(--text-secondary);" data-i18n="chart8-desc">Đối chiếu quy mô vị thế Long và Short so với thanh khoản thị trường Spot</p>
+                    </div>
+                    <div class="flex items-center space-x-3 text-xs font-semibold">
+                        <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-blue-500 inline-block mr-1"></span><span data-i18n="legend-spot-vol">Spot Vol</span></span>
+                        <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-emerald-500 inline-block mr-1"></span><span data-i18n="legend-long-pos">Long Pos</span></span>
+                        <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-rose-500 inline-block mr-1"></span><span data-i18n="legend-short-pos">Short Pos</span></span>
+                    </div>
+                </div>
+                <div class="relative w-full h-80">
+                    <canvas id="chart-long-short-spot"></canvas>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Period Breakdown Data Table (Matching list.html table style) -->
+        <div class="card overflow-hidden border-0 p-6 mb-8">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+                <div>
+                    <h2 class="text-xl font-extrabold" style="color: var(--text-primary);">
+                        <i class="fas fa-table text-indigo-600 mr-2"></i>
+                        <span data-i18n="data-breakdown-title">Bảng Thống Kê Chi Tiết Từng Chu Kỳ</span>: <span id="table-current-symbol" class="text-blue-500">BTCUSDT</span>
+                    </h2>
+                    <p class="text-xs mt-1" style="color: var(--text-secondary);" data-i18n="data-breakdown-desc">Dữ liệu đối chiếu chi tiết các chu kỳ nến với phân tách Khối lượng Mua/Bán, Vị thế Long/Short, Ratios và Open Interest</p>
+                </div>
+                <button type="button" id="btn-export-csv" class="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow hover:shadow-md">
+                    <i class="fas fa-file-csv text-sm"></i>
+                    <span data-i18n="export-csv">Xuất CSV</span>
+                </button>
+            </div>
+
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="min-w-full leading-normal">
+                    <thead>
+                        <tr style="background-color: rgba(var(--bg-secondary-rgb), 0.5); border-bottom: 1px solid var(--border-color);">
+                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);" data-i18n="th-time">Thời gian</th>
+                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);" data-i18n="th-close-price">Giá Đóng Cửa</th>
+                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-blue-400" data-i18n="th-spot-vol">Spot Vol ($)</th>
+                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-cyan-400" data-i18n="th-spot-buy-sell">Spot Mua / Bán</th>
+                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-yellow-400" data-i18n="th-fut-vol">Futures Vol ($)</th>
+                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-amber-400" data-i18n="th-fut-buy-sell">Fut Mua / Bán</th>
+                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-emerald-500" data-i18n="th-long-pos">Vị thế Long ($)</th>
+                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-rose-500" data-i18n="th-short-pos">Vị thế Short ($)</th>
+                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-emerald-400" data-i18n="th-long-spot">Long / Spot</th>
+                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-rose-400" data-i18n="th-short-spot">Short / Spot</th>
+                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);" data-i18n="th-ls-ratio">Tỷ lệ L/S</th>
+                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);" data-i18n="th-fs-ratio">Tỷ lệ F/S</th>
+                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-pink-400" data-i18n="open-interest">Vị thế mở (OI)</th>
+                            <th class="px-3.5 py-3.5 text-center text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);" data-i18n="market-state">Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody id="analytics-data-table-body" class="divide-y divide-gray-800/20 font-mono text-xs">
+                        <!-- Populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Educational / Methodology Guide Accordion (Matching Report UI) -->
+        <div class="card p-6 mb-8">
+            <h2 class="text-xl font-extrabold mb-6 flex items-center" style="color: var(--text-primary);">
+                <i class="fas fa-graduation-cap text-yellow-500 mr-3 text-2xl"></i>
+                <span data-i18n="methodology-title">Cẩm Nang Phân Tích & Hướng Dẫn Đọc Lệnh (Order Flow Guide)</span>
+            </h2>
+
+            <!-- Section 1: 4-Step Order Reading Playbook -->
+            <div class="mb-8">
+                <h3 class="text-sm font-bold uppercase tracking-wider mb-4 flex items-center" style="color: var(--text-secondary);">
+                    <i class="fas fa-list-ol text-blue-500 mr-2"></i>
+                    <span data-i18n="playbook-title">Quy Trình 4 Bước Đọc Lệnh Thực Chiến (Order Flow Execution)</span>
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                    <!-- Step 1 -->
+                    <div class="p-4 rounded-xl border flex flex-col justify-between" style="background-color: var(--bg-secondary); border-color: var(--border-color);">
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-blue-500/20 text-blue-400 border border-blue-500/30" data-i18n="step-1-badge">BƯỚC 1</span>
+                                <i class="fas fa-bolt text-blue-400"></i>
+                            </div>
+                            <h4 class="font-bold text-sm mb-1" style="color: var(--text-primary);" data-i18n="step-1-title">Xác Định Lực Khớp Tức Thời</h4>
+                            <p style="color: var(--text-secondary);" data-i18n="step-1-desc">Quan sát biểu đồ <strong>Khối lượng Mua vs Bán</strong> và <strong>Net Delta Nến</strong>. Nếu Net Delta dương đậm (Xanh lá) nghĩa là phe Mua đang chủ động đẩy lệnh Market; nếu âm (Đỏ) là phe Bán đang ép giá.</p>
+                        </div>
+                    </div>
+
+                    <!-- Step 2 -->
+                    <div class="p-4 rounded-xl border flex flex-col justify-between" style="background-color: var(--bg-secondary); border-color: var(--border-color);">
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-pink-500/20 text-pink-400 border border-pink-500/30" data-i18n="step-2-badge">BƯỚC 2</span>
+                                <i class="fas fa-layer-group text-pink-400"></i>
+                            </div>
+                            <h4 class="font-bold text-sm mb-1" style="color: var(--text-primary);" data-i18n="step-2-title">Đối Chiếu Vị Thế Mở (OI)</h4>
+                            <p style="color: var(--text-secondary);" data-i18n="step-2-desc">Kiểm tra biến động OI: Giá tăng mà <strong>OI tăng</strong> là tiền mới vào mở Long (Long Build-up). Nếu Giá tăng mà <strong>OI giảm</strong> thì chỉ là Short bị thanh lý/cắt lỗ (Short Squeeze - rủi ro đảo chiều cao).</p>
+                        </div>
+                    </div>
+
+                    <!-- Step 3 -->
+                    <div class="p-4 rounded-xl border flex flex-col justify-between" style="background-color: var(--bg-secondary); border-color: var(--border-color);">
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" data-i18n="step-3-badge">BƯỚC 3</span>
+                                <i class="fas fa-chart-line text-cyan-400"></i>
+                            </div>
+                            <h4 class="font-bold text-sm mb-1" style="color: var(--text-primary);" data-i18n="step-3-title">Phát Hiện Phân Kỳ CVD</h4>
+                            <p style="color: var(--text-secondary);" data-i18n="step-3-desc">Nếu Giá tạo đáy mới thấp hơn nhưng đường <strong>CVD tạo đáy cao hơn</strong> &rarr; Phe Bán bị hấp thụ hoàn toàn bởi lệnh Limit Buy (Tín hiệu đảo chiều tăng mạnh).</p>
+                        </div>
+                    </div>
+
+                    <!-- Step 4 -->
+                    <div class="p-4 rounded-xl border flex flex-col justify-between" style="background-color: var(--bg-secondary); border-color: var(--border-color);">
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/30" data-i18n="step-4-badge">BƯỚC 4</span>
+                                <i class="fas fa-balance-scale text-amber-400"></i>
+                            </div>
+                            <h4 class="font-bold text-sm mb-1" style="color: var(--text-primary);" data-i18n="step-4-title">Đánh Giá Đòn Bẩy F/S</h4>
+                            <p style="color: var(--text-secondary);" data-i18n="step-4-desc">Tỷ lệ Futures/Spot &gt; 4x cảnh báo thị trường đầu cơ quá mức. Đối chiếu quy mô Long/Short với Spot Vol để phòng ngừa rủi ro bẫy quét thanh lý 2 đầu.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 2: Order Flow Cheat-Sheet Matrix -->
+            <div class="mb-8 overflow-x-auto custom-scrollbar">
+                <h3 class="text-sm font-bold uppercase tracking-wider mb-4 flex items-center" style="color: var(--text-secondary);">
+                    <i class="fas fa-table-cells text-emerald-500 mr-2"></i>
+                    <span data-i18n="cheat-sheet-title">Bảng Tra Cứu Tín Hiệu & Hành Động Đọc Lệnh Nhanh</span>
+                </h3>
+                <table class="min-w-full text-xs rounded-xl overflow-hidden border" style="border-color: var(--border-color);">
+                    <thead>
+                        <tr style="background-color: rgba(var(--bg-secondary-rgb), 0.7); border-bottom: 1px solid var(--border-color);">
+                            <th class="px-4 py-3 text-left font-bold" style="color: var(--text-secondary);" data-i18n="th-state">Trạng Thái</th>
+                            <th class="px-4 py-3 text-left font-bold" style="color: var(--text-secondary);" data-i18n="th-price">Giá (Price)</th>
+                            <th class="px-4 py-3 text-left font-bold" style="color: var(--text-secondary);" data-i18n="th-taker-flow">Taker Flow</th>
+                            <th class="px-4 py-3 text-left font-bold" style="color: var(--text-secondary);" data-i18n="th-oi">Vị Thế Mở (OI)</th>
+                            <th class="px-4 py-3 text-left font-bold" style="color: var(--text-secondary);" data-i18n="th-nature">Bản Chất Dòng Tiền</th>
+                            <th class="px-4 py-3 text-left font-bold text-yellow-500" data-i18n="th-action">Hành Động Khuyến Nghị</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-800/20" style="background-color: var(--bg-secondary);">
+                        <tr class="hover:bg-white/5 transition-colors">
+                            <td class="px-4 py-3 font-bold text-emerald-500" data-i18n="long-buildup-state">🟢 Long Build-up</td>
+                            <td class="px-4 py-3 font-semibold text-emerald-400" data-i18n="flow-price-up">Tăng (↑)</td>
+                            <td class="px-4 py-3 text-emerald-400" data-i18n="flow-buy-up">Mua chủ động ↑</td>
+                            <td class="px-4 py-3 font-bold text-emerald-400" data-i18n="flow-oi-surge-up">Tăng mạnh (↑)</td>
+                            <td class="px-4 py-3" style="color: var(--text-secondary);" data-i18n="long-buildup-nature">Dòng tiền tổ chức/trader nạp vốn mở vị thế Long mới theo xu hướng</td>
+                            <td class="px-4 py-3 font-bold text-emerald-400" data-i18n="long-buildup-action">Ưu tiên Buy / Long theo Trend</td>
+                        </tr>
+                        <tr class="hover:bg-white/5 transition-colors">
+                            <td class="px-4 py-3 font-bold text-yellow-500" data-i18n="short-squeeze-state">🟡 Short Squeeze</td>
+                            <td class="px-4 py-3 font-semibold text-emerald-400" data-i18n="flow-price-up">Tăng (↑)</td>
+                            <td class="px-4 py-3 text-emerald-400" data-i18n="flow-buy-up">Mua chủ động ↑</td>
+                            <td class="px-4 py-3 font-bold text-rose-400" data-i18n="flow-oi-drop-down">Giảm mạnh (↓)</td>
+                            <td class="px-4 py-3" style="color: var(--text-secondary);" data-i18n="short-squeeze-nature">Tăng do phe Short bị ép cắt lỗ hoặc thanh lý cưỡng bức (Hết xăng)</td>
+                            <td class="px-4 py-3 font-bold text-yellow-400" data-i18n="short-squeeze-action">Chốt lời Long, canh Short đảo chiều</td>
+                        </tr>
+                        <tr class="hover:bg-white/5 transition-colors">
+                            <td class="px-4 py-3 font-bold text-rose-500" data-i18n="short-buildup-state">🔴 Short Build-up</td>
+                            <td class="px-4 py-3 font-semibold text-rose-400" data-i18n="flow-price-down">Giảm (↓)</td>
+                            <td class="px-4 py-3 text-rose-400" data-i18n="flow-sell-up">Bán chủ động ↑</td>
+                            <td class="px-4 py-3 font-bold text-emerald-400" data-i18n="flow-oi-surge-up">Tăng mạnh (↑)</td>
+                            <td class="px-4 py-3" style="color: var(--text-secondary);" data-i18n="short-buildup-nature">Dòng tiền mở mới vị thế Short ồ ạt, áp lực bán đè giá quyết liệt</td>
+                            <td class="px-4 py-3 font-bold text-rose-400" data-i18n="short-buildup-action">Ưu tiên Sell / Short theo Trend</td>
+                        </tr>
+                        <tr class="hover:bg-white/5 transition-colors">
+                            <td class="px-4 py-3 font-bold text-indigo-400" data-i18n="long-liquidation-state">⚪ Long Liquidation</td>
+                            <td class="px-4 py-3 font-semibold text-rose-400" data-i18n="flow-price-down">Giảm (↓)</td>
+                            <td class="px-4 py-3 text-rose-400" data-i18n="flow-sell-up">Bán chủ động ↑</td>
+                            <td class="px-4 py-3 font-bold text-rose-400" data-i18n="flow-oi-drop-down">Giảm mạnh (↓)</td>
+                            <td class="px-4 py-3" style="color: var(--text-secondary);" data-i18n="long-liquidation-nature">Long bị xả thanh lý hàng loạt, giai đoạn rũ bỏ cuối cùng của đợt giảm</td>
+                            <td class="px-4 py-3 font-bold text-indigo-400" data-i18n="long-liquidation-action">Chốt lời Short, canh bắt đáy hồi phục</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Section 3: Indicator Explanations Grid -->
+            <div>
+                <h3 class="text-sm font-bold uppercase tracking-wider mb-4 flex items-center" style="color: var(--text-secondary);">
+                    <i class="fas fa-book-open text-purple-500 mr-2"></i>
+                    <span data-i18n="metrics-detail-title">Ý Nghĩa & Chi Tiết Các Chỉ Số Đo Lường</span>
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs" style="color: var(--text-secondary);">
+                    <div class="p-4 rounded-xl border" style="background-color: var(--bg-secondary); border-color: var(--border-color);">
+                        <h4 class="font-bold text-blue-400 mb-1 text-sm" data-i18n="card-taker-title">📊 Taker Buy / Sell Volume</h4>
+                        <p data-i18n="taker-desc">Đo lường trực tiếp các lệnh khớp Market. Taker Buy bao gồm mở Long mới + cắt lỗ Short; Taker Sell bao gồm mở Short mới + thanh lý Long.</p>
+                    </div>
+                    <div class="p-4 rounded-xl border" style="background-color: var(--bg-secondary); border-color: var(--border-color);">
+                        <h4 class="font-bold text-cyan-400 mb-1 text-sm" data-i18n="card-cvd-title">📈 Cumulative Volume Delta (CVD)</h4>
+                        <p data-i18n="cvd-desc">Tích lũy chênh lệch $(\text{Buy} - \text{Sell})$. CVD phân kỳ với giá là chỉ báo sớm đáng tin cậy nhất về việc cá mập đang âm thầm gom hoặc xả hàng.</p>
+                    </div>
+                    <div class="p-4 rounded-xl border" style="background-color: var(--bg-secondary); border-color: var(--border-color);">
+                        <h4 class="font-bold text-indigo-400 mb-1 text-sm" data-i18n="card-ls-ratio-title">⚖️ Long / Short Position Ratio</h4>
+                        <p data-i18n="ls-pos-desc">Tỷ lệ tài khoản hoặc vị thế mở Long vs Short. Tỷ lệ lệch trên 70% là tín hiệu thị trường quá nghiêng về một phía (Crowded Trade), dễ xảy ra bẫy quét thanh lý.</p>
+                    </div>
+                    <div class="p-4 rounded-xl border" style="background-color: var(--bg-secondary); border-color: var(--border-color);">
+                        <h4 class="font-bold text-emerald-400 mb-1 text-sm" data-i18n="card-long-spot-title">📈 Long / Spot Vol Ratio</h4>
+                        <p data-i18n="long-spot-desc">Đo lường quy mô vị thế Long so với thanh khoản Spot. Tỷ lệ &gt; 3x - 5x cảnh báo thanh khoản Spot có thể không hấp thụ nổi nếu xảy ra chuỗi thanh lý Long đột ngột.</p>
+                    </div>
+                    <div class="p-4 rounded-xl border" style="background-color: var(--bg-secondary); border-color: var(--border-color);">
+                        <h4 class="font-bold text-rose-400 mb-1 text-sm" data-i18n="card-short-spot-title">📉 Short / Spot Vol Ratio</h4>
+                        <p data-i18n="short-spot-desc">Đo lường quy mô vị thế Short so với thanh khoản Spot. Tỷ lệ &gt; 3x - 5x là tín hiệu cảnh báo rủi ro bùng nổ Short Squeeze cực mạnh khi giá đảo chiều tăng.</p>
+                    </div>
+                    <div class="p-4 rounded-xl border" style="background-color: var(--bg-secondary); border-color: var(--border-color);">
+                        <h4 class="font-bold text-purple-400 mb-1 text-sm" data-i18n="card-corr-title">🔗 Pearson Volume Correlation</h4>
+                        <p data-i18n="corr-desc">Hệ số tương quan khối lượng giữa Spot và Futures (14 chu kỳ). &gt; 0.7 thể hiện dòng tiền thực giao ngay đồng thuận; &lt; 0.3 là dấu hiệu đầu cơ phái sinh đơn lẻ.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Scripts -->
+    <script src="/frontend/shared/js/translations.js"></script>
+    <script src="/frontend/shared/js/language-toggle.js" defer></script>
+    <script src="/frontend/shared/js/theme-manager.js" defer></script>
+    <script src="/frontend/pages/market_analytics/js/market-analytics.js" defer></script>
+</body>
+
+</html>
