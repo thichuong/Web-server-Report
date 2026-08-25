@@ -347,29 +347,29 @@
             id: 'time_state',
             labelI18n: 'th-group-time-state',
             labelDefault: 'Thời Gian & Trạng Thái',
-            thClass: 'px-3.5 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-gray-400 whitespace-nowrap',
+            thClass: 'px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-gray-400 whitespace-nowrap',
             render: (row) => {
                 let stateTag = '';
                 switch (row.marketState) {
                     case 'LONG_BUILDUP':
-                        stateTag = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30">🟢 Long Build-up</span>';
+                        stateTag = '<span class="px-2.5 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30">🟢 Long Build-up</span>';
                         break;
                     case 'SHORT_SQUEEZE':
-                        stateTag = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 dark:bg-yellow-500/20 dark:text-yellow-400 dark:border-yellow-500/30">🟡 Short Squeeze</span>';
+                        stateTag = '<span class="px-2.5 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 dark:bg-yellow-500/20 dark:text-yellow-400 dark:border-yellow-500/30">🟡 Short Squeeze</span>';
                         break;
                     case 'SHORT_BUILDUP':
-                        stateTag = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/30">🔴 Short Build-up</span>';
+                        stateTag = '<span class="px-2.5 py-0.5 rounded text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/30">🔴 Short Build-up</span>';
                         break;
                     case 'LONG_LIQUIDATION':
-                        stateTag = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-300 dark:bg-indigo-500/20 dark:text-indigo-400 dark:border-indigo-500/30">⚪ Long Liquidation</span>';
+                        stateTag = '<span class="px-2.5 py-0.5 rounded text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-300 dark:bg-indigo-500/20 dark:text-indigo-400 dark:border-indigo-500/30">⚪ Long Liquidation</span>';
                         break;
                     default:
-                        stateTag = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-700 border border-gray-300 dark:bg-gray-500/20 dark:text-gray-400 dark:border-gray-500/30">⚪ Neutral</span>';
+                        stateTag = '<span class="px-2.5 py-0.5 rounded text-xs font-bold bg-gray-100 text-gray-700 border border-gray-300 dark:bg-gray-500/20 dark:text-gray-400 dark:border-gray-500/30">⚪ Neutral</span>';
                 }
                 return `
-                    <td class="px-3.5 py-2.5 whitespace-nowrap text-xs">
-                        <div class="font-bold text-gray-900 dark:text-gray-100">${row.label}</div>
-                        <div class="mt-1">${stateTag}</div>
+                    <td class="px-4 py-3 whitespace-nowrap text-xs">
+                        <div class="font-bold text-xs text-gray-900 dark:text-gray-100">${row.label}</div>
+                        <div class="mt-1.5">${stateTag}</div>
                     </td>
                 `;
             }
@@ -378,20 +378,20 @@
             id: 'price_range',
             labelI18n: 'th-group-price-range',
             labelDefault: 'Giá & Dải Nến (OHLC)',
-            thClass: 'px-3.5 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-gray-200 whitespace-nowrap',
+            thClass: 'px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-gray-200 whitespace-nowrap',
             render: (row) => {
                 const priceColor = row.priceChangePct >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400';
                 const priceSign = row.priceChangePct >= 0 ? '+' : '';
                 return `
-                    <td class="px-3.5 py-2.5 whitespace-nowrap text-xs">
-                        <div class="font-extrabold text-sm text-gray-900 dark:text-gray-100 flex items-center space-x-1">
+                    <td class="px-4 py-3 whitespace-nowrap text-xs">
+                        <div class="font-extrabold text-sm text-gray-900 dark:text-gray-100 flex items-center space-x-1.5">
                             <span>$${formatPrice(row.price)}</span>
                             <span class="${priceColor} text-xs font-bold">(${priceSign}${row.priceChangePct.toFixed(2)}%)</span>
                         </div>
-                        <div class="mt-0.5 text-[11px] text-gray-600 dark:text-gray-400 font-mono space-x-1.5">
-                            <span>O: <span class="text-gray-900 dark:text-gray-200 font-semibold">$${formatPrice(row.open)}</span></span>
-                            <span>H: <span class="text-emerald-700 dark:text-emerald-400 font-semibold">$${formatPrice(row.high)}</span></span>
-                            <span>L: <span class="text-rose-700 dark:text-rose-400 font-semibold">$${formatPrice(row.low)}</span></span>
+                        <div class="mt-1.5 text-xs text-gray-600 dark:text-gray-400 font-mono space-x-2">
+                            <span>O: <span class="text-gray-900 dark:text-gray-200 font-bold">$${formatPrice(row.open)}</span></span>
+                            <span>H: <span class="text-emerald-700 dark:text-emerald-400 font-bold">$${formatPrice(row.high)}</span></span>
+                            <span>L: <span class="text-rose-700 dark:text-rose-400 font-bold">$${formatPrice(row.low)}</span></span>
                         </div>
                     </td>
                 `;
@@ -401,25 +401,25 @@
             id: 'spot_flow',
             labelI18n: 'th-group-spot-flow',
             labelDefault: 'Spot Vol & Dòng Tiền Taker',
-            thClass: 'px-3.5 py-3 text-left text-xs font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400 whitespace-nowrap',
+            thClass: 'px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400 whitespace-nowrap',
             render: (row) => {
                 const deltaPos = row.spotNetDelta >= 0;
                 const deltaCol = deltaPos ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400';
                 const deltaSign = deltaPos ? '+' : '';
                 const cvdCol = row.spotCvd >= 0 ? 'text-teal-700 dark:text-cyan-400' : 'text-rose-700 dark:text-cyan-600';
                 return `
-                    <td class="px-3.5 py-2.5 whitespace-nowrap text-xs">
-                        <div class="flex items-center space-x-1.5">
-                            <span class="text-gray-600 dark:text-gray-400 text-[11px]">Vol:</span>
-                            <span class="font-bold text-blue-700 dark:text-blue-400">$${formatNumber(row.spotVolumeUsdt)}</span>
+                    <td class="px-4 py-3 whitespace-nowrap text-xs">
+                        <div class="flex items-center space-x-1.5 text-xs">
+                            <span class="text-gray-600 dark:text-gray-400 font-medium">Vol:</span>
+                            <span class="font-bold text-blue-700 dark:text-blue-400 text-xs">$${formatNumber(row.spotVolumeUsdt)}</span>
                         </div>
-                        <div class="mt-0.5 text-[11px]">
-                            <span class="text-teal-700 dark:text-cyan-400 font-semibold">$${formatNumber(row.spotBuyVolumeUsdt)}</span>
+                        <div class="mt-1.5 text-xs flex items-center space-x-1">
+                            <span class="text-teal-700 dark:text-cyan-400 font-bold">$${formatNumber(row.spotBuyVolumeUsdt)}</span>
                             <span class="text-gray-400">/</span>
-                            <span class="text-blue-700 dark:text-blue-400 font-semibold">$${formatNumber(row.spotSellVolumeUsdt)}</span>
-                            <span class="text-gray-600 dark:text-gray-400 text-[10px] ml-0.5 font-medium">(${row.spotBuyPct.toFixed(0)}% Mua)</span>
+                            <span class="text-blue-700 dark:text-blue-400 font-bold">$${formatNumber(row.spotSellVolumeUsdt)}</span>
+                            <span class="text-gray-600 dark:text-gray-400 text-xs font-semibold ml-0.5">(${row.spotBuyPct.toFixed(0)}% Mua)</span>
                         </div>
-                        <div class="mt-0.5 text-[10px] space-x-1.5 font-mono">
+                        <div class="mt-1.5 text-xs space-x-2 font-mono">
                             <span class="text-gray-600 dark:text-gray-400">Δ: <span class="${deltaCol} font-bold">${deltaSign}$${formatNumber(row.spotNetDelta)}</span></span>
                             <span class="text-gray-600 dark:text-gray-400">CVD: <span class="${cvdCol} font-bold">$${formatNumber(row.spotCvd)}</span></span>
                         </div>
@@ -431,26 +431,26 @@
             id: 'fut_flow',
             labelI18n: 'th-group-fut-flow',
             labelDefault: 'Futures Vol & Dòng Tiền Taker',
-            thClass: 'px-3.5 py-3 text-left text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-yellow-400 whitespace-nowrap',
+            thClass: 'px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-yellow-400 whitespace-nowrap',
             render: (row) => {
                 const deltaPos = row.futuresNetDelta >= 0;
                 const deltaCol = deltaPos ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400';
                 const deltaSign = deltaPos ? '+' : '';
                 const cvdCol = row.futuresCvd >= 0 ? 'text-amber-700 dark:text-amber-400' : 'text-rose-700 dark:text-rose-400';
                 return `
-                    <td class="px-3.5 py-2.5 whitespace-nowrap text-xs">
-                        <div class="flex items-center space-x-2">
-                            <span class="text-gray-600 dark:text-gray-400 text-[11px]">Vol:</span>
-                            <span class="font-bold text-amber-700 dark:text-yellow-400">$${formatNumber(row.futuresVolumeUsdt)}</span>
-                            <span class="px-1.5 py-0.2 text-[10px] rounded bg-indigo-100 text-indigo-700 border border-indigo-200 dark:bg-indigo-500/20 dark:text-indigo-300 dark:border-indigo-500/30 font-bold">${row.volumeRatio.toFixed(2)}x F/S</span>
+                    <td class="px-4 py-3 whitespace-nowrap text-xs">
+                        <div class="flex items-center space-x-2 text-xs">
+                            <span class="text-gray-600 dark:text-gray-400 font-medium">Vol:</span>
+                            <span class="font-bold text-amber-700 dark:text-yellow-400 text-xs">$${formatNumber(row.futuresVolumeUsdt)}</span>
+                            <span class="px-2 py-0.5 text-xs rounded bg-indigo-100 text-indigo-700 border border-indigo-200 dark:bg-indigo-500/20 dark:text-indigo-300 dark:border-indigo-500/30 font-bold">${row.volumeRatio.toFixed(2)}x F/S</span>
                         </div>
-                        <div class="mt-0.5 text-[11px]">
-                            <span class="text-emerald-700 dark:text-emerald-400 font-semibold">$${formatNumber(row.futuresBuyVolumeUsdt)}</span>
+                        <div class="mt-1.5 text-xs flex items-center space-x-1">
+                            <span class="text-emerald-700 dark:text-emerald-400 font-bold">$${formatNumber(row.futuresBuyVolumeUsdt)}</span>
                             <span class="text-gray-400">/</span>
-                            <span class="text-rose-700 dark:text-rose-400 font-semibold">$${formatNumber(row.futuresSellVolumeUsdt)}</span>
-                            <span class="text-gray-600 dark:text-gray-400 text-[10px] ml-0.5 font-medium">(${row.futuresBuyPct.toFixed(0)}% Mua)</span>
+                            <span class="text-rose-700 dark:text-rose-400 font-bold">$${formatNumber(row.futuresSellVolumeUsdt)}</span>
+                            <span class="text-gray-600 dark:text-gray-400 text-xs font-semibold ml-0.5">(${row.futuresBuyPct.toFixed(0)}% Mua)</span>
                         </div>
-                        <div class="mt-0.5 text-[10px] space-x-1.5 font-mono">
+                        <div class="mt-1.5 text-xs space-x-2 font-mono">
                             <span class="text-gray-600 dark:text-gray-400">Δ: <span class="${deltaCol} font-bold">${deltaSign}$${formatNumber(row.futuresNetDelta)}</span></span>
                             <span class="text-gray-600 dark:text-gray-400">CVD: <span class="${cvdCol} font-bold">$${formatNumber(row.futuresCvd)}</span></span>
                         </div>
@@ -462,24 +462,24 @@
             id: 'positions_ratios',
             labelI18n: 'th-group-positions',
             labelDefault: 'Vị Thế Long / Short & Tỷ Lệ',
-            thClass: 'px-3.5 py-3 text-left text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 whitespace-nowrap',
+            thClass: 'px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 whitespace-nowrap',
             render: (row) => {
                 const isNetPos = row.netPositionUsdt >= 0;
                 const netCol = isNetPos ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400';
                 const netSign = isNetPos ? '+' : '';
                 return `
-                    <td class="px-3.5 py-2.5 whitespace-nowrap text-xs">
-                        <div class="flex items-center space-x-1 text-[11px]">
+                    <td class="px-4 py-3 whitespace-nowrap text-xs">
+                        <div class="flex items-center space-x-1.5 text-xs">
                             <span class="text-emerald-700 dark:text-emerald-400 font-bold">L: ${row.longPositionUsdt !== null ? '$' + formatNumber(row.longPositionUsdt) : '--'}</span>
-                            <span class="text-[10px] text-emerald-800 dark:text-emerald-500 font-semibold">(${row.longSpotRatio ? row.longSpotRatio.toFixed(1) + 'x' : '--'})</span>
+                            <span class="text-xs text-emerald-800 dark:text-emerald-500 font-bold">(${row.longSpotRatio ? row.longSpotRatio.toFixed(1) + 'x' : '--'})</span>
                             <span class="text-gray-400 dark:text-gray-500">|</span>
                             <span class="text-rose-700 dark:text-rose-400 font-bold">S: ${row.shortPositionUsdt !== null ? '$' + formatNumber(row.shortPositionUsdt) : '--'}</span>
-                            <span class="text-[10px] text-rose-800 dark:text-rose-500 font-semibold">(${row.shortSpotRatio ? row.shortSpotRatio.toFixed(1) + 'x' : '--'})</span>
+                            <span class="text-xs text-rose-800 dark:text-rose-500 font-bold">(${row.shortSpotRatio ? row.shortSpotRatio.toFixed(1) + 'x' : '--'})</span>
                         </div>
-                        <div class="mt-0.5 flex items-center space-x-2 text-[11px]">
-                            <span class="text-gray-600 dark:text-gray-400">Tỷ lệ L/S: <span class="text-indigo-700 dark:text-indigo-400 font-bold">${row.longShortRatio ? row.longShortRatio.toFixed(2) : '--'}</span></span>
+                        <div class="mt-1.5 flex items-center space-x-2 text-xs">
+                            <span class="text-gray-600 dark:text-gray-400 font-medium">Tỷ lệ L/S: <span class="text-indigo-700 dark:text-indigo-400 font-bold">${row.longShortRatio ? row.longShortRatio.toFixed(2) : '--'}</span></span>
                             <span class="text-gray-400 dark:text-gray-500">·</span>
-                            <span class="text-gray-600 dark:text-gray-400">Net: <span class="${netCol} font-bold">${row.netPositionUsdt !== null && row.netPositionUsdt !== undefined ? netSign + '$' + formatNumber(row.netPositionUsdt) : '--'}</span></span>
+                            <span class="text-gray-600 dark:text-gray-400 font-medium">Net: <span class="${netCol} font-bold">${row.netPositionUsdt !== null && row.netPositionUsdt !== undefined ? netSign + '$' + formatNumber(row.netPositionUsdt) : '--'}</span></span>
                         </div>
                     </td>
                 `;
@@ -489,7 +489,7 @@
             id: 'oi_corr',
             labelI18n: 'th-group-oi-corr',
             labelDefault: 'Vị Thế Mở (OI) & Tương Quan',
-            thClass: 'px-3.5 py-3 text-left text-xs font-bold uppercase tracking-wider text-fuchsia-700 dark:text-pink-400 whitespace-nowrap',
+            thClass: 'px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider text-fuchsia-700 dark:text-pink-400 whitespace-nowrap',
             render: (row) => {
                 const oiChangePos = row.oiChangePct >= 0;
                 const oiChangeCol = oiChangePos ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400';
@@ -500,15 +500,15 @@
                 else if (row.correlation < 0.3) corrCol = 'text-rose-700 dark:text-rose-400';
 
                 return `
-                    <td class="px-3.5 py-2.5 whitespace-nowrap text-xs">
-                        <div class="flex items-center space-x-1.5">
-                            <span class="font-extrabold text-fuchsia-700 dark:text-pink-400">${row.openInterestUsdt ? '$' + formatNumber(row.openInterestUsdt) : '--'}</span>
-                            <span class="${oiChangeCol} text-[10px] font-bold">(${oiChangeSign}${row.oiChangePct !== null && row.oiChangePct !== undefined ? row.oiChangePct.toFixed(2) : '0.00'}%)</span>
+                    <td class="px-4 py-3 whitespace-nowrap text-xs">
+                        <div class="flex items-center space-x-2 text-xs">
+                            <span class="font-extrabold text-sm text-fuchsia-700 dark:text-pink-400">${row.openInterestUsdt ? '$' + formatNumber(row.openInterestUsdt) : '--'}</span>
+                            <span class="${oiChangeCol} text-xs font-bold">(${oiChangeSign}${row.oiChangePct !== null && row.oiChangePct !== undefined ? row.oiChangePct.toFixed(2) : '0.00'}%)</span>
                         </div>
-                        <div class="mt-0.5 text-[11px] text-gray-700 dark:text-gray-300 flex items-center space-x-2">
-                            <span>${row.openInterestCoins ? formatNumber(row.openInterestCoins, 2) + ' Coins' : '--'}</span>
+                        <div class="mt-1.5 text-xs text-gray-700 dark:text-gray-300 flex items-center space-x-2">
+                            <span class="font-bold">${row.openInterestCoins ? formatNumber(row.openInterestCoins, 2) + ' Coins' : '--'}</span>
                             <span class="text-gray-400 dark:text-gray-500">·</span>
-                            <span class="text-gray-600 dark:text-gray-400">Corr: <span class="${corrCol} font-bold">${row.correlation !== null && row.correlation !== undefined ? row.correlation.toFixed(3) : '--'}</span></span>
+                            <span class="text-gray-600 dark:text-gray-400 font-medium">Corr: <span class="${corrCol} font-bold">${row.correlation !== null && row.correlation !== undefined ? row.correlation.toFixed(3) : '--'}</span></span>
                         </div>
                     </td>
                 `;
@@ -2209,6 +2209,8 @@
                 btnExportCsv: document.getElementById('btn-export-csv'),
 
                 // Column Customizer & Presets & Layout Elements
+                wrapperColumnCustomizer: document.getElementById('wrapper-column-customizer'),
+                wrapperTablePresets: document.getElementById('wrapper-table-presets'),
                 btnToggleColumnMenu: document.getElementById('btn-toggle-column-menu'),
                 columnCustomizerDropdown: document.getElementById('column-customizer-dropdown'),
                 btnCloseColumnMenu: document.getElementById('btn-close-column-menu'),
@@ -2411,6 +2413,7 @@
                             // ignore
                         }
                         this.updateLayoutButtonsUI();
+                        this.updatePresetButtonsUI();
                         if (this.state.currentData) {
                             this.renderTable(this.state.currentData.items);
                         }
@@ -3134,6 +3137,27 @@
                     btn.className = 'btn-table-layout px-2.5 py-1 text-xs font-semibold rounded-md text-gray-700 hover:text-gray-900 hover:bg-gray-200 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700/50 transition-all flex items-center space-x-1.5';
                 }
             });
+
+            // If stacked layout is selected, hide the column customizer and preset buttons to avoid user confusion
+            const isStacked = currentLayout === 'stacked';
+            if (this.el.wrapperColumnCustomizer) {
+                if (isStacked) {
+                    this.el.wrapperColumnCustomizer.classList.add('hidden');
+                    if (this.el.columnCustomizerDropdown) {
+                        this.el.columnCustomizerDropdown.classList.add('hidden');
+                    }
+                } else {
+                    this.el.wrapperColumnCustomizer.classList.remove('hidden');
+                }
+            }
+
+            if (this.el.wrapperTablePresets) {
+                if (isStacked) {
+                    this.el.wrapperTablePresets.classList.add('hidden');
+                } else {
+                    this.el.wrapperTablePresets.classList.remove('hidden');
+                }
+            }
         }
 
         updatePresetButtonsUI() {
@@ -3149,9 +3173,12 @@
                 }
             }
 
+            // Nếu chưa có preset cụ thể nào khớp thì mặc định xem là 'standard'
+            const effectivePreset = activePreset || 'standard';
+
             this.el.presetButtons.forEach(btn => {
                 const p = btn.getAttribute('data-preset');
-                if (p === activePreset && this.state.tableLayout === 'expanded') {
+                if (p === effectivePreset && this.state.tableLayout === 'expanded') {
                     btn.className = 'btn-table-preset px-2.5 py-1 rounded-md text-xs font-semibold transition-all bg-indigo-600 text-white shadow-sm';
                 } else {
                     btn.className = 'btn-table-preset px-2.5 py-1 rounded-md text-xs font-semibold transition-all bg-gray-200/80 hover:bg-gray-300 text-gray-700 dark:bg-gray-700/60 dark:hover:bg-gray-700 dark:text-gray-300';
