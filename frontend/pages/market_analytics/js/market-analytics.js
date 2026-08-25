@@ -2615,11 +2615,9 @@
             this.state.symbol = sym.toUpperCase();
             this.el.symbolButtons.forEach(btn => {
                 if (btn.getAttribute('data-symbol') === this.state.symbol) {
-                    btn.classList.add('bg-blue-600', 'text-white', 'border-blue-500');
-                    btn.classList.remove('bg-gray-800/40', 'text-gray-300');
+                    btn.className = 'symbol-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-blue-600 text-white border border-blue-500 shadow-sm';
                 } else {
-                    btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-500');
-                    btn.classList.add('bg-gray-800/40', 'text-gray-300');
+                    btn.className = 'symbol-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-gray-800/40 hover:bg-gray-700/60 text-gray-300 border border-gray-700/50';
                 }
             });
             if (this.el.symbolInput) this.el.symbolInput.value = this.state.symbol;
@@ -2632,11 +2630,9 @@
             this.state.timeframe = tf;
             this.el.timeframeButtons.forEach(btn => {
                 if (btn.getAttribute('data-timeframe') === tf) {
-                    btn.classList.add('bg-blue-600', 'text-white', 'border-blue-500');
-                    btn.classList.remove('bg-gray-800/40', 'text-gray-300');
+                    btn.className = 'timeframe-btn px-2 py-1 rounded text-xs font-semibold bg-blue-600 text-white shadow-sm transition-colors';
                 } else {
-                    btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-500');
-                    btn.classList.add('bg-gray-800/40', 'text-gray-300');
+                    btn.className = 'timeframe-btn px-2 py-1 rounded text-xs font-semibold text-gray-300 hover:text-white transition-colors';
                 }
             });
             this.addDebugLog('control', `Switched timeframe to: ${this.state.timeframe}`);
@@ -2647,11 +2643,9 @@
             this.state.limit = lim;
             this.el.limitButtons.forEach(btn => {
                 if (parseInt(btn.getAttribute('data-limit'), 10) === lim) {
-                    btn.classList.add('bg-blue-600', 'text-white', 'border-blue-500');
-                    btn.classList.remove('bg-gray-800/40', 'text-gray-300');
+                    btn.className = 'limit-btn px-2 py-1 rounded text-xs font-semibold bg-blue-600 text-white shadow-sm transition-colors';
                 } else {
-                    btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-500');
-                    btn.classList.add('bg-gray-800/40', 'text-gray-300');
+                    btn.className = 'limit-btn px-2 py-1 rounded text-xs font-semibold text-gray-300 hover:text-white transition-colors';
                 }
             });
             this.addDebugLog('control', `Set candle limit to: ${this.state.limit}`);
