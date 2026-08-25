@@ -46,8 +46,12 @@ export class ChartManager {
     }
 
     getThemeColors() {
-        const isDark = document.documentElement.getAttribute('data-theme') === 'dark' ||
-            (!document.documentElement.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        const themeAttr = document.documentElement.getAttribute('data-theme');
+        const isDark = themeAttr === 'dark' ||
+            (themeAttr !== 'light' && (
+                document.documentElement.classList.contains('dark') ||
+                window.matchMedia('(prefers-color-scheme: dark)').matches
+            ));
 
         return {
             isDark,
@@ -76,7 +80,7 @@ export class ChartManager {
             lsRatioColor: '#818cf8',
             oiColor: '#ec4899',
             oiColorBg: 'rgba(236, 72, 153, 0.15)',
-            priceColor: isDark ? '#f8fafc' : '#0f172a',
+            priceColor: isDark ? '#ffffff' : '#0f172a',
             corrColor: '#8b5cf6',
             cvdSpotColor: '#06b6d4',
             cvdFutColor: '#f97316'
@@ -109,6 +113,7 @@ export class ChartManager {
             const chart = this.charts.priceVolume;
             chart.data.labels = labels;
             chart.data.datasets[0].data = prices;
+            chart.data.datasets[0].borderColor = colors.priceColor;
             chart.data.datasets[1].data = spotVols;
             chart.data.datasets[2].data = futVols;
             chart.update('none');
@@ -713,6 +718,7 @@ export class ChartManager {
             const chart = this.charts.openInterest;
             chart.data.labels = labels;
             chart.data.datasets[0].data = prices;
+            chart.data.datasets[0].borderColor = colors.priceColor;
             chart.data.datasets[1].data = oiUsdt;
             chart.update('none');
             return;
@@ -820,6 +826,7 @@ export class ChartManager {
             const chart = this.charts.netTakerDelta;
             chart.data.labels = labels;
             chart.data.datasets[0].data = prices;
+            chart.data.datasets[0].borderColor = colors.priceColor;
             chart.data.datasets[1].data = spotDeltas;
             chart.data.datasets[1].backgroundColor = spotBgColors;
             chart.data.datasets[2].data = futDeltas;
@@ -1041,6 +1048,18 @@ export class ChartManager {
 
     updateTheme() {
         const colors = this.getThemeColors();
+
+        // Update Price dataset lines to match current theme (Dark: white, Light: dark slate)
+        if (this.charts.priceVolume && this.charts.priceVolume.data.datasets[0]) {
+            this.charts.priceVolume.data.datasets[0].borderColor = colors.priceColor;
+        }
+        if (this.charts.openInterest && this.charts.openInterest.data.datasets[0]) {
+            this.charts.openInterest.data.datasets[0].borderColor = colors.priceColor;
+        }
+        if (this.charts.netTakerDelta && this.charts.netTakerDelta.data.datasets[0]) {
+            this.charts.netTakerDelta.data.datasets[0].borderColor = colors.priceColor;
+        }
+
         Object.keys(this.charts).forEach(key => {
             const chart = this.charts[key];
             if (!chart) return;
@@ -1049,7 +1068,13 @@ export class ChartManager {
                 Object.keys(chart.options.scales).forEach(scaleKey => {
                     const scale = chart.options.scales[scaleKey];
                     if (scale.grid) scale.grid.color = colors.grid;
-                    if (scale.ticks) scale.ticks.color = colors.mutedText;
+                    if (scale.ticks) {
+                        if (scaleKey === 'yPrice' || scaleKey === 'yVolume' || scaleKey === 'yDelta' || scaleKey === 'yPct') {
+                            scale.ticks.color = colors.text;
+                        } else {
+                            scale.ticks.color = colors.mutedText;
+                        }
+                    }
                 });
             }
             if (chart.options && chart.options.plugins && chart.options.plugins.legend) {
