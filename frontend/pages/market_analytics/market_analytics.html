@@ -562,42 +562,138 @@
         </div>
 
         <!-- Period Breakdown Data Table (Matching list.html table style) -->
-        <div class="card overflow-hidden border-0 p-6 mb-8">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+        <div class="card overflow-hidden border-0 p-6 mb-8 relative">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
                 <div>
-                    <h2 class="text-xl font-extrabold" style="color: var(--text-primary);">
-                        <i class="fas fa-table text-indigo-600 mr-2"></i>
-                        <span data-i18n="data-breakdown-title">Bảng Thống Kê Chi Tiết Từng Chu Kỳ</span>: <span id="table-current-symbol" class="text-blue-500">BTCUSDT</span>
+                    <h2 class="text-xl font-extrabold flex items-center flex-wrap gap-2" style="color: var(--text-primary);">
+                        <i class="fas fa-table text-indigo-600 mr-1"></i>
+                        <span data-i18n="data-breakdown-title">Bảng Thống Kê Chi Tiết Từng Chu Kỳ</span>:
+                        <span id="table-current-symbol" class="text-blue-500 font-mono">BTCUSDT</span>
                     </h2>
-                    <p class="text-xs mt-1" style="color: var(--text-secondary);" data-i18n="data-breakdown-desc">Dữ liệu đối chiếu chi tiết các chu kỳ nến với phân tách Khối lượng Mua/Bán, Vị thế Long/Short, Ratios và Open Interest</p>
+                    <p class="text-xs mt-1" style="color: var(--text-secondary);" data-i18n="data-breakdown-desc">
+                        Dữ liệu đối chiếu chi tiết các chu kỳ nến với phân tách Khối lượng Mua/Bán, Vị thế Long/Short, Ratios và Open Interest
+                    </p>
                 </div>
-                <button type="button" id="btn-export-csv" class="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow hover:shadow-md">
-                    <i class="fas fa-file-csv text-sm"></i>
-                    <span data-i18n="export-csv">Xuất CSV</span>
-                </button>
+                
+                <!-- Action Buttons: Column Config & Export CSV -->
+                <div class="flex items-center flex-wrap gap-2 relative">
+                    <!-- Column Customizer Toggle Button -->
+                    <div class="relative">
+                        <button type="button" id="btn-toggle-column-menu" class="inline-flex items-center space-x-2 px-3.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white text-xs font-bold transition-all shadow-sm hover:shadow border border-slate-300 dark:border-slate-600">
+                            <i class="fas fa-sliders text-xs text-indigo-600 dark:text-indigo-400"></i>
+                            <span data-i18n="btn-customize-columns">Tùy Chọn Cột</span>
+                            <span id="badge-columns-count" class="ml-1 px-1.5 py-0.5 text-[10px] rounded bg-indigo-100 text-indigo-700 dark:bg-indigo-500/30 dark:text-indigo-300 font-mono font-bold">14/21</span>
+                            <i class="fas fa-chevron-down text-[10px] ml-0.5"></i>
+                        </button>
+
+                        <!-- Column Customizer Dropdown Panel -->
+                        <div id="column-customizer-dropdown" class="hidden absolute right-0 mt-2 w-80 sm:w-96 rounded-xl shadow-2xl z-50 p-4 border transition-all duration-200"
+                            style="background-color: var(--card-bg, #ffffff); border: 1px solid var(--border-color); backdrop-filter: blur(16px);">
+                            <div class="flex items-center justify-between pb-3 border-b border-gray-200 dark:border-gray-700/50 mb-3">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fas fa-columns text-indigo-600 dark:text-indigo-400 text-sm"></i>
+                                    <span class="text-xs font-bold uppercase tracking-wider text-gray-800 dark:text-gray-200" data-i18n="btn-customize-columns">Tùy Chọn Hiển Thị Cột</span>
+                                </div>
+                                <button type="button" id="btn-close-column-menu" class="text-gray-400 hover:text-gray-600 dark:hover:text-white text-sm">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+
+                            <!-- Column Actions Shortcuts -->
+                            <div class="flex items-center justify-between gap-1 mb-3 text-[11px]">
+                                <button type="button" id="btn-col-select-all" class="px-2 py-1 rounded bg-indigo-100 hover:bg-indigo-200 text-indigo-700 dark:bg-indigo-600/30 dark:hover:bg-indigo-600/50 dark:text-indigo-300 font-semibold transition-all">
+                                    <span data-i18n="select-all-columns">Chọn tất cả</span>
+                                </button>
+                                <button type="button" id="btn-col-reset-default" class="px-2 py-1 rounded bg-gray-200 hover:bg-gray-300 text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300 font-semibold transition-all">
+                                    <span data-i18n="reset-columns-default">Mặc định</span>
+                                </button>
+                                <button type="button" id="btn-col-clear-all" class="px-2 py-1 rounded bg-rose-100 hover:bg-rose-200 text-rose-700 dark:bg-rose-900/30 dark:hover:bg-rose-900/50 dark:text-rose-300 font-semibold transition-all">
+                                    <span data-i18n="clear-all-columns">Bỏ chọn</span>
+                                </button>
+                            </div>
+
+                            <!-- Grouped Column Checkboxes Container -->
+                            <div id="column-checkboxes-container" class="max-h-72 overflow-y-auto custom-scrollbar space-y-3 text-xs pr-1">
+                                <!-- Populated dynamically by JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Export CSV Button -->
+                    <button type="button" id="btn-export-csv" class="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow hover:shadow-md">
+                        <i class="fas fa-file-csv text-sm"></i>
+                        <span data-i18n="export-csv">Xuất CSV</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Quick View Presets & Display Layout Toolbar -->
+            <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 p-3 rounded-lg mb-4"
+                style="background-color: var(--bg-secondary); border: 1px solid var(--border-color);">
+                
+                <!-- Left Section: Layout Style & Presets -->
+                <div class="flex items-center flex-wrap gap-2">
+                    <!-- Layout Style Toggle (Stacked Multi-line vs Expanded Columns) -->
+                    <div class="inline-flex rounded-lg p-0.5 bg-gray-200/80 dark:bg-gray-900/60 border border-gray-300 dark:border-gray-700/60 shadow-inner mr-1" role="group">
+                        <button type="button" class="btn-table-layout px-2.5 py-1 text-xs font-bold rounded-md bg-blue-600 text-white shadow-sm transition-all flex items-center space-x-1.5" data-layout="stacked" title="Gom nhóm các thông tin liên quan xuống hàng gọn gàng">
+                            <i class="fas fa-layer-group text-[11px]"></i>
+                            <span data-i18n="table-layout-stacked">Nhóm xuống hàng (Gọn)</span>
+                        </button>
+                        <button type="button" class="btn-table-layout px-2.5 py-1 text-xs font-semibold rounded-md text-gray-700 hover:text-gray-900 hover:bg-gray-200 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700/50 transition-all flex items-center space-x-1.5" data-layout="expanded" title="Mỗi chỉ số hiển thị ở 1 cột riêng biệt">
+                            <i class="fas fa-table-columns text-[11px]"></i>
+                            <span data-i18n="table-layout-expanded">Từng cột riêng</span>
+                        </button>
+                    </div>
+
+                    <!-- Presets Filter Pills -->
+                    <div class="flex items-center flex-wrap gap-1.5">
+                        <span class="text-xs font-bold mr-1 flex items-center" style="color: var(--text-secondary);">
+                            <i class="fas fa-bolt text-yellow-500 mr-1 text-xs"></i>
+                            <span data-i18n="quick-views-label">Xem nhanh:</span>
+                        </span>
+                        <button type="button" class="btn-table-preset px-2.5 py-1 rounded-md text-xs font-semibold transition-all bg-indigo-600 text-white shadow-sm" data-preset="standard">
+                            <span data-i18n="preset-standard">Mặc định</span>
+                        </button>
+                        <button type="button" class="btn-table-preset px-2.5 py-1 rounded-md text-xs font-semibold transition-all bg-gray-200/80 hover:bg-gray-300 text-gray-700 dark:bg-gray-700/60 dark:hover:bg-gray-700 dark:text-gray-300" data-preset="full">
+                            <span data-i18n="preset-full">Tất cả (Đầy đủ)</span>
+                        </button>
+                        <button type="button" class="btn-table-preset px-2.5 py-1 rounded-md text-xs font-semibold transition-all bg-gray-200/80 hover:bg-gray-300 text-gray-700 dark:bg-gray-700/60 dark:hover:bg-gray-700 dark:text-gray-300" data-preset="ohlc">
+                            <span data-i18n="preset-ohlc">Giá & Nến OHLC</span>
+                        </button>
+                        <button type="button" class="btn-table-preset px-2.5 py-1 rounded-md text-xs font-semibold transition-all bg-gray-200/80 hover:bg-gray-300 text-gray-700 dark:bg-gray-700/60 dark:hover:bg-gray-700 dark:text-gray-300" data-preset="flow">
+                            <span data-i18n="preset-flow">Dòng Tiền & CVD</span>
+                        </button>
+                        <button type="button" class="btn-table-preset px-2.5 py-1 rounded-md text-xs font-semibold transition-all bg-gray-200/80 hover:bg-gray-300 text-gray-700 dark:bg-gray-700/60 dark:hover:bg-gray-700 dark:text-gray-300" data-preset="positions">
+                            <span data-i18n="preset-positions">Vị Thế & OI</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Right Section: Display Row Count Selector -->
+                <div class="flex items-center space-x-2 self-end xl:self-auto text-xs">
+                    <span style="color: var(--text-secondary);" data-i18n="table-rows-showing">Hiển thị:</span>
+                    <div class="inline-flex rounded-md shadow-sm" role="group">
+                        <button type="button" class="btn-table-limit px-2.5 py-0.5 text-xs font-medium rounded-l-md bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 dark:bg-gray-700/80 dark:hover:bg-gray-700 dark:text-gray-300 dark:border-gray-600 transition-all" data-limit="20">20</button>
+                        <button type="button" class="btn-table-limit px-2.5 py-0.5 text-xs font-bold bg-blue-600 text-white border-t border-b border-gray-300 dark:border-gray-600 transition-all" data-limit="30">30</button>
+                        <button type="button" class="btn-table-limit px-2.5 py-0.5 text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 border-t border-b border-gray-300 dark:bg-gray-700/80 dark:hover:bg-gray-700 dark:text-gray-300 dark:border-gray-600 transition-all" data-limit="50">50</button>
+                        <button type="button" class="btn-table-limit px-2.5 py-0.5 text-xs font-medium rounded-r-md bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 dark:bg-gray-700/80 dark:hover:bg-gray-700 dark:text-gray-300 dark:border-gray-600 transition-all" data-limit="100">100</button>
+                    </div>
+                </div>
             </div>
 
             <div class="overflow-x-auto custom-scrollbar">
                 <table class="min-w-full leading-normal">
-                    <thead>
-                        <tr style="background-color: rgba(var(--bg-secondary-rgb), 0.5); border-bottom: 1px solid var(--border-color);">
-                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);" data-i18n="th-time">Thời gian</th>
-                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);" data-i18n="th-close-price">Giá Đóng Cửa</th>
-                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-blue-400" data-i18n="th-spot-vol">Spot Vol ($)</th>
-                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-cyan-400" data-i18n="th-spot-buy-sell">Spot Mua / Bán</th>
-                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-yellow-400" data-i18n="th-fut-vol">Futures Vol ($)</th>
-                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-amber-400" data-i18n="th-fut-buy-sell">Fut Mua / Bán</th>
-                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-emerald-500" data-i18n="th-long-pos">Vị thế Long ($)</th>
-                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-rose-500" data-i18n="th-short-pos">Vị thế Short ($)</th>
-                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-emerald-400" data-i18n="th-long-spot">Long / Spot</th>
-                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-rose-400" data-i18n="th-short-spot">Short / Spot</th>
-                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);" data-i18n="th-ls-ratio">Tỷ lệ L/S</th>
-                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);" data-i18n="th-fs-ratio">Tỷ lệ F/S</th>
-                            <th class="px-3.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-pink-400" data-i18n="open-interest">Vị thế mở (OI)</th>
-                            <th class="px-3.5 py-3.5 text-center text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);" data-i18n="market-state">Trạng thái</th>
+                    <thead id="analytics-data-table-head">
+                        <tr style="background-color: var(--bg-secondary); border-bottom: 1px solid var(--border-color);">
+                            <th class="px-3.5 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-gray-400 whitespace-nowrap" data-i18n="th-group-time-state">Thời Gian & Trạng Thái</th>
+                            <th class="px-3.5 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-gray-200 whitespace-nowrap" data-i18n="th-group-price-range">Giá & Dải Nến (OHLC)</th>
+                            <th class="px-3.5 py-3 text-left text-xs font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400 whitespace-nowrap" data-i18n="th-group-spot-flow">Spot Vol & Taker Flow</th>
+                            <th class="px-3.5 py-3 text-left text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-yellow-400 whitespace-nowrap" data-i18n="th-group-fut-flow">Futures Vol & Taker Flow</th>
+                            <th class="px-3.5 py-3 text-left text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 whitespace-nowrap" data-i18n="th-group-positions">Vị Thế Long / Short & Tỷ Lệ</th>
+                            <th class="px-3.5 py-3 text-left text-xs font-bold uppercase tracking-wider text-fuchsia-700 dark:text-pink-400 whitespace-nowrap" data-i18n="th-group-oi-corr">Vị Thế Mở (OI) & Tương Quan</th>
                         </tr>
                     </thead>
-                    <tbody id="analytics-data-table-body" class="divide-y divide-gray-800/20 font-mono text-xs">
+                    <tbody id="analytics-data-table-body" class="divide-y font-mono text-xs" style="border-color: var(--border-color);">
                         <!-- Populated by JavaScript -->
                     </tbody>
                 </table>
