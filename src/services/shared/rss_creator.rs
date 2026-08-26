@@ -107,6 +107,7 @@ impl RssCreator {
     }
 
     /// Write channel metadata section
+    /// Write channel metadata section
     fn write_channel_metadata(
         xml: &mut String,
         metadata: &FeedMetadata,
@@ -147,6 +148,29 @@ impl RssCreator {
             r#"    <atom:link href="{BASE_URL}/rss.xml" rel="self" type="application/rss+xml"/>"#
         )
         .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
+
+        // Channel Image / Logo for RSS feed readers
+        writeln!(xml, "    <image>")
+            .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
+        writeln!(
+            xml,
+            "      <url>{BASE_URL}/frontend/shared/assets/images/logo.svg</url>"
+        )
+        .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
+        writeln!(
+            xml,
+            "      <title>{}</title>",
+            Self::escape_xml(metadata.title)
+        )
+        .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
+        writeln!(xml, "      <link>{}</link>", metadata.link)
+            .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
+        writeln!(xml, "      <width>144</width>")
+            .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
+        writeln!(xml, "      <height>144</height>")
+            .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
+        writeln!(xml, "    </image>")
+            .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
 
         // Generator
         writeln!(
@@ -189,6 +213,14 @@ impl RssCreator {
         writeln!(xml, r#"      <guid isPermaLink="true">{link}</guid>"#)
             .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
 
+        // Categories
+        writeln!(xml, "      <category>Báo cáo thị trường</category>")
+            .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
+        writeln!(xml, "      <category>Cryptocurrency</category>")
+            .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
+        writeln!(xml, "      <category>Phân tích thị trường</category>")
+            .map_err(|e| Layer5Error::Internal(format!("XML write error: {e}")))?;
+
         // Publication date in RFC 822 format
         writeln!(
             xml,
@@ -220,7 +252,6 @@ impl RssCreator {
         // Convert to Vietnam timezone (UTC+7) for display
         let vn_offset = FixedOffset::east_opt(7 * 3600).unwrap_or_else(|| {
             // Fallback to UTC if VN offset fails (should not happen with constant)
-            // Fallback to UTC if VN offset fails (should not happen with constant)
             FixedOffset::east_opt(0).unwrap_or(Utc.fix())
         });
         let vn_time = dt.with_timezone(&vn_offset);
@@ -231,41 +262,88 @@ impl RssCreator {
 
     /// Extract plain text description from HTML content
     ///
-    /// Removes HTML tags and extracts first N characters for RSS description.
+    /// Removes HTML tags, filters out `<style>`, `<script>`, and comment blocks,
+    /// and extracts first N characters for RSS description.
     /// Adds ellipsis if content is truncated.
     fn extract_description(html: &str, max_len: usize) -> String {
-        // Simple HTML tag removal - strip all tags
         let mut result = String::with_capacity(max_len + 10);
-        let mut in_tag = false;
+        let mut i = 0;
         let mut char_count = 0;
+        let mut is_truncated = false;
+        let len = html.len();
 
-        for c in html.chars() {
+        while i < len {
             if char_count >= max_len {
+                is_truncated = true;
                 break;
             }
 
-            match c {
-                '<' => in_tag = true,
-                '>' => in_tag = false,
-                _ if !in_tag => {
-                    // Skip multiple whitespaces
-                    if c.is_whitespace() {
-                        if !result.ends_with(' ') && !result.is_empty() {
-                            result.push(' ');
-                            char_count += 1;
-                        }
-                    } else {
-                        result.push(c);
+            let slice = &html[i..];
+
+            // 1. Skip HTML Comments <!-- ... -->
+            if slice.starts_with("<!--") {
+                if let Some(end_pos) = slice.find("-->") {
+                    i += end_pos + 3;
+                } else {
+                    break;
+                }
+                continue;
+            }
+
+            // 2. Skip <script ...>...</script>
+            if slice.starts_with("<script") || slice.starts_with("<SCRIPT") {
+                let lower = slice.to_ascii_lowercase();
+                if let Some(end_pos) = lower.find("</script>") {
+                    i += end_pos + 9;
+                } else {
+                    break;
+                }
+                continue;
+            }
+
+            // 3. Skip <style ...>...</style>
+            if slice.starts_with("<style") || slice.starts_with("<STYLE") {
+                let lower = slice.to_ascii_lowercase();
+                if let Some(end_pos) = lower.find("</style>") {
+                    i += end_pos + 8;
+                } else {
+                    break;
+                }
+                continue;
+            }
+
+            // 4. Skip generic HTML tags <...>
+            if slice.starts_with('<') {
+                if let Some(end_pos) = slice.find('>') {
+                    i += end_pos + 1;
+                    if !result.ends_with(' ') && !result.is_empty() {
+                        result.push(' ');
+                    }
+                } else {
+                    break;
+                }
+                continue;
+            }
+
+            // 5. Extract text character
+            if let Some(c) = slice.chars().next() {
+                i += c.len_utf8();
+                if c.is_whitespace() {
+                    if !result.ends_with(' ') && !result.is_empty() {
+                        result.push(' ');
                         char_count += 1;
                     }
+                } else {
+                    result.push(c);
+                    char_count += 1;
                 }
-                _ => {}
+            } else {
+                break;
             }
         }
 
-        // Trim and add ellipsis if truncated
         let trimmed = result.trim().to_string();
-        if html.len() > max_len && !trimmed.is_empty() {
+        if is_truncated && !trimmed.is_empty() {
             format!("{trimmed}...")
         } else {
             trimmed
@@ -335,6 +413,8 @@ mod tests {
         assert!(xml.contains("<title>CryptoDashboard"));
         assert!(xml.contains("<language>vi-VN</language>"));
         assert!(xml.contains("<ttl>60</ttl>"));
+        assert!(xml.contains("<image>"));
+        assert!(xml.contains("<url>https://cryptodashboard.me/frontend/shared/assets/images/logo.svg</url>"));
 
         // Verify items
         assert!(xml.contains("<item>"));
@@ -342,6 +422,8 @@ mod tests {
         assert!(xml.contains("Báo cáo Thị trường Crypto #2"));
         assert!(xml.contains("<link>https://cryptodashboard.me/crypto_report/1</link>"));
         assert!(xml.contains("<guid isPermaLink=\"true\">"));
+        assert!(xml.contains("<category>Báo cáo thị trường</category>"));
+        assert!(xml.contains("<category>Cryptocurrency</category>"));
 
         Ok(())
     }
@@ -353,6 +435,7 @@ mod tests {
         // Should still have valid channel
         assert!(xml.contains("<channel>"));
         assert!(xml.contains("<title>CryptoDashboard"));
+        assert!(xml.contains("<image>"));
         assert!(!xml.contains("<item>"));
 
         Ok(())
@@ -381,6 +464,26 @@ mod tests {
         assert!(!desc.contains('>'));
         assert!(desc.contains("Title"));
         assert!(desc.contains("paragraph"));
+    }
+
+    #[test]
+    fn test_extract_description_filters_script_style_comments() {
+        let html = r#"
+            <div>
+                <style>body { color: red; } .hidden { display: none; }</style>
+                <script>console.log("secret tracker"); const x = 10;</script>
+                <!-- This is a developer comment that should not appear -->
+                <h1>Báo cáo thị trường Crypto</h1>
+                <p>Bitcoin và Ethereum ghi nhận đà tăng trưởng mạnh mẽ trong 24h qua.</p>
+            </div>
+        "#;
+        let desc = RssCreator::extract_description(html, 300);
+
+        assert!(!desc.contains("body {"));
+        assert!(!desc.contains("console.log"));
+        assert!(!desc.contains("developer comment"));
+        assert!(desc.contains("Báo cáo thị trường Crypto"));
+        assert!(desc.contains("Bitcoin và Ethereum"));
     }
 
     #[test]

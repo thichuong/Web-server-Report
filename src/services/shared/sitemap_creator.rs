@@ -125,6 +125,13 @@ impl SitemapCreator {
                 changefreq: ChangeFrequency::Daily,
                 priority: 1.0,
             },
+            // Market Analytics dashboard (Spot vs Futures & OI)
+            SitemapEntry {
+                loc: format!("{BASE_URL}/market_analytics"),
+                lastmod: Some(today.to_string()),
+                changefreq: ChangeFrequency::Daily,
+                priority: 0.9,
+            },
             // Latest crypto report index
             SitemapEntry {
                 loc: format!("{BASE_URL}/crypto_report"),
@@ -248,6 +255,7 @@ mod tests {
 
         // Verify static URLs
         assert!(xml.contains("<loc>https://cryptodashboard.me</loc>"));
+        assert!(xml.contains("<loc>https://cryptodashboard.me/market_analytics</loc>"));
         assert!(xml.contains("<loc>https://cryptodashboard.me/crypto_report</loc>"));
         assert!(xml.contains("<loc>https://cryptodashboard.me/crypto_reports_list</loc>"));
 
