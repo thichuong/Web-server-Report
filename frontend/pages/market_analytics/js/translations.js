@@ -205,10 +205,13 @@ function get_translations_data()
 
     'flow-price-up': { vi: 'Tăng (↑)', en: 'Rising (↑)' },
     'flow-price-down': { vi: 'Giảm (↓)', en: 'Falling (↓)' },
+    'flow-price-flat': { vi: 'Đi ngang (→)', en: 'Flat / Sideway (→)' },
     'flow-buy-up': { vi: 'Mua chủ động ↑', en: 'Aggressive Buy ↑' },
     'flow-sell-up': { vi: 'Bán chủ động ↑', en: 'Aggressive Sell ↑' },
+    'flow-balanced': { vi: 'Cân bằng (≈)', en: 'Balanced (≈)' },
     'flow-oi-surge-up': { vi: 'Tăng mạnh (↑)', en: 'Surging (↑)' },
     'flow-oi-drop-down': { vi: 'Giảm mạnh (↓)', en: 'Dumping (↓)' },
+    'flow-oi-flat': { vi: 'Ít biến động (→)', en: 'Flat / Inactive (→)' },
 
     'long-buildup-nature': { vi: 'Dòng tiền tổ chức/trader nạp vốn mở vị thế Long mới theo xu hướng', en: 'Institutional/trader capital entering fresh Long positions with the trend' },
     'long-buildup-action': { vi: 'Ưu tiên Buy / Long theo Trend', en: 'Prioritize Buy / Long with Trend' },
@@ -218,6 +221,8 @@ function get_translations_data()
     'short-buildup-action': { vi: 'Ưu tiên Sell / Short theo Trend', en: 'Prioritize Sell / Short with Trend' },
     'long-liquidation-nature': { vi: 'Long bị xả thanh lý hàng loạt, giai đoạn rũ bỏ cuối cùng của đợt giảm', en: 'Long positions liquidated in cascades, final capitulation / shakeout phase' },
     'long-liquidation-action': { vi: 'Chốt lời Short, canh bắt đáy hồi phục', en: 'Take profit Short, look for mean-reversion bounce' },
+    'neutral-nature': { vi: 'Dòng tiền cân bằng hoặc đứng ngoài, thị trường tích lũy / chưa rõ xu hướng', en: 'Capital balanced or on the sidelines, consolidating market / no clear trend' },
+    'neutral-action': { vi: 'Đứng ngoài quan sát, chờ tín hiệu xác nhận', en: 'Stay on the sidelines, wait for clear confirmation' },
 
     // Metric Details Grid
     'metrics-detail-title': { vi: 'Ý Nghĩa & Chi Tiết Các Chỉ Số Đo Lường', en: 'Key Metric Definitions & Theoretical Details' },

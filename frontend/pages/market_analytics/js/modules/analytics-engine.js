@@ -270,7 +270,13 @@ export class AnalyticsEngine {
                     oiChangePct = (oiChange / prevOi) * 100;
                     alignedData[i].oiChangePct = oiChangePct;
 
-                    if (priceChange >= 0 && oiChange >= 0) {
+                    const futBuyPct = alignedData[i].futuresBuyPct;
+                    const isBalancedFlow = futBuyPct >= 48 && futBuyPct <= 52;
+                    const isFlatMovement = Math.abs(priceChangePct) < 0.05 && Math.abs(oiChangePct) < 0.05;
+
+                    if (isBalancedFlow || isFlatMovement) {
+                        state = 'NEUTRAL';
+                    } else if (priceChange >= 0 && oiChange >= 0) {
                         state = 'LONG_BUILDUP';
                     } else if (priceChange >= 0 && oiChange < 0) {
                         state = 'SHORT_LIQUIDATION';
@@ -382,23 +388,35 @@ export class AnalyticsEngine {
         if (prevItem) {
             const prevPrice = prevItem.price;
             const priceChange = futPrice - prevPrice;
-            lastItem.priceChangePct = prevPrice > 0 ? (priceChange / prevPrice) * 100 : 0;
+            const priceChangePct = prevPrice > 0 ? (priceChange / prevPrice) * 100 : 0;
+            lastItem.priceChangePct = priceChangePct;
 
+            let state = 'NEUTRAL';
             const currOi = lastItem.openInterestUsdt;
             const prevOi = prevItem.openInterestUsdt;
             if (currOi !== null && prevOi !== null && prevOi > 0) {
                 const oiChange = currOi - prevOi;
-                lastItem.oiChangePct = (oiChange / prevOi) * 100;
-                if (priceChange >= 0 && oiChange >= 0) {
-                    lastItem.marketState = 'LONG_BUILDUP';
+                const oiChangePct = (oiChange / prevOi) * 100;
+                lastItem.oiChangePct = oiChangePct;
+
+                const isBalancedFlow = futBuyPct >= 48 && futBuyPct <= 52;
+                const isFlatMovement = Math.abs(priceChangePct) < 0.05 && Math.abs(oiChangePct) < 0.05;
+
+                if (isBalancedFlow || isFlatMovement) {
+                    state = 'NEUTRAL';
+                } else if (priceChange >= 0 && oiChange >= 0) {
+                    state = 'LONG_BUILDUP';
                 } else if (priceChange >= 0 && oiChange < 0) {
-                    lastItem.marketState = 'SHORT_LIQUIDATION';
+                    state = 'SHORT_LIQUIDATION';
                 } else if (priceChange < 0 && oiChange >= 0) {
-                    lastItem.marketState = 'SHORT_BUILDUP';
+                    state = 'SHORT_BUILDUP';
                 } else if (priceChange < 0 && oiChange < 0) {
-                    lastItem.marketState = 'LONG_LIQUIDATION';
+                    state = 'LONG_LIQUIDATION';
                 }
             }
+            lastItem.marketState = state;
+        } else {
+            lastItem.marketState = 'NEUTRAL';
         }
 
         // Fast rolling Pearson correlation for the latest point only

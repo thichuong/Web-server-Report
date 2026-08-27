@@ -283,7 +283,6 @@ const TABLE_COLUMNS = [
                     stateTag = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30">Long Build-up</span>';
                     break;
                 case 'SHORT_LIQUIDATION':
-                case 'SHORT_SQUEEZE':
                     stateTag = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 dark:bg-yellow-500/20 dark:text-yellow-400 dark:border-yellow-500/30">Short Liquidation</span>';
                     break;
                 case 'SHORT_BUILDUP':
@@ -292,6 +291,7 @@ const TABLE_COLUMNS = [
                 case 'LONG_LIQUIDATION':
                     stateTag = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-300 dark:bg-indigo-500/20 dark:text-indigo-400 dark:border-indigo-500/30">Long Liquidation</span>';
                     break;
+                case 'NEUTRAL':
                 default:
                     stateTag = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-700 border border-gray-300 dark:bg-gray-500/20 dark:text-gray-400 dark:border-gray-500/30">Neutral</span>';
             }
@@ -314,7 +314,6 @@ const STACKED_COLUMNS = [
                     stateTag = '<span class="px-2.5 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30">Long Build-up</span>';
                     break;
                 case 'SHORT_LIQUIDATION':
-                case 'SHORT_SQUEEZE':
                     stateTag = '<span class="px-2.5 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 dark:bg-yellow-500/20 dark:text-yellow-400 dark:border-yellow-500/30">Short Liquidation</span>';
                     break;
                 case 'SHORT_BUILDUP':
@@ -323,6 +322,7 @@ const STACKED_COLUMNS = [
                 case 'LONG_LIQUIDATION':
                     stateTag = '<span class="px-2.5 py-0.5 rounded text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-300 dark:bg-indigo-500/20 dark:text-indigo-400 dark:border-indigo-500/30">Long Liquidation</span>';
                     break;
+                case 'NEUTRAL':
                 default:
                     stateTag = '<span class="px-2.5 py-0.5 rounded text-xs font-bold bg-gray-100 text-gray-700 border border-gray-300 dark:bg-gray-500/20 dark:text-gray-400 dark:border-gray-500/30">Neutral</span>';
             }

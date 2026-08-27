@@ -1018,7 +1018,6 @@ export class MarketAnalyticsApp {
                     this.el.kpiMarketStateDesc.textContent = isVi ? 'Giá tăng + Vị thế mở tăng: Dòng tiền mở Long áp đảo' : 'Price ↑ + OI ↑: Aggressive Long build-up';
                     break;
                 case 'SHORT_LIQUIDATION':
-                case 'SHORT_SQUEEZE':
                     this.el.kpiMarketStateBadge.textContent = 'Short Liquidation';
                     this.el.kpiMarketStateBadge.className = 'text-lg font-bold text-yellow-500';
                     this.el.kpiMarketStateDesc.textContent = isVi ? 'Giá tăng + Vị thế mở giảm: Tăng do Short bị thanh lý/cắt lỗ' : 'Price ↑ + OI ↓: Rally driven by Short liquidation';
@@ -1033,6 +1032,7 @@ export class MarketAnalyticsApp {
                     this.el.kpiMarketStateBadge.className = 'text-lg font-bold text-indigo-500';
                     this.el.kpiMarketStateDesc.textContent = isVi ? 'Giá giảm + Vị thế mở giảm: Long bị thanh lý / rời bỏ vị thế' : 'Price ↓ + OI ↓: Long capitulation & liquidation';
                     break;
+                case 'NEUTRAL':
                 default:
                     this.el.kpiMarketStateBadge.textContent = 'Neutral';
                     this.el.kpiMarketStateBadge.className = 'text-lg font-bold text-gray-500';
