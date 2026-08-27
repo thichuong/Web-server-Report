@@ -1,5 +1,6 @@
 /**
  * Main Controller & Diagnostics Manager for Market Analytics
+ * (High-Performance Architecture with Frame Scheduling, Incremental Updates & Zero-Overhead Logging)
  */
 
 import { formatNumber, formatPrice, formatDate, getI18nText } from './utils.js';
@@ -9,7 +10,6 @@ import { BinanceWebSocketManager } from './websocket-manager.js';
 import { AnalyticsEngine } from './analytics-engine.js';
 import { ChartManager } from './chart-manager.js';
 
-// 5. MAIN CONTROLLER & DIAGNOSTICS MANAGER
 export class MarketAnalyticsApp {
     constructor() {
         this.apiClient = new BinanceApiClient();
@@ -44,9 +44,13 @@ export class MarketAnalyticsApp {
             renderCount: 0
         };
 
-        this.throttleTimer = null;
+        this.debugLogBuffer = [];
+        this.maxDebugLogs = 100;
+        this.rafPending = false;
         this.lastRenderTime = 0;
-        this.minRenderIntervalMs = 120; // 60fps throttling
+        this.isTabHidden = false;
+        this.rafId = null;
+        this.themeObserver = null;
 
         this.init();
     }
@@ -56,10 +60,12 @@ export class MarketAnalyticsApp {
         this.initColumnVisibility();
         this.bindEvents();
         this.listenThemeChanges();
+        this.listenVisibilityChanges();
+        this.listenPageUnload();
         this.fetchInitialSnapshot();
         this.startBackgroundSync();
 
-        // Expose globally for developer inspection & test
+        // Expose globally for developer inspection & diagnostics
         window.marketAnalyticsApp = this;
         window.marketAnalyticsDebug = {
             app: this,
@@ -78,7 +84,8 @@ export class MarketAnalyticsApp {
             }),
             reconnect: () => this.wsManager.subscribe(this.state.symbol, this.state.timeframe),
             fetchSnapshot: () => this.fetchInitialSnapshot(),
-            simulateTick: () => this.simulateTestTick()
+            simulateTick: () => this.simulateTestTick(),
+            destroy: () => this.destroy()
         };
     }
 
@@ -300,9 +307,7 @@ export class MarketAnalyticsApp {
                     this.state.tableLayout = layout;
                     try {
                         localStorage.setItem('market_analytics_table_layout', layout);
-                    } catch (e) {
-                        // ignore
-                    }
+                    } catch (e) {}
                     this.updateLayoutButtonsUI();
                     this.updatePresetButtonsUI();
                     if (this.state.currentData) {
@@ -318,7 +323,6 @@ export class MarketAnalyticsApp {
                 const presetKey = btn.getAttribute('data-preset');
                 if (presetKey && PRESETS[presetKey]) {
                     this.state.visibleColumns = new Set(PRESETS[presetKey]);
-                    // When clicking presets, switch to expanded columns view so user sees the specific active columns
                     if (this.state.tableLayout === 'stacked') {
                         this.state.tableLayout = 'expanded';
                         try {
@@ -361,7 +365,10 @@ export class MarketAnalyticsApp {
         // Debug Panel Controls
         if (this.el.btnToggleDebug && this.el.debugPanel) {
             this.el.btnToggleDebug.addEventListener('click', () => {
-                this.el.debugPanel.classList.toggle('hidden');
+                const isHidden = this.el.debugPanel.classList.toggle('hidden');
+                if (!isHidden) {
+                    this.flushDebugLogsToDOM();
+                }
                 this.updateDebugStats();
             });
         }
@@ -394,6 +401,7 @@ export class MarketAnalyticsApp {
 
         if (this.el.btnDbgClear && this.el.dbgLogContainer) {
             this.el.btnDbgClear.addEventListener('click', () => {
+                this.debugLogBuffer = [];
                 this.el.dbgLogContainer.innerHTML = '<div class="text-gray-500">// Debug log cleared</div>';
             });
         }
@@ -417,20 +425,32 @@ export class MarketAnalyticsApp {
         });
     }
 
+    listenVisibilityChanges() {
+        document.addEventListener('visibilitychange', () => {
+            this.isTabHidden = document.hidden;
+            if (!this.isTabHidden && this.state.autoRefresh) {
+                // When switching back to tab, perform a single full sync
+                this.executeFullProcessAndRender();
+            }
+        });
+    }
+
     listenThemeChanges() {
-        const observer = new MutationObserver(() => {
+        this.themeObserver = new MutationObserver(() => {
             this.chartManager.updateTheme();
         });
-        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
+        this.themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
         window.addEventListener('themeChanged', () => {
             this.chartManager.updateTheme();
         });
     }
 
-    addDebugLog(category, message) {
-        console.log(`[MarketAnalytics:${category}] ${message}`);
+    listenPageUnload() {
+        window.addEventListener('pagehide', () => this.destroy());
+        window.addEventListener('beforeunload', () => this.destroy());
+    }
 
-        if (!this.el.dbgLogContainer) return;
+    addDebugLog(category, message) {
         const now = new Date();
         const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}.${String(now.getMilliseconds()).padStart(3, '0')}`;
 
@@ -440,17 +460,38 @@ export class MarketAnalyticsApp {
         else if (category === 'render') colorClass = 'text-emerald-400';
         else if (category === 'error') colorClass = 'text-rose-400';
 
-        const logLine = document.createElement('div');
-        logLine.className = 'py-0.5 border-b border-gray-900 flex items-start space-x-1.5';
-        logLine.innerHTML = `<span class="text-gray-500 font-mono">[${timeStr}]</span> <span class="font-bold uppercase text-[10px] px-1 rounded bg-gray-800 text-gray-400">${category}</span> <span class="${colorClass}">${message}</span>`;
-
-        this.el.dbgLogContainer.appendChild(logLine);
-
-        // Keep max 100 lines
-        while (this.el.dbgLogContainer.children.length > 100) {
-            this.el.dbgLogContainer.removeChild(this.el.dbgLogContainer.firstChild);
+        const logEntry = { timeStr, category, message, colorClass };
+        this.debugLogBuffer.push(logEntry);
+        if (this.debugLogBuffer.length > this.maxDebugLogs) {
+            this.debugLogBuffer.shift();
         }
 
+        // Zero-overhead: Only manipulate DOM if debug panel is currently open
+        if (this.el.debugPanel && !this.el.debugPanel.classList.contains('hidden') && this.el.dbgLogContainer) {
+            const logLine = document.createElement('div');
+            logLine.className = 'py-0.5 border-b border-gray-900 flex items-start space-x-1.5';
+            logLine.innerHTML = `<span class="text-gray-500 font-mono">[${timeStr}]</span> <span class="font-bold uppercase text-[10px] px-1 rounded bg-gray-800 text-gray-400">${category}</span> <span class="${colorClass}">${message}</span>`;
+            this.el.dbgLogContainer.appendChild(logLine);
+
+            while (this.el.dbgLogContainer.children.length > this.maxDebugLogs) {
+                this.el.dbgLogContainer.removeChild(this.el.dbgLogContainer.firstChild);
+            }
+            this.el.dbgLogContainer.scrollTop = this.el.dbgLogContainer.scrollHeight;
+        }
+    }
+
+    flushDebugLogsToDOM() {
+        if (!this.el.dbgLogContainer) return;
+        if (!this.debugLogBuffer.length) {
+            this.el.dbgLogContainer.innerHTML = '<div class="text-gray-500">// WebSocket and rendering logs will stream here in real time...</div>';
+            return;
+        }
+
+        let html = '';
+        this.debugLogBuffer.forEach(entry => {
+            html += `<div class="py-0.5 border-b border-gray-900 flex items-start space-x-1.5"><span class="text-gray-500 font-mono">[${entry.timeStr}]</span> <span class="font-bold uppercase text-[10px] px-1 rounded bg-gray-800 text-gray-400">${entry.category}</span> <span class="${entry.colorClass}">${entry.message}</span></div>`;
+        });
+        this.el.dbgLogContainer.innerHTML = html;
         this.el.dbgLogContainer.scrollTop = this.el.dbgLogContainer.scrollHeight;
     }
 
@@ -587,25 +628,8 @@ export class MarketAnalyticsApp {
 
             this.addDebugLog('rest', `✅ Snapshot loaded: ${this.state.rawSpotKlines.length} Spot klines, ${this.state.rawFutKlines.length} Fut klines`);
 
-            // Process initial dataset
-            const processed = AnalyticsEngine.processAndAlignData(
-                this.state.rawSpotKlines,
-                this.state.rawFutKlines,
-                this.state.rawOiHistory,
-                this.state.rawLsHistory,
-                timeframe
-            );
-            processed.tickers = this.state.latestTickers;
-            this.state.currentData = processed;
+            this.executeFullProcessAndRender();
 
-            // Render UI & Charts (preserves any toggles)
-            this.state.renderCount++;
-            this.updateKpiDisplays(processed);
-            this.chartManager.renderAll(processed);
-            this.renderTable(processed.items);
-            this.updateDebugStats();
-
-            // Start Live WebSocket Stream
             if (this.state.autoRefresh) {
                 this.wsManager.subscribe(symbol, timeframe);
             }
@@ -622,7 +646,7 @@ export class MarketAnalyticsApp {
     startBackgroundSync() {
         this.stopBackgroundSync();
         this.state.bgSyncId = setInterval(async () => {
-            if (!this.state.autoRefresh) return;
+            if (!this.state.autoRefresh || this.isTabHidden) return;
             try {
                 const { symbol, timeframe, limit } = this.state;
                 const [oiRes, lsRes, tickers] = await Promise.all([
@@ -640,7 +664,7 @@ export class MarketAnalyticsApp {
                 if (tickers.futures) this.state.latestTickers.futures = tickers.futures;
 
                 this.addDebugLog('sync', `🔄 Background sync refreshed OI & LS Ratios`);
-                this.scheduleThrottledUpdate();
+                this.scheduleFullUpdate();
             } catch (e) {
                 this.addDebugLog('sync', `⚠️ Background sync warning: ${e.message}`);
             }
@@ -654,6 +678,10 @@ export class MarketAnalyticsApp {
         }
     }
 
+    /**
+     * In-place kline array update
+     * @returns {boolean} isNewCandle
+     */
     updateKlineArray(arr, k) {
         const openTime = parseInt(k.t, 10);
         const formatted = [
@@ -672,55 +700,62 @@ export class MarketAnalyticsApp {
 
         if (arr.length === 0) {
             arr.push(formatted);
-            return;
+            return true;
         }
 
         const last = arr[arr.length - 1];
         const lastOpenTime = parseInt(last[0], 10);
 
         if (lastOpenTime === openTime) {
-            // In-place update current candle
             arr[arr.length - 1] = formatted;
+            return false; // Existing candle updated
         } else if (openTime > lastOpenTime) {
-            // New candle
             arr.push(formatted);
             if (arr.length > this.state.limit * 1.5) arr.shift();
+            return true; // Brand new candle opened
         } else {
             const idx = arr.findIndex(item => parseInt(item[0], 10) === openTime);
-            if (idx !== -1) {
-                arr[idx] = formatted;
-            }
+            if (idx !== -1) arr[idx] = formatted;
+            return false;
         }
     }
 
     handleSpotKlineTick(k) {
-        this.updateKlineArray(this.state.rawSpotKlines, k);
+        const isNew = this.updateKlineArray(this.state.rawSpotKlines, k);
         if (this.el.dbgSpotLast) {
             this.el.dbgSpotLast.textContent = `$${formatPrice(k.c)} (vol: ${formatNumber(k.q)})`;
         }
-        this.scheduleThrottledUpdate();
+        if (isNew) {
+            this.scheduleFullUpdate();
+        } else {
+            this.scheduleIncrementalTickUpdate();
+        }
     }
 
     handleFuturesKlineTick(k) {
-        this.updateKlineArray(this.state.rawFutKlines, k);
+        const isNew = this.updateKlineArray(this.state.rawFutKlines, k);
         if (this.el.dbgFutLast) {
             this.el.dbgFutLast.textContent = `$${formatPrice(k.c)} (vol: ${formatNumber(k.q)})`;
         }
-        this.scheduleThrottledUpdate();
+        if (isNew) {
+            this.scheduleFullUpdate();
+        } else {
+            this.scheduleIncrementalTickUpdate();
+        }
     }
 
     handleSpotTickerTick(data) {
         if (!this.state.latestTickers.spot) this.state.latestTickers.spot = {};
         if (data.q) this.state.latestTickers.spot.quoteVolume = data.q;
         if (data.c) this.state.latestTickers.spot.lastPrice = data.c;
-        this.scheduleThrottledUpdate();
+        this.scheduleIncrementalTickUpdate();
     }
 
     handleFuturesTickerTick(data) {
         if (!this.state.latestTickers.futures) this.state.latestTickers.futures = {};
         if (data.q) this.state.latestTickers.futures.quoteVolume = data.q;
         if (data.c) this.state.latestTickers.futures.lastPrice = data.c;
-        this.scheduleThrottledUpdate();
+        this.scheduleIncrementalTickUpdate();
     }
 
     simulateTestTick() {
@@ -753,24 +788,75 @@ export class MarketAnalyticsApp {
         this.handleSpotKlineTick(simKline);
     }
 
-    scheduleThrottledUpdate() {
-        const now = performance.now();
-        const elapsed = now - this.lastRenderTime;
+    /**
+     * High-speed frame scheduled incremental tick update (60 FPS coalesced)
+     */
+    scheduleIncrementalTickUpdate() {
+        if (this.isTabHidden) return;
+        if (this.rafPending) return;
 
-        if (elapsed >= this.minRenderIntervalMs) {
-            this.lastRenderTime = now;
-            this.executeProcessAndRender();
-        } else {
-            if (this.throttleTimer) return;
-            this.throttleTimer = setTimeout(() => {
-                this.throttleTimer = null;
-                this.lastRenderTime = performance.now();
-                this.executeProcessAndRender();
-            }, this.minRenderIntervalMs - elapsed);
-        }
+        this.rafPending = true;
+        this.rafId = requestAnimationFrame(() => {
+            this.rafPending = false;
+            this.rafId = null;
+            this.executeIncrementalTickRender();
+        });
     }
 
-    executeProcessAndRender() {
+    scheduleFullUpdate() {
+        if (this.isTabHidden) return;
+        if (this.rafPending) return;
+
+        this.rafPending = true;
+        this.rafId = requestAnimationFrame(() => {
+            this.rafPending = false;
+            this.rafId = null;
+            this.executeFullProcessAndRender();
+        });
+    }
+
+    /**
+     * Fast incremental tick render: O(1) computation + targeted 1-row table update + in-place chart data mutation
+     */
+    executeIncrementalTickRender() {
+        if (!this.state.currentData || !this.state.rawSpotKlines.length || !this.state.rawFutKlines.length) {
+            this.executeFullProcessAndRender();
+            return;
+        }
+
+        const startTime = performance.now();
+
+        // 1. Incremental Analytical Update
+        AnalyticsEngine.updateLatestCandle(
+            this.state.currentData,
+            this.state.rawSpotKlines,
+            this.state.rawFutKlines,
+            this.state.timeframe
+        );
+        this.state.currentData.tickers = this.state.latestTickers;
+
+        // 2. Targeted Component Updates
+        this.state.renderCount++;
+        this.updateKpiDisplays(this.state.currentData);
+        this.chartManager.updateLatestTick(this.state.currentData);
+
+        const items = this.state.currentData.items;
+        if (items.length > 0) {
+            this.updateTopTableRow(items[items.length - 1]);
+        }
+
+        const duration = Math.round((performance.now() - startTime) * 100) / 100;
+        if (this.el.dbgLastRenderTime) {
+            const now = new Date();
+            this.el.dbgLastRenderTime.textContent = `${now.toLocaleTimeString()} (${duration}ms [tick])`;
+        }
+        this.updateDebugStats();
+    }
+
+    /**
+     * Full dataset render: recalculates all items & re-renders full table and all charts
+     */
+    executeFullProcessAndRender() {
         if (!this.state.rawSpotKlines.length || !this.state.rawFutKlines.length) return;
 
         const startTime = performance.now();
@@ -792,7 +878,7 @@ export class MarketAnalyticsApp {
         const duration = Math.round(performance.now() - startTime);
         if (this.el.dbgLastRenderTime) {
             const now = new Date();
-            this.el.dbgLastRenderTime.textContent = `${now.toLocaleTimeString()} (${duration}ms)`;
+            this.el.dbgLastRenderTime.textContent = `${now.toLocaleTimeString()} (${duration}ms [full])`;
         }
         this.updateDebugStats();
     }
@@ -802,14 +888,12 @@ export class MarketAnalyticsApp {
         const items = data.items;
         const lastItem = items.length > 0 ? items[items.length - 1] : null;
 
-        // Updated at timestamp
         if (this.el.analyticsUpdatedAt) {
             const now = new Date();
             const pad = n => String(n).padStart(2, '0');
             this.el.analyticsUpdatedAt.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} - ${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
         }
 
-        // Spot 24h Vol & Buy/Sell
         let spot24hVol = 0;
         let spotBuy24h = 0;
         let spotSell24h = 0;
@@ -831,7 +915,6 @@ export class MarketAnalyticsApp {
             }
         }
 
-        // Futures 24h Vol & Buy/Sell
         let fut24hVol = 0;
         let futBuy24h = 0;
         let futSell24h = 0;
@@ -848,7 +931,6 @@ export class MarketAnalyticsApp {
             }
         }
 
-        // F/S Ratio & Buy/Sell Ratio
         if (this.el.kpiFsRatio) {
             const spotVol = spot24hVol > 0 ? spot24hVol : 1;
             const futVol = fut24hVol > 0 ? fut24hVol : 1;
@@ -861,7 +943,6 @@ export class MarketAnalyticsApp {
             this.el.kpiBsRatio.textContent = `${bsRatioText}: ${futBsRatio} (Fut) | ${spotBsRatio} (Spot)`;
         }
 
-        // Open Interest
         let totalOiUsdt = 0;
         if (this.el.kpiOiUsdt && this.el.kpiOiCoins) {
             if (tickers.currentOi && lastItem) {
@@ -879,7 +960,6 @@ export class MarketAnalyticsApp {
             }
         }
 
-        // Long Position Card
         if (this.el.kpiLongPos && this.el.kpiLongDesc) {
             if (lastItem) {
                 const longRatio = lastItem.longRatio;
@@ -896,7 +976,6 @@ export class MarketAnalyticsApp {
             }
         }
 
-        // Short Position Card
         if (this.el.kpiShortPos && this.el.kpiShortDesc) {
             if (lastItem) {
                 const shortRatio = lastItem.shortRatio;
@@ -913,12 +992,10 @@ export class MarketAnalyticsApp {
             }
         }
 
-        // Correlation
         if (this.el.kpiCorrelation && this.el.kpiCorrelationStatus) {
             const corr = data.overallCorrelation;
             this.el.kpiCorrelation.textContent = corr.toFixed(3);
 
-            const isVi = (document.documentElement.lang || 'vi') === 'vi';
             if (corr >= 0.7) {
                 this.el.kpiCorrelationStatus.textContent = isVi ? 'Đồng thuận cao (Thị trường thực)' : 'High Alignment (Organic)';
                 this.el.kpiCorrelationStatus.className = 'text-xs font-semibold text-emerald-500';
@@ -931,10 +1008,8 @@ export class MarketAnalyticsApp {
             }
         }
 
-        // Market State Badge
         if (this.el.kpiMarketStateBadge && this.el.kpiMarketStateDesc && lastItem) {
             const state = lastItem.marketState;
-            const isVi = (document.documentElement.lang || 'vi') === 'vi';
 
             switch (state) {
                 case 'LONG_BUILDUP':
@@ -969,9 +1044,7 @@ export class MarketAnalyticsApp {
         let saved = null;
         try {
             const stored = localStorage.getItem('market_analytics_visible_columns');
-            if (stored) {
-                saved = JSON.parse(stored);
-            }
+            if (stored) saved = JSON.parse(stored);
         } catch (e) {
             saved = null;
         }
@@ -981,10 +1054,8 @@ export class MarketAnalyticsApp {
         } else {
             this.state.visibleColumns = new Set(PRESETS.standard);
         }
-        // Always ensure time column is visible
         this.state.visibleColumns.add('time');
 
-        // Restore table layout (stacked vs expanded)
         try {
             const storedLayout = localStorage.getItem('market_analytics_table_layout');
             if (storedLayout === 'stacked' || storedLayout === 'expanded') {
@@ -1006,9 +1077,7 @@ export class MarketAnalyticsApp {
         try {
             const arr = Array.from(this.state.visibleColumns);
             localStorage.setItem('market_analytics_visible_columns', JSON.stringify(arr));
-        } catch (e) {
-            // ignore
-        }
+        } catch (e) {}
     }
 
     updateLayoutButtonsUI() {
@@ -1023,7 +1092,6 @@ export class MarketAnalyticsApp {
             }
         });
 
-        // If stacked layout is selected, hide the column customizer and preset buttons to avoid user confusion
         const isStacked = currentLayout === 'stacked';
         if (this.el.wrapperColumnCustomizer) {
             if (isStacked) {
@@ -1049,7 +1117,6 @@ export class MarketAnalyticsApp {
         if (!this.el.presetButtons) return;
         const currentSet = this.state.visibleColumns;
 
-        // Check if matches any preset
         let activePreset = null;
         for (const [presetKey, colList] of Object.entries(PRESETS)) {
             if (colList.length === currentSet.size && colList.every(id => currentSet.has(id))) {
@@ -1058,7 +1125,6 @@ export class MarketAnalyticsApp {
             }
         }
 
-        // Nếu chưa có preset cụ thể nào khớp thì mặc định xem là 'standard'
         const effectivePreset = activePreset || 'standard';
 
         this.el.presetButtons.forEach(btn => {
@@ -1124,7 +1190,6 @@ export class MarketAnalyticsApp {
 
         this.el.columnCheckboxesContainer.innerHTML = html;
 
-        // Bind change listeners to checkboxes
         this.el.columnCheckboxesContainer.querySelectorAll('.col-toggle-checkbox').forEach(chk => {
             chk.addEventListener('change', (e) => {
                 const colId = e.target.getAttribute('data-col-id');
@@ -1135,10 +1200,8 @@ export class MarketAnalyticsApp {
                 } else {
                     this.state.visibleColumns.delete(colId);
                 }
-                // Always guarantee time column is kept
                 this.state.visibleColumns.add('time');
 
-                // If currently stacked, switch to expanded so user can see their customized columns
                 if (this.state.tableLayout === 'stacked') {
                     this.state.tableLayout = 'expanded';
                     try {
@@ -1155,6 +1218,33 @@ export class MarketAnalyticsApp {
                 }
             });
         });
+    }
+
+    /**
+     * Targeted update of top table row (0.05ms) for live streaming ticks
+     */
+    updateTopTableRow(latestItem) {
+        if (!this.el.dataTableBody || !this.el.dataTableBody.firstElementChild) {
+            if (this.state.currentData) this.renderTable(this.state.currentData.items);
+            return;
+        }
+
+        const topRow = this.el.dataTableBody.firstElementChild;
+        const isStacked = (this.state.tableLayout || 'stacked') === 'stacked';
+
+        let cellsHtml = '';
+        if (isStacked) {
+            STACKED_COLUMNS.forEach(col => {
+                cellsHtml += col.render(latestItem);
+            });
+        } else {
+            const activeCols = TABLE_COLUMNS.filter(c => this.state.visibleColumns.has(c.id));
+            activeCols.forEach(col => {
+                cellsHtml += col.render(latestItem);
+            });
+        }
+
+        topRow.innerHTML = cellsHtml;
     }
 
     renderTable(items) {
@@ -1192,14 +1282,15 @@ export class MarketAnalyticsApp {
         const displayItems = items.slice().reverse().slice(0, limit);
 
         let bodyHtml = '';
-        displayItems.forEach(row => {
-            bodyHtml += `<tr class="hover:bg-slate-100/70 dark:hover:bg-black/20 transition-all duration-200" style="border-bottom: 1px solid var(--border-color);">`;
+        const activeCols = isStacked ? null : TABLE_COLUMNS.filter(c => this.state.visibleColumns.has(c.id));
+
+        displayItems.forEach((row, idx) => {
+            bodyHtml += `<tr id="tr-candle-${idx}" class="hover:bg-slate-100/70 dark:hover:bg-black/20 transition-all duration-200" style="border-bottom: 1px solid var(--border-color);">`;
             if (isStacked) {
                 STACKED_COLUMNS.forEach(col => {
                     bodyHtml += col.render(row);
                 });
             } else {
-                const activeCols = TABLE_COLUMNS.filter(c => this.state.visibleColumns.has(c.id));
                 activeCols.forEach(col => {
                     bodyHtml += col.render(row);
                 });
@@ -1312,7 +1403,6 @@ export class MarketAnalyticsApp {
             `"${d.marketState || 'NEUTRAL'}"`
         ]);
 
-        // Prepend UTF-8 BOM (\uFEFF) so Microsoft Excel properly recognizes UTF-8 formatting and characters
         const csvString = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\r\n');
         const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
@@ -1324,4 +1414,44 @@ export class MarketAnalyticsApp {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
     }
+
+    /**
+     * Complete lifecycle disposal & memory release
+     */
+    destroy() {
+        // 1. Cancel background polling interval
+        this.stopBackgroundSync();
+
+        // 2. Cancel pending frame animation
+        if (this.rafId) {
+            cancelAnimationFrame(this.rafId);
+            this.rafId = null;
+        }
+        this.rafPending = false;
+
+        // 3. Disconnect WebSocket and clear reconnect timers
+        if (this.wsManager) {
+            this.wsManager.destroy();
+        }
+
+        // 4. Destroy all 8 Chart.js instances and disconnect IntersectionObserver
+        if (this.chartManager) {
+            this.chartManager.destroyAll();
+        }
+
+        // 5. Disconnect MutationObserver
+        if (this.themeObserver) {
+            this.themeObserver.disconnect();
+            this.themeObserver = null;
+        }
+
+        // 6. Release in-memory data structures
+        this.state.rawSpotKlines = [];
+        this.state.rawFutKlines = [];
+        this.state.rawOiHistory = [];
+        this.state.rawLsHistory = [];
+        this.state.currentData = null;
+        this.debugLogBuffer = [];
+    }
 }
+

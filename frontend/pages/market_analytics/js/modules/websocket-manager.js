@@ -1,8 +1,8 @@
 /**
  * Binance WebSocket Manager (Dual Independent Streams for Spot & Futures)
+ * With Robust Lifecycle Management, Timer Disposal & Zero-Leak Disconnect
  */
 
-// 2. BINANCE WEBSOCKET MANAGER (Dual Independent Streams for Spot & Futures)
 export class BinanceWebSocketManager {
     constructor(config = {}) {
         this.spotWs = null;
@@ -17,6 +17,9 @@ export class BinanceWebSocketManager {
         this.spotReconnectAttempts = 0;
         this.futuresReconnectAttempts = 0;
         this.maxReconnectAttempts = 12;
+
+        this.spotReconnectTimer = null;
+        this.futuresReconnectTimer = null;
 
         this.onSpotKline = config.onSpotKline || (() => {});
         this.onFuturesKline = config.onFuturesKline || (() => {});
@@ -34,6 +37,17 @@ export class BinanceWebSocketManager {
         this.connectFutures();
     }
 
+    clearReconnectTimers() {
+        if (this.spotReconnectTimer) {
+            clearTimeout(this.spotReconnectTimer);
+            this.spotReconnectTimer = null;
+        }
+        if (this.futuresReconnectTimer) {
+            clearTimeout(this.futuresReconnectTimer);
+            this.futuresReconnectTimer = null;
+        }
+    }
+
     connectSpot() {
         if (!this.currentSymbol || !this.currentTimeframe) return;
         const sym = this.currentSymbol;
@@ -43,7 +57,6 @@ export class BinanceWebSocketManager {
         this.onStatusChange('spot', 'connecting');
 
         try {
-            // Try combined stream on port 9443
             const url = `wss://stream.binance.com:9443/stream?streams=${sym}@kline_${tf}/${sym}@ticker`;
             this.spotWs = new WebSocket(url);
 
@@ -98,7 +111,6 @@ export class BinanceWebSocketManager {
         this.onStatusChange('futures', 'connecting');
 
         try {
-            // Futures combined stream (Binance upgraded USDS-M Futures to dedicated /market base endpoint)
             const url = `wss://fstream.binance.com/market/stream?streams=${sym}@kline_${tf}/${sym}@ticker`;
             this.futuresWs = new WebSocket(url);
 
@@ -152,7 +164,12 @@ export class BinanceWebSocketManager {
         this.spotReconnectAttempts++;
         const delay = Math.min(1000 * Math.pow(1.5, this.spotReconnectAttempts), 10000);
         this.onLog('spot', `🔄 Reconnecting Spot WS in ${Math.round(delay)}ms... (Attempt ${this.spotReconnectAttempts})`);
-        setTimeout(() => this.connectSpot(), delay);
+        
+        if (this.spotReconnectTimer) clearTimeout(this.spotReconnectTimer);
+        this.spotReconnectTimer = setTimeout(() => {
+            this.spotReconnectTimer = null;
+            this.connectSpot();
+        }, delay);
     }
 
     scheduleFuturesReconnect() {
@@ -163,23 +180,51 @@ export class BinanceWebSocketManager {
         this.futuresReconnectAttempts++;
         const delay = Math.min(1000 * Math.pow(1.5, this.futuresReconnectAttempts), 10000);
         this.onLog('futures', `🔄 Reconnecting Futures WS in ${Math.round(delay)}ms... (Attempt ${this.futuresReconnectAttempts})`);
-        setTimeout(() => this.connectFutures(), delay);
+        
+        if (this.futuresReconnectTimer) clearTimeout(this.futuresReconnectTimer);
+        this.futuresReconnectTimer = setTimeout(() => {
+            this.futuresReconnectTimer = null;
+            this.connectFutures();
+        }, delay);
     }
 
     disconnect() {
+        this.clearReconnectTimers();
+
         if (this.spotWs) {
+            this.spotWs.onopen = null;
+            this.spotWs.onmessage = null;
+            this.spotWs.onerror = null;
             this.spotWs.onclose = null;
-            this.spotWs.close();
+            try {
+                this.spotWs.close(1000, 'Client closed connection');
+            } catch (e) {}
             this.spotWs = null;
         }
+
         if (this.futuresWs) {
+            this.futuresWs.onopen = null;
+            this.futuresWs.onmessage = null;
+            this.futuresWs.onerror = null;
             this.futuresWs.onclose = null;
-            this.futuresWs.close();
+            try {
+                this.futuresWs.close(1000, 'Client closed connection');
+            } catch (e) {}
             this.futuresWs = null;
         }
+
         this.spotConnected = false;
         this.futuresConnected = false;
         this.onStatusChange('all', 'disconnected');
     }
-}
 
+    destroy() {
+        this.disconnect();
+        this.onSpotKline = () => {};
+        this.onFuturesKline = () => {};
+        this.onSpotTicker = () => {};
+        this.onFuturesTicker = () => {};
+        this.onStatusChange = () => {};
+        this.onLog = () => {};
+    }
+}

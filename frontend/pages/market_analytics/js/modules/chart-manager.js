@@ -1,10 +1,9 @@
 /**
- * Chart Manager (In-Place Updates with Absolute Legend State Preservation)
+ * Chart Manager (In-Place Updates with Viewport IntersectionObserver & Absolute Legend State Preservation)
  */
 
-import { formatNumber, formatPrice, formatDate, getI18nText } from './utils.js';
+import { formatNumber, formatPrice } from './utils.js';
 
-// 4. CHART MANAGER (In-Place Updates with Absolute Legend State Preservation)
 export class ChartManager {
     constructor() {
         this.charts = {
@@ -18,6 +17,48 @@ export class ChartManager {
             correlationCvd: null
         };
         this.savedVisibility = {};
+        this.visibleCharts = new Set();
+        this.observer = null;
+
+        this.initIntersectionObserver();
+    }
+
+    initIntersectionObserver() {
+        const chartElementMap = {
+            'chart-price-volume': 'priceVolume',
+            'chart-buy-sell-breakdown': 'buySellBreakdown',
+            'chart-net-taker-delta': 'netTakerDelta',
+            'chart-correlation-cvd': 'correlationCvd',
+            'chart-open-interest': 'openInterest',
+            'chart-long-short-ratio': 'longShortRatio',
+            'chart-volume-delta': 'volumeDelta',
+            'chart-long-short-spot': 'longShortSpot'
+        };
+
+        if (typeof IntersectionObserver === 'undefined') {
+            Object.values(chartElementMap).forEach(k => this.visibleCharts.add(k));
+            return;
+        }
+
+        this.observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                const chartKey = chartElementMap[entry.target.id];
+                if (chartKey) {
+                    if (entry.isIntersecting) {
+                        this.visibleCharts.add(chartKey);
+                        const chart = this.charts[chartKey];
+                        if (chart) chart.update('none');
+                    } else {
+                        this.visibleCharts.delete(chartKey);
+                    }
+                }
+            });
+        }, { rootMargin: '100px' });
+
+        Object.keys(chartElementMap).forEach(id => {
+            const el = document.getElementById(id);
+            if (el) this.observer.observe(el);
+        });
     }
 
     saveVisibility(chartKey) {
@@ -99,6 +140,111 @@ export class ChartManager {
         this.renderLongShortRatioChart(data.items, labels, colors);
         this.renderVolumeDeltaChart(data.items, labels, colors);
         this.renderLongShortSpotChart(data.items, labels, colors);
+    }
+
+    /**
+     * Fast in-place update for live streaming ticks (Only updates the last data point)
+     */
+    updateLatestTick(data) {
+        if (!data || !data.items || !data.items.length) return;
+        const items = data.items;
+        const lastIdx = items.length - 1;
+        const lastItem = items[lastIdx];
+        const colors = this.getThemeColors();
+
+        // 1. Price & Volume
+        if (this.charts.priceVolume) {
+            const chart = this.charts.priceVolume;
+            const ds = chart.data.datasets;
+            ds[0].data[lastIdx] = lastItem.price;
+            ds[1].data[lastIdx] = lastItem.spotVolumeUsdt;
+            ds[2].data[lastIdx] = lastItem.futuresVolumeUsdt;
+            if (this.visibleCharts.has('priceVolume')) chart.update('none');
+        }
+
+        // 2. Buy/Sell Breakdown
+        if (this.charts.buySellBreakdown) {
+            const chart = this.charts.buySellBreakdown;
+            const ds = chart.data.datasets;
+            ds[0].data[lastIdx] = lastItem.futuresBuyRatio;
+            ds[1].data[lastIdx] = lastItem.spotBuyVolumeUsdt;
+            ds[2].data[lastIdx] = lastItem.spotSellVolumeUsdt;
+            ds[3].data[lastIdx] = lastItem.futuresBuyVolumeUsdt;
+            ds[4].data[lastIdx] = lastItem.futuresSellVolumeUsdt;
+            if (this.visibleCharts.has('buySellBreakdown')) chart.update('none');
+        }
+
+        // 3. Net Taker Delta
+        if (this.charts.netTakerDelta) {
+            const chart = this.charts.netTakerDelta;
+            const ds = chart.data.datasets;
+            ds[0].data[lastIdx] = lastItem.price;
+            ds[1].data[lastIdx] = lastItem.spotNetDelta;
+            if (Array.isArray(ds[1].backgroundColor)) {
+                ds[1].backgroundColor[lastIdx] = lastItem.spotNetDelta >= 0 ? 'rgba(6, 182, 212, 0.75)' : 'rgba(59, 130, 246, 0.75)';
+            }
+            ds[2].data[lastIdx] = lastItem.futuresNetDelta;
+            if (Array.isArray(ds[2].backgroundColor)) {
+                ds[2].backgroundColor[lastIdx] = lastItem.futuresNetDelta >= 0 ? 'rgba(16, 185, 129, 0.75)' : 'rgba(244, 63, 94, 0.75)';
+            }
+            if (Array.isArray(ds[2].borderColor)) {
+                ds[2].borderColor[lastIdx] = lastItem.futuresNetDelta >= 0 ? '#10b981' : '#f43f5e';
+            }
+            if (this.visibleCharts.has('netTakerDelta')) chart.update('none');
+        }
+
+        // 4. Correlation & CVD
+        if (this.charts.correlationCvd) {
+            const chart = this.charts.correlationCvd;
+            const ds = chart.data.datasets;
+            ds[0].data[lastIdx] = lastItem.correlation;
+            ds[1].data[lastIdx] = lastItem.spotCvd;
+            ds[2].data[lastIdx] = lastItem.futuresCvd;
+            if (this.visibleCharts.has('correlationCvd')) chart.update('none');
+        }
+
+        // 5. Open Interest
+        if (this.charts.openInterest) {
+            const chart = this.charts.openInterest;
+            const ds = chart.data.datasets;
+            ds[0].data[lastIdx] = lastItem.price;
+            ds[1].data[lastIdx] = lastItem.openInterestUsdt;
+            if (this.visibleCharts.has('openInterest')) chart.update('none');
+        }
+
+        // 6. Long/Short Ratio
+        if (this.charts.longShortRatio) {
+            const chart = this.charts.longShortRatio;
+            const ds = chart.data.datasets;
+            ds[0].data[lastIdx] = lastItem.longShortRatio;
+            ds[1].data[lastIdx] = lastItem.longRatio * 100;
+            ds[2].data[lastIdx] = lastItem.shortRatio * 100;
+            if (this.visibleCharts.has('longShortRatio')) chart.update('none');
+        }
+
+        // 7. Volume Delta
+        if (this.charts.volumeDelta) {
+            const chart = this.charts.volumeDelta;
+            const ds = chart.data.datasets;
+            ds[0].data[lastIdx] = lastItem.volumeRatio;
+            ds[1].data[lastIdx] = lastItem.volumeDelta;
+            if (Array.isArray(ds[1].backgroundColor)) {
+                ds[1].backgroundColor[lastIdx] = lastItem.volumeDelta >= 0 ? colors.deltaPositive : colors.deltaNegative;
+            }
+            if (this.visibleCharts.has('volumeDelta')) chart.update('none');
+        }
+
+        // 8. Long Short vs Spot
+        if (this.charts.longShortSpot) {
+            const chart = this.charts.longShortSpot;
+            const ds = chart.data.datasets;
+            ds[0].data[lastIdx] = lastItem.longSpotRatio;
+            ds[1].data[lastIdx] = lastItem.shortSpotRatio;
+            ds[2].data[lastIdx] = lastItem.spotVolumeUsdt;
+            ds[3].data[lastIdx] = lastItem.longPositionUsdt;
+            ds[4].data[lastIdx] = lastItem.shortPositionUsdt;
+            if (this.visibleCharts.has('longShortSpot')) chart.update('none');
+        }
     }
 
     renderPriceVolumeChart(items, labels, colors) {
@@ -1049,7 +1195,6 @@ export class ChartManager {
     updateTheme() {
         const colors = this.getThemeColors();
 
-        // Update Price dataset lines to match current theme (Dark: white, Light: dark slate)
         if (this.charts.priceVolume && this.charts.priceVolume.data.datasets[0]) {
             this.charts.priceVolume.data.datasets[0].borderColor = colors.priceColor;
         }
@@ -1082,6 +1227,29 @@ export class ChartManager {
             }
             chart.update('none');
         });
+    }
+
+    destroy(key) {
+        const chart = this.charts[key];
+        if (chart) {
+            try {
+                chart.destroy();
+            } catch (e) {}
+            this.charts[key] = null;
+        }
+    }
+
+    destroyAll() {
+        if (this.observer) {
+            this.observer.disconnect();
+            this.observer = null;
+        }
+        this.visibleCharts.clear();
+
+        Object.keys(this.charts).forEach(key => {
+            this.destroy(key);
+        });
+        this.savedVisibility = {};
     }
 }
 
