@@ -25,8 +25,6 @@ pub use rendering::{Report, SandboxedReport};
 /// The main crypto reports service island that coordinates all crypto report-related
 /// functionality. This island is responsible for creating reports, processing data,
 /// and managing crypto-specific APIs.
-///
-/// Reads market data from Redis Stream (populated by WebSocket service)
 pub struct CryptoReportsIsland {
     pub handlers: handlers::CryptoHandlers,
     pub report_creator: report_creator::ReportCreator,
@@ -36,8 +34,6 @@ pub struct CryptoReportsIsland {
 
 impl CryptoReportsIsland {
     /// Initialize Crypto Reports Island
-    ///
-    /// Reads market data from Redis Stream (populated by WebSocket service)
     ///
     /// # Errors
     ///

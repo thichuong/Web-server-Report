@@ -63,13 +63,7 @@ class MarketIndicatorsDashboard {
     init() {
         debugLog('🔧 Initializing components');
         
-        // Remove skeletons after short delay
-        setTimeout(() => this.removeSkeletons(), 100);
-        
-        // Request initial data
-        this.requestInitialData();
-        
-        // Connect WebSocket
+        // Connect WebSocket (skeletons remain visible until real data is received)
         this.wsManager.connect();
         
         // Start data refresh
@@ -108,6 +102,9 @@ class MarketIndicatorsDashboard {
     }
     
     updateDashboard(rawData) {
+        // Remove skeletons on first real data update
+        this.removeSkeletons();
+
         // Process raw data
         const data = this.dataProcessor.process(rawData);
         
@@ -184,19 +181,6 @@ class MarketIndicatorsDashboard {
         const config = statusConfig[status] || statusConfig.offline;
         this.connectionStatusElement.innerHTML = `${config.icon} <span data-i18n="connection-${status}">${config.text}</span>`;
         this.connectionStatusElement.className = `connection-status ${config.class}`;
-    }
-    
-    requestInitialData() {
-        debugLog('📡 Requesting initial market data');
-        fetch('/api/market-summary')
-            .then(res => res.json())
-            .then(data => {
-                debugLog('✅ Initial data received via HTTP');
-                this.updateDashboard(data);
-            })
-            .catch(err => {
-                console.warn('⚠️ Failed to fetch initial data:', err);
-            });
     }
     
     requestFreshData() {

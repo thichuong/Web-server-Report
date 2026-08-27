@@ -298,51 +298,33 @@ export function displayFallbackData() {
     const marketCapContainer = document.getElementById('market-cap-container');
     if (marketCapContainer) {
         marketCapContainer.innerHTML = `
-            <p class="text-3xl font-bold text-gray-400">${getTranslatedText('loading')}</p>
+            <div class="skeleton-loader h-8 w-24 mb-2"></div>
             <p class="text-sm text-gray-500">${getTranslatedText('whole-market')}</p>`;
     }
 
     const volumeContainer = document.getElementById('volume-24h-container');
     if (volumeContainer) {
         volumeContainer.innerHTML = `
-            <p class="text-3xl font-bold text-gray-400">${getTranslatedText('loading')}</p>
+            <div class="skeleton-loader h-8 w-24 mb-2"></div>
             <p class="text-sm text-gray-500">${getTranslatedText('whole-market')}</p>`;
     }
 
     const btcContainer = document.getElementById('btc-price-container');
     if (btcContainer) {
         btcContainer.innerHTML = `
-            <p class="text-3xl font-bold text-gray-400">${getTranslatedText('loading')}</p>
+            <div class="skeleton-loader h-8 w-28 mb-2"></div>
             <p class="text-sm text-gray-500">Bitcoin</p>`;
     }
 
-    if (typeof window.createGauge === 'function') {
-        const fngContainer = document.getElementById('fear-greed-container');
-        if (fngContainer) {
-            const fngConfig = {
-                min: 0, max: 100,
-                segments: [
-                    { limit: 24, color: 'var(--fng-extreme-fear-color)', label: getTranslatedText('extreme-fear') },
-                    { limit: 49, color: 'var(--fng-fear-color)', label: getTranslatedText('fear') },
-                    { limit: 54, color: 'var(--fng-neutral-color)', label: getTranslatedText('neutral') },
-                    { limit: 74, color: 'var(--fng-greed-color)', label: getTranslatedText('greed') },
-                    { limit: 100, color: 'var(--fng-extreme-greed-color)', label: getTranslatedText('extreme-greed') }
-                ]
-            };
-            window.createGauge(fngContainer, 50, fngConfig);
-        }
+    const fngContainer = document.getElementById('fear-greed-container');
+    if (fngContainer) {
+        fngContainer.innerHTML = `
+            <div class="skeleton-loader h-12 w-full"></div>`;
+    }
 
-        const rsiContainer = document.getElementById('rsi-container');
-        if (rsiContainer) {
-            const rsiConfig = {
-                min: 0, max: 100,
-                segments: [
-                    { limit: 30, color: 'var(--rsi-oversold-color)', label: getTranslatedText('oversold') },
-                    { limit: 70, color: 'var(--rsi-neutral-color)', label: getTranslatedText('neutral') },
-                    { limit: 100, color: 'var(--rsi-overbought-color)', label: getTranslatedText('overbought') }
-                ]
-            };
-            window.createGauge(rsiContainer, 50, rsiConfig);
-        }
+    const rsiContainer = document.getElementById('rsi-container');
+    if (rsiContainer) {
+        rsiContainer.innerHTML = `
+            <div class="skeleton-loader h-12 w-full"></div>`;
     }
 }

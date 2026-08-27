@@ -226,6 +226,25 @@ export class DashboardWebSocket {
     }
 
     /**
+     * Sends a request to the WebSocket server for the freshest market data.
+     */
+    requestFreshData() {
+        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+            if (WS_DEBUG) console.log('📤 Requesting fresh data via WebSocket...');
+            try {
+                this.socket.send(JSON.stringify({
+                    type: 'request_dashboard_data',
+                    timestamp: Date.now()
+                }));
+                return true;
+            } catch (e) {
+                if (WS_DEBUG) console.error('❌ Failed to send data request:', e);
+            }
+        }
+        return false;
+    }
+
+    /**
      * Cleans up resources, stops timers, and closes the WebSocket connection.
      */
     destroy() {

@@ -33,41 +33,6 @@ async fn test_health_check() {
     assert_eq!(response.status(), StatusCode::OK);
 }
 
-#[tokio::test]
-#[ignore = "requires running database and Redis"]
-async fn test_dashboard_data() {
-    let app = get_app().await.expect("Failed to initialize app");
-
-    let response = app
-        .oneshot(
-            Request::builder()
-                .uri("/api/dashboard/data")
-                .body(Body::empty())
-                .expect("Failed to build request"),
-        )
-        .await
-        .expect("Failed to get response");
-
-    assert_eq!(response.status(), StatusCode::OK);
-}
-
-#[tokio::test]
-#[ignore = "requires running database and Redis"]
-async fn test_crypto_dashboard_summary() {
-    let app = get_app().await.expect("Failed to initialize app");
-
-    let response = app
-        .oneshot(
-            Request::builder()
-                .uri("/api/crypto/dashboard-summary")
-                .body(Body::empty())
-                .expect("Failed to build request"),
-        )
-        .await
-        .expect("Failed to get response");
-
-    assert_eq!(response.status(), StatusCode::OK);
-}
 
 #[tokio::test]
 #[ignore = "requires running database and Redis"]

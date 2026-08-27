@@ -15,95 +15,19 @@ use tracing::{debug, error, info, warn};
 
 use crate::dto::{
     HealthStatus,
-    responses::{ApiHealthInfo, ApiHealthResponse, DashboardDataResponse, WebSocketStatsResponse},
+    responses::{ApiHealthInfo, ApiHealthResponse, WebSocketStatsResponse},
 };
 use crate::state::AppState;
 
 /// Configure API routes
 pub fn configure_api_routes() -> Router<Arc<AppState>> {
     Router::new()
-        .route("/api/crypto/dashboard-summary", get(api_dashboard_summary))
-        .route("/api/dashboard/data", get(api_dashboard_data))
         .route(
             "/api/crypto_reports/{id}/shadow_dom",
             get(api_shadow_dom_content),
         )
         .route("/api/health", get(api_health))
         .route("/api/websocket/stats", get(api_websocket_stats))
-}
-
-/// Dashboard data API endpoint - Enhanced with Redis Streams
-/// Same functionality as `api_dashboard_summary` but with cleaner path
-async fn api_dashboard_data(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let cache_key = "api_dashboard_data_json";
-    let mut cache_hit = "MISS";
-
-    let response_data = state
-        .cache_manager
-        .get_or_compute_typed(
-            cache_key,
-            multi_tier_cache::CacheStrategy::RealTime,
-            || async {
-                debug!("🔍 [API] Cache MISS - reading from Redis Stream...");
-                // Phase 3: Primary reads from Redis Streams via RedisStreamReader
-                if let Ok(Some(data)) = state.redis_stream_reader.read_latest_market_data().await {
-                    debug!("✅ [API] Data fetched from Redis Stream");
-                    if let Ok(typed_data) = serde_json::from_value::<DashboardDataResponse>(data) {
-                        return Ok(typed_data);
-                    }
-                }
-
-                // Return fallback data if stream empty or failed
-                Ok(get_fallback_dashboard_data())
-            },
-        )
-        .await
-        .unwrap_or_else(|_| {
-            cache_hit = "ERROR";
-            get_fallback_dashboard_data()
-        });
-
-    if cache_hit != "ERROR" && state.cache_manager.get(cache_key).await.is_ok() {
-        cache_hit = "HIT";
-    }
-
-    ([("x-cache", cache_hit)], Json(response_data))
-}
-
-fn get_fallback_dashboard_data() -> DashboardDataResponse {
-    DashboardDataResponse {
-        btc_price_usd: 96000.0,
-        btc_change_24h: 0.0,
-        btc_market_cap_percentage: 57.0,
-        btc_rsi_14: 50.0,
-        eth_price_usd: 3170.0,
-        eth_change_24h: 0.0,
-        eth_market_cap_percentage: 11.4,
-        bnb_price_usd: 928.0,
-        bnb_change_24h: 0.0,
-        sol_price_usd: 142.0,
-        sol_change_24h: 0.0,
-        xrp_price_usd: 2.28,
-        xrp_change_24h: 0.0,
-        ada_price_usd: 0.51,
-        ada_change_24h: 0.0,
-        link_price_usd: 14.17,
-        link_change_24h: 0.0,
-        market_cap_usd: 3_340_000_000_000.0,
-        market_cap_change_percentage_24h_usd: 0.0,
-        volume_24h_usd: 260_000_000_000.0,
-        fng_value: 50,
-        fetch_duration_ms: 0,
-        partial_failure: true,
-        last_updated: chrono::Utc::now().to_rfc3339(),
-        timestamp: chrono::Utc::now().to_rfc3339(),
-        note: Some("Fallback data - fresh data will be available within 10 seconds".to_string()),
-    }
-}
-
-/// Dashboard summary API endpoint - Reads from Redis Stream via `RedisStreamReader`
-async fn api_dashboard_summary(state: State<Arc<AppState>>) -> impl IntoResponse {
-    api_dashboard_data(state).await
 }
 
 /// API health check endpoint

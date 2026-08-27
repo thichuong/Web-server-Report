@@ -40,7 +40,6 @@ The system is structured using the **Service Islands Architecture**, segregating
 | **Multi-Tier Cache** | `multi-tier-cache` | `0.6.7` | Unified cache orchestrator with Stampede Protection |
 | **In-Memory Cache** | `moka` | `0.12` | High-concurrency L1 in-memory cache with LRU eviction |
 | **Distributed Cache** | `redis` / `bb8-redis` | `1.2` / `0.26` | L2 distributed cache backend storing compressed payloads |
-| **Real-time Pipeline**| Redis Streams | `market_data_stream` | Asynchronous pub/sub data ingestion from WebSocket service |
 | **Template Engine** | `tera` | `1.20` | Dynamic HTML generation for views, dashboards, and feeds |
 | **Compression** | `flate2` | `1.1` (Gzip) | High-speed Gzip compression for pre-rendered byte streams |
 | **Concurrency Primitives**| `rayon`, `dashmap`, `parking_lot` | `1.12`, `6.2`, `0.12` | Lock-free maps, CPU parallel work, fast synchronization |
@@ -52,7 +51,7 @@ The system is structured using the **Service Islands Architecture**, segregating
 
 ## 3. Microservices Topology
 
-The system is decoupled into two independent microservices communicating asynchronously through **Redis Streams**:
+The system is decoupled into two independent microservices:
 
 ```mermaid
 graph LR
@@ -64,17 +63,14 @@ graph LR
 
     subgraph WS_Service["Websocket Microservice (Port 8081)"]
         Ingestion["API Ingestion Engine"]
-        StreamWriter["Redis Stream Producer"]
         WSServer["WebSocket Broadcast Server"]
     end
 
     subgraph Redis_Infra["Redis Infrastructure"]
-        Stream["Redis Stream: market_data_stream"]
         L2Cache["Redis L2 Key-Value Cache"]
     end
 
     subgraph Main_Server["Main Web Server (Port 8000) - This Repository"]
-        StreamReader["src/stream.rs: RedisStreamReader"]
         CacheMgr["Multi-Tier Cache Manager"]
         Router["Axum HTTP Router"]
         Services["Service Islands Layer 5"]
@@ -84,17 +80,11 @@ graph LR
     subgraph Clients["Consumers"]
         Browsers["Web Browsers (HTTP/DSD)"]
         Crawlers["Search Engines & AI Crawlers"]
-        WSClients["Real-time WebSocket Clients"]
     end
 
     External -->|Poll / WebSockets| Ingestion
-    Ingestion --> StreamWriter
-    StreamWriter -->|XADD| Stream
     Ingestion --> WSServer
-    WSServer -->|Live Tickers| WSClients
 
-    Stream -->|XREAD Cache-First| StreamReader
-    StreamReader --> CacheMgr
     CacheMgr <--> L2Cache
     DBPool <--> PostgreSQL[(PostgreSQL)]
 
@@ -104,13 +94,14 @@ graph LR
 
     Browsers <-->|HTTP / DSD| Router
     Crawlers <-->|Sitemap / RSS| Router
+    WSServer -->|Live Market Indicators (WebSocket)| Browsers
 ```
 
 ---
 
 ## 4. Service Islands Architecture
 
-The application adopts the **Service Islands Architecture**, dividing responsibilities into 5 distinct layers:
+The application adopts the **Service Islands Architecture**, dividing responsibilities into distinct layers:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -127,11 +118,7 @@ The application adopts the **Service Islands Architecture**, dividing responsibi
 │  • CryptoDataService  • DashboardDataService  • Multi-Tier Cache Layer │
 │  • SQLx Query Execution • Coalesced Cache Queries (Stampede-Protected) │
 ├────────────────────────────────────────────────────────────────────────┤
-│  LAYER 4: REAL-TIME STREAM INGESTION (src/stream.rs)                   │
-│  • RedisStreamReader: Reads `market_data_stream` (Cache-First)         │
-│  • Deserializes raw stream maps into typed Rust DTOs                   │
-├────────────────────────────────────────────────────────────────────────┤
-│  LAYER 5: PRESENTATION & TEMPLATING ENGINE (src/services/)             │
+│  LAYER 4: PRESENTATION & TEMPLATING ENGINE (src/services/)             │
 │  • ShadowDomRenderer (Declarative Shadow DOM)                          │
 │  • TemplateOrchestrator & Tera Engine                                  │
 │  • SEO Metadata Generator (JSON-LD Schemas, Breadcrumbs)               │
@@ -155,11 +142,7 @@ The application adopts the **Service Islands Architecture**, dividing responsibi
 - Interacts with `multi_tier_cache::CacheManager` using structured TTL policies (`RealTime`, `ShortTerm`, `MediumTerm`, `LongTerm`).
 - Protects against cache stampedes using internal lock coalescing (`DashMap`).
 
-#### 4. Real-time Stream Ingestion (`src/stream.rs`)
-- Connects to the Redis Stream `market_data_stream`.
-- Implements `read_latest_market_data()` with automatic fallback to static defaults if Redis or the WebSocket service is temporarily unreachable.
-
-#### 5. Presentation & Rendering Engine (`src/services/crypto_reports/rendering/`)
+#### 4. Presentation & Rendering Engine (`src/services/crypto_reports/rendering/`)
 - **`ShadowDomRenderer`**: Generates Declarative Shadow DOM components (`<template shadowrootmode="open">`) with encapsulated CSS/JS, language toggles, and Blake3 security tokens.
 - **`geo_metadata.rs`**: Generates structured AI bot tags, OpenGraph meta, and Schema.org JSON-LD (`Article`, `FinancialProduct`).
 - **`breadcrumbs.rs`**: Generates Schema.org BreadcrumbList and internal links to related reports.
@@ -169,7 +152,7 @@ The application adopts the **Service Islands Architecture**, dividing responsibi
 
 ## 5. Multi-Tier Caching Architecture
 
-The server deploys a 4-tier caching topology with stampede protection to guarantee sub-millisecond response times:
+The server deploys a multi-tier caching topology with stampede protection to guarantee sub-millisecond response times:
 
 ```mermaid
 flowchart TD
@@ -181,13 +164,11 @@ flowchart TD
     L1 -->|Miss| L2{L2: Redis Distributed Cache}
     
     L2 -->|Hit (1-3ms)| Promote[Promote to L1 & Serve Gzip]
-    L2 -->|Miss| L3{L3: Redis Stream / DB}
+    L2 -->|Miss| L3{L3: Database}
     
-    L3 -->|Stream Data| Ingest[Read RedisStreamReader]
     L3 -->|DB Query| Query[Execute SQLx Query via PgPool]
     
-    Ingest --> Render[Tera Render + Gzip Compress]
-    Query --> Render
+    Query --> Render[Tera Render + Gzip Compress]
     Render --> CachePopulate[Populate L1 + L2 + Route Cache]
     CachePopulate --> ServeFinal[Serve HTTP Response]
 ```

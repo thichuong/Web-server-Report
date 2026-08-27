@@ -4,4 +4,3 @@ pub mod performance;
 pub mod routes;
 pub mod services;
 pub mod state;
-pub mod stream;

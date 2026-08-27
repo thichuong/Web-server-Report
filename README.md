@@ -10,9 +10,9 @@
 [![Target](https://img.shields.io/badge/Target-x86__64--unknown--linux--musl-blue?logo=linux)](https://musl.libc.org/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green)](LICENSE)
 
-An enterprise-grade, ultra-high-throughput **Rust** web server achieving **44,700+ RPS** with **11ms latency** under 500 concurrent connections. Built with **Service Islands Architecture**, 4-tier caching (RAM / Moka / Redis / Streams), **Zero-Allocation Pre-rendering**, and **Declarative Shadow DOM (DSD)**.
+An enterprise-grade, ultra-high-throughput **Rust** web server achieving **44,700+ RPS** with **11ms latency** under 500 concurrent connections. Built with **Service Islands Architecture**, multi-tier caching (RAM / Moka / Redis), **Zero-Allocation Pre-rendering**, and **Declarative Shadow DOM (DSD)**.
 
-> **Microservices Topology**: This is the **Main Web Presentation & Consumption Service**. External exchange API polling and live WebSocket broadcasts are handled by the decoupled [Web-server-Report-websocket](https://github.com/thichuong/Web-server-Report-websocket) microservice via **Redis Streams** (`market_data_stream`).
+> **Microservices Topology**: This is the **Main Web Presentation & Content Service**. External exchange API polling, live market data streams, and WebSocket broadcasts are handled by the decoupled [Web-server-Report-websocket](https://github.com/thichuong/Web-server-Report-websocket) microservice. Frontend components connect directly to the WebSocket service for real-time market indicators.
 
 ---
 
@@ -39,7 +39,6 @@ The codebase is structured into strictly bounded, decoupled layers:
 - **Routing Layer (`src/routes/`)**: Axum routes with immediate L0/L1 cache bypass.
 - **Handler Layer (`src/services/`)**: Transport abstraction using `RenderedContent` and DTO mapping.
 - **Data Communication Layer (`src/services/data_communication/`)**: Abstracted database access (`SQLx`) and cached queries.
-- **Real-time Ingestion Layer (`src/stream.rs`)**: Asynchronous Redis Streams reader (`market_data_stream`).
 - **Templating & Presentation Layer (`src/services/crypto_reports/rendering/`)**: DSD rendering, GEO metadata, breadcrumbs, and Tera templates.
 
 ### 2. Zero-Allocation Pre-rendering (L0 Cache)
@@ -88,17 +87,15 @@ flowchart TD
 
     subgraph WebSocket_Service["Websocket Microservice (Port 8081)"]
         Ingestion["API Polling Engine"]
-        Producer["Redis Stream Producer"]
         WSServer["WebSocket Server (ws://localhost:8081)"]
+        Broadcaster["Broadcaster & Cache"]
     end
 
     subgraph Redis_Cluster["Redis Infrastructure"]
-        Stream["Redis Stream: market_data_stream"]
         L2_Cache["Redis L2 Distributed Cache"]
     end
 
     subgraph Main_Service["Main Web Server (Port 8000) - This Repo"]
-        StreamReader["src/stream.rs: RedisStreamReader"]
         Router["src/routes/ - Axum Router"]
         L0_L1["L0 RAM & L1 Moka Cache"]
         Services["Service Islands Layer 5"]
@@ -106,19 +103,16 @@ flowchart TD
     end
 
     External --> Ingestion
-    Ingestion --> Producer
-    Producer -->|XADD| Stream
-    Ingestion --> WSServer
+    Ingestion --> Broadcaster
+    Broadcaster --> WSServer
 
-    Stream -->|XREAD Cache-First| StreamReader
-    StreamReader --> Services
     Services <--> L0_L1
     Services <--> L2_Cache
     Services <--> DB
     Router --> Services
 
     Client[Web Browsers / Crawlers] <-->|HTTP / DSD| Router
-    WSServer -->|Live Tickers| Client
+    WSServer -->|Live Market Indicators| Client
 ```
 
 ### Request Resolution Pipeline
@@ -138,8 +132,6 @@ Incoming Request
             └─► [2] Cache MISS ──► Layer 5 Service Orchestration
                      │
                      ├─► Check L2 Redis Cache (Compressed Bytes)
-                     │
-                     ├─► Check L3 Redis Stream (`RedisStreamReader`)
                      │
                      ├─► Query PostgreSQL (`CryptoDataService` / SQLx)
                      │
@@ -190,8 +182,6 @@ Incoming Request
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/dashboard/data` | Real-time market data JSON read from Redis Stream |
-| `GET` | `/api/crypto/dashboard-summary` | Summary JSON payload for dashboards |
 | `GET` | `/api/crypto_reports/{id}/shadow_dom` | Returns raw Shadow DOM HTML fragment (`?token=...&lang=...`) |
 | `GET` | `/api/health` | API subsystem health status |
 | `GET` | `/api/websocket/stats` | Status and redirect info for WebSocket microservice |

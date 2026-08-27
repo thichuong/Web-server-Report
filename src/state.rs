@@ -9,7 +9,7 @@ use tracing::{debug, info, warn};
 
 // Import cache system from library
 use multi_tier_cache::{
-    CacheManager, CacheSystemBuilder, RedisStreams, backends::moka_cache::MokaCacheConfig,
+    CacheManager, CacheSystemBuilder, backends::moka_cache::MokaCacheConfig,
     backends::redis_cache::RedisCache,
 };
 use std::time::Duration;
@@ -29,7 +29,6 @@ pub struct AppState {
     pub cached_latest_id: AtomicI32,
     pub crypto_handlers: crate::services::crypto_reports::handlers::CryptoHandlers,
     pub dashboard_handlers: crate::services::dashboard::DashboardHandlers,
-    pub redis_stream_reader: crate::stream::RedisStreamReader,
 }
 
 impl AppState {
@@ -63,16 +62,9 @@ impl AppState {
                 .map_err(|e| anyhow::anyhow!("Failed to initialize Redis cache backend: {e}"))?,
         );
 
-        let redis_streams = Arc::new(
-            RedisStreams::new(&redis_url)
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to initialize Redis streams backend: {e}"))?,
-        );
-
         let cache_system = CacheSystemBuilder::new()
             .with_moka_config(moka_config)
             .with_l2(redis_backend)
-            .with_streams(redis_streams)
             .build()
             .await?;
         let cache_manager: Arc<CacheManager> = cache_system.cache_manager.clone();
@@ -87,16 +79,12 @@ impl AppState {
             cached_latest_id: AtomicI32::new(0),
             crypto_handlers: crate::services::crypto_reports::handlers::CryptoHandlers::new(),
             dashboard_handlers: crate::services::dashboard::DashboardHandlers::new(),
-            redis_stream_reader: crate::stream::RedisStreamReader::new(Arc::clone(&cache_manager)),
         })
     }
 
     /// Health check
     pub async fn health_check(&self) -> bool {
-        self.redis_stream_reader
-            .health_check()
-            .await
-            .unwrap_or(false)
+        self.cache_manager.get("_health_check").await.is_ok()
     }
 
     fn initialize_template_engine() -> Tera {

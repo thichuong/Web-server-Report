@@ -60,13 +60,11 @@ class MarketIndicatorsDashboard {
         debugLog('🚀 Initializing Market Indicators Dashboard');
         this.initializeElements();
 
-        // Request initial data immediately before establishing WebSocket
-        this.requestInitialData();
-
+        // Connect directly to WebSocket for initial and real-time market data
         this.connectWebSocket();
         this.startDataRefresh();
 
-        // Crypto prices now come from server via WebSocket
+        // Crypto prices come from server via WebSocket
     }
 
     initializeElements() {
@@ -98,12 +96,7 @@ class MarketIndicatorsDashboard {
                 debugLog(`  ❌ ${key}: NOT found`);
             }
         });
-
-        // Remove any existing skeletons after a short delay
-        this.skeletonTimer = setTimeout(() => {
-            this.removeSkeleton();
-            this.skeletonTimer = null;
-        }, 2000);
+        // Skeletons remain visible until real market data is received via WebSocket
     }
 
     removeSkeleton() {
@@ -111,44 +104,10 @@ class MarketIndicatorsDashboard {
             if (element) {
                 const skeleton = element.querySelector('.skeleton-loader');
                 if (skeleton) {
-                    // Only remove skeleton if we don't have data yet
                     skeleton.style.display = 'none';
                 }
             }
         });
-    }
-
-    async requestInitialData() {
-        debugLog('🔄 Requesting initial market data...');
-
-        try {
-            // Try to fetch initial data from the same server
-            const response = await fetch('/api/dashboard/data', {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                },
-                timeout: 10000 // 10 second timeout
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                debugLog('✅ Initial data received:', data);
-
-                // Update dashboard with initial data
-                if (data) {
-                    this.updateMarketData(data);
-                    debugLog('✅ Dashboard updated with initial data');
-                }
-            } else {
-                debugLog('⚠️ Failed to fetch initial data:', response.status, response.statusText);
-            }
-        } catch (error) {
-            debugLog('⚠️ Initial data request failed, will rely on WebSocket:', error.message);
-            // Don't throw error - just continue with WebSocket initialization
-            // The WebSocket will provide data once connected
-        }
     }
 
     requestFreshData() {

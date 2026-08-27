@@ -16,15 +16,12 @@ let dashboardWS = null;
 function initDashboard() {
     console.log('🚀 Initializing Dashboard (ESM)...');
 
-    // 1. Fetch initial data via HTTP
-    fetchDashboardSummary();
-
-    // 2. Initialize WebSocket connection
+    // 1. Initialize WebSocket connection (receives initial & real-time market data)
     dashboardWS = new DashboardWebSocket();
     window.dashboardWS = dashboardWS; // Expose for debugging
     dashboardWS.connect();
 
-    // 3. Register global event listeners
+    // 2. Register global event listeners
     setupEventListeners();
 
     console.log('✅ Dashboard initialization complete');

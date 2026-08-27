@@ -48,7 +48,7 @@ export async function fetchDashboardSummary() {
 }
 
 /**
- * Manually refreshes the dashboard data.
+ * Manually refreshes the dashboard data via WebSocket.
  * @returns {Promise<void>}
  */
 export async function manualRefreshDashboard() {
@@ -59,11 +59,16 @@ export async function manualRefreshDashboard() {
         if (icon) icon.classList.add('animate-spin');
     }
 
-    await fetchDashboardSummary();
-
-    if (refreshBtn) {
-        refreshBtn.disabled = false;
-        const icon = refreshBtn.querySelector('i');
-        if (icon) icon.classList.remove('animate-spin');
+    if (window.dashboardWS && typeof window.dashboardWS.requestFreshData === 'function') {
+        const sent = window.dashboardWS.requestFreshData();
+        if (WS_DEBUG) console.log('🔄 Requested fresh dashboard data via WebSocket:', sent);
     }
+
+    setTimeout(() => {
+        if (refreshBtn) {
+            refreshBtn.disabled = false;
+            const icon = refreshBtn.querySelector('i');
+            if (icon) icon.classList.remove('animate-spin');
+        }
+    }, 600);
 }
