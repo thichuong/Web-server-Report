@@ -1013,27 +1013,28 @@ export class MarketAnalyticsApp {
 
             switch (state) {
                 case 'LONG_BUILDUP':
-                    this.el.kpiMarketStateBadge.textContent = '🟢 Long Build-up';
+                    this.el.kpiMarketStateBadge.textContent = 'Long Build-up';
                     this.el.kpiMarketStateBadge.className = 'text-lg font-bold text-emerald-500';
                     this.el.kpiMarketStateDesc.textContent = isVi ? 'Giá tăng + Vị thế mở tăng: Dòng tiền mở Long áp đảo' : 'Price ↑ + OI ↑: Aggressive Long build-up';
                     break;
+                case 'SHORT_LIQUIDATION':
                 case 'SHORT_SQUEEZE':
-                    this.el.kpiMarketStateBadge.textContent = '🟡 Short Squeeze';
+                    this.el.kpiMarketStateBadge.textContent = 'Short Liquidation';
                     this.el.kpiMarketStateBadge.className = 'text-lg font-bold text-yellow-500';
-                    this.el.kpiMarketStateDesc.textContent = isVi ? 'Giá tăng + Vị thế mở giảm: Tăng do Short bị thanh lý/cắt lỗ' : 'Price ↑ + OI ↓: Rally driven by Short covering';
+                    this.el.kpiMarketStateDesc.textContent = isVi ? 'Giá tăng + Vị thế mở giảm: Tăng do Short bị thanh lý/cắt lỗ' : 'Price ↑ + OI ↓: Rally driven by Short liquidation';
                     break;
                 case 'SHORT_BUILDUP':
-                    this.el.kpiMarketStateBadge.textContent = '🔴 Short Build-up';
+                    this.el.kpiMarketStateBadge.textContent = 'Short Build-up';
                     this.el.kpiMarketStateBadge.className = 'text-lg font-bold text-rose-500';
                     this.el.kpiMarketStateDesc.textContent = isVi ? 'Giá giảm + Vị thế mở tăng: Dòng tiền mở Short áp đảo' : 'Price ↓ + OI ↑: Aggressive Short build-up';
                     break;
                 case 'LONG_LIQUIDATION':
-                    this.el.kpiMarketStateBadge.textContent = '⚪ Long Liquidation';
+                    this.el.kpiMarketStateBadge.textContent = 'Long Liquidation';
                     this.el.kpiMarketStateBadge.className = 'text-lg font-bold text-indigo-500';
                     this.el.kpiMarketStateDesc.textContent = isVi ? 'Giá giảm + Vị thế mở giảm: Long bị thanh lý / rời bỏ vị thế' : 'Price ↓ + OI ↓: Long capitulation & liquidation';
                     break;
                 default:
-                    this.el.kpiMarketStateBadge.textContent = '⚪ Neutral';
+                    this.el.kpiMarketStateBadge.textContent = 'Neutral';
                     this.el.kpiMarketStateBadge.className = 'text-lg font-bold text-gray-500';
                     this.el.kpiMarketStateDesc.textContent = isVi ? 'Thị trường cân bằng hoặc chưa đủ nến để xác định' : 'Balanced market state';
             }

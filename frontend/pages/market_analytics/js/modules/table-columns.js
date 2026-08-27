@@ -280,19 +280,20 @@ const TABLE_COLUMNS = [
             let stateTag = '';
             switch (row.marketState) {
                 case 'LONG_BUILDUP':
-                    stateTag = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30">🟢 Long Build-up</span>';
+                    stateTag = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30">Long Build-up</span>';
                     break;
+                case 'SHORT_LIQUIDATION':
                 case 'SHORT_SQUEEZE':
-                    stateTag = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 dark:bg-yellow-500/20 dark:text-yellow-400 dark:border-yellow-500/30">🟡 Short Squeeze</span>';
+                    stateTag = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 dark:bg-yellow-500/20 dark:text-yellow-400 dark:border-yellow-500/30">Short Liquidation</span>';
                     break;
                 case 'SHORT_BUILDUP':
-                    stateTag = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/30">🔴 Short Build-up</span>';
+                    stateTag = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/30">Short Build-up</span>';
                     break;
                 case 'LONG_LIQUIDATION':
-                    stateTag = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-300 dark:bg-indigo-500/20 dark:text-indigo-400 dark:border-indigo-500/30">⚪ Long Liquidation</span>';
+                    stateTag = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-300 dark:bg-indigo-500/20 dark:text-indigo-400 dark:border-indigo-500/30">Long Liquidation</span>';
                     break;
                 default:
-                    stateTag = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-700 border border-gray-300 dark:bg-gray-500/20 dark:text-gray-400 dark:border-gray-500/30">⚪ Neutral</span>';
+                    stateTag = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-700 border border-gray-300 dark:bg-gray-500/20 dark:text-gray-400 dark:border-gray-500/30">Neutral</span>';
             }
             return `<td class="px-3.5 py-2.5 text-xs text-center whitespace-nowrap">${stateTag}</td>`;
         }
@@ -310,19 +311,20 @@ const STACKED_COLUMNS = [
             let stateTag = '';
             switch (row.marketState) {
                 case 'LONG_BUILDUP':
-                    stateTag = '<span class="px-2.5 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30">🟢 Long Build-up</span>';
+                    stateTag = '<span class="px-2.5 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30">Long Build-up</span>';
                     break;
+                case 'SHORT_LIQUIDATION':
                 case 'SHORT_SQUEEZE':
-                    stateTag = '<span class="px-2.5 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 dark:bg-yellow-500/20 dark:text-yellow-400 dark:border-yellow-500/30">🟡 Short Squeeze</span>';
+                    stateTag = '<span class="px-2.5 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 dark:bg-yellow-500/20 dark:text-yellow-400 dark:border-yellow-500/30">Short Liquidation</span>';
                     break;
                 case 'SHORT_BUILDUP':
-                    stateTag = '<span class="px-2.5 py-0.5 rounded text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/30">🔴 Short Build-up</span>';
+                    stateTag = '<span class="px-2.5 py-0.5 rounded text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/30">Short Build-up</span>';
                     break;
                 case 'LONG_LIQUIDATION':
-                    stateTag = '<span class="px-2.5 py-0.5 rounded text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-300 dark:bg-indigo-500/20 dark:text-indigo-400 dark:border-indigo-500/30">⚪ Long Liquidation</span>';
+                    stateTag = '<span class="px-2.5 py-0.5 rounded text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-300 dark:bg-indigo-500/20 dark:text-indigo-400 dark:border-indigo-500/30">Long Liquidation</span>';
                     break;
                 default:
-                    stateTag = '<span class="px-2.5 py-0.5 rounded text-xs font-bold bg-gray-100 text-gray-700 border border-gray-300 dark:bg-gray-500/20 dark:text-gray-400 dark:border-gray-500/30">⚪ Neutral</span>';
+                    stateTag = '<span class="px-2.5 py-0.5 rounded text-xs font-bold bg-gray-100 text-gray-700 border border-gray-300 dark:bg-gray-500/20 dark:text-gray-400 dark:border-gray-500/30">Neutral</span>';
             }
             return `
                 <td class="px-4 py-3 whitespace-nowrap text-xs">

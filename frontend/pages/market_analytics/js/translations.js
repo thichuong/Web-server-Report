@@ -71,15 +71,8 @@ function get_translations_data()
     'buy-sell-ratio-label': { vi: 'Tỷ lệ Mua/Bán', en: 'Buy/Sell Ratio' },
     'high-correlation': { vi: 'Đồng thuận cao (Thị trường thực)', en: 'High Alignment (Spot-driven)' },
     'low-correlation': { vi: 'Phân kỳ / Đầu cơ phái sinh', en: 'Divergence (Speculative)' },
-    'moderate-correlation': { vi: 'Tương quan trung bình', en: 'Moderate Correlation' },
-    'long-buildup': { vi: '🟢 Long Build-up', en: '🟢 Long Build-up' },
-    'short-squeeze': { vi: '🟡 Short Squeeze', en: '🟡 Short Squeeze' },
-    'short-buildup': { vi: '🔴 Short Build-up', en: '🔴 Short Build-up' },
-    'long-liquidation': { vi: '⚪ Long Liquidation', en: '⚪ Long Liquidation' },
-    'neutral-state': { vi: '⚪ Neutral', en: '⚪ Neutral' },
-
     'long-buildup-desc': { vi: 'Giá tăng + Vị thế mở tăng: Dòng tiền mở Long áp đảo', en: 'Price ↑ + OI ↑: Aggressive Long build-up' },
-    'short-squeeze-desc': { vi: 'Giá tăng + Vị thế mở giảm: Tăng do Short bị thanh lý/cắt lỗ', en: 'Price ↑ + OI ↓: Rally driven by Short covering' },
+    'short-liquidation-desc': { vi: 'Giá tăng + Vị thế mở giảm: Tăng do Short bị thanh lý/cắt lỗ', en: 'Price ↑ + OI ↓: Rally driven by Short liquidation' },
     'short-buildup-desc': { vi: 'Giá giảm + Vị thế mở tăng: Dòng tiền mở Short áp đảo', en: 'Price ↓ + OI ↑: Aggressive Short build-up' },
     'long-liquidation-desc': { vi: 'Giá giảm + Vị thế mở giảm: Long bị thanh lý / rời bỏ vị thế', en: 'Price ↓ + OI ↓: Long capitulation & liquidation' },
     'neutral-desc': { vi: 'Thị trường cân bằng hoặc chưa đủ nến để xác định', en: 'Balanced market state or insufficient data' },
@@ -103,7 +96,7 @@ function get_translations_data()
 
     'chart5-badge': { vi: '5. Vị Thế Mở OI', en: '5. Open Interest (OI)' },
     'tab-open-interest': { vi: 'Vị thế mở (Open Interest) & Hành động Giá', en: 'Open Interest (OI) & Price Action' },
-    'chart5-desc': { vi: 'Theo dõi tổng lượng hợp đồng phái sinh đang lưu hành (Nhận diện Build-up vs Squeeze)', en: 'Track outstanding derivative contracts (identifying Build-up vs Squeeze)' },
+    'chart5-desc': { vi: 'Theo dõi tổng lượng hợp đồng phái sinh đang lưu hành (Nhận diện Build-up vs Liquidation)', en: 'Track outstanding derivative contracts (identifying Build-up vs Liquidation)' },
 
     'chart6-badge': { vi: '6. Tỷ Lệ L/S', en: '6. L/S Ratio' },
     'tab-long-short-ratio': { vi: 'Phân bổ Vị thế & Tỷ lệ Long / Short', en: 'Position Distribution & Long / Short Ratio' },
@@ -193,7 +186,7 @@ function get_translations_data()
     'step-1-desc': { vi: 'Quan sát biểu đồ Khối lượng Mua vs Bán và Net Delta Nến. Nếu Net Delta dương đậm (Xanh lá) nghĩa là phe Mua đang chủ động đẩy lệnh Market; nếu âm (Đỏ) là phe Bán đang ép giá.', en: 'Observe Buy vs Sell Volume and Candlestick Net Delta. A strong positive Net Delta (Green) signals buyers aggressively hitting market orders; negative (Red) indicates aggressive sellers dumping.' },
     'step-2-badge': { vi: 'BƯỚC 2', en: 'STEP 2' },
     'step-2-title': { vi: 'Đối Chiếu Vị Thế Mở (OI)', en: 'Cross-Reference Open Interest (OI)' },
-    'step-2-desc': { vi: 'Kiểm tra biến động OI: Giá tăng mà OI tăng là tiền mới vào mở Long (Long Build-up). Nếu Giá tăng mà OI giảm thì chỉ là Short bị thanh lý/cắt lỗ (Short Squeeze - rủi ro đảo chiều cao).', en: 'Check OI dynamics: Price ↑ + OI ↑ indicates fresh capital accumulating Longs (Long Build-up). Price ↑ + OI ↓ indicates short liquidations/stop-losses (Short Squeeze - high reversal risk).' },
+    'step-2-desc': { vi: 'Kiểm tra biến động OI: Giá tăng mà OI tăng là tiền mới vào mở Long (Long Build-up). Nếu Giá tăng mà OI giảm thì chỉ là Short bị thanh lý/cắt lỗ (Short Liquidation - rủi ro đảo chiều cao).', en: 'Check OI dynamics: Price ↑ + OI ↑ indicates fresh capital accumulating Longs (Long Build-up). Price ↑ + OI ↓ indicates short liquidations/stop-losses (Short Liquidation - high reversal risk).' },
     'step-3-badge': { vi: 'BƯỚC 3', en: 'STEP 3' },
     'step-3-title': { vi: 'Phát Hiện Phân Kỳ CVD', en: 'Spot CVD Divergences' },
     'step-3-desc': { vi: 'Nếu Giá tạo đáy mới thấp hơn nhưng đường CVD tạo đáy cao hơn -> Phe Bán bị hấp thụ hoàn toàn bởi lệnh Limit Buy (Tín hiệu đảo chiều tăng mạnh).', en: 'If Price makes a lower low while CVD makes a higher low -> Sellers are completely absorbed by Limit Buy orders (Strong bullish reversal signal).' },
@@ -210,11 +203,6 @@ function get_translations_data()
     'th-nature': { vi: 'Bản Chất Dòng Tiền', en: 'Flow Dynamics' },
     'th-action': { vi: 'Hành Động Khuyến Nghị', en: 'Recommended Action' },
 
-    'long-buildup-state': { vi: '🟢 Long Build-up', en: '🟢 Long Build-up' },
-    'short-squeeze-state': { vi: '🟡 Short Squeeze', en: '🟡 Short Squeeze' },
-    'short-buildup-state': { vi: '🔴 Short Build-up', en: '🔴 Short Build-up' },
-    'long-liquidation-state': { vi: '⚪ Long Liquidation', en: '⚪ Long Liquidation' },
-
     'flow-price-up': { vi: 'Tăng (↑)', en: 'Rising (↑)' },
     'flow-price-down': { vi: 'Giảm (↓)', en: 'Falling (↓)' },
     'flow-buy-up': { vi: 'Mua chủ động ↑', en: 'Aggressive Buy ↑' },
@@ -224,8 +212,8 @@ function get_translations_data()
 
     'long-buildup-nature': { vi: 'Dòng tiền tổ chức/trader nạp vốn mở vị thế Long mới theo xu hướng', en: 'Institutional/trader capital entering fresh Long positions with the trend' },
     'long-buildup-action': { vi: 'Ưu tiên Buy / Long theo Trend', en: 'Prioritize Buy / Long with Trend' },
-    'short-squeeze-nature': { vi: 'Tăng do phe Short bị ép cắt lỗ hoặc thanh lý cưỡng bức (Hết xăng)', en: 'Rally driven by short liquidations & stop-loss cascades (Exhaustion)' },
-    'short-squeeze-action': { vi: 'Chốt lời Long, canh Short đảo chiều', en: 'Take profit Long, prepare for Short reversal' },
+    'short-liquidation-nature': { vi: 'Tăng do phe Short bị ép cắt lỗ hoặc thanh lý cưỡng bức (Hết xăng)', en: 'Rally driven by short liquidations & stop-loss cascades (Exhaustion)' },
+    'short-liquidation-action': { vi: 'Chốt lời Long, canh Short đảo chiều', en: 'Take profit Long, prepare for Short reversal' },
     'short-buildup-nature': { vi: 'Dòng tiền mở mới vị thế Short ồ ạt, áp lực bán đè giá quyết liệt', en: 'Heavy aggressive Short positions opened, heavy selling pressure pushing price down' },
     'short-buildup-action': { vi: 'Ưu tiên Sell / Short theo Trend', en: 'Prioritize Sell / Short with Trend' },
     'long-liquidation-nature': { vi: 'Long bị xả thanh lý hàng loạt, giai đoạn rũ bỏ cuối cùng của đợt giảm', en: 'Long positions liquidated in cascades, final capitulation / shakeout phase' },
@@ -242,7 +230,7 @@ function get_translations_data()
     'card-long-spot-title': { vi: '📈 Long / Spot Vol Ratio', en: '📈 Long / Spot Vol Ratio' },
     'long-spot-desc': { vi: 'Đo lường quy mô vị thế Long so với thanh khoản Spot. Tỷ lệ > 3x - 5x cảnh báo thanh khoản Spot có thể không hấp thụ nổi nếu xảy ra chuỗi thanh lý Long đột ngột.', en: 'Measures Long position notional size against Spot liquidity. A ratio > 3x - 5x warns that Spot depth may fail to absorb cascading Long liquidations.' },
     'card-short-spot-title': { vi: '📉 Short / Spot Vol Ratio', en: '📉 Short / Spot Vol Ratio' },
-    'short-spot-desc': { vi: 'Đo lường quy mô vị thế Short so với thanh khoản Spot. Tỷ lệ > 3x - 5x là tín hiệu cảnh báo rủi ro bùng nổ Short Squeeze cực mạnh khi giá đảo chiều tăng.', en: 'Measures Short position notional size against Spot liquidity. A ratio > 3x - 5x warns of explosive Short Squeezes upon price reversal.' },
+    'short-spot-desc': { vi: 'Đo lường quy mô vị thế Short so với thanh khoản Spot. Tỷ lệ > 3x - 5x là tín hiệu cảnh báo rủi ro bùng nổ Short Liquidation cực mạnh khi giá đảo chiều tăng.', en: 'Measures Short position notional size against Spot liquidity. A ratio > 3x - 5x warns of explosive Short Liquidations upon price reversal.' },
     'card-corr-title': { vi: '🔗 Pearson Volume Correlation', en: '🔗 Pearson Volume Correlation' },
     'corr-desc': { vi: 'Hệ số tương quan khối lượng giữa Spot và Futures (14 chu kỳ). > 0.7 thể hiện dòng tiền thực giao ngay đồng thuận; < 0.3 là dấu hiệu đầu cơ phái sinh đơn lẻ.', en: 'Rolling 14-period volume correlation between Spot and Futures. > 0.7 reflects genuine spot market alignment; < 0.3 indicates isolated derivatives speculation.' },
 

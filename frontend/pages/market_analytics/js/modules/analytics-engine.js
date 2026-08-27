@@ -273,7 +273,7 @@ export class AnalyticsEngine {
                     if (priceChange >= 0 && oiChange >= 0) {
                         state = 'LONG_BUILDUP';
                     } else if (priceChange >= 0 && oiChange < 0) {
-                        state = 'SHORT_SQUEEZE';
+                        state = 'SHORT_LIQUIDATION';
                     } else if (priceChange < 0 && oiChange >= 0) {
                         state = 'SHORT_BUILDUP';
                     } else if (priceChange < 0 && oiChange < 0) {
@@ -392,7 +392,7 @@ export class AnalyticsEngine {
                 if (priceChange >= 0 && oiChange >= 0) {
                     lastItem.marketState = 'LONG_BUILDUP';
                 } else if (priceChange >= 0 && oiChange < 0) {
-                    lastItem.marketState = 'SHORT_SQUEEZE';
+                    lastItem.marketState = 'SHORT_LIQUIDATION';
                 } else if (priceChange < 0 && oiChange >= 0) {
                     lastItem.marketState = 'SHORT_BUILDUP';
                 } else if (priceChange < 0 && oiChange < 0) {
