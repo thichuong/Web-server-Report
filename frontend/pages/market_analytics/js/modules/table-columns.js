@@ -375,7 +375,7 @@ const STACKED_COLUMNS = [
                         <span class="text-teal-700 dark:text-cyan-400 font-bold">$${formatNumber(row.spotBuyVolumeUsdt)}</span>
                         <span class="text-gray-400">/</span>
                         <span class="text-blue-700 dark:text-blue-400 font-bold">$${formatNumber(row.spotSellVolumeUsdt)}</span>
-                        <span class="text-gray-600 dark:text-gray-400 text-xs font-semibold ml-0.5">(${row.spotBuyPct.toFixed(0)}% Mua)</span>
+                        <span class="text-gray-600 dark:text-gray-400 text-xs font-semibold ml-0.5">(${row.spotBuyPct.toFixed(0)}% Buy)</span>
                     </div>
                     <div class="mt-1.5 text-xs space-x-2 font-mono">
                         <span class="text-gray-600 dark:text-gray-400">Δ: <span class="${deltaCol} font-bold">${deltaSign}$${formatNumber(row.spotNetDelta)}</span></span>
@@ -406,7 +406,7 @@ const STACKED_COLUMNS = [
                         <span class="text-emerald-700 dark:text-emerald-400 font-bold">$${formatNumber(row.futuresBuyVolumeUsdt)}</span>
                         <span class="text-gray-400">/</span>
                         <span class="text-rose-700 dark:text-rose-400 font-bold">$${formatNumber(row.futuresSellVolumeUsdt)}</span>
-                        <span class="text-gray-600 dark:text-gray-400 text-xs font-semibold ml-0.5">(${row.futuresBuyPct.toFixed(0)}% Mua)</span>
+                        <span class="text-gray-600 dark:text-gray-400 text-xs font-semibold ml-0.5">(${row.futuresBuyPct.toFixed(0)}% Buy)</span>
                     </div>
                     <div class="mt-1.5 text-xs space-x-2 font-mono">
                         <span class="text-gray-600 dark:text-gray-400">Δ: <span class="${deltaCol} font-bold">${deltaSign}$${formatNumber(row.futuresNetDelta)}</span></span>
