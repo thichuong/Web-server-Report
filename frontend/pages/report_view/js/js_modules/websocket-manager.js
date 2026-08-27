@@ -19,8 +19,10 @@ export class DashboardWebSocket {
         this.heartbeatInterval = null;
         this.pingInterval = 30000; // 30s
         this.isConnecting = false;
+        this.reconnectTimeout = null;
         this.domUpdatePending = false;
         this.pendingUpdateTask = null;
+        this.rafId = null;
     }
 
     /**
@@ -30,6 +32,11 @@ export class DashboardWebSocket {
         if (this.isConnecting || (this.socket && this.socket.readyState === WebSocket.CONNECTING)) {
             if (WS_DEBUG) console.log('🔍 [DEBUG] WebSocket already connecting, skipping...');
             return;
+        }
+
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
         }
 
         this.isConnecting = true;
@@ -126,7 +133,8 @@ export class DashboardWebSocket {
         this.reconnectAttempts++;
         console.log(`🔄 Reconnect attempt ${this.reconnectAttempts} in ${this.reconnectDelay}ms...`);
 
-        setTimeout(() => {
+        this.reconnectTimeout = setTimeout(() => {
+            this.reconnectTimeout = null;
             this.connect();
             // Increase delay for next attempt: 1s, 2s, 4s, 8s, up to 30s
             this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000);
@@ -206,7 +214,8 @@ export class DashboardWebSocket {
         this.pendingUpdateTask = task;
         if (!this.domUpdatePending) {
             this.domUpdatePending = true;
-            requestAnimationFrame(() => {
+            this.rafId = requestAnimationFrame(() => {
+                this.rafId = null;
                 if (this.pendingUpdateTask) {
                     this.pendingUpdateTask();
                     this.pendingUpdateTask = null;
@@ -214,5 +223,43 @@ export class DashboardWebSocket {
                 this.domUpdatePending = false;
             });
         }
+    }
+
+    /**
+     * Cleans up resources, stops timers, and closes the WebSocket connection.
+     */
+    destroy() {
+        if (WS_DEBUG) console.log('🧹 Destroying DashboardWebSocket...');
+
+        this.stopHeartbeat();
+
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
+        }
+
+        if (this.rafId) {
+            cancelAnimationFrame(this.rafId);
+            this.rafId = null;
+        }
+
+        this.pendingUpdateTask = null;
+        this.domUpdatePending = false;
+        this.isConnecting = false;
+
+        if (this.socket) {
+            this.socket.onopen = null;
+            this.socket.onmessage = null;
+            this.socket.onerror = null;
+            this.socket.onclose = null;
+            try {
+                this.socket.close();
+            } catch (e) {
+                // Ignore closing errors
+            }
+            this.socket = null;
+        }
+
+        if (WS_DEBUG) console.log('✅ DashboardWebSocket destroyed cleanly');
     }
 }

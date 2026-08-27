@@ -29,6 +29,9 @@ class MarketIndicatorsDashboard {
         this.reconnectDelay = 500; // Faster initial reconnect (500ms instead of 1000ms)
         this.updateAnimationDuration = 300;
         this.heartbeatInterval = null;
+        this.dataRefreshInterval = null;
+        this.reconnectTimer = null;
+        this.skeletonTimer = null;
         this.lastDataUpdate = Date.now(); // Track last data received
         this.pendingUpdates = {}; // Batch updates for Firefox performance
         this.updateTimer = null; // Throttle DOM updates
@@ -97,8 +100,9 @@ class MarketIndicatorsDashboard {
         });
 
         // Remove any existing skeletons after a short delay
-        setTimeout(() => {
+        this.skeletonTimer = setTimeout(() => {
             this.removeSkeleton();
+            this.skeletonTimer = null;
         }, 2000);
     }
 
@@ -176,6 +180,11 @@ class MarketIndicatorsDashboard {
     connectWebSocket() {
         if (this.isConnected || this.websocket) {
             return;
+        }
+
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
         }
 
         // Use injected WebSocket URL from server or fallback to same-host
@@ -262,7 +271,10 @@ class MarketIndicatorsDashboard {
             this.reconnectDelay = Math.min(this.reconnectDelay * 2, 3000); // Max 3s instead of 5s for faster reconnect
 
             debugLog(`🔄 Scheduling reconnect... Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} (delay: ${this.reconnectDelay}ms)`);
-            setTimeout(() => this.connectWebSocket(), this.reconnectDelay);
+            this.reconnectTimer = setTimeout(() => {
+                this.reconnectTimer = null;
+                this.connectWebSocket();
+            }, this.reconnectDelay);
         } else {
             debugLog('❌ Max reconnect attempts reached');
             this.updateConnectionStatus('offline');
@@ -750,8 +762,9 @@ class MarketIndicatorsDashboard {
     }
 
     startDataRefresh() {
+        this.stopDataRefresh();
         // WebSocket health check every 30 seconds (optimized frequency)
-        setInterval(() => {
+        this.dataRefreshInterval = setInterval(() => {
             const now = Date.now();
             const timeSinceLastUpdate = now - this.lastDataUpdate;
 
@@ -789,6 +802,13 @@ class MarketIndicatorsDashboard {
         }, 30000); // Every 30 seconds (optimized monitoring - reduced unnecessary checks)
     }
 
+    stopDataRefresh() {
+        if (this.dataRefreshInterval) {
+            clearInterval(this.dataRefreshInterval);
+            this.dataRefreshInterval = null;
+            debugLog('🛑 Data refresh check stopped');
+        }
+    }
 
     startHeartbeat() {
         // Clear any existing heartbeat first
@@ -817,6 +837,17 @@ class MarketIndicatorsDashboard {
     destroy() {
         debugLog('🧹 Destroying Market Indicators Dashboard');
         this.stopHeartbeat();
+        this.stopDataRefresh();
+
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+
+        if (this.skeletonTimer) {
+            clearTimeout(this.skeletonTimer);
+            this.skeletonTimer = null;
+        }
 
         // Cancel any pending updates
         if (this.updateTimer) {
@@ -825,7 +856,15 @@ class MarketIndicatorsDashboard {
         }
 
         if (this.websocket) {
-            this.websocket.close();
+            this.websocket.onopen = null;
+            this.websocket.onmessage = null;
+            this.websocket.onerror = null;
+            this.websocket.onclose = null;
+            try {
+                this.websocket.close();
+            } catch (e) {
+                // Ignore close errors
+            }
             this.websocket = null;
         }
         this.isConnected = false;
@@ -1240,12 +1279,14 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
-// Clean up on page unload
-window.addEventListener('beforeunload', function () {
+// Clean up on page unload / navigation
+function cleanupMarketIndicators() {
     if (window.marketIndicatorsDashboard) {
         window.marketIndicatorsDashboard.destroy();
     }
-});
+}
+window.addEventListener('beforeunload', cleanupMarketIndicators);
+window.addEventListener('pagehide', cleanupMarketIndicators);
 
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {

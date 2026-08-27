@@ -62,6 +62,21 @@ function setupEventListeners() {
     if (refreshBtn) {
         refreshBtn.addEventListener('click', manualRefreshDashboard);
     }
+
+    // Page unload / navigation cleanup
+    window.addEventListener('beforeunload', cleanupDashboard);
+    window.addEventListener('pagehide', cleanupDashboard);
+}
+
+/**
+ * Cleans up dashboard resources, timers, and WebSocket connections.
+ */
+function cleanupDashboard() {
+    if (WS_DEBUG) console.log('🧹 Cleaning up dashboard resources...');
+    if (dashboardWS) {
+        dashboardWS.destroy();
+        dashboardWS = null;
+    }
 }
 
 // Start initialization when DOM is ready
@@ -72,4 +87,5 @@ if (document.readyState === 'loading') {
 }
 
 // Export for potential use in other scripts
-export { dashboardWS, initDashboard };
+export { dashboardWS, initDashboard, cleanupDashboard };
+

@@ -21,6 +21,7 @@ export class WebSocketManager {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = config.maxReconnectAttempts || 8;
         this.reconnectDelay = config.initialReconnectDelay || 500;
+        this.reconnectTimer = null;
         this.heartbeatInterval = null;
         this.lastDataUpdate = Date.now();
         
@@ -67,6 +68,11 @@ export class WebSocketManager {
         if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
             debugLog('🔌 WebSocket already connected');
             return;
+        }
+
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
         }
         
         try {
@@ -150,7 +156,10 @@ export class WebSocketManager {
             this.reconnectDelay = Math.min(this.reconnectDelay * 2, 3000);
             
             debugLog(`🔄 Scheduling reconnect... Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} (delay: ${this.reconnectDelay}ms)`);
-            setTimeout(() => this.connect(), this.reconnectDelay);
+            this.reconnectTimer = setTimeout(() => {
+                this.reconnectTimer = null;
+                this.connect();
+            }, this.reconnectDelay);
         } else {
             debugLog('❌ Max reconnect attempts reached');
             this.onError(new Error('Max reconnect attempts reached'));
@@ -204,8 +213,19 @@ export class WebSocketManager {
         debugLog('🔌 Closing WebSocket connection');
         this.stopHeartbeat();
         
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+        
         if (this.websocket) {
-            this.websocket.close();
+            this.websocket.onopen = null;
+            this.websocket.onmessage = null;
+            this.websocket.onerror = null;
+            this.websocket.onclose = null;
+            try {
+                this.websocket.close();
+            } catch (e) {}
             this.websocket = null;
         }
         this.isConnected = false;

@@ -3,6 +3,9 @@
 // Debug mode - set to false for production (reduces Firefox lag)
 const THEME_DEBUG = false;
 
+// Global observer reference for cleanup
+let themeObserver = null;
+
 /**
  * Hàm thông báo thay đổi theme cho Shadow DOM và ứng dụng
  */
@@ -52,7 +55,12 @@ function setupThemeSwitcher() {
     }
 
     // Watch for theme changes on the document (for external theme changes)
-    const observer = new MutationObserver((mutations) => {
+    if (themeObserver) {
+        try { themeObserver.disconnect(); } catch (e) {}
+        themeObserver = null;
+    }
+
+    themeObserver = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
             if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
                 const newTheme = htmlElement.getAttribute('data-theme');
@@ -62,11 +70,24 @@ function setupThemeSwitcher() {
         });
     });
     
-    observer.observe(htmlElement, {
+    themeObserver.observe(htmlElement, {
         attributes: true,
         attributeFilter: ['data-theme']
     });
 }
+
+/**
+ * Clean up theme manager observers on page unload / navigation
+ */
+function cleanupThemeManager() {
+    if (themeObserver) {
+        try { themeObserver.disconnect(); } catch (e) {}
+        themeObserver = null;
+    }
+}
+
+window.addEventListener('beforeunload', cleanupThemeManager);
+window.addEventListener('pagehide', cleanupThemeManager);
 
 /**
  * Khởi tạo theme manager khi DOM ready

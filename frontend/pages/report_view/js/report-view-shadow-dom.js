@@ -11,6 +11,8 @@ let currentActiveSection = null;
 let navigationSidebar = null;
 let reportShadowRoot = null;
 let navigationObserver = null; // IntersectionObserver for section tracking
+let scrollTimeout = null;
+let scrollListener = null;
 
 /**
  * Get preferred language from localStorage
@@ -340,16 +342,19 @@ function updateSidebarNavigationActive(sectionId) {
 function setupScrollTracking() {
     console.log('📜 Parent: Setting up scroll tracking...');
 
-    let scrollTimeout;
+    if (scrollListener) {
+        window.removeEventListener('scroll', scrollListener);
+        scrollListener = null;
+    }
 
-    function handleScroll() {
+    scrollListener = function handleScroll() {
         clearTimeout(scrollTimeout);
         scrollTimeout = setTimeout(() => {
             updateScrollProgress();
         }, 16); // ~60fps
-    }
+    };
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('scroll', scrollListener, { passive: true });
 
     console.log('✅ Parent: Scroll tracking enabled');
 }
@@ -515,6 +520,29 @@ window.addEventListener('themeChanged', function(event) {
 });
 
 /**
+ * Clean up observers, timers, and listeners on page unload / navigation
+ */
+function destroyReportView() {
+    console.log('🧹 Parent: Destroying Report View Shadow DOM resources...');
+    if (navigationObserver) {
+        try { navigationObserver.disconnect(); } catch (e) {}
+        navigationObserver = null;
+    }
+    if (scrollTimeout) {
+        clearTimeout(scrollTimeout);
+        scrollTimeout = null;
+    }
+    if (scrollListener) {
+        window.removeEventListener('scroll', scrollListener);
+        scrollListener = null;
+    }
+}
+
+window.addEventListener('beforeunload', destroyReportView);
+window.addEventListener('pagehide', destroyReportView);
+
+/**
  * Initialize on DOM ready
  */
 document.addEventListener('DOMContentLoaded', initializeShadowDOMReport);
+
