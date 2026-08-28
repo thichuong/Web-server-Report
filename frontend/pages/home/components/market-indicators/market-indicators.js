@@ -36,6 +36,9 @@ class MarketIndicatorsDashboard {
         this.pendingUpdates = {}; // Batch updates for Firefox performance
         this.updateTimer = null; // Throttle DOM updates
 
+        // Binance WebSocket Client for live crypto prices
+        this.binanceWs = null;
+
         // Data cache
         this.cachedData = {
             marketCap: null,
@@ -60,11 +63,34 @@ class MarketIndicatorsDashboard {
         debugLog('🚀 Initializing Market Indicators Dashboard');
         this.initializeElements();
 
-        // Connect directly to WebSocket for initial and real-time market data
+        // 1. Connect directly to Binance WebSocket for ultra-fast sub-second crypto prices
+        this.connectBinanceWebSocket();
+
+        // 2. Connect to Server WebSocket for macro market indicators (Market Cap, Volume, F&G, Dominance, RSI)
         this.connectWebSocket();
         this.startDataRefresh();
+    }
 
-        // Crypto prices come from server via WebSocket
+    connectBinanceWebSocket() {
+        const symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'LINKUSDT', 'BNBUSDT'];
+        debugLog('⚡ Connecting to Binance WebSocket for real-time crypto prices...');
+
+        if (typeof window.BinancePriceWebSocket === 'function') {
+            this.binanceWs = new window.BinancePriceWebSocket({
+                symbols: symbols,
+                onPriceUpdate: (symbol, price, changePercent) => {
+                    this.updateCryptoPrice(symbol, price, changePercent);
+                    this.removeSkeleton();
+                },
+                onStatusChange: (status) => {
+                    debugLog(`⚡ Binance WS status: ${status}`);
+                },
+                debug: DEBUG_MODE
+            });
+            this.binanceWs.connect();
+        } else {
+            debugError('❌ BinancePriceWebSocket class not available, will fallback to server prices');
+        }
     }
 
     initializeElements() {
@@ -343,27 +369,20 @@ class MarketIndicatorsDashboard {
             }
 
 
-            // Update Crypto Prices from Server
-            if (data.btc_price_usd !== undefined) {
-                this.updateCryptoPrice('BTCUSDT', data.btc_price_usd, data.btc_change_24h);
-            }
-            if (data.eth_price_usd !== undefined) {
-                this.updateCryptoPrice('ETHUSDT', data.eth_price_usd, data.eth_change_24h);
-            }
-            if (data.sol_price_usd !== undefined) {
-                this.updateCryptoPrice('SOLUSDT', data.sol_price_usd, data.sol_change_24h);
-            }
-            if (data.xrp_price_usd !== undefined) {
-                this.updateCryptoPrice('XRPUSDT', data.xrp_price_usd, data.xrp_change_24h);
-            }
-            if (data.ada_price_usd !== undefined) {
-                this.updateCryptoPrice('ADAUSDT', data.ada_price_usd, data.ada_change_24h);
-            }
-            if (data.link_price_usd !== undefined) {
-                this.updateCryptoPrice('LINKUSDT', data.link_price_usd, data.link_change_24h);
-            }
-            if (data.bnb_price_usd !== undefined) {
-                this.updateCryptoPrice('BNBUSDT', data.bnb_price_usd, data.bnb_change_24h);
+            // Remove skeletons once market data is loaded
+            this.removeSkeleton();
+
+            // Crypto prices are streamed directly from Binance WebSocket for zero latency.
+            // Server prices are only used as fallback if Binance WebSocket is not connected.
+            const shouldUseServerPrices = !this.binanceWs || !this.binanceWs.isConnected;
+            if (shouldUseServerPrices) {
+                if (data.btc_price_usd !== undefined) this.updateCryptoPrice('BTCUSDT', data.btc_price_usd, data.btc_change_24h);
+                if (data.eth_price_usd !== undefined) this.updateCryptoPrice('ETHUSDT', data.eth_price_usd, data.eth_change_24h);
+                if (data.sol_price_usd !== undefined) this.updateCryptoPrice('SOLUSDT', data.sol_price_usd, data.sol_change_24h);
+                if (data.xrp_price_usd !== undefined) this.updateCryptoPrice('XRPUSDT', data.xrp_price_usd, data.xrp_change_24h);
+                if (data.ada_price_usd !== undefined) this.updateCryptoPrice('ADAUSDT', data.ada_price_usd, data.ada_change_24h);
+                if (data.link_price_usd !== undefined) this.updateCryptoPrice('LINKUSDT', data.link_price_usd, data.link_change_24h);
+                if (data.bnb_price_usd !== undefined) this.updateCryptoPrice('BNBUSDT', data.bnb_price_usd, data.bnb_change_24h);
             }
 
             // Track last data update time for staleness checking
@@ -826,6 +845,16 @@ class MarketIndicatorsDashboard {
             }
             this.websocket = null;
         }
+
+        if (this.binanceWs) {
+            try {
+                this.binanceWs.destroy();
+            } catch (e) {
+                // Ignore close errors
+            }
+            this.binanceWs = null;
+        }
+
         this.isConnected = false;
     }
 

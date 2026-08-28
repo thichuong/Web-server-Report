@@ -56,6 +56,9 @@ class MarketIndicatorsDashboard {
         
         // Connection status element
         this.connectionStatusElement = document.getElementById('connection-status');
+
+        // Binance WebSocket Client for live crypto prices
+        this.binanceWs = null;
         
         this.init();
     }
@@ -63,11 +66,30 @@ class MarketIndicatorsDashboard {
     init() {
         debugLog('🔧 Initializing components');
         
-        // Connect WebSocket (skeletons remain visible until real data is received)
+        // 1. Connect directly to Binance WebSocket for real-time crypto prices
+        this.connectBinanceWs();
+
+        // 2. Connect Server WebSocket for macro indicators
         this.wsManager.connect();
         
         // Start data refresh
         this.startDataRefresh();
+    }
+
+    connectBinanceWs() {
+        const symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT', 'LINKUSDT', 'BNBUSDT'];
+        const BinanceWSClass = (typeof window !== 'undefined' && window.BinancePriceWebSocket) ? window.BinancePriceWebSocket : null;
+        if (BinanceWSClass) {
+            this.binanceWs = new BinanceWSClass({
+                symbols: symbols,
+                onPriceUpdate: (symbol, price, change) => {
+                    this.updaters.cryptoPrice.update(symbol, price, change);
+                    this.removeSkeletons();
+                },
+                debug: DEBUG_MODE
+            });
+            this.binanceWs.connect();
+        }
     }
     
     removeSkeletons() {
@@ -146,7 +168,8 @@ class MarketIndicatorsDashboard {
         }
         
         
-        if (data.cryptoPrices && data.cryptoPrices.length > 0) {
+        // Crypto prices are streamed directly from Binance WebSocket. Fallback to server if WS offline.
+        if ((!this.binanceWs || !this.binanceWs.isConnected) && data.cryptoPrices && data.cryptoPrices.length > 0) {
             this.updaters.cryptoPrice.updateBatch(data.cryptoPrices);
         }
         
@@ -201,6 +224,10 @@ class MarketIndicatorsDashboard {
     
     destroy() {
         debugLog('🧹 Destroying Market Indicators Dashboard');
+        if (this.binanceWs) {
+            try { this.binanceWs.destroy(); } catch (e) {}
+            this.binanceWs = null;
+        }
         this.wsManager.close();
         this.stateManager.clear();
     }

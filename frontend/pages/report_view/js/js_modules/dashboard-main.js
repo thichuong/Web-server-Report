@@ -4,11 +4,12 @@
 
 import { WS_DEBUG } from './utils.js';
 import { fetchDashboardSummary, manualRefreshDashboard } from './api-service.js';
-import { renderDashboardFromCache } from './ui-updaters.js';
+import { renderDashboardFromCache, updateBtcPriceFromWebSocket } from './ui-updaters.js';
 import { DashboardWebSocket } from './websocket-manager.js';
 
 // Global instances for browser access if needed (backward compatibility)
 let dashboardWS = null;
+let binanceWS = null;
 
 /**
  * Initializes the dashboard application.
@@ -16,12 +17,28 @@ let dashboardWS = null;
 function initDashboard() {
     console.log('🚀 Initializing Dashboard (ESM)...');
 
-    // 1. Initialize WebSocket connection (receives initial & real-time market data)
+    // 1. Initialize Binance WebSocket for ultra-low latency real-time BTC price
+    if (typeof window.BinancePriceWebSocket === 'function') {
+        binanceWS = new window.BinancePriceWebSocket({
+            symbols: ['BTCUSDT'],
+            onPriceUpdate: (symbol, price, changePercent) => {
+                updateBtcPriceFromWebSocket({
+                    btc_price_usd: price,
+                    btc_change_24h: changePercent
+                });
+            },
+            debug: WS_DEBUG
+        });
+        window.binanceWS = binanceWS;
+        binanceWS.connect();
+    }
+
+    // 2. Initialize Server WebSocket connection (receives macro market data: cap, volume, F&G, RSI)
     dashboardWS = new DashboardWebSocket();
     window.dashboardWS = dashboardWS; // Expose for debugging
     dashboardWS.connect();
 
-    // 2. Register global event listeners
+    // 3. Register global event listeners
     setupEventListeners();
 
     console.log('✅ Dashboard initialization complete');
@@ -70,6 +87,10 @@ function setupEventListeners() {
  */
 function cleanupDashboard() {
     if (WS_DEBUG) console.log('🧹 Cleaning up dashboard resources...');
+    if (binanceWS) {
+        binanceWS.destroy();
+        binanceWS = null;
+    }
     if (dashboardWS) {
         dashboardWS.destroy();
         dashboardWS = null;
@@ -84,5 +105,5 @@ if (document.readyState === 'loading') {
 }
 
 // Export for potential use in other scripts
-export { dashboardWS, initDashboard, cleanupDashboard };
+export { binanceWS, dashboardWS, initDashboard, cleanupDashboard };
 

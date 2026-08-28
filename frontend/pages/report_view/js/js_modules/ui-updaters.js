@@ -135,9 +135,10 @@ export function updateDashboardFromData(data) {
         try { volumeContainer.dataset.volume24h = String(volumeValue); } catch (e) { }
     }
 
-    // 3. BTC Price
+    // 3. BTC Price (Direct Binance WebSocket takes precedence for sub-second updates; fallback to server if WS inactive)
+    const isBinanceWsActive = window.binanceWS && window.binanceWS.isConnected;
     const btcContainer = selectDashboardElementByLang('btc-price-container');
-    if (btcContainer) {
+    if (btcContainer && !isBinanceWsActive) {
         showBtcRefreshIndicator();
         const btcPrice = parseFloat(data.btc_price_usd) || 0;
         const change = parseFloat(data.btc_change_24h) || 0;
